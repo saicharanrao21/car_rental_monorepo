@@ -30,6 +30,8 @@ db_secrets*.txt
 .vscode/
 .DS_Store
 Thumbs.db
+car_rental_backend/.git
+
 
 # Temporary / Debug Scripts (Standing Rule)
 test_*.js
