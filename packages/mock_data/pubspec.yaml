@@ -1,0 +1,15 @@
+name: mock_data
+description: Shared mock data and repositories for the car rental platform.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  models:
+    path: ../models
+  core:
+    path: ../core

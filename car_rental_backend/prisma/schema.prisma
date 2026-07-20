@@ -1,0 +1,321 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum BusinessType {
+  INDIVIDUAL
+  CONSULTANCY
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  SUSPENDED
+}
+
+enum DocumentType {
+  RC_BOOK
+  TRADE_LICENSE
+  INSURANCE
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum CarCategory {
+  HATCHBACK
+  SEDAN
+  SUV
+  LUXURY
+  TEMPO_TRAVELLER
+  MINI_BUS
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  ELECTRIC
+}
+
+enum TripType {
+  LOCAL
+  OUTSTATION
+  AIRPORT_TRANSFER
+  SELF_DRIVE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id              String         @id @default(cuid())
+  name            String
+  phone           String         @unique
+  email           String?
+  role            Role
+  passwordHash    String?
+  profilePhotoUrl String?
+  banned          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  fcmToken        String?
+  vendor          Vendor?
+  bookings        Booking[]
+  notifications   Notification[]
+  refreshTokens   RefreshToken[]
+
+  @@index([phone])
+  @@index([role])
+}
+
+model Vendor {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName       String
+  ownerName          String
+  city               String
+  gstNumber          String?
+  panNumber          String?
+  bankDetails        String? // Plain text or JSON
+  businessType       BusinessType
+  yearsInOperation   Int?
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float              @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  documents          Document[]
+  cars               Car[]
+  bookings           Booking[]
+  payouts            Payout[]
+
+  @@index([city])
+  @@index([verificationStatus])
+}
+
+model Document {
+  id         String         @id @default(cuid())
+  vendorId   String
+  vendor     Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  type       DocumentType
+  fileUrl    String
+  status     DocumentStatus @default(PENDING)
+  uploadedAt DateTime       @default(now())
+
+  @@index([vendorId])
+  @@index([type])
+}
+
+model Car {
+  id                 String       @id @default(cuid())
+  vendorId           String
+  vendor             Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  make               String
+  model              String
+  year               Int
+  type               CarCategory
+  fuelType           FuelType
+  seating            Int
+  isAC               Boolean
+  registrationNumber String
+  photos             String[]
+  pricePerKm         Decimal      @db.Decimal(10, 2)
+  pricePerDay        Decimal      @db.Decimal(10, 2)
+  pricePerHour       Decimal      @db.Decimal(10, 2)
+  isAvailable        Boolean      @default(true)
+  availableTripTypes String[] // String[] representation of TripType enum values
+  blockedDates       DateTime[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  bookings           Booking[]
+
+  @@index([vendorId])
+  @@index([type])
+  @@index([isAvailable])
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  customerId         String
+  customer           User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendorId           String
+  vendor             Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  carId              String
+  car                Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+  tripType           TripType
+  pickupLocation     String
+  dropLocation       String?
+  startDate          DateTime
+  endDate            DateTime
+  distanceKm         Decimal?      @db.Decimal(10, 2)
+  baseFare           Decimal       @db.Decimal(10, 2)
+  platformFee        Decimal       @db.Decimal(10, 2)
+  gstAmount          Decimal       @db.Decimal(10, 2)
+  totalFare          Decimal       @db.Decimal(10, 2)
+  netToVendor        Decimal       @db.Decimal(10, 2)
+  status             BookingStatus @default(PENDING)
+  cancellationReason String?
+  disputeFlag        Boolean       @default(false)
+  disputeNote        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  review             Review?
+  payment            Payment?
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([carId])
+  @@index([status])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId String
+  vendorId   String
+  rating     Float
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([vendorId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model CommissionConfig {
+  id            String       @id @default(cuid())
+  city          String?
+  carCategory   CarCategory?
+  tripType      TripType?
+  percentage    Decimal      @db.Decimal(5, 2)
+  effectiveFrom DateTime
+  createdAt     DateTime     @default(now())
+
+  @@index([city])
+}
+
+model Payout {
+  id        String       @id @default(cuid())
+  vendorId  String
+  vendor    Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  amount    Decimal      @db.Decimal(10, 2)
+  status    PayoutStatus @default(PENDING)
+  paidAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  bookingId          String        @unique
+  booking            Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  amount             Decimal       @db.Decimal(10, 2)
+  status             PaymentStatus @default(CREATED)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model Banner {
+  id           String   @id @default(cuid())
+  imageUrl     String
+  title        String
+  ctaLink      String?
+  displayOrder Int
+  isActive     Boolean  @default(true)
+
+  @@index([isActive])
+}
+
+model PlatformSettings {
+  id           String  @id @default("singleton")
+  platformName String
+  logoUrl      String?
+  gstNumber    String
+  supportEmail String
+  supportPhone String
+  appVersion   String
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OtpRequest {
+  id           String   @id @default(cuid())
+  phone        String
+  otpHash      String
+  expiresAt    DateTime
+  verified     Boolean  @default(false)
+  attemptCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([phone])
+}
+
+model SentBroadcast {
+  id        String   @id @default(cuid())
+  target    String
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}
+

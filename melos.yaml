@@ -1,0 +1,18 @@
+name: car_rental_monorepo
+
+packages:
+  - apps/**
+  - packages/**
+
+scripts:
+  get:
+    run: melos exec -- "flutter pub get"
+    description: Run `flutter pub get` in all packages.
+
+  build_runner:
+    run: melos exec -- "flutter pub run build_runner build --delete-conflicting-outputs"
+    description: Run `build_runner` in all packages.
+
+  analyze:
+    run: melos exec -- "flutter analyze"
+    description: Run `flutter analyze` in all packages.

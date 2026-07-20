@@ -1,0 +1,40 @@
+# Flutter / Dart
+**/build/
+**/.dart_tool/
+**/.flutter-plugins*
+**/.packages
+**/.pub-cache/
+**/.pub/
+
+# Android
+**/android/.gradle/
+**/android/app/build/
+**/android/local.properties
+
+# iOS / macOS
+**/ios/Pods/
+**/ios/Runner.xcworkspace
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+
+# Dependencies & Environment
+node_modules/
+**/node_modules/
+.env
+*.env
+db_secrets*.txt
+
+# IDE & OS
+*.iml
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary / Debug Scripts (Standing Rule)
+test_*.js
+check_*.js
+*_conn.js
+override_*.js
+query_*.js
+api_test_*.js
