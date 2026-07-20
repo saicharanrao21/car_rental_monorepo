@@ -45,4 +45,13 @@ class MockFleetRepository with LatencySimulator implements FleetRepository {
       MockData.cars[index] = oldCar.copyWith(blockedDates: blockedDates);
     }
   }
+
+  @override
+  Future<void> uploadCarDocument({
+    required String carId,
+    required String type,
+    required String fileUrl,
+  }) async {
+    await simulateLatency();
+  }
 }

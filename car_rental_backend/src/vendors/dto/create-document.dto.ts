@@ -1,4 +1,4 @@
-import { IsEnum, IsString, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { DocumentType } from '@prisma/client';
 
 export class CreateDocumentDto {
@@ -9,4 +9,8 @@ export class CreateDocumentDto {
   @IsString()
   @IsNotEmpty()
   fileUrl: string;
+
+  @IsOptional()
+  @IsString()
+  carId?: string;
 }

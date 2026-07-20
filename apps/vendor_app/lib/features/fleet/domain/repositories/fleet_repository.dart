@@ -6,4 +6,9 @@ abstract class FleetRepository {
   Future<CarModel> addCar(CarModel car);
   Future<CarModel> updateCar(CarModel car);
   Future<void> updateBlockedDates(String carId, List<DateTime> blockedDates);
+  Future<void> uploadCarDocument({
+    required String carId,
+    required String type,
+    required String fileUrl,
+  });
 }

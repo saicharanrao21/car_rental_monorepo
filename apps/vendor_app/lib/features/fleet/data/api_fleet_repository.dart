@@ -102,4 +102,20 @@ class ApiFleetRepository implements FleetRepository {
       },
     );
   }
+
+  @override
+  Future<void> uploadCarDocument({
+    required String carId,
+    required String type,
+    required String fileUrl,
+  }) async {
+    await apiClient.dio.post(
+      '/vendors/me/documents',
+      data: {
+        'carId': carId,
+        'type': type,
+        'fileUrl': fileUrl,
+      },
+    );
+  }
 }

@@ -39,6 +39,8 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   bool _isAC = true;
   List<String> _selectedTripTypes = [];
   List<String> _photos = [];
+  String? _rcBookPath;
+  String? _insurancePath;
 
   // Year list: last 15 years
   late List<int> _years;
@@ -153,6 +155,89 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     );
   }
 
+  Future<void> _simulateCarDocUpload(String docType) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            Gap(20),
+            Text('Selecting & processing document…'),
+          ],
+        ),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    setState(() {
+      if (docType == 'RC Book') {
+        _rcBookPath = 'rc_book_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      } else if (docType == 'Insurance') {
+        _insurancePath = 'insurance_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$docType uploaded successfully (Simulated)')),
+    );
+  }
+
+  Widget _buildCarDocUploadCard(String label, String? filePath, VoidCallback onTap) {
+    final hasFile = filePath != null;
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: hasFile ? Colors.green.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                hasFile ? Icons.check_circle : Icons.description_outlined,
+                color: hasFile ? Colors.green : AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const Gap(16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const Gap(4),
+                  Text(
+                    hasFile ? 'File attached' : 'PDF or JPG up to 5MB',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: hasFile ? Colors.green : AppColors.primary,
+                side: BorderSide(color: hasFile ? Colors.green : AppColors.primary),
+              ),
+              child: Text(hasFile ? 'Change' : 'Choose'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _saveCar() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -199,11 +284,26 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       success = await ref.read(fleetControllerProvider.notifier).addCar(car);
     }
 
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isEditMode ? 'Car updated successfully' : 'Car added successfully')),
-      );
-      context.pop();
+    if (success) {
+      // Upload car-specific documents (RC Book / Insurance) with carId if selected
+      final repo = ref.read(fleetRepositoryProvider);
+      if (_rcBookPath != null) {
+        try {
+          await repo.uploadCarDocument(carId: car.id, type: 'RC_BOOK', fileUrl: _rcBookPath!);
+        } catch (_) {}
+      }
+      if (_insurancePath != null) {
+        try {
+          await repo.uploadCarDocument(carId: car.id, type: 'INSURANCE', fileUrl: _insurancePath!);
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEditMode ? 'Car updated successfully' : 'Car added successfully')),
+        );
+        context.pop();
+      }
     }
   }
 
@@ -542,6 +642,19 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                   );
                 }).toList(),
               ),
+              const Gap(32),
+
+              // Car Documents (RC Book & Insurance)
+              const SectionHeader(title: 'Car Documents'),
+              const Gap(8),
+              Text(
+                'Upload car-specific legal & registration documents.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const Gap(12),
+              _buildCarDocUploadCard('RC Book', _rcBookPath, () => _simulateCarDocUpload('RC Book')),
+              const Gap(12),
+              _buildCarDocUploadCard('Insurance Policy', _insurancePath, () => _simulateCarDocUpload('Insurance')),
               const Gap(32),
 
               // Save button

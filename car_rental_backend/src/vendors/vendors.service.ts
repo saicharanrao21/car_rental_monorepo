@@ -201,7 +201,7 @@ export class VendorsService {
     return updated;
   }
 
-  async addDocument(userId: string, type: any, fileUrl: string) {
+  async addDocument(userId: string, type: any, fileUrl: string, carId?: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
@@ -210,9 +210,20 @@ export class VendorsService {
       throw new NotFoundException('Vendor profile not found');
     }
 
+    if (carId) {
+      const car = await this.prisma.car.findUnique({
+        where: { id: carId },
+      });
+
+      if (!car || car.vendorId !== vendor.id) {
+        throw new NotFoundException('Car not found or does not belong to this vendor');
+      }
+    }
+
     return this.prisma.document.create({
       data: {
         vendorId: vendor.id,
+        carId: carId || null,
         type,
         fileUrl,
         status: 'PENDING',
@@ -230,7 +241,30 @@ export class VendorsService {
     }
 
     return this.prisma.document.findMany({
-      where: { vendorId: vendor.id },
+      where: { vendorId: vendor.id, carId: null },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
+  async getCarDocuments(userId: string, carId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const car = await this.prisma.car.findUnique({
+      where: { id: carId },
+    });
+
+    if (!car || car.vendorId !== vendor.id) {
+      throw new NotFoundException('Car not found or does not belong to this vendor');
+    }
+
+    return this.prisma.document.findMany({
+      where: { vendorId: vendor.id, carId },
       orderBy: { uploadedAt: 'desc' },
     });
   }

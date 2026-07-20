@@ -128,10 +128,17 @@ export class VendorsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
+  @Get('me/cars/:id/documents')
+  async getCarDocuments(@Req() req: any, @Param('id') id: string) {
+    return this.vendorsService.getCarDocuments(req.user.userId, id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
   @Post('me/documents')
   @HttpCode(HttpStatus.CREATED)
   async addDocument(@Req() req: any, @Body() dto: CreateDocumentDto) {
-    return this.vendorsService.addDocument(req.user.userId, dto.type, dto.fileUrl);
+    return this.vendorsService.addDocument(req.user.userId, dto.type, dto.fileUrl, dto.carId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -105,11 +105,11 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
     } else if (currentStep == 3) {
       isValid = _formKey4.currentState?.validate() ?? false;
     } else if (currentStep == 4) {
-      // Step 5: check if documents are uploaded
+      // Step 5: check if Trade License is uploaded
       final draft = ref.read(vendorRegistrationDraftProvider);
-      if (draft.rcBookPath == null || draft.tradeLicensePath == null || draft.insurancePath == null) {
+      if (draft.tradeLicensePath == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please upload all required documents to proceed')),
+          const SnackBar(content: Text('Please upload your business Trade License to proceed')),
         );
         return;
       }
@@ -513,20 +513,16 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Document Uploads',
+              'Business License Upload',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Gap(8),
             Text(
-              'Please provide clear scans of the following documents.',
+              'Please provide a clear scan of your business Trade License.',
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const Gap(16),
-            _buildDocUploadCard('RC Book', draft.rcBookPath),
-            const Gap(12),
             _buildDocUploadCard('Trade License', draft.tradeLicensePath),
-            const Gap(12),
-            _buildDocUploadCard('Insurance', draft.insurancePath),
           ],
         );
       case 5:
@@ -562,10 +558,8 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
               _buildReviewRow('IFSC Code', draft.bankIfsc),
             ]),
             const Gap(16),
-            _buildReviewSection('Uploaded Documents', [
-              _buildReviewRow('RC Book', draft.rcBookPath != null ? 'Uploaded ✓' : 'Missing ✗', isSuccess: draft.rcBookPath != null),
+            _buildReviewSection('Business License', [
               _buildReviewRow('Trade License', draft.tradeLicensePath != null ? 'Uploaded ✓' : 'Missing ✗', isSuccess: draft.tradeLicensePath != null),
-              _buildReviewRow('Insurance', draft.insurancePath != null ? 'Uploaded ✓' : 'Missing ✗', isSuccess: draft.insurancePath != null),
             ]),
           ],
         );

@@ -131,12 +131,15 @@ model Document {
   id         String         @id @default(cuid())
   vendorId   String
   vendor     Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  carId      String?
+  car        Car?           @relation(fields: [carId], references: [id], onDelete: Cascade)
   type       DocumentType
   fileUrl    String
   status     DocumentStatus @default(PENDING)
   uploadedAt DateTime       @default(now())
 
   @@index([vendorId])
+  @@index([carId])
   @@index([type])
 }
 
@@ -161,6 +164,7 @@ model Car {
   blockedDates       DateTime[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+  documents          Document[]
   bookings           Booking[]
 
   @@index([vendorId])
