@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import '../../domain/repositories/admin_vendor_repository.dart';
-import '../../data/mock_admin_vendor_repository.dart';
+import '../../data/api_admin_vendor_repository.dart';
+import '../../../../core/providers/api_providers.dart';
 
 final adminVendorRepositoryProvider = Provider<AdminVendorRepository>((ref) {
-  return MockAdminVendorRepository();
+  return ApiAdminVendorRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 // Filters

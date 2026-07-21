@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:admin_panel/features/bookings/domain/repositories/admin_booking_repository.dart';
-import 'package:admin_panel/features/bookings/data/mock_admin_booking_repository.dart';
+import '../../domain/repositories/admin_booking_repository.dart';
+import '../../data/api_admin_booking_repository.dart';
+import '../../../../core/providers/api_providers.dart';
 
 final adminBookingRepositoryProvider = Provider<AdminBookingRepository>((ref) {
-  return MockAdminBookingRepository();
+  return ApiAdminBookingRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 // Filters

@@ -5,11 +5,12 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../domain/repositories/admin_auth_repository.dart';
-import '../../data/mock_admin_auth_repository.dart';
+import '../../data/api_admin_auth_repository.dart';
+import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/admin_session_provider.dart';
 
 final adminAuthRepositoryProvider = Provider<AdminAuthRepository>((ref) {
-  return MockAdminAuthRepository();
+  return ApiAdminAuthRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 class AdminLoginPage extends ConsumerStatefulWidget {

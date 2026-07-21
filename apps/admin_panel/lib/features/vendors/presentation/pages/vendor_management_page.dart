@@ -166,6 +166,7 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
                     const Text('', style: TextStyle(fontSize: 12)),
                     const Gap(6),
                     AppButton(
+                      isFullWidth: false,
                       text: _selectedPendingIds.isEmpty
                           ? 'Bulk Approve'
                           : 'Approve Selected (${_selectedPendingIds.length})',

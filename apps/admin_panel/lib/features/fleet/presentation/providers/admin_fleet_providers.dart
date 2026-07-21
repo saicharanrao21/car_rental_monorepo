@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:admin_panel/features/fleet/domain/repositories/admin_fleet_repository.dart';
-import 'package:admin_panel/features/fleet/data/mock_admin_fleet_repository.dart';
+import '../../domain/repositories/admin_fleet_repository.dart';
+import '../../data/api_admin_fleet_repository.dart';
+import '../../../../core/providers/api_providers.dart';
 
 final adminFleetRepositoryProvider = Provider<AdminFleetRepository>((ref) {
-  return MockAdminFleetRepository();
+  return ApiAdminFleetRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 // Filters

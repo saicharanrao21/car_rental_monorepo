@@ -2,10 +2,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import '../../domain/repositories/admin_dashboard_repository.dart';
-import '../../data/mock_admin_dashboard_repository.dart';
+import '../../data/api_admin_dashboard_repository.dart';
+import '../../../../core/providers/api_providers.dart';
 
 final adminDashboardRepositoryProvider = Provider<AdminDashboardRepository>((ref) {
-  return MockAdminDashboardRepository();
+  return ApiAdminDashboardRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final adminKpisProvider = FutureProvider.autoDispose<AdminKpis>((ref) async {
