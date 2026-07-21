@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:core/core.dart';
+import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../domain/repositories/earnings_repository.dart';
-import '../../data/mock_earnings_repository.dart';
+import '../../data/api_earnings_repository.dart';
 
 final earningsRepositoryProvider = Provider<EarningsRepository>((ref) {
-  return MockEarningsRepository();
+  return ApiEarningsRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final earningsSummaryProvider = FutureProvider.autoDispose<EarningsSummary>((ref) async {

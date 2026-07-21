@@ -4,11 +4,12 @@ import '../domain/repositories/vendor_profile_repository.dart';
 
 class MockVendorProfileRepository with LatencySimulator implements VendorProfileRepository {
   @override
-  Future<void> updateBusinessProfile(VendorModel vendor) async {
+  Future<VendorModel> updateBusinessProfile(VendorModel vendor) async {
     await simulateLatency();
     final index = MockData.vendors.indexWhere((v) => v.id == vendor.id);
     if (index != -1) {
       MockData.vendors[index] = vendor;
     }
+    return vendor;
   }
 }

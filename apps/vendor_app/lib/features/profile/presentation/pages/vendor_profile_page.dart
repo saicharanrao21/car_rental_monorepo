@@ -5,12 +5,8 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
-import '../../data/mock_vendor_profile_repository.dart';
+import '../providers/profile_providers.dart';
 import '../../domain/repositories/vendor_profile_repository.dart';
-
-final vendorProfileRepositoryProvider = Provider<VendorProfileRepository>((ref) {
-  return MockVendorProfileRepository();
-});
 
 class VendorProfilePage extends ConsumerStatefulWidget {
   const VendorProfilePage({super.key});
@@ -98,8 +94,8 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
       city: _selectedCity ?? vendor.city,
     );
 
-    await ref.read(vendorProfileRepositoryProvider).updateBusinessProfile(updated);
-    ref.read(vendorSessionProvider.notifier).authenticate(updated);
+    final updatedVendor = await ref.read(vendorProfileRepositoryProvider).updateBusinessProfile(updated);
+    ref.read(vendorSessionProvider.notifier).authenticate(updatedVendor);
 
     if (mounted) {
       setState(() {
