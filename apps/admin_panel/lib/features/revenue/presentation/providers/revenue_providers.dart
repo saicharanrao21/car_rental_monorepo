@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:admin_panel/core/providers/api_providers.dart';
 import 'package:admin_panel/features/revenue/domain/repositories/revenue_repository.dart';
-import 'package:admin_panel/features/revenue/data/mock_revenue_repository.dart';
+import 'package:admin_panel/features/revenue/data/api_revenue_repository.dart';
 
 final revenueRepositoryProvider = Provider<RevenueRepository>((ref) {
-  return MockRevenueRepository();
+  final apiClient = ref.watch(apiClientProvider);
+  return ApiRevenueRepository(apiClient);
 });
 
 // Default: This month (start of month to end of today)
@@ -47,7 +49,6 @@ final bookingsByTripTypeProvider = FutureProvider<Map<String, int>>((ref) async 
 // Top vendors provider
 final topVendorsByRevenueProvider = FutureProvider<List<VendorModel>>((ref) async {
   final repo = ref.watch(revenueRepositoryProvider);
-  // Re-watches range to trigger update if needed, limit to 10
   ref.watch(revenueDateRangeProvider);
   return repo.getTopVendorsByRevenue(limit: 10);
 });

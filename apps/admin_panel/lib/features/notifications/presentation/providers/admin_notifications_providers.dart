@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:admin_panel/core/providers/api_providers.dart';
 import '../../domain/repositories/admin_notifications_repository.dart';
-import '../../data/mock_admin_notifications_repository.dart';
+import '../../data/api_admin_notifications_repository.dart';
 
 final adminNotificationsRepositoryProvider = Provider<AdminNotificationsRepository>((ref) {
-  return MockAdminNotificationsRepository();
+  final apiClient = ref.watch(apiClientProvider);
+  return ApiAdminNotificationsRepository(apiClient);
 });
 
 class SentNotificationsNotifier extends AsyncNotifier<List<SentNotification>> {

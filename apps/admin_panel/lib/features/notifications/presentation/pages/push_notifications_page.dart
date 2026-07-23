@@ -64,16 +64,20 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
     final title = ref.read(notificationTitleProvider);
     final body = ref.read(notificationBodyProvider);
 
-    String target = targetType;
-    if (targetType == 'Specific City') {
-      target = 'City:$city';
+    String target = 'ALL_USERS';
+    if (targetType == 'All Vendors') {
+      target = 'ALL_VENDORS';
+    } else if (targetType == 'Specific City') {
+      target = 'CITY:$city';
     } else if (targetType == 'Specific User by phone') {
-      target = 'Phone:$phone';
+      target = 'USER:$phone';
     }
 
     setState(() {
       _isSending = true;
     });
+
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
       await ref.read(sentNotificationsProvider.notifier).sendNotification(
@@ -83,7 +87,7 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
           );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Push notification sent successfully!'),
             backgroundColor: Colors.green,
@@ -93,7 +97,7 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
       }
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Failed to send notification: $err'),
             backgroundColor: Colors.red,

@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:admin_panel/core/providers/api_providers.dart';
 import 'package:admin_panel/features/commission/domain/repositories/commission_repository.dart';
-import 'package:admin_panel/features/commission/data/mock_commission_repository.dart';
+import 'package:admin_panel/features/commission/data/api_commission_repository.dart';
 
 final commissionRepositoryProvider = Provider<CommissionRepository>((ref) {
-  return MockCommissionRepository();
+  final apiClient = ref.watch(apiClientProvider);
+  return ApiCommissionRepository(apiClient);
 });
 
 // Future provider for retrieving commission rules

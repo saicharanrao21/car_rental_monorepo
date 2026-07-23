@@ -61,10 +61,12 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
       logoUrl: _logoUrl,
     );
 
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
       await ref.read(platformSettingsProvider.notifier).updateSettings(updated);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Settings saved successfully!'),
             backgroundColor: Colors.green,
@@ -73,7 +75,7 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
       }
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Failed to save settings: $err'),
             backgroundColor: Colors.red,

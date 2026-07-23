@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:admin_panel/core/providers/api_providers.dart';
 import '../../domain/repositories/platform_settings_repository.dart';
-import '../../data/mock_platform_settings_repository.dart';
+import '../../data/api_platform_settings_repository.dart';
 
 final platformSettingsRepositoryProvider = Provider<PlatformSettingsRepository>((ref) {
-  return MockPlatformSettingsRepository();
+  final apiClient = ref.watch(apiClientProvider);
+  return ApiPlatformSettingsRepository(apiClient);
 });
 
 class PlatformSettingsNotifier extends AsyncNotifier<PlatformSettings> {

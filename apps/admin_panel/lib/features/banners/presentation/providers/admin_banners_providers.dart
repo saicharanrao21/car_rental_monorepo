@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:admin_panel/core/providers/api_providers.dart';
 import '../../domain/repositories/admin_banners_repository.dart';
-import '../../data/mock_admin_banners_repository.dart';
+import '../../data/api_admin_banners_repository.dart';
 
 final adminBannersRepositoryProvider = Provider<AdminBannersRepository>((ref) {
-  return MockAdminBannersRepository();
+  final apiClient = ref.watch(apiClientProvider);
+  return ApiAdminBannersRepository(apiClient);
 });
 
 class AdminBannersNotifier extends AsyncNotifier<List<BannerModel>> {
