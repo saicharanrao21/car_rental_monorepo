@@ -89,118 +89,123 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ─── Filter Top Bar ───
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              children: [
-                SizedBox(
-                  width: 150,
-                  child: AppDropdown<String>(
-                    label: 'City',
-                    value: cityFilter ?? 'All',
-                    items: ['All', ...AppConstants.indianCities]
-                        .map((city) => DropdownMenuItem<String>(
-                              value: city,
-                              child: SizedBox(
-                                width: 80,
-                                child: Text(city, overflow: TextOverflow.ellipsis),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      ref.read(fleetCityFilterProvider.notifier).state =
-                          (val == 'All' || val == null) ? null : val;
-                    },
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 150,
+                    child: AppDropdown<String>(
+                      label: 'City',
+                      value: cityFilter ?? 'All',
+                      items: ['All', ...AppConstants.indianCities]
+                          .map((city) => DropdownMenuItem<String>(
+                                value: city,
+                                child: SizedBox(
+                                  width: 80,
+                                  child: Text(city, overflow: TextOverflow.ellipsis),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        ref.read(fleetCityFilterProvider.notifier).state =
+                            (val == 'All' || val == null) ? null : val;
+                      },
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 160,
-                  child: AppDropdown<String>(
-                    label: 'Car Type',
-                    value: carTypeFilter ?? 'All',
-                    items: ['All', ...AppConstants.carCategories]
-                        .map((type) => DropdownMenuItem<String>(
-                              value: type,
-                              child: SizedBox(
-                                width: 90,
-                                child: Text(type, overflow: TextOverflow.ellipsis),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      ref.read(fleetCarTypeFilterProvider.notifier).state =
-                          (val == 'All' || val == null) ? null : val;
-                    },
+                  const Gap(16),
+                  SizedBox(
+                    width: 160,
+                    child: AppDropdown<String>(
+                      label: 'Car Type',
+                      value: carTypeFilter ?? 'All',
+                      items: ['All', ...AppConstants.carCategories]
+                          .map((type) => DropdownMenuItem<String>(
+                                value: type,
+                                child: SizedBox(
+                                  width: 90,
+                                  child: Text(type, overflow: TextOverflow.ellipsis),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        ref.read(fleetCarTypeFilterProvider.notifier).state =
+                            (val == 'All' || val == null) ? null : val;
+                      },
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: AppDropdown<String>(
-                    label: 'Availability',
-                    value: availabilityFilter == null
-                        ? 'All'
-                        : (availabilityFilter ? 'Available' : 'Unavailable'),
-                    items: const ['All', 'Available', 'Unavailable']
-                        .map((status) => DropdownMenuItem<String>(
-                              value: status,
-                              child: SizedBox(
-                                width: 110,
-                                child: Text(status, overflow: TextOverflow.ellipsis),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val == 'All' || val == null) {
-                        ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
-                      } else {
-                        ref.read(fleetAvailabilityFilterProvider.notifier).state = val == 'Available';
-                      }
-                    },
+                  const Gap(16),
+                  SizedBox(
+                    width: 180,
+                    child: AppDropdown<String>(
+                      label: 'Availability',
+                      value: availabilityFilter == null
+                          ? 'All'
+                          : (availabilityFilter ? 'Available' : 'Unavailable'),
+                      items: const ['All', 'Available', 'Unavailable']
+                          .map((status) => DropdownMenuItem<String>(
+                                value: status,
+                                child: SizedBox(
+                                  width: 110,
+                                  child: Text(status, overflow: TextOverflow.ellipsis),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val == 'All' || val == null) {
+                          ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
+                        } else {
+                          ref.read(fleetAvailabilityFilterProvider.notifier).state = val == 'Available';
+                        }
+                      },
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: AppDropdown<String>(
-                    label: 'Vendor',
-                    value: vendorFilter ?? 'All',
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: 'All',
-                        child: SizedBox(
-                          width: 150,
-                          child: Text('All Vendors', overflow: TextOverflow.ellipsis),
+                  const Gap(16),
+                  SizedBox(
+                    width: 220,
+                    child: AppDropdown<String>(
+                      label: 'Vendor',
+                      value: vendorFilter ?? 'All',
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: 'All',
+                          child: SizedBox(
+                            width: 150,
+                            child: Text('All Vendors', overflow: TextOverflow.ellipsis),
+                          ),
                         ),
-                      ),
-                      ...MockData.vendors.map((v) => DropdownMenuItem<String>(
-                            value: v.id,
-                            child: SizedBox(
-                              width: 150,
-                              child: Text(v.businessName, overflow: TextOverflow.ellipsis),
-                            ),
-                          )),
-                    ],
-                    onChanged: (val) {
-                      ref.read(fleetVendorFilterProvider.notifier).state =
-                          (val == 'All' || val == null) ? null : val;
-                    },
+                        ...MockData.vendors.map((v) => DropdownMenuItem<String>(
+                              value: v.id,
+                              child: SizedBox(
+                                width: 150,
+                                child: Text(v.businessName, overflow: TextOverflow.ellipsis),
+                              ),
+                            )),
+                      ],
+                      onChanged: (val) {
+                        ref.read(fleetVendorFilterProvider.notifier).state =
+                            (val == 'All' || val == null) ? null : val;
+                      },
+                    ),
                   ),
-                ),
-                if (cityFilter != null ||
-                    carTypeFilter != null ||
-                    availabilityFilter != null ||
-                    vendorFilter != null)
-                  TextButton.icon(
-                    onPressed: () {
-                      ref.read(fleetCityFilterProvider.notifier).state = null;
-                      ref.read(fleetCarTypeFilterProvider.notifier).state = null;
-                      ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
-                      ref.read(fleetVendorFilterProvider.notifier).state = null;
-                    },
-                    icon: const Icon(Icons.clear_all, size: 18),
-                    label: const Text('Clear Filters'),
-                  ),
-              ],
+                  if (cityFilter != null ||
+                      carTypeFilter != null ||
+                      availabilityFilter != null ||
+                      vendorFilter != null) ...[
+                    const Gap(16),
+                    TextButton.icon(
+                      onPressed: () {
+                        ref.read(fleetCityFilterProvider.notifier).state = null;
+                        ref.read(fleetCarTypeFilterProvider.notifier).state = null;
+                        ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
+                        ref.read(fleetVendorFilterProvider.notifier).state = null;
+                      },
+                      icon: const Icon(Icons.clear_all, size: 18),
+                      label: const Text('Clear Filters'),
+                    ),
+                  ],
+                ],
+              ),
             ),
             const Gap(24),
 

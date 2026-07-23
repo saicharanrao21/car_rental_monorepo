@@ -83,57 +83,61 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
 
             // Content body
             Expanded(
-              child: SingleChildScrollView(
-                child: rulesAsync.when(
-                  loading: () => const Center(child: AppLoader()),
-                  error: (err, _) => ErrorStateWidget(
-                    message: 'Error loading commission rules',
-                    onRetry: () => ref.invalidate(commissionRulesProvider),
-                  ),
-                  data: (rules) {
-                    if (rules.isEmpty) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: EmptyStateWidget(
-                              icon: Icons.percent_outlined,
-                              title: 'No Rules Configured',
-                              subtitle: 'Add a commission rule to get started.',
-                              onActionPressed: () => _showRuleForm(context),
-                              actionText: 'Add Rule',
-                            ),
+              child: rulesAsync.when(
+                loading: () => const Center(child: AppLoader()),
+                error: (err, _) => ErrorStateWidget(
+                  message: 'Error loading commission rules',
+                  onRetry: () => ref.invalidate(commissionRulesProvider),
+                ),
+                data: (rules) {
+                  if (rules.isEmpty) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: EmptyStateWidget(
+                            icon: Icons.percent_outlined,
+                            title: 'No Rules Configured',
+                            subtitle: 'Add a commission rule to get started.',
+                            onActionPressed: () => _showRuleForm(context),
+                            actionText: 'Add Rule',
                           ),
-                          const Gap(24),
-                          Expanded(
-                            flex: 2,
+                        ),
+                        const Gap(24),
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
                             child: _buildCalculatorAndActions(context, rules),
                           ),
-                        ],
-                      );
-                    }
+                        ),
+                      ],
+                    );
+                  }
 
-                    if (Responsive.isDesktop(context)) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
+                  if (Responsive.isDesktop(context)) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: SingleChildScrollView(
                             child: _buildRulesTableCard(context, rules),
                           ),
-                          const Gap(24),
-                          Expanded(
-                            flex: 2,
+                        ),
+                        const Gap(24),
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
                             child: _buildCalculatorAndActions(context, rules),
                           ),
-                        ],
-                      );
-                    } else {
-                      return _buildVerticalLayout(context, rules);
-                    }
-                  },
-                ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return _buildVerticalLayout(context, rules);
+                  }
+                },
               ),
             ),
           ],
@@ -239,10 +243,9 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
         // Preview Calculator Card
         AppCard(
           padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               const Text(
                 'Commission Preview Calculator',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -369,9 +372,8 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
               ],
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
   }
 
   Widget _buildBreakdownItem(String label, double amount) {

@@ -160,7 +160,9 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
                         const Gap(24),
                         Expanded(
                           flex: 2,
-                          child: _buildHistoryCard(context, historyAsync),
+                          child: SingleChildScrollView(
+                            child: _buildHistoryCard(context, historyAsync),
+                          ),
                         ),
                       ],
                     )
@@ -444,7 +446,7 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
           ),
           const Gap(16),
           SizedBox(
-            height: 500,
+            height: 440,
             child: historyAsync.when(
               loading: () => const Center(child: AppLoader()),
               error: (err, _) => ErrorStateWidget(
