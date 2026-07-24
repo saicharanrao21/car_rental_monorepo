@@ -23,7 +23,14 @@ async function bootstrap() {
     }),
   );
   app.use(urlencoded({ extended: true }));
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:8080', // admin_panel local dev
+      'http://localhost:3000', // local dev tooling
+      // TODO: Add production admin_panel web domain once deployed
+    ],
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
