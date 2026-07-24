@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/pagination.dto';
 import { CarCategory } from '@prisma/client';
@@ -8,12 +8,24 @@ export enum SortByOption {
   PRICE_DESC = 'PRICE_DESC',
   RATING = 'RATING',
   RELEVANCE = 'RELEVANCE',
+  NEAREST = 'NEAREST',
+  RECOMMENDED = 'RECOMMENDED',
 }
 
 export class CarsQueryDto extends PaginationDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  city: string;
+  city?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lng?: number;
 
   @IsOptional()
   @IsEnum(CarCategory)
@@ -48,5 +60,5 @@ export class CarsQueryDto extends PaginationDto {
 
   @IsOptional()
   @IsEnum(SortByOption)
-  sortBy?: SortByOption = SortByOption.RELEVANCE;
+  sortBy?: SortByOption = SortByOption.RECOMMENDED;
 }

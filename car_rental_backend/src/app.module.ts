@@ -17,6 +17,8 @@ import { PayoutsModule } from './payouts/payouts.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BannersModule } from './banners/banners.module';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
 
 @Module({
   imports: [
@@ -36,9 +38,10 @@ import { BannersModule } from './banners/banners.module';
     AdminModule,
     NotificationsModule,
     BannersModule,
+    WishlistModule,
+    RecentlyViewedModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

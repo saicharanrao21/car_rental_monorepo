@@ -81,14 +81,14 @@ export class BookingsService {
 
       // 4. Calculate fare details outside the transaction
       const durationMs = end.getTime() - start.getTime();
+      const durationDays = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60 * 24)));
       let basePackagePrice = new Prisma.Decimal(0);
 
       if (dto.tripType === TripType.LOCAL || dto.tripType === TripType.AIRPORT_TRANSFER) {
         const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
         basePackagePrice = car.pricePerHour.mul(durationHours);
       } else {
-        const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
-        basePackagePrice = car.pricePerDay.mul(durationDays > 0 ? durationDays : 1);
+        basePackagePrice = car.pricePerDay.mul(durationDays);
       }
 
       const distance = dto.distanceKm ? new Prisma.Decimal(dto.distanceKm) : new Prisma.Decimal(0);
@@ -98,6 +98,9 @@ export class BookingsService {
         basePackagePrice,
         car.pricePerKm,
         commissionPercent,
+        durationDays,
+        car.weeklyDiscountPercent || 0,
+        car.monthlyDiscountPercent || 0,
       );
 
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)

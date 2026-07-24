@@ -1,5 +1,6 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { BusinessType } from '@prisma/client';
+import { Type } from 'class-transformer';
 
 export class UpdateVendorDto {
   @IsOptional()
@@ -13,6 +14,20 @@ export class UpdateVendorDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
 
   @IsOptional()
   @IsString()

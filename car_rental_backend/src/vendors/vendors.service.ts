@@ -167,11 +167,32 @@ export class VendorsService {
         businessName: dto.businessName ?? undefined,
         ownerName: dto.ownerName ?? undefined,
         city: dto.city ?? undefined,
+        locality: dto.locality ?? undefined,
+        latitude: dto.latitude ?? undefined,
+        longitude: dto.longitude ?? undefined,
         gstNumber: dto.gstNumber ?? undefined,
         panNumber: dto.panNumber ?? undefined,
         bankDetails: dto.bankDetails ?? undefined,
         businessType: dto.businessType ?? undefined,
         yearsInOperation: dto.yearsInOperation ?? undefined,
+      },
+    });
+  }
+
+  async updateSponsorship(id: string, dto: { isSponsored: boolean; boostExpiresAt?: string }) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    return this.prisma.vendor.update({
+      where: { id },
+      data: {
+        isSponsored: dto.isSponsored,
+        boostExpiresAt: dto.boostExpiresAt ? new Date(dto.boostExpiresAt) : null,
       },
     });
   }

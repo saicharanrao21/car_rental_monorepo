@@ -35,18 +35,38 @@ export class CarsService {
     return { car, vendor };
   }
 
+  private calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private computeScore(rating: number, rawDistance: number | null, maxDistance: number, hasLocation: boolean): number {
+    const rScore = (rating || 0) / 5;
+    if (hasLocation && rawDistance !== null) {
+      const normDist = Math.min(1, rawDistance / maxDistance);
+      return rScore * 0.6 + (1 - normDist) * 0.4;
+    }
+    return rScore;
+  }
+
   async searchCars(query: CarsQueryDto, isAdmin: boolean): Promise<PaginatedResult<any>> {
-    const page = query.page || 1;
-    const limit = query.limit || 20;
-    const skip = (page - 1) * limit;
+    const where: any = {};
 
-    const where: any = {
-      vendor: {
+    if (query.city) {
+      where.vendor = {
         city: { equals: query.city, mode: 'insensitive' },
-      },
-    };
+      };
+    }
 
-    // By default, non-admins only see available cars
     if (!isAdmin) {
       where.isAvailable = true;
     }
@@ -70,6 +90,7 @@ export class CarsService {
     }
 
     if (query.minRating !== undefined) {
+      if (!where.vendor) where.vendor = {};
       where.vendor.rating = { gte: query.minRating };
     }
 
@@ -77,51 +98,117 @@ export class CarsService {
       where.availableTripTypes = { has: query.tripType };
     }
 
-    // Build sort ordering
-    let orderBy: any = { createdAt: 'desc' }; // Default RELEVANCE
-    if (query.sortBy === SortByOption.PRICE_ASC) {
-      orderBy = { pricePerDay: 'asc' };
-    } else if (query.sortBy === SortByOption.PRICE_DESC) {
-      orderBy = { pricePerDay: 'desc' };
-    } else if (query.sortBy === SortByOption.RATING) {
-      orderBy = { vendor: { rating: 'desc' } };
-    }
-
-    const [total, data] = await Promise.all([
-      this.prisma.car.count({ where }),
-      this.prisma.car.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        include: {
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-              ownerName: true,
-              city: true,
-              locality: true,
-              rating: true,
-              latitude: true,
-              longitude: true,
-            },
+    const allCars = await this.prisma.car.findMany({
+      where,
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            businessName: true,
+            ownerName: true,
+            city: true,
+            locality: true,
+            rating: true,
+            latitude: true,
+            longitude: true,
+            isSponsored: true,
+            boostExpiresAt: true,
           },
         },
-      }),
-    ]);
+      },
+    });
 
-    const totalPages = Math.ceil(total / limit);
-    const redactedData = data.map((car) => ({
-      ...car,
-      vendor: redactVendor(car.vendor, { isAdmin }),
-    }));
+    const hasLocation = query.lat !== undefined && query.lng !== undefined;
+    const now = new Date();
+
+    let processedCars = allCars.map((car) => {
+      let rawDistance: number | null = null;
+      let distanceKm: number | null = null;
+
+      if (
+        hasLocation &&
+        car.vendor.latitude !== null &&
+        car.vendor.latitude !== undefined &&
+        car.vendor.longitude !== null &&
+        car.vendor.longitude !== undefined
+      ) {
+        rawDistance = this.calculateHaversine(
+          Number(query.lat),
+          Number(query.lng),
+          Number(car.vendor.latitude),
+          Number(car.vendor.longitude),
+        );
+        distanceKm = Math.round(rawDistance * 10) / 10;
+      }
+
+      const isSponsored =
+        car.vendor.isSponsored === true &&
+        (!car.vendor.boostExpiresAt || new Date(car.vendor.boostExpiresAt) > now);
+
+      const vendorCopy = {
+        ...car.vendor,
+        isSponsored,
+      };
+
+      return {
+        ...car,
+        vendor: vendorCopy,
+        isSponsored,
+        rawDistance,
+        ...(hasLocation ? { distanceKm } : {}),
+      };
+    });
+
+    const distances = processedCars
+      .map((c) => c.rawDistance)
+      .filter((d): d is number => d !== null);
+    const maxDistance = distances.length > 0 ? Math.max(...distances, 1) : 1;
+
+    const sortBy = query.sortBy || SortByOption.RECOMMENDED;
+
+    if (sortBy === SortByOption.NEAREST && hasLocation) {
+      processedCars.sort((a, b) => {
+        if (a.rawDistance === null && b.rawDistance === null) return 0;
+        if (a.rawDistance === null) return 1;
+        if (b.rawDistance === null) return -1;
+        return a.rawDistance - b.rawDistance;
+      });
+    } else if (sortBy === SortByOption.PRICE_ASC) {
+      processedCars.sort((a, b) => Number(a.pricePerDay) - Number(b.pricePerDay));
+    } else if (sortBy === SortByOption.PRICE_DESC) {
+      processedCars.sort((a, b) => Number(b.pricePerDay) - Number(a.pricePerDay));
+    } else if (sortBy === SortByOption.RATING) {
+      processedCars.sort((a, b) => (b.vendor.rating || 0) - (a.vendor.rating || 0));
+    } else {
+      // SortByOption.RECOMMENDED or RELEVANCE
+      processedCars.sort((a, b) => {
+        if (a.isSponsored !== b.isSponsored) {
+          return a.isSponsored ? -1 : 1;
+        }
+
+        const scoreA = this.computeScore(a.vendor.rating, a.rawDistance, maxDistance, hasLocation);
+        const scoreB = this.computeScore(b.vendor.rating, b.rawDistance, maxDistance, hasLocation);
+        return scoreB - scoreA;
+      });
+    }
+
+    const total = processedCars.length;
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const paginated = processedCars.slice((page - 1) * limit, page * limit);
+
+    const redactedData = paginated.map((car) => {
+      const copy: any = { ...car };
+      delete copy.rawDistance;
+      copy.vendor = redactVendor(car.vendor, { isAdmin });
+      return copy;
+    });
 
     return {
       data: redactedData,
       total,
       page,
-      totalPages,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
