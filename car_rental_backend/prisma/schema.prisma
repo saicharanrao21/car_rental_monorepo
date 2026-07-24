@@ -12,6 +12,7 @@ enum Role {
   CUSTOMER
   VENDOR
   ADMIN
+  SUPPORT_AGENT
 }
 
 enum BusinessType {
@@ -23,6 +24,11 @@ enum VerificationStatus {
   PENDING
   VERIFIED
   SUSPENDED
+}
+
+enum SubscriptionTier {
+  BASIC
+  PRO
 }
 
 enum DocumentType {
@@ -81,22 +87,34 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
 model User {
-  id              String         @id @default(cuid())
-  name            String
-  phone           String         @unique
-  email           String?
-  role            Role
-  passwordHash    String?
-  profilePhotoUrl String?
-  banned          Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  fcmToken        String?
-  vendor          Vendor?
-  bookings        Booking[]
-  notifications   Notification[]
-  refreshTokens   RefreshToken[]
+  id               String            @id @default(cuid())
+  name             String
+  phone            String            @unique
+  email            String?
+  role             Role
+  passwordHash     String?
+  profilePhotoUrl  String?
+  banned           Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  fcmToken         String?
+  vendor           Vendor?
+  bookings         Booking[]
+  notifications    Notification[]
+  refreshTokens    RefreshToken[]
+  wishlists        Wishlist[]
+  recentlyViewed   RecentlyViewed[]
+  auditLogs        AuditLog[]
+  disputesRaised   Dispute[]
+  disputeEvidences DisputeEvidence[]
 
   @@index([phone])
   @@index([role])
@@ -109,6 +127,9 @@ model Vendor {
   businessName       String
   ownerName          String
   city               String
+  locality           String?
+  latitude           Float?
+  longitude          Float?
   gstNumber          String?
   panNumber          String?
   bankDetails        String? // Plain text or JSON
@@ -116,6 +137,12 @@ model Vendor {
   yearsInOperation   Int?
   verificationStatus VerificationStatus @default(PENDING)
   rating             Float              @default(0)
+  isSponsored        Boolean            @default(false)
+  boostExpiresAt     DateTime?
+  branchOfId         String?
+  branchOf           Vendor?            @relation("VendorBranches", fields: [branchOfId], references: [id], onDelete: SetNull)
+  branches           Vendor[]           @relation("VendorBranches")
+  subscriptionTier   SubscriptionTier   @default(BASIC)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   documents          Document[]
@@ -125,6 +152,7 @@ model Vendor {
 
   @@index([city])
   @@index([verificationStatus])
+  @@index([branchOfId])
 }
 
 model Document {
@@ -136,6 +164,7 @@ model Document {
   type       DocumentType
   fileUrl    String
   status     DocumentStatus @default(PENDING)
+  expiresAt  DateTime?
   uploadedAt DateTime       @default(now())
 
   @@index([vendorId])
@@ -144,28 +173,32 @@ model Document {
 }
 
 model Car {
-  id                 String       @id @default(cuid())
-  vendorId           String
-  vendor             Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  make               String
-  model              String
-  year               Int
-  type               CarCategory
-  fuelType           FuelType
-  seating            Int
-  isAC               Boolean
-  registrationNumber String
-  photos             String[]
-  pricePerKm         Decimal      @db.Decimal(10, 2)
-  pricePerDay        Decimal      @db.Decimal(10, 2)
-  pricePerHour       Decimal      @db.Decimal(10, 2)
-  isAvailable        Boolean      @default(true)
-  availableTripTypes String[] // String[] representation of TripType enum values
-  blockedDates       DateTime[]
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  documents          Document[]
-  bookings           Booking[]
+  id                     String           @id @default(cuid())
+  vendorId               String
+  vendor                 Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  make                   String
+  model                  String
+  year                   Int
+  type                   CarCategory
+  fuelType               FuelType
+  seating                Int
+  isAC                   Boolean
+  registrationNumber     String
+  photos                 String[]
+  pricePerKm             Decimal          @db.Decimal(10, 2)
+  pricePerDay            Decimal          @db.Decimal(10, 2)
+  pricePerHour           Decimal          @db.Decimal(10, 2)
+  weeklyDiscountPercent  Float?           @default(0)
+  monthlyDiscountPercent Float?           @default(0)
+  isAvailable            Boolean          @default(true)
+  availableTripTypes     String[] // String[] representation of TripType enum values
+  blockedDates           DateTime[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  documents              Document[]
+  bookings               Booking[]
+  wishlists              Wishlist[]
+  recentlyViewed         RecentlyViewed[]
 
   @@index([vendorId])
   @@index([type])
@@ -199,6 +232,7 @@ model Booking {
   updatedAt          DateTime      @updatedAt
   review             Review?
   payment            Payment?
+  dispute            Dispute?
 
   @@index([customerId])
   @@index([vendorId])
@@ -259,15 +293,15 @@ model Payout {
 }
 
 model Payment {
-  id                 String        @id @default(cuid())
-  bookingId          String        @unique
-  booking            Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  razorpayOrderId    String?
-  razorpayPaymentId  String?
-  amount             Decimal       @db.Decimal(10, 2)
-  status             PaymentStatus @default(CREATED)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  bookingId         String        @unique
+  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  amount            Decimal       @db.Decimal(10, 2)
+  status            PaymentStatus @default(CREATED)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 model Banner {
@@ -323,3 +357,73 @@ model SentBroadcast {
   createdAt DateTime @default(now())
 }
 
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carId     String
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, carId])
+  @@index([userId])
+  @@index([carId])
+}
+
+model RecentlyViewed {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carId    String
+  car      Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([carId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminUserId String
+  adminUser   User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  action      String
+  targetType  String
+  targetId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([action])
+  @@index([targetType])
+}
+
+model Dispute {
+  id             String            @id @default(cuid())
+  bookingId      String            @unique
+  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedByUserId String
+  raisedByUser   User              @relation(fields: [raisedByUserId], references: [id], onDelete: Cascade)
+  reason         String
+  status         DisputeStatus     @default(OPEN)
+  resolutionNote String?
+  createdAt      DateTime          @default(now())
+  resolvedAt     DateTime?
+  evidences      DisputeEvidence[]
+
+  @@index([raisedByUserId])
+  @@index([status])
+}
+
+model DisputeEvidence {
+  id               String   @id @default(cuid())
+  disputeId        String
+  dispute          Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  uploadedByUserId String
+  uploadedByUser   User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  fileUrl          String
+  description      String?
+  createdAt        DateTime @default(now())
+
+  @@index([disputeId])
+  @@index([uploadedByUserId])
+}
