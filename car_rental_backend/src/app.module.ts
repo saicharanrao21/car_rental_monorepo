@@ -19,6 +19,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { BannersModule } from './banners/banners.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
+import { DisputesModule } from './disputes/disputes.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
     BannersModule,
     WishlistModule,
     RecentlyViewedModule,
+    DisputesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

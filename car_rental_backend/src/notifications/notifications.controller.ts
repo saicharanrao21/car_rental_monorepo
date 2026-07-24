@@ -14,8 +14,8 @@ export class NotificationsController {
 
   @Post('admin/notifications/send')
   @Roles(Role.ADMIN)
-  async sendBulk(@Body() dto: SendBulkDto) {
-    return this.notificationsService.sendBulk(dto);
+  async sendBulk(@Req() req: any, @Body() dto: SendBulkDto) {
+    return this.notificationsService.sendBulk(dto, req.user.userId);
   }
 
   @Get('admin/notifications/history')

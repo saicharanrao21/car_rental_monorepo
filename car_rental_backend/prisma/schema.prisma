@@ -122,8 +122,8 @@ model User {
 
 model Vendor {
   id                 String             @id @default(cuid())
-  userId             String             @unique
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String?            @unique
+  user               User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName       String
   ownerName          String
   city               String

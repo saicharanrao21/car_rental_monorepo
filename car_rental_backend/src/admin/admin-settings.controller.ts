@@ -1,15 +1,19 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogService } from './audit-log.service';
 
 @Controller('admin/settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminSettingsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get()
   async getSettings() {
@@ -36,6 +40,7 @@ export class AdminSettingsController {
 
   @Patch()
   async updateSettings(
+    @Req() req: any,
     @Body() dto: {
       platformName?: string;
       logoUrl?: string;
@@ -66,6 +71,8 @@ export class AdminSettingsController {
         appVersion: dto.appVersion ?? '1.0.0',
       },
     });
+
+    this.auditLogService.log(req.user.userId, 'PLATFORM_SETTINGS_UPDATED', 'PlatformSettings', 'singleton', dto);
 
     return settings;
   }

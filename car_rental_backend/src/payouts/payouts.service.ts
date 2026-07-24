@@ -172,13 +172,15 @@ export class PayoutsService {
       },
     });
 
-    this.notificationsService
-      .notifyUser(
-        updated.vendor.userId,
-        'Payout Marked Paid',
-        `Your payout of INR ${updated.amount} has been processed and marked as paid.`,
-      )
-      .catch((err) => this.logger.error('Failed to notify vendor of payout status change', err));
+    if (updated.vendor.userId) {
+      this.notificationsService
+        .notifyUser(
+          updated.vendor.userId,
+          'Payout Marked Paid',
+          `Your payout of INR ${updated.amount} has been processed and marked as paid.`,
+        )
+        .catch((err) => this.logger.error('Failed to notify vendor of payout status change', err));
+    }
 
     return updated;
   }

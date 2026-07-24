@@ -1,9 +1,9 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role, SubscriptionTier } from '@prisma/client';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 import { UpdateVendorSponsorshipDto } from './dto/update-vendor-sponsorship.dto';
 import { VendorsQueryDto } from './dto/vendors-query.dto';
@@ -24,10 +24,20 @@ export class AdminVendorsController {
 
   @Patch(':id/sponsorship')
   async updateSponsorship(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateVendorSponsorshipDto,
   ) {
-    return this.vendorsService.updateSponsorship(id, dto);
+    return this.vendorsService.updateSponsorship(id, dto, req.user.userId);
+  }
+
+  @Patch(':id/subscription')
+  async updateSubscription(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('subscriptionTier') subscriptionTier: SubscriptionTier,
+  ) {
+    return this.vendorsService.updateSubscription(id, { subscriptionTier }, req.user.userId);
   }
 
   @Patch(':vendorId/documents/:id')

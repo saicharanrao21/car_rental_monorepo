@@ -5,6 +5,8 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { PaginatedResult } from '../common/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SubscriptionTier } from '@prisma/client';
+import { AuditLogService } from '../admin/audit-log.service';
 
 @Injectable()
 export class VendorsService {
@@ -13,6 +15,7 @@ export class VendorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: VendorsQueryDto): Promise<PaginatedResult<any>> {
@@ -179,7 +182,7 @@ export class VendorsService {
     });
   }
 
-  async updateSponsorship(id: string, dto: { isSponsored: boolean; boostExpiresAt?: string }) {
+  async updateSponsorship(id: string, dto: { isSponsored: boolean; boostExpiresAt?: string }, adminUserId?: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -188,16 +191,45 @@ export class VendorsService {
       throw new NotFoundException('Vendor not found');
     }
 
-    return this.prisma.vendor.update({
+    const updated = await this.prisma.vendor.update({
       where: { id },
       data: {
         isSponsored: dto.isSponsored,
         boostExpiresAt: dto.boostExpiresAt ? new Date(dto.boostExpiresAt) : null,
       },
     });
+
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'VENDOR_SPONSORSHIP_UPDATED', 'Vendor', id, { isSponsored: dto.isSponsored, boostExpiresAt: dto.boostExpiresAt });
+    }
+
+    return updated;
   }
 
-  async updateStatus(id: string, dto: UpdateVendorStatusDto) {
+  async updateSubscription(id: string, dto: { subscriptionTier: SubscriptionTier }, adminUserId?: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    const updated = await this.prisma.vendor.update({
+      where: { id },
+      data: {
+        subscriptionTier: dto.subscriptionTier,
+      },
+    });
+
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'VENDOR_SUBSCRIPTION_UPDATED', 'Vendor', id, { subscriptionTier: dto.subscriptionTier });
+    }
+
+    return updated;
+  }
+
+  async updateStatus(id: string, dto: UpdateVendorStatusDto, adminUserId?: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -211,15 +243,65 @@ export class VendorsService {
       data: { verificationStatus: dto.status },
     });
 
-    this.notificationsService
-      .notifyUser(
-        vendor.userId,
-        `Account Status Update`,
-        `Your vendor account status has been updated to ${dto.status}.`,
-      )
-      .catch((err) => this.logger.error('Failed to notify vendor of status update', err));
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'VENDOR_STATUS_UPDATED', 'Vendor', id, { status: dto.status });
+    }
+
+    if (vendor.userId) {
+      this.notificationsService
+        .notifyUser(
+          vendor.userId,
+          `Account Status Update`,
+          `Your vendor account status has been updated to ${dto.status}.`,
+        )
+        .catch((err) => this.logger.error('Failed to notify vendor of status update', err));
+    }
 
     return updated;
+  }
+
+  async createBranch(userId: string, dto: any) {
+    const parentVendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!parentVendor) {
+      throw new NotFoundException('Parent vendor profile not found for this user');
+    }
+
+    return this.prisma.vendor.create({
+      data: {
+        branchOfId: parentVendor.id,
+        userId: null,
+        businessName: dto.businessName || parentVendor.businessName,
+        ownerName: dto.ownerName || parentVendor.ownerName,
+        city: dto.city,
+        locality: dto.locality ?? null,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+        gstNumber: dto.gstNumber ?? parentVendor.gstNumber,
+        panNumber: dto.panNumber ?? parentVendor.panNumber,
+        bankDetails: dto.bankDetails ?? parentVendor.bankDetails,
+        businessType: dto.businessType || parentVendor.businessType,
+        yearsInOperation: dto.yearsInOperation ?? 0,
+        verificationStatus: 'PENDING',
+      },
+    });
+  }
+
+  async getMyBranches(userId: string) {
+    const parentVendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!parentVendor) {
+      throw new NotFoundException('Parent vendor profile not found for this user');
+    }
+
+    return this.prisma.vendor.findMany({
+      where: { branchOfId: parentVendor.id },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async addDocument(userId: string, type: any, fileUrl: string, carId?: string) {

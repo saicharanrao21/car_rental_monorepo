@@ -16,10 +16,7 @@ import { UpdateBlockedDatesDto } from '../cars/dto/update-blocked-dates.dto';
 import { JwtService } from '@nestjs/jwt';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
-
-
 import { redactVendor } from '../common/vendor-redactor.util';
-
 
 @Controller('vendors')
 export class VendorsController {
@@ -50,6 +47,23 @@ export class VendorsController {
   @Patch('me')
   async updateMe(@Req() req: any, @Body() dto: UpdateVendorDto) {
     return this.vendorsService.updateMe(req.user.userId, dto);
+  }
+
+  // --- Multi-Branch Routes ---
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Post('me/branches')
+  @HttpCode(HttpStatus.CREATED)
+  async createBranch(@Req() req: any, @Body() dto: any) {
+    return this.vendorsService.createBranch(req.user.userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Get('me/branches')
+  async getMyBranches(@Req() req: any) {
+    return this.vendorsService.getMyBranches(req.user.userId);
   }
 
   // --- Vendor own fleet operations (Must be defined before wildcard GET :id routes) ---
@@ -124,8 +138,8 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body() dto: UpdateVendorStatusDto) {
-    return this.vendorsService.updateStatus(id, dto);
+  async updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateVendorStatusDto) {
+    return this.vendorsService.updateStatus(id, dto, req.user.userId);
   }
 
   // --- Vendor document operations ---
@@ -151,8 +165,6 @@ export class VendorsController {
   async getDocuments(@Req() req: any) {
     return this.vendorsService.getDocuments(req.user.userId);
   }
-
-
 
   // --- Helper Methods ---
 

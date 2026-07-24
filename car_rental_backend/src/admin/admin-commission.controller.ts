@@ -1,15 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, CarCategory, TripType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogService } from './audit-log.service';
 
 @Controller('admin/commission-rules')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminCommissionController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get()
   async getRules() {
@@ -28,6 +32,7 @@ export class AdminCommissionController {
 
   @Post()
   async createRule(
+    @Req() req: any,
     @Body() dto: {
       tripType?: string;
       city?: string;
@@ -54,6 +59,8 @@ export class AdminCommissionController {
       },
     });
 
+    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_CREATED', 'CommissionConfig', rule.id, { percentage: dto.percentage, city, carCategory, tripType });
+
     return {
       id: rule.id,
       city: rule.city ?? 'All Cities',
@@ -66,6 +73,7 @@ export class AdminCommissionController {
 
   @Patch(':id')
   async updateRule(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() dto: {
       tripType?: string;
@@ -87,6 +95,8 @@ export class AdminCommissionController {
       data,
     });
 
+    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_UPDATED', 'CommissionConfig', id, dto);
+
     return {
       id: rule.id,
       city: rule.city ?? 'All Cities',
@@ -98,10 +108,11 @@ export class AdminCommissionController {
   }
 
   @Delete(':id')
-  async deleteRule(@Param('id') id: string) {
+  async deleteRule(@Req() req: any, @Param('id') id: string) {
     await this.prisma.commissionConfig.delete({
       where: { id },
     });
+    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_DELETED', 'CommissionConfig', id);
     return { success: true };
   }
 }

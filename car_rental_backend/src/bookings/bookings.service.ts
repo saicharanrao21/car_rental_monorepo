@@ -165,7 +165,7 @@ export class BookingsService {
         where: { id: booking.vendorId },
         select: { userId: true },
       });
-      if (vendorUser) {
+      if (vendorUser && vendorUser.userId) {
         this.notificationsService
           .notifyUser(
             vendorUser.userId,

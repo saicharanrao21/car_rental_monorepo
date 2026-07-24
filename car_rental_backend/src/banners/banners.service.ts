@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogService } from '../admin/audit-log.service';
 
 @Injectable()
 export class BannersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getActiveBanners() {
     return this.prisma.banner.findMany({
@@ -18,50 +22,65 @@ export class BannersService {
     });
   }
 
-  async create(data: { imageUrl: string; title: string; ctaLink?: string; displayOrder: number }) {
-    return this.prisma.banner.create({
+  async create(data: { imageUrl: string; title: string; ctaLink?: string; displayOrder: number }, adminUserId?: string) {
+    const banner = await this.prisma.banner.create({
       data: {
         ...data,
         isActive: true,
       },
     });
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'BANNER_CREATED', 'Banner', banner.id, data);
+    }
+    return banner;
   }
 
-  async update(id: string, data: { imageUrl?: string; title?: string; ctaLink?: string; displayOrder?: number; isActive?: boolean }) {
+  async update(id: string, data: { imageUrl?: string; title?: string; ctaLink?: string; displayOrder?: number; isActive?: boolean }, adminUserId?: string) {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) {
       throw new NotFoundException(`Banner with ID ${id} not found`);
     }
-    return this.prisma.banner.update({
+    const updated = await this.prisma.banner.update({
       where: { id },
       data,
     });
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'BANNER_UPDATED', 'Banner', id, data);
+    }
+    return updated;
   }
 
-  async delete(id: string) {
+  async delete(id: string, adminUserId?: string) {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) {
       throw new NotFoundException(`Banner with ID ${id} not found`);
     }
-    return this.prisma.banner.delete({
+    const deleted = await this.prisma.banner.delete({
       where: { id },
     });
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'BANNER_DELETED', 'Banner', id);
+    }
+    return deleted;
   }
 
-  async toggleActive(id: string, isActive: boolean) {
+  async toggleActive(id: string, isActive: boolean, adminUserId?: string) {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) {
       throw new NotFoundException(`Banner with ID ${id} not found`);
     }
-    return this.prisma.banner.update({
+    const updated = await this.prisma.banner.update({
       where: { id },
       data: { isActive },
     });
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'BANNER_TOGGLE_ACTIVE', 'Banner', id, { isActive });
+    }
+    return updated;
   }
 
-  async reorder(orderedIds: string[]) {
-    // Perform updates sequentially or in a transaction
-    return this.prisma.$transaction(
+  async reorder(orderedIds: string[], adminUserId?: string) {
+    const result = await this.prisma.$transaction(
       orderedIds.map((id, index) =>
         this.prisma.banner.update({
           where: { id },
@@ -69,5 +88,9 @@ export class BannersService {
         }),
       ),
     );
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'BANNERS_REORDERED', 'Banner', 'all', { orderedIds });
+    }
+    return result;
   }
 }

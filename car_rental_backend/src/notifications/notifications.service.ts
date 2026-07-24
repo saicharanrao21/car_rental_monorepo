@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FcmService } from './fcm.service';
 import { Role } from '@prisma/client';
 
+import { AuditLogService } from '../admin/audit-log.service';
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -10,6 +12,7 @@ export class NotificationsService {
   constructor(
     private prisma: PrismaService,
     private fcmService: FcmService,
+    private auditLogService: AuditLogService,
   ) {}
 
   async notifyUser(userId: string, title: string, body: string) {
@@ -29,17 +32,21 @@ export class NotificationsService {
     return notification;
   }
 
-  async sendBulk(dto: { target: string; title: string; body: string }) {
+  async sendBulk(dto: { target: string; title: string; body: string }, adminUserId?: string) {
     const { target, title, body } = dto;
 
     // 1. Log the broadcast broadcast in SentBroadcast
-    await this.prisma.sentBroadcast.create({
+    const broadcast = await this.prisma.sentBroadcast.create({
       data: {
         target,
         title,
         body,
       },
     });
+
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'NOTIFICATION_SENT', 'SentBroadcast', broadcast.id, { target, title, body });
+    }
 
     // 2. Resolve users and their fcmTokens
     let users: { id: string; fcmToken: string | null }[] = [];

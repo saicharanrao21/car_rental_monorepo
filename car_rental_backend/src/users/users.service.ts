@@ -4,10 +4,14 @@ import { UsersQueryDto } from './dto/users-query.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { BanUserDto } from './dto/ban-user.dto';
 import { PaginatedResult } from '../common/pagination.dto';
+import { AuditLogService } from '../admin/audit-log.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async updateMe(userId: string, dto: UpdateMeDto) {
     const user = await this.prisma.user.findUnique({
@@ -97,7 +101,6 @@ export class UsersService {
   }
 
   async findUserBookings(id: string, query: any): Promise<PaginatedResult<any>> {
-    // Verify user exists first
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -136,7 +139,7 @@ export class UsersService {
     };
   }
 
-  async banUser(id: string, dto: BanUserDto) {
+  async banUser(id: string, dto: BanUserDto, adminUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -145,9 +148,15 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { banned: dto.banned },
     });
+
+    if (adminUserId) {
+      this.auditLogService.log(adminUserId, 'USER_BAN_UPDATED', 'User', id, { banned: dto.banned });
+    }
+
+    return updated;
   }
 }

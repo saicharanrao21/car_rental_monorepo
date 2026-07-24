@@ -52,7 +52,7 @@ export class UsersController {
 
   @Patch(':id/ban')
   @Roles(Role.ADMIN)
-  async banUser(@Param('id') id: string, @Body() dto: BanUserDto) {
-    return this.usersService.banUser(id, dto);
+  async banUser(@Req() req: any, @Param('id') id: string, @Body() dto: BanUserDto) {
+    return this.usersService.banUser(id, dto, req.user.userId);
   }
 }
