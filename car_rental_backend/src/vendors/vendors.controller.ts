@@ -18,6 +18,9 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 
 
+import { redactVendor } from '../common/vendor-redactor.util';
+
+
 @Controller('vendors')
 export class VendorsController {
   constructor(
@@ -30,7 +33,7 @@ export class VendorsController {
   async findAll(@Req() req: any, @Query() query: VendorsQueryDto) {
     const isAdmin = this.getIsAdmin(req);
     const result = await this.vendorsService.findAll(query);
-    result.data = result.data.map(vendor => this.redactVendor(vendor, isAdmin));
+    result.data = result.data.map((vendor) => redactVendor(vendor, { isAdmin }));
     return result;
   }
 
@@ -38,7 +41,8 @@ export class VendorsController {
   @Roles(Role.VENDOR)
   @Get('me')
   async findMe(@Req() req: any) {
-    return this.vendorsService.findByUserId(req.user.userId);
+    const vendor = await this.vendorsService.findByUserId(req.user.userId);
+    return redactVendor(vendor, { isOwner: true });
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -104,7 +108,7 @@ export class VendorsController {
   async findOne(@Req() req: any, @Param('id') id: string) {
     const isAdmin = this.getIsAdmin(req);
     const vendor = await this.vendorsService.findOne(id);
-    return this.redactVendor(vendor, isAdmin);
+    return redactVendor(vendor, { isAdmin });
   }
 
   @Get(':id/cars')
@@ -164,16 +168,5 @@ export class VendorsController {
     } catch {
       return false;
     }
-  }
-
-  private redactVendor(vendor: any, isAdmin: boolean) {
-    if (!vendor) return vendor;
-    if (isAdmin) return vendor;
-    
-    const copy = { ...vendor };
-    delete copy.gstNumber;
-    delete copy.panNumber;
-    delete copy.bankDetails;
-    return copy;
   }
 }

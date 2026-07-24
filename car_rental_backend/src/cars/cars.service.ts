@@ -6,6 +6,8 @@ import { UpdateCarDto } from './dto/update-car.dto';
 import { AdminCarsQueryDto } from './dto/admin-cars-query.dto';
 import { PaginatedResult } from '../common/pagination.dto';
 
+import { redactVendor } from '../common/vendor-redactor.util';
+
 @Injectable()
 export class CarsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -99,7 +101,10 @@ export class CarsService {
               businessName: true,
               ownerName: true,
               city: true,
+              locality: true,
               rating: true,
+              latitude: true,
+              longitude: true,
             },
           },
         },
@@ -107,9 +112,13 @@ export class CarsService {
     ]);
 
     const totalPages = Math.ceil(total / limit);
+    const redactedData = data.map((car) => ({
+      ...car,
+      vendor: redactVendor(car.vendor, { isAdmin }),
+    }));
 
     return {
-      data,
+      data: redactedData,
       total,
       page,
       totalPages,
@@ -126,7 +135,10 @@ export class CarsService {
             businessName: true,
             ownerName: true,
             city: true,
+            locality: true,
             rating: true,
+            latitude: true,
+            longitude: true,
           },
         },
       },
@@ -136,7 +148,10 @@ export class CarsService {
       throw new NotFoundException('Car not found');
     }
 
-    return car;
+    return {
+      ...car,
+      vendor: redactVendor(car.vendor, { isAdmin: false }),
+    };
   }
 
   async findVendorCars(userId: string) {

@@ -11,10 +11,11 @@ import { BookingLockService } from '../redis/booking-lock.service';
 import { CommissionResolverService } from '../common/commission-resolver.service';
 import { FareCalculatorService } from '../common/fare-calculator.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
-import { BookingStatus, Role, TripType, Prisma } from '@prisma/client';
+import { BookingStatus, Role, TripType, PaymentStatus, Prisma } from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { redactVendor } from '../common/vendor-redactor.util';
 
 @Injectable()
 export class BookingsService {
@@ -184,7 +185,14 @@ export class BookingsService {
       include: {
         car: true,
         customer: true,
-        vendor: true,
+        vendor: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, profilePhotoUrl: true },
+            },
+          },
+        },
+        payment: true,
       },
     });
 
@@ -219,7 +227,14 @@ export class BookingsService {
         where,
         include: {
           car: true,
-          vendor: true,
+          vendor: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, profilePhotoUrl: true },
+              },
+            },
+          },
+          payment: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -527,15 +542,15 @@ export class BookingsService {
 
     const isAdmin = requestingUser.role === Role.ADMIN;
     const isVendor = booking.vendor.userId === requestingUser.userId;
+    const isPaid = booking.payment?.status === PaymentStatus.PAID || booking.payment?.status === 'PAID';
 
-    if (!isAdmin && !isVendor) {
-      const copy = { ...booking.vendor };
-      delete copy.gstNumber;
-      delete copy.panNumber;
-      delete copy.bankDetails;
-      booking.vendor = copy;
-    }
+    const copy = { ...booking };
+    copy.vendor = redactVendor(booking.vendor, {
+      isAdmin,
+      isOwner: isVendor,
+      isPaid,
+    });
 
-    return booking;
+    return copy;
   }
 }
