@@ -18,6 +18,7 @@ import '../../features/my_bookings/presentation/pages/booking_detail_page.dart';
 import '../../features/my_bookings/presentation/pages/my_bookings_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../features/wishlist/presentation/pages/wishlist_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -171,6 +172,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: '/wishlist',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const WishlistPage(),
       ),
     ],
     redirect: (context, state) {

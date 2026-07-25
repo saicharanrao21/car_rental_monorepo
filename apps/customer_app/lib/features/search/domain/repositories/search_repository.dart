@@ -3,6 +3,8 @@ import 'package:models/models.dart';
 abstract class SearchRepository {
   Future<List<CarModel>> searchCars({
     required String city,
+    double? lat,
+    double? lng,
     String? carType,
     bool? isAC,
     double? minPrice,

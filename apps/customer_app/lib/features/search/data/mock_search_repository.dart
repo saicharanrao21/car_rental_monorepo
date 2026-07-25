@@ -12,6 +12,8 @@ class MockSearchRepository with LatencySimulator implements SearchRepository {
   @override
   Future<List<CarModel>> searchCars({
     required String city,
+    double? lat,
+    double? lng,
     String? carType,
     bool? isAC,
     double? minPrice,

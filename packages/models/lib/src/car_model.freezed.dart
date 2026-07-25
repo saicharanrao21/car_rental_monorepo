@@ -35,6 +35,9 @@ mixin _$CarModel {
   double get rating => throw _privateConstructorUsedError;
   List<String> get availableTripTypes => throw _privateConstructorUsedError;
   List<DateTime> get blockedDates => throw _privateConstructorUsedError;
+  double? get distanceKm => throw _privateConstructorUsedError;
+  bool get isSponsored => throw _privateConstructorUsedError;
+  Map<String, dynamic>? get vendor => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $CarModelCopyWith<CarModel> get copyWith =>
@@ -64,7 +67,10 @@ abstract class $CarModelCopyWith<$Res> {
       bool isAvailable,
       double rating,
       List<String> availableTripTypes,
-      List<DateTime> blockedDates});
+      List<DateTime> blockedDates,
+      double? distanceKm,
+      bool isSponsored,
+      Map<String, dynamic>? vendor});
 }
 
 /// @nodoc
@@ -98,6 +104,9 @@ class _$CarModelCopyWithImpl<$Res, $Val extends CarModel>
     Object? rating = null,
     Object? availableTripTypes = null,
     Object? blockedDates = null,
+    Object? distanceKm = freezed,
+    Object? isSponsored = null,
+    Object? vendor = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -172,6 +181,18 @@ class _$CarModelCopyWithImpl<$Res, $Val extends CarModel>
           ? _value.blockedDates
           : blockedDates // ignore: cast_nullable_to_non_nullable
               as List<DateTime>,
+      distanceKm: freezed == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      isSponsored: null == isSponsored
+          ? _value.isSponsored
+          : isSponsored // ignore: cast_nullable_to_non_nullable
+              as bool,
+      vendor: freezed == vendor
+          ? _value.vendor
+          : vendor // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>?,
     ) as $Val);
   }
 }
@@ -202,7 +223,10 @@ abstract class _$$CarModelImplCopyWith<$Res>
       bool isAvailable,
       double rating,
       List<String> availableTripTypes,
-      List<DateTime> blockedDates});
+      List<DateTime> blockedDates,
+      double? distanceKm,
+      bool isSponsored,
+      Map<String, dynamic>? vendor});
 }
 
 /// @nodoc
@@ -234,6 +258,9 @@ class __$$CarModelImplCopyWithImpl<$Res>
     Object? rating = null,
     Object? availableTripTypes = null,
     Object? blockedDates = null,
+    Object? distanceKm = freezed,
+    Object? isSponsored = null,
+    Object? vendor = freezed,
   }) {
     return _then(_$CarModelImpl(
       id: null == id
@@ -308,6 +335,18 @@ class __$$CarModelImplCopyWithImpl<$Res>
           ? _value._blockedDates
           : blockedDates // ignore: cast_nullable_to_non_nullable
               as List<DateTime>,
+      distanceKm: freezed == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      isSponsored: null == isSponsored
+          ? _value.isSponsored
+          : isSponsored // ignore: cast_nullable_to_non_nullable
+              as bool,
+      vendor: freezed == vendor
+          ? _value._vendor
+          : vendor // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>?,
     ));
   }
 }
@@ -338,10 +377,14 @@ class _$CarModelImpl implements _CarModel {
         'Airport Transfer',
         'Self-Drive'
       ],
-      final List<DateTime> blockedDates = const []})
+      final List<DateTime> blockedDates = const [],
+      this.distanceKm,
+      this.isSponsored = false,
+      final Map<String, dynamic>? vendor})
       : _photos = photos,
         _availableTripTypes = availableTripTypes,
-        _blockedDates = blockedDates;
+        _blockedDates = blockedDates,
+        _vendor = vendor;
 
   @override
   final String id;
@@ -405,8 +448,23 @@ class _$CarModelImpl implements _CarModel {
   }
 
   @override
+  final double? distanceKm;
+  @override
+  @JsonKey()
+  final bool isSponsored;
+  final Map<String, dynamic>? _vendor;
+  @override
+  Map<String, dynamic>? get vendor {
+    final value = _vendor;
+    if (value == null) return null;
+    if (_vendor is EqualUnmodifiableMapView) return _vendor;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(value);
+  }
+
+  @override
   String toString() {
-    return 'CarModel(id: $id, vendorId: $vendorId, make: $make, model: $model, year: $year, type: $type, fuelType: $fuelType, seating: $seating, isAC: $isAC, photos: $photos, pricePerKm: $pricePerKm, pricePerDay: $pricePerDay, pricePerHour: $pricePerHour, registrationNumber: $registrationNumber, isAvailable: $isAvailable, rating: $rating, availableTripTypes: $availableTripTypes, blockedDates: $blockedDates)';
+    return 'CarModel(id: $id, vendorId: $vendorId, make: $make, model: $model, year: $year, type: $type, fuelType: $fuelType, seating: $seating, isAC: $isAC, photos: $photos, pricePerKm: $pricePerKm, pricePerDay: $pricePerDay, pricePerHour: $pricePerHour, registrationNumber: $registrationNumber, isAvailable: $isAvailable, rating: $rating, availableTripTypes: $availableTripTypes, blockedDates: $blockedDates, distanceKm: $distanceKm, isSponsored: $isSponsored, vendor: $vendor)';
   }
 
   @override
@@ -440,30 +498,39 @@ class _$CarModelImpl implements _CarModel {
             const DeepCollectionEquality()
                 .equals(other._availableTripTypes, _availableTripTypes) &&
             const DeepCollectionEquality()
-                .equals(other._blockedDates, _blockedDates));
+                .equals(other._blockedDates, _blockedDates) &&
+            (identical(other.distanceKm, distanceKm) ||
+                other.distanceKm == distanceKm) &&
+            (identical(other.isSponsored, isSponsored) ||
+                other.isSponsored == isSponsored) &&
+            const DeepCollectionEquality().equals(other._vendor, _vendor));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      vendorId,
-      make,
-      model,
-      year,
-      type,
-      fuelType,
-      seating,
-      isAC,
-      const DeepCollectionEquality().hash(_photos),
-      pricePerKm,
-      pricePerDay,
-      pricePerHour,
-      registrationNumber,
-      isAvailable,
-      rating,
-      const DeepCollectionEquality().hash(_availableTripTypes),
-      const DeepCollectionEquality().hash(_blockedDates));
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        vendorId,
+        make,
+        model,
+        year,
+        type,
+        fuelType,
+        seating,
+        isAC,
+        const DeepCollectionEquality().hash(_photos),
+        pricePerKm,
+        pricePerDay,
+        pricePerHour,
+        registrationNumber,
+        isAvailable,
+        rating,
+        const DeepCollectionEquality().hash(_availableTripTypes),
+        const DeepCollectionEquality().hash(_blockedDates),
+        distanceKm,
+        isSponsored,
+        const DeepCollectionEquality().hash(_vendor)
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -491,7 +558,10 @@ abstract class _CarModel implements CarModel {
       final bool isAvailable,
       final double rating,
       final List<String> availableTripTypes,
-      final List<DateTime> blockedDates}) = _$CarModelImpl;
+      final List<DateTime> blockedDates,
+      final double? distanceKm,
+      final bool isSponsored,
+      final Map<String, dynamic>? vendor}) = _$CarModelImpl;
 
   @override
   String get id;
@@ -529,6 +599,12 @@ abstract class _CarModel implements CarModel {
   List<String> get availableTripTypes;
   @override
   List<DateTime> get blockedDates;
+  @override
+  double? get distanceKm;
+  @override
+  bool get isSponsored;
+  @override
+  Map<String, dynamic>? get vendor;
   @override
   @JsonKey(ignore: true)
   _$$CarModelImplCopyWith<_$CarModelImpl> get copyWith =>

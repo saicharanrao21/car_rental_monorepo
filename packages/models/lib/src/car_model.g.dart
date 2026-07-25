@@ -30,6 +30,9 @@ CarModel _$CarModelFromJson(Map<String, dynamic> json) => CarModel(
       blockedDates: (json['blockedDates'] as List<dynamic>)
           .map((e) => DateTime.parse(e as String))
           .toList(),
+      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
+      isSponsored: json['isSponsored'] as bool,
+      vendor: json['vendor'] as Map<String, dynamic>?,
     );
 
 Map<String, dynamic> _$CarModelToJson(CarModel instance) => <String, dynamic>{
@@ -52,4 +55,7 @@ Map<String, dynamic> _$CarModelToJson(CarModel instance) => <String, dynamic>{
       'availableTripTypes': instance.availableTripTypes,
       'blockedDates':
           instance.blockedDates.map((e) => e.toIso8601String()).toList(),
+      'distanceKm': instance.distanceKm,
+      'isSponsored': instance.isSponsored,
+      'vendor': instance.vendor,
     };

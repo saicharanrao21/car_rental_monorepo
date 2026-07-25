@@ -4,7 +4,6 @@ import 'package:models/models.dart';
 import 'package:core/core.dart';
 import 'domain/repositories/home_repository.dart';
 import 'data/api_home_repository.dart';
-import 'data/mock_home_repository.dart';
 import '../../core/providers/api_providers.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {

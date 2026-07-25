@@ -4,6 +4,7 @@ import 'package:models/models.dart';
 import '../../domain/repositories/search_repository.dart';
 import '../../data/api_search_repository.dart';
 import '../../../../core/providers/api_providers.dart';
+import '../../../../core/providers/location_provider.dart';
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -19,7 +20,7 @@ final searchACFilterProvider = StateProvider.autoDispose<bool?>((ref) => null);
 final searchPriceRangeFilterProvider = StateProvider.autoDispose<RangeValues?>((ref) => null);
 final searchRatingFilterProvider = StateProvider.autoDispose<double?>((ref) => null);
 
-final sortByProvider = StateProvider.autoDispose<String>((ref) => 'Relevance');
+final sortByProvider = StateProvider.autoDispose<String>((ref) => 'Recommended');
 
 class SearchResultsState {
   final List<CarModel> items;
@@ -58,11 +59,14 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
     final priceRange = ref.watch(searchPriceRangeFilterProvider);
     final minRating = ref.watch(searchRatingFilterProvider);
     final sortBy = ref.watch(sortByProvider);
+    final location = ref.watch(userLocationProvider);
 
     final repo = ref.watch(searchRepositoryProvider);
 
     final cars = await repo.searchCars(
       city: city,
+      lat: location.latitude,
+      lng: location.longitude,
       carType: carType,
       isAC: isAC,
       minPrice: priceRange?.start,
@@ -92,7 +96,6 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
 
     state = AsyncValue.data(currentState.copyWith(isLoadingMore: true));
 
-    // Simulate page load latency
     await Future.delayed(const Duration(milliseconds: 600));
 
     _currentPage++;

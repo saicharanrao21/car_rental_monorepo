@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/search_providers.dart';
+import '../../../wishlist/wishlist_providers.dart';
 
 class SearchResultsPage extends ConsumerStatefulWidget {
   final String city;
@@ -257,6 +258,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     final tripType = ref.watch(searchTripTypeProvider);
     final dates = ref.watch(searchDatesProvider);
     final sortBy = ref.watch(sortByProvider);
+    final wishlistedIds = ref.watch(wishlistIdsProvider);
 
     final titleText = resultsVal.when(
       data: (state) => '${state.items.length} cars in $city',
@@ -294,7 +296,8 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
               label: 'Sort By',
               value: sortBy,
               items: const [
-                DropdownMenuItem(value: 'Relevance', child: Text('Relevance')),
+                DropdownMenuItem(value: 'Recommended', child: Text('Recommended')),
+                DropdownMenuItem(value: 'Nearest', child: Text('Nearest')),
                 DropdownMenuItem(value: 'Price Low-High', child: Text('Price Low-High')),
                 DropdownMenuItem(value: 'Price High-Low', child: Text('Price High-Low')),
                 DropdownMenuItem(value: 'Rating', child: Text('Rating')),
@@ -350,8 +353,13 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
                     }
 
                     final car = state.items[index];
+                    final isWishlisted = wishlistedIds.contains(car.id);
                     return CarCard(
                       car: car,
+                      isWishlisted: isWishlisted,
+                      onWishlistToggle: () {
+                        ref.read(wishlistIdsProvider.notifier).toggle(car.id);
+                      },
                       onTap: () {
                         context.push('/car/${car.id}');
                       },

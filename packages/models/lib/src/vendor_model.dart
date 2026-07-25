@@ -19,6 +19,9 @@ class VendorModel with _$VendorModel {
     required String verificationStatus, // pending, verified, rejected, suspended
     @Default(0.0) double rating,
     @Default(0) int totalTrips,
+    String? displayName,
+    String? locality,
+    @Default(false) bool isSponsored,
   }) = _VendorModel;
 
   factory VendorModel.fromJson(Map<String, dynamic> json) => _$VendorModelFromJson(json);

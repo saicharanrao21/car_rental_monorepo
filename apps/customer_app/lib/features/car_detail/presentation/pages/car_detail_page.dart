@@ -7,14 +7,32 @@ import 'package:models/models.dart';
 import 'package:mock_data/mock_data.dart';
 import 'package:gap/gap.dart';
 import '../providers/car_detail_providers.dart';
+import '../../../wishlist/wishlist_providers.dart';
+import '../../../home/recently_viewed_providers.dart';
+import '../../../../core/providers/api_providers.dart';
 
-class CarDetailPage extends ConsumerWidget {
+class CarDetailPage extends ConsumerStatefulWidget {
   final String carId;
 
   const CarDetailPage({
     super.key,
     required this.carId,
   });
+
+  @override
+  ConsumerState<CarDetailPage> createState() => _CarDetailPageState();
+}
+
+class _CarDetailPageState extends ConsumerState<CarDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final apiClient = ref.read(apiClientProvider);
+      recordCarView(apiClient, widget.carId);
+      ref.invalidate(recentlyViewedCarsProvider);
+    });
+  }
 
   double _getCommissionPercentage(String city, String carCategory) {
     final configs = MockData.commissionConfigs;
@@ -34,18 +52,34 @@ class CarDetailPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailVal = ref.watch(carDetailDataProvider(carId));
+  Widget build(BuildContext context) {
+    final detailVal = ref.watch(carDetailDataProvider(widget.carId));
+    final wishlistedIds = ref.watch(wishlistIdsProvider);
+    final isWishlisted = wishlistedIds.contains(widget.carId);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Car Details'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isWishlisted ? Icons.favorite : Icons.favorite_border,
+              color: isWishlisted ? Colors.red : Colors.white,
+            ),
+            tooltip: isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist',
+            onPressed: () {
+              ref.read(wishlistIdsProvider.notifier).toggle(widget.carId);
+            },
+          ),
+        ],
       ),
       body: detailVal.when(
         data: (data) {
           final car = data.car;
           final vendor = data.vendor;
           final reviews = data.reviews;
+
+          final vendorDisplayName = vendor.displayName ?? vendor.businessName;
 
           // Compute star breakdown
           final totalReviewsCount = reviews.length;
@@ -102,7 +136,7 @@ class CarDetailPage extends ConsumerWidget {
                                     ),
                                     const Gap(4),
                                     Text(
-                                      'Year ${car.year}',
+                                      '${car.year} • ${car.fuelType}',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: Colors.grey[600],
@@ -111,71 +145,26 @@ class CarDetailPage extends ConsumerWidget {
                                   ],
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: car.isAvailable ? Colors.green[50] : Colors.red[50],
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: car.isAvailable ? Colors.green : Colors.red,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  car.isAvailable ? 'Available Now' : 'Unavailable',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: car.isAvailable ? Colors.green[800] : Colors.red[800],
-                                  ),
-                                ),
+                              StatusBadge(
+                                status: car.isAvailable ? 'AVAILABLE' : 'BLOCKED',
                               ),
                             ],
                           ),
-                          const Gap(12),
+                          const Gap(20),
                           Row(
                             children: [
-                              Chip(
-                                label: Text(car.type),
-                                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                                side: BorderSide.none,
-                              ),
-                              const Gap(8),
-                              Chip(
-                                label: Text(car.isAC ? 'AC' : 'Non-AC'),
-                                backgroundColor: AppColors.accent.withValues(alpha: 0.08),
-                                side: BorderSide.none,
-                              ),
+                              Expanded(child: _buildSpecTile(Icons.event_seat, '${car.seating} Seater')),
+                              const Gap(12),
+                              Expanded(child: _buildSpecTile(Icons.ac_unit, car.isAC ? 'Air Conditioned' : 'Non AC')),
                             ],
                           ),
                           const Gap(24),
                           const Text(
-                            'Specifications',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const Gap(12),
-                          GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 2,
-                            childAspectRatio: 2.8,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            children: [
-                              _buildSpecTile(Icons.airline_seat_recline_normal, '${car.seating} Seats'),
-                              _buildSpecTile(Icons.local_gas_station_outlined, car.fuelType),
-                              _buildSpecTile(Icons.ac_unit, car.isAC ? 'Air Conditioning' : 'No AC'),
-                              _buildSpecTile(Icons.settings_input_component, 'Manual'), // Static placeholder
-                            ],
-                          ),
-                          const Gap(24),
-                          const Text(
-                            'Pricing Plans',
+                            'Rental Pricing Plans',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                           const Gap(12),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _buildPricePlanTile('Hourly', car.pricePerHour, '/ hr'),
                               _buildPricePlanTile('Daily', car.pricePerDay, '/ day'),
@@ -200,7 +189,7 @@ class CarDetailPage extends ConsumerWidget {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            vendor.businessName,
+                                            vendorDisplayName,
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -208,7 +197,7 @@ class CarDetailPage extends ConsumerWidget {
                                           ),
                                           const Gap(4),
                                           Text(
-                                            vendor.city,
+                                            vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey[600],
@@ -264,18 +253,6 @@ class CarDetailPage extends ConsumerWidget {
                                       ],
                                     ),
                                   ],
-                                ),
-                                const Gap(12),
-                                TextButton(
-                                  onPressed: () {
-                                    // No-op TODO
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text('View Profile'),
                                 ),
                               ],
                             ),
@@ -465,7 +442,7 @@ class CarDetailPage extends ConsumerWidget {
         loading: () => const AppLoader(),
         error: (err, stack) => ErrorStateWidget(
           message: 'Failed to load details: ${err.toString()}',
-          onRetry: () => ref.invalidate(carDetailDataProvider(carId)),
+          onRetry: () => ref.invalidate(carDetailDataProvider(widget.carId)),
         ),
       ),
     );

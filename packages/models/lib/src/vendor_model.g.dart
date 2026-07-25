@@ -21,6 +21,9 @@ _$VendorModelImpl _$$VendorModelImplFromJson(Map<String, dynamic> json) =>
       verificationStatus: json['verificationStatus'] as String,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       totalTrips: (json['totalTrips'] as num?)?.toInt() ?? 0,
+      displayName: json['displayName'] as String?,
+      locality: json['locality'] as String?,
+      isSponsored: json['isSponsored'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$VendorModelImplToJson(_$VendorModelImpl instance) =>
@@ -38,4 +41,7 @@ Map<String, dynamic> _$$VendorModelImplToJson(_$VendorModelImpl instance) =>
       'verificationStatus': instance.verificationStatus,
       'rating': instance.rating,
       'totalTrips': instance.totalTrips,
+      'displayName': instance.displayName,
+      'locality': instance.locality,
+      'isSponsored': instance.isSponsored,
     };

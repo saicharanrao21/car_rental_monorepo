@@ -10,6 +10,8 @@ class ApiSearchRepository implements SearchRepository {
   @override
   Future<List<CarModel>> searchCars({
     required String city,
+    double? lat,
+    double? lng,
     String? carType,
     bool? isAC,
     double? minPrice,
@@ -19,14 +21,18 @@ class ApiSearchRepository implements SearchRepository {
   }) async {
     // Map sortBy from UI string to Backend SortByOption enum
     String backendSortBy;
-    if (sortBy == 'Price Low-High') {
+    if (sortBy == 'Nearest') {
+      backendSortBy = 'NEAREST';
+    } else if (sortBy == 'Recommended') {
+      backendSortBy = 'RECOMMENDED';
+    } else if (sortBy == 'Price Low-High') {
       backendSortBy = 'PRICE_ASC';
     } else if (sortBy == 'Price High-Low') {
       backendSortBy = 'PRICE_DESC';
     } else if (sortBy == 'Rating') {
       backendSortBy = 'RATING';
     } else {
-      backendSortBy = 'RELEVANCE';
+      backendSortBy = 'RECOMMENDED';
     }
 
     // Map carType from UI to uppercase backend enum (e.g. Sedan -> SEDAN)
@@ -35,8 +41,10 @@ class ApiSearchRepository implements SearchRepository {
       backendCarType = carType.toUpperCase();
     }
 
-    final queryParams = {
+    final queryParams = <String, dynamic>{
       'city': city,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
       if (backendCarType != null) 'carType': backendCarType,
       if (isAC != null) 'isAC': isAC,
       if (minPrice != null) 'minPrice': minPrice,
@@ -44,7 +52,7 @@ class ApiSearchRepository implements SearchRepository {
       if (minRating != null) 'minRating': minRating,
       'sortBy': backendSortBy,
       'page': 1,
-      'limit': 50, // Fetch a large enough limit for the screen
+      'limit': 50,
     };
 
     final response = await apiClient.dio.get(

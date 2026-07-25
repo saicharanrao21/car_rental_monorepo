@@ -25,6 +25,9 @@ class CarModel with _$CarModel {
     @Default(0.0) double rating,
     @Default(['Local', 'Outstation', 'Airport Transfer', 'Self-Drive']) List<String> availableTripTypes,
     @Default([]) List<DateTime> blockedDates,
+    double? distanceKm,
+    @Default(false) bool isSponsored,
+    Map<String, dynamic>? vendor,
   }) = _CarModel;
 
   factory CarModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +42,9 @@ class CarModel with _$CarModel {
           default: return t.toString();
         }
       }).toList();
+    }
+    if (json['vendor'] != null && json['isSponsored'] == null) {
+      json['isSponsored'] = json['vendor']['isSponsored'] ?? false;
     }
     return _$CarModelFromJson(json);
   }

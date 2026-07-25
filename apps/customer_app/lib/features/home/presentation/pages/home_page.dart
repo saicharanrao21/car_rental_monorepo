@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +7,11 @@ import 'package:core/core.dart';
 import 'package:models/models.dart';
 import 'package:gap/gap.dart';
 import '../../home_providers.dart';
+import '../../recently_viewed_providers.dart';
+import '../../../wishlist/wishlist_providers.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/location_provider.dart';
+import '../../../../core/providers/locality_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -18,6 +23,10 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final _pickupController = TextEditingController();
   final _dropController = TextEditingController();
+  final _localityController = TextEditingController();
+  Timer? _debounceTimer;
+  String _localitySearchText = '';
+  bool _showLocalitySuggestions = false;
 
   @override
   void initState() {
@@ -25,6 +34,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _pickupController.text = ref.read(pickupLocationProvider) ?? '';
       _dropController.text = ref.read(dropLocationProvider) ?? '';
+      _localityController.text = ref.read(selectedLocalityProvider) ?? '';
+
+      // Trigger location permission rationale dialog on first load post-login
+      ref.read(userLocationProvider.notifier).requestLocationPermission(
+        context,
+        onCityAutoSelected: (nearestCity) {
+          ref.read(selectedCityProvider.notifier).state = nearestCity;
+        },
+      );
     });
   }
 
@@ -32,7 +50,19 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     _pickupController.dispose();
     _dropController.dispose();
+    _localityController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _onLocalityChanged(String text) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        _localitySearchText = text;
+        _showLocalitySuggestions = text.trim().isNotEmpty;
+      });
+    });
   }
 
   void _showCitySelector() {
@@ -55,6 +85,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
             onTap: () {
               ref.read(selectedCityProvider.notifier).state = city;
+              ref.read(selectedLocalityProvider.notifier).state = null;
+              _localityController.clear();
+              setState(() {
+                _localitySearchText = '';
+                _showLocalitySuggestions = false;
+              });
               Navigator.pop(context);
             },
           );
@@ -114,6 +150,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final bannersVal = ref.watch(bannersProvider);
     final vendorsVal = ref.watch(topVendorsProvider);
+    final recentlyViewedVal = ref.watch(recentlyViewedCarsProvider);
+    final wishlistedIds = ref.watch(wishlistIdsProvider);
+
+    final localityQuery = LocalityQuery(city: selectedCity, search: _localitySearchText);
+    final localitySuggestionsVal = ref.watch(localitySuggestionsProvider(localityQuery));
 
     return Scaffold(
       appBar: AppBar(
@@ -154,6 +195,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.favorite_border),
+            tooltip: 'Saved Cars',
+            onPressed: () => context.push('/wishlist'),
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none_outlined),
             tooltip: 'Notifications',
             onPressed: () => context.push('/notifications'),
@@ -174,6 +220,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ref.invalidate(bannersProvider);
           ref.invalidate(topVendorsProvider);
           ref.invalidate(availableCarsProvider);
+          ref.invalidate(recentlyViewedCarsProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -223,6 +270,58 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
                     const Gap(20),
+                    // Locality Autocomplete Input
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppTextField(
+                          label: 'Locality / Area (Optional)',
+                          hint: 'Search area in $selectedCity (e.g. Bandra)',
+                          controller: _localityController,
+                          prefixIcon: const Icon(Icons.my_location, color: AppColors.primary),
+                          onChanged: _onLocalityChanged,
+                        ),
+                        if (_showLocalitySuggestions)
+                          localitySuggestionsVal.when(
+                            data: (suggestions) {
+                              if (suggestions.isEmpty) return const SizedBox.shrink();
+                              return ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 150),
+                                child: Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                                  ),
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: suggestions.length,
+                                    itemBuilder: (context, idx) {
+                                      final item = suggestions[idx];
+                                      return ListTile(
+                                        dense: true,
+                                        title: Text(item, style: const TextStyle(fontSize: 13)),
+                                        onTap: () {
+                                          _localityController.text = item;
+                                          ref.read(selectedLocalityProvider.notifier).state = item;
+                                          setState(() {
+                                            _showLocalitySuggestions = false;
+                                          });
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                            loading: () => const LinearProgressIndicator(minHeight: 2),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                      ],
+                    ),
+                    const Gap(16),
                     AppDateRangePicker(
                       label: 'Rental Duration',
                       hint: 'Select pick-up and drop-off dates',
@@ -277,9 +376,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                               child: AppCard(
                                 padding: EdgeInsets.zero,
                                 margin: EdgeInsets.zero,
-                                onTap: () {
-                                  // Banner tap action
-                                },
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
@@ -335,17 +431,47 @@ class _HomePageState extends ConsumerState<HomePage> {
                     Gap(24),
                   ],
                 ),
-                error: (err, stack) => Column(
-                  children: [
-                    const SectionHeader(title: 'Exclusive Offers'),
-                    const Gap(12),
-                    ErrorStateWidget(
-                      message: 'Failed to load offers.',
-                      onRetry: () => ref.invalidate(bannersProvider),
-                    ),
-                    const Gap(24),
-                  ],
-                ),
+                error: (err, stack) => const SizedBox.shrink(),
+              ),
+
+              // Recently Viewed Section
+              recentlyViewedVal.when(
+                data: (recentCars) {
+                  if (recentCars.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SectionHeader(title: 'Recently Viewed'),
+                      const Gap(12),
+                      SizedBox(
+                        height: 240,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recentCars.length,
+                          itemBuilder: (context, index) {
+                            final car = recentCars[index];
+                            final isWishlisted = wishlistedIds.contains(car.id);
+                            return Container(
+                              width: 260,
+                              margin: const EdgeInsets.only(right: 12),
+                              child: CarCard(
+                                car: car,
+                                isWishlisted: isWishlisted,
+                                onWishlistToggle: () {
+                                  ref.read(wishlistIdsProvider.notifier).toggle(car.id);
+                                },
+                                onTap: () => context.push('/car/${car.id}'),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const Gap(24),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               ),
 
               const SectionHeader(title: 'Popular Car Types'),
@@ -416,16 +542,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     const SizedBox(height: 120, child: AppLoader()),
                   ],
                 ),
-                error: (err, stack) => Column(
-                  children: [
-                    SectionHeader(title: 'Top Rated Vendors in $selectedCity'),
-                    const Gap(12),
-                    ErrorStateWidget(
-                      message: 'Failed to load vendors.',
-                      onRetry: () => ref.invalidate(topVendorsProvider),
-                    ),
-                  ],
-                ),
+                error: (err, stack) => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -442,6 +559,8 @@ class _VendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = vendor.displayName ?? vendor.businessName;
+
     return Container(
       width: 220,
       margin: const EdgeInsets.only(right: 12),
@@ -456,7 +575,7 @@ class _VendorCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    vendor.businessName,
+                    displayName,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -477,7 +596,7 @@ class _VendorCard extends StatelessWidget {
             ),
             const Gap(4),
             Text(
-              vendor.city,
+              vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[600],
