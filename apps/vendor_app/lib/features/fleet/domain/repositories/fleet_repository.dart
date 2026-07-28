@@ -10,5 +10,6 @@ abstract class FleetRepository {
     required String carId,
     required String type,
     required String fileUrl,
+    DateTime? expiresAt,
   });
 }

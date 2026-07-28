@@ -21,6 +21,11 @@ class FleetListPage extends ConsumerWidget {
         title: const Text('My Fleet'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Bulk Upload CSV',
+            onPressed: () => context.push('/fleet/bulk-upload'),
+          ),
+          IconButton(
             icon: Icon(isGrid ? Icons.list : Icons.grid_view),
             tooltip: isGrid ? 'Show List' : 'Show Grid',
             onPressed: () {

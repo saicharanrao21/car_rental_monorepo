@@ -21,6 +21,8 @@ class VendorModel with _$VendorModel {
     @Default(0) int totalTrips,
     String? displayName,
     String? locality,
+    double? latitude,
+    double? longitude,
     @Default(false) bool isSponsored,
   }) = _VendorModel;
 

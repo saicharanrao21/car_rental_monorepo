@@ -41,6 +41,8 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   List<String> _photos = [];
   String? _rcBookPath;
   String? _insurancePath;
+  DateTime? _rcBookExpiry;
+  DateTime? _insuranceExpiry;
 
   // Year list: last 15 years
   late List<int> _years;
@@ -156,6 +158,14 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   }
 
   Future<void> _simulateCarDocUpload(String docType) async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      helpText: 'Select $docType Expiry Date',
+    );
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -178,17 +188,19 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     setState(() {
       if (docType == 'RC Book') {
         _rcBookPath = 'rc_book_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        _rcBookExpiry = pickedDate;
       } else if (docType == 'Insurance') {
         _insurancePath = 'insurance_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        _insuranceExpiry = pickedDate;
       }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$docType uploaded successfully (Simulated)')),
+      SnackBar(content: Text('$docType attached with expiry date')),
     );
   }
 
-  Widget _buildCarDocUploadCard(String label, String? filePath, VoidCallback onTap) {
+  Widget _buildCarDocUploadCard(String label, String? filePath, DateTime? expiry, VoidCallback onTap) {
     final hasFile = filePath != null;
     return AppCard(
       child: Padding(
@@ -218,7 +230,9 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                   ),
                   const Gap(4),
                   Text(
-                    hasFile ? 'File attached' : 'PDF or JPG up to 5MB',
+                    hasFile
+                        ? (expiry != null ? 'File attached • Expiry: ${expiry.day}/${expiry.month}/${expiry.year}' : 'File attached')
+                        : 'PDF or JPG up to 5MB',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
@@ -289,12 +303,12 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       final repo = ref.read(fleetRepositoryProvider);
       if (_rcBookPath != null) {
         try {
-          await repo.uploadCarDocument(carId: car.id, type: 'RC_BOOK', fileUrl: _rcBookPath!);
+          await repo.uploadCarDocument(carId: car.id, type: 'RC_BOOK', fileUrl: _rcBookPath!, expiresAt: _rcBookExpiry);
         } catch (_) {}
       }
       if (_insurancePath != null) {
         try {
-          await repo.uploadCarDocument(carId: car.id, type: 'INSURANCE', fileUrl: _insurancePath!);
+          await repo.uploadCarDocument(carId: car.id, type: 'INSURANCE', fileUrl: _insurancePath!, expiresAt: _insuranceExpiry);
         } catch (_) {}
       }
 
@@ -652,9 +666,9 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const Gap(12),
-              _buildCarDocUploadCard('RC Book', _rcBookPath, () => _simulateCarDocUpload('RC Book')),
+              _buildCarDocUploadCard('RC Book', _rcBookPath, _rcBookExpiry, () => _simulateCarDocUpload('RC Book')),
               const Gap(12),
-              _buildCarDocUploadCard('Insurance Policy', _insurancePath, () => _simulateCarDocUpload('Insurance')),
+              _buildCarDocUploadCard('Insurance Policy', _insurancePath, _insuranceExpiry, () => _simulateCarDocUpload('Insurance')),
               const Gap(32),
 
               // Save button

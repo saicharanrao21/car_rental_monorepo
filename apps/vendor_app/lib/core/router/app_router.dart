@@ -14,6 +14,7 @@ import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/fleet/presentation/pages/fleet_list_page.dart';
 import '../../features/fleet/presentation/pages/fleet_car_detail_page.dart';
 import '../../features/fleet/presentation/pages/add_edit_car_page.dart';
+import '../../features/fleet/presentation/pages/csv_bulk_upload_page.dart';
 import '../../features/bookings/presentation/pages/vendor_bookings_page.dart';
 import '../../features/bookings/presentation/pages/vendor_booking_detail_page.dart';
 import '../../features/earnings/presentation/pages/earnings_page.dart';
@@ -133,6 +134,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/fleet/add',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AddEditCarPage(),
+      ),
+      GoRoute(
+        path: '/fleet/bulk-upload',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CsvBulkUploadPage(),
       ),
       GoRoute(
         path: '/fleet/:carId',

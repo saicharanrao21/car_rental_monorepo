@@ -108,6 +108,7 @@ class ApiFleetRepository implements FleetRepository {
     required String carId,
     required String type,
     required String fileUrl,
+    DateTime? expiresAt,
   }) async {
     await apiClient.dio.post(
       '/vendors/me/documents',
@@ -115,6 +116,7 @@ class ApiFleetRepository implements FleetRepository {
         'carId': carId,
         'type': type,
         'fileUrl': fileUrl,
+        if (expiresAt != null) 'expiresAt': expiresAt.toUtc().toIso8601String(),
       },
     );
   }

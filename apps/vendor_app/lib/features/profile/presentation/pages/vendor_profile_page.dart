@@ -4,9 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
+import '../../../../core/providers/api_providers.dart';
 import '../providers/profile_providers.dart';
 import '../../domain/repositories/vendor_profile_repository.dart';
+import '../../domain/document_expiry_utils.dart';
+import '../../domain/vendor_document_model.dart';
+import '../providers/documents_provider.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 
 class VendorProfilePage extends ConsumerStatefulWidget {
   const VendorProfilePage({super.key});
@@ -18,6 +25,7 @@ class VendorProfilePage extends ConsumerStatefulWidget {
 class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
   bool _editMode = false;
   bool _isSaving = false;
+  bool _isLocating = false;
 
   late TextEditingController _businessNameCtrl;
   late TextEditingController _ownerNameCtrl;
@@ -25,6 +33,9 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
   late TextEditingController _emailCtrl;
   late TextEditingController _gstCtrl;
   late TextEditingController _panCtrl;
+  late TextEditingController _localityCtrl;
+  late TextEditingController _latCtrl;
+  late TextEditingController _lngCtrl;
   String? _selectedCity;
 
   static const _cities = [
@@ -43,7 +54,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
     ),
     (
       'Can I re-upload my documents?',
-      'Yes. To re-upload RC Book, Trade License, or Insurance, please contact support at support@carrental.in or use the in-app chat. Document verification takes 1–2 business days.'
+      'Yes. You can upload or update documents below including Trade License, RC Book, and Insurance with expiry dates.'
     ),
     (
       'How do I add a new car to my fleet?',
@@ -65,6 +76,9 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
     _emailCtrl = TextEditingController(text: vendor?.email ?? '');
     _gstCtrl = TextEditingController(text: vendor?.gstNumber ?? '');
     _panCtrl = TextEditingController(text: vendor?.panNumber ?? '');
+    _localityCtrl = TextEditingController(text: vendor?.locality ?? '');
+    _latCtrl = TextEditingController(text: vendor?.latitude != null ? vendor!.latitude.toString() : '');
+    _lngCtrl = TextEditingController(text: vendor?.longitude != null ? vendor!.longitude.toString() : '');
     _selectedCity = vendor?.city;
   }
 
@@ -76,7 +90,63 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
     _emailCtrl.dispose();
     _gstCtrl.dispose();
     _panCtrl.dispose();
+    _localityCtrl.dispose();
+    _latCtrl.dispose();
+    _lngCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location services are disabled on your device.')),
+          );
+        }
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permissions are denied.')),
+            );
+          }
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are permanently denied.')),
+          );
+        }
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      setState(() {
+        _latCtrl.text = pos.latitude.toStringAsFixed(6);
+        _lngCtrl.text = pos.longitude.toStringAsFixed(6);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current GPS position captured successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
   }
 
   Future<void> _save() async {
@@ -92,19 +162,31 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
       gstNumber: _gstCtrl.text.trim().isEmpty ? null : _gstCtrl.text.trim(),
       panNumber: _panCtrl.text.trim().isEmpty ? null : _panCtrl.text.trim(),
       city: _selectedCity ?? vendor.city,
+      locality: _localityCtrl.text.trim().isEmpty ? null : _localityCtrl.text.trim(),
+      latitude: double.tryParse(_latCtrl.text.trim()),
+      longitude: double.tryParse(_lngCtrl.text.trim()),
     );
 
-    final updatedVendor = await ref.read(vendorProfileRepositoryProvider).updateBusinessProfile(updated);
-    ref.read(vendorSessionProvider.notifier).authenticate(updatedVendor);
+    try {
+      final updatedVendor = await ref.read(vendorProfileRepositoryProvider).updateBusinessProfile(updated);
+      ref.read(vendorSessionProvider.notifier).authenticate(updatedVendor);
 
-    if (mounted) {
-      setState(() {
-        _isSaving = false;
-        _editMode = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
-      );
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _editMode = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update profile: $e')),
+        );
+      }
     }
   }
 
@@ -129,9 +211,111 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
     );
   }
 
+  void _showUploadDocumentDialog() {
+    String docType = 'TRADE_LICENSE';
+    DateTime? selectedExpiryDate;
+    final fileUrlCtrl = TextEditingController(text: 'https://storage.drivego.in/docs/${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Upload Document'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Document Type', border: OutlineInputBorder()),
+                  value: docType,
+                  items: const [
+                    DropdownMenuItem(value: 'TRADE_LICENSE', child: Text('Trade License (Vendor Level)')),
+                    DropdownMenuItem(value: 'RC_BOOK', child: Text('RC Book')),
+                    DropdownMenuItem(value: 'INSURANCE', child: Text('Insurance Policy')),
+                  ],
+                  onChanged: (v) => setDialogState(() => docType = v!),
+                ),
+                const Gap(16),
+                AppTextField(
+                  label: 'Document File URL / Path',
+                  controller: fileUrlCtrl,
+                ),
+                const Gap(16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selectedExpiryDate == null
+                            ? 'No Expiry Date Set'
+                            : 'Expiry: ${DateFormat('dd MMM yyyy').format(selectedExpiryDate!)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: selectedExpiryDate != null ? Colors.black87 : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                          lastDate: DateTime.now().add(const Duration(days: 3650)),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedExpiryDate = picked);
+                        }
+                      },
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: const Text('Select Date'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final apiClient = ref.read(apiClientProvider);
+                try {
+                  await apiClient.dio.post('/vendors/me/documents', data: {
+                    'type': docType,
+                    'fileUrl': fileUrlCtrl.text.trim(),
+                    if (selectedExpiryDate != null)
+                      'expiresAt': selectedExpiryDate!.toUtc().toIso8601String(),
+                  });
+                  ref.invalidate(vendorDocumentsProvider);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Document uploaded successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to upload document: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Upload'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vendor = ref.watch(vendorSessionProvider).vendor;
+    final docsAsync = ref.watch(vendorDocumentsProvider);
+
     if (vendor == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Profile')),
@@ -139,7 +323,6 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
       );
     }
 
-    // Masked bank account
     final bank = vendor.bankDetails ?? '';
     final maskedBank = bank.length > 4
         ? '•••• ${bank.substring(bank.length - 4)}'
@@ -172,7 +355,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ─── Avatar + business name hero ──────────────────────────
+                // Avatar + business name
                 Center(
                   child: Column(
                     children: [
@@ -193,8 +376,8 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 ),
                 const Gap(28),
 
-                // ─── Business Profile ──────────────────────────────────────
-                const SectionHeader(title: 'Business Profile'),
+                // Business Profile
+                const SectionHeader(title: 'Business Profile & Location'),
                 const Gap(12),
                 AppCard(
                   child: Padding(
@@ -229,6 +412,58 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                         const Divider(height: 24),
                         _editMode
                             ? AppTextField(
+                                label: 'Locality / Area',
+                                hint: 'e.g. Andheri East, Koramangala',
+                                controller: _localityCtrl,
+                              )
+                            : _InfoRow(label: 'Locality', value: vendor.locality ?? 'Not set'),
+                        const Divider(height: 24),
+                        if (_editMode) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: AppTextField(
+                                  label: 'Latitude',
+                                  hint: '19.0760',
+                                  controller: _latCtrl,
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                              const Gap(12),
+                              Expanded(
+                                child: AppTextField(
+                                  label: 'Longitude',
+                                  hint: '72.8777',
+                                  controller: _lngCtrl,
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Gap(12),
+                          OutlinedButton.icon(
+                            onPressed: _isLocating ? null : _getCurrentLocation,
+                            icon: _isLocating
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.my_location, size: 18),
+                            label: const Text('Use my current location'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ] else ...[
+                          _InfoRow(
+                            label: 'GPS Location',
+                            value: (vendor.latitude != null && vendor.longitude != null)
+                                ? '${vendor.latitude!.toStringAsFixed(4)}, ${vendor.longitude!.toStringAsFixed(4)}'
+                                : 'Not set',
+                          ),
+                        ],
+                        const Divider(height: 24),
+                        _editMode
+                            ? AppTextField(
                                 label: 'GST Number',
                                 controller: _gstCtrl,
                               )
@@ -246,7 +481,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 ),
                 const Gap(20),
 
-                // ─── Contact Details ───────────────────────────────────────
+                // Contact Details
                 const SectionHeader(title: 'Contact Details'),
                 const Gap(12),
                 AppCard(
@@ -268,7 +503,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 ),
                 const Gap(20),
 
-                // ─── Save button (edit mode) ───────────────────────────────
+                // Save button (edit mode)
                 if (_editMode) ...[
                   AppButton(
                     text: 'Save Changes',
@@ -278,7 +513,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                   const Gap(20),
                 ],
 
-                // ─── Bank Details (view-only) ──────────────────────────────
+                // Bank Details
                 const SectionHeader(title: 'Bank Details'),
                 const Gap(12),
                 AppCard(
@@ -315,35 +550,125 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 ),
                 const Gap(20),
 
-                // ─── Documents Status ──────────────────────────────────────
-                const SectionHeader(title: 'Documents'),
-                const Gap(12),
-                AppCard(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _DocRow(
-                          label: 'RC Book',
-                          status: vendor.verificationStatus == 'verified' ? 'verified' : 'pending',
-                        ),
-                        const Divider(height: 24),
-                        _DocRow(
-                          label: 'Trade License',
-                          status: vendor.verificationStatus == 'verified' ? 'verified' : 'pending',
-                        ),
-                        const Divider(height: 24),
-                        _DocRow(
-                          label: 'Insurance Certificate',
-                          status: vendor.verificationStatus == 'verified' ? 'verified' : 'pending',
-                        ),
-                      ],
+                // Documents Status & Management
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SectionHeader(title: 'Documents'),
+                    TextButton.icon(
+                      onPressed: _showUploadDocumentDialog,
+                      icon: const Icon(Icons.upload_file, size: 16),
+                      label: const Text('Upload Doc'),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                docsAsync.when(
+                  loading: () => const AppCard(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: AppLoader()),
                     ),
                   ),
+                  error: (err, _) => AppCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('Failed to load documents: $err'),
+                    ),
+                  ),
+                  data: (docs) {
+                    if (docs.isEmpty) {
+                      return AppCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              const Text('No uploaded documents yet.', style: TextStyle(color: Colors.grey)),
+                              const Gap(12),
+                              ElevatedButton.icon(
+                                onPressed: _showUploadDocumentDialog,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Upload First Document'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return AppCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: docs.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final doc = entry.value;
+                            final expiry = checkDocumentExpiry(doc.expiresAt);
+
+                            return Column(
+                              children: [
+                                if (idx > 0) const Divider(height: 24),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.description_outlined, size: 20, color: Colors.grey),
+                                    const Gap(10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            doc.type.replaceAll('_', ' '),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          ),
+                                          if (doc.expiresAt != null)
+                                            Text(
+                                              'Expires: ${DateFormat('dd MMM yyyy').format(doc.expiresAt!)}',
+                                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        StatusBadge(status: doc.status.toLowerCase()),
+                                        if (expiry != null) ...[
+                                          const Gap(4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: expiry.isExpired ? Colors.red[100] : Colors.amber[100],
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: expiry.isExpired ? Colors.red : Colors.amber[800]!,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              expiry.badgeText,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: expiry.isExpired ? Colors.red[900] : Colors.amber[900],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const Gap(28),
 
-                // ─── Help & Support (FAQ) ──────────────────────────────────
+                // Help & Support
                 const SectionHeader(title: 'Help & Support'),
                 const Gap(12),
                 AppCard(
@@ -369,7 +694,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 ),
                 const Gap(28),
 
-                // ─── Logout ────────────────────────────────────────────────
+                // Logout
                 OutlinedButton.icon(
                   onPressed: _logout,
                   icon: const Icon(Icons.logout, color: Colors.red),
@@ -394,8 +719,6 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
   }
 }
 
-// ─── Helper widgets ─────────────────────────────────────────────────────────
-
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -413,29 +736,6 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         ),
-      ],
-    );
-  }
-}
-
-class _DocRow extends StatelessWidget {
-  final String label;
-  final String status;
-  const _DocRow({required this.label, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.description_outlined, size: 18, color: Colors.grey),
-            const Gap(10),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-          ],
-        ),
-        StatusBadge(status: status),
       ],
     );
   }

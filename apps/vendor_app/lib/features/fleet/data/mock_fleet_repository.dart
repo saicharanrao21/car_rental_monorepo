@@ -51,6 +51,7 @@ class MockFleetRepository with LatencySimulator implements FleetRepository {
     required String carId,
     required String type,
     required String fileUrl,
+    DateTime? expiresAt,
   }) async {
     await simulateLatency();
   }

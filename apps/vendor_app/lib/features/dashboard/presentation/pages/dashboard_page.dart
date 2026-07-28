@@ -9,6 +9,7 @@ import 'package:mock_data/mock_data.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../providers/dashboard_providers.dart';
+import '../../../profile/presentation/providers/documents_provider.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -97,7 +98,56 @@ class DashboardPage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const Gap(24),
+                  const Gap(16),
+
+                  // Document Expiry Alert Banner
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final expiringCount = ref.watch(expiringDocumentsCountProvider);
+                      if (expiringCount == 0) return const SizedBox.shrink();
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber[400]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.amber[900], size: 24),
+                            const Gap(12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$expiringCount ${expiringCount == 1 ? 'document needs' : 'documents need'} renewal attention',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Colors.amber[900],
+                                    ),
+                                  ),
+                                  const Gap(2),
+                                  Text(
+                                    'Documents are expiring within 30 days or expired. Please upload renewed documents.',
+                                    style: TextStyle(fontSize: 12, color: Colors.amber[900]!.withOpacity(0.85)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => context.push('/profile'),
+                              child: const Text('View', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const Gap(8),
 
                   // Quick Stats Cards (3 column-like cards)
                   Row(
