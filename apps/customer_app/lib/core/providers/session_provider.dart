@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -81,10 +82,10 @@ class SessionNotifier extends Notifier<AuthState> {
         if (settings.authorizationStatus == AuthorizationStatus.authorized ||
             settings.authorizationStatus == AuthorizationStatus.provisional) {
           fcmToken = await messaging.getToken();
-          print('REAL_FCM_TOKEN_FROM_SDK: $fcmToken');
+          debugPrint('REAL_FCM_TOKEN_FROM_SDK: $fcmToken');
         }
       } catch (e, st) {
-        print('FCM_GET_TOKEN_ERROR: $e');
+        debugPrint('FCM_GET_TOKEN_ERROR: $e');
         return;
       }
 
