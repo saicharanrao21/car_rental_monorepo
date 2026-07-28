@@ -11,6 +11,8 @@ final adminVendorRepositoryProvider = Provider<AdminVendorRepository>((ref) {
 // Filters
 final vendorCityFilterProvider = StateProvider<String?>((ref) => null);
 final vendorStatusFilterProvider = StateProvider<String?>((ref) => null);
+final vendorTypeFilterProvider = StateProvider<String>((ref) => 'ALL'); // ALL, HQ, BRANCH
+final vendorSponsoredFilterProvider = StateProvider<String>((ref) => 'ALL'); // ALL, SPONSORED, ORGANIC
 final vendorSearchQueryProvider = StateProvider<String>((ref) => '');
 
 // List Provider watching filters
@@ -18,13 +20,23 @@ final adminVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
   final repo = ref.watch(adminVendorRepositoryProvider);
   final city = ref.watch(vendorCityFilterProvider);
   final status = ref.watch(vendorStatusFilterProvider);
+  final type = ref.watch(vendorTypeFilterProvider);
+  final sponsoredFilter = ref.watch(vendorSponsoredFilterProvider);
   final search = ref.watch(vendorSearchQueryProvider);
 
-  return repo.getVendors(
+  final list = await repo.getVendors(
     city: city,
     status: status,
     searchQuery: search,
   );
+
+  return list.where((v) {
+    if (type == 'HQ' && (v.branchOfId != null && v.branchOfId!.isNotEmpty)) return false;
+    if (type == 'BRANCH' && (v.branchOfId == null || v.branchOfId!.isEmpty)) return false;
+    if (sponsoredFilter == 'SPONSORED' && !v.isSponsored) return false;
+    if (sponsoredFilter == 'ORGANIC' && v.isSponsored) return false;
+    return true;
+  }).toList();
 });
 
 // Detail Bundle
@@ -59,7 +71,7 @@ final vendorDetailBundleProvider = FutureProvider.family<VendorDetailBundle, Str
   );
 });
 
-// Action controller for vendor mutations (e.g. approve, suspend, remove, bulk approve)
+// Action controller for vendor mutations (e.g. approve, suspend, remove, bulk approve, sponsorship)
 class AdminVendorController extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   AdminVendorController(this._ref) : super(const AsyncValue.data(null));
@@ -68,9 +80,20 @@ class AdminVendorController extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _ref.read(adminVendorRepositoryProvider).setVendorStatus(id, status);
-      // Invalidate the vendor list and detail provider
       _ref.invalidate(adminVendorsProvider);
       _ref.invalidate(vendorDetailBundleProvider(id));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> updateSponsorship(String vendorId, bool isSponsored, DateTime? boostExpiresAt) async {
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(adminVendorRepositoryProvider).updateSponsorship(vendorId, isSponsored, boostExpiresAt);
+      _ref.invalidate(adminVendorsProvider);
+      _ref.invalidate(vendorDetailBundleProvider(vendorId));
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

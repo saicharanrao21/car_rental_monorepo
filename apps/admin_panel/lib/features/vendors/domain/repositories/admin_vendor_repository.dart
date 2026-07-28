@@ -16,4 +16,6 @@ abstract interface class AdminVendorRepository {
   Future<List<BookingModel>> getBookingHistoryForVendor(String id);
 
   Future<void> setVendorStatus(String id, String status);
+
+  Future<void> updateSponsorship(String vendorId, bool isSponsored, DateTime? boostExpiresAt);
 }

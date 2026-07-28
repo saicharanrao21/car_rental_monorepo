@@ -334,46 +334,51 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
                 onPressed: () => _calculatePreviewSplit(rules),
               ),
 
-              if (_calcResult != null) ...[
-                const Gap(24),
-                const Divider(),
-                const Gap(12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              if (_calcResult != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Matched Commission rate:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Gap(24),
+                    const Divider(),
+                    const Gap(12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Matched Commission rate:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          '${(_calcMatchedRate ?? 10.0).toStringAsFixed(1)}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
                     Text(
-                      '${(_calcMatchedRate ?? 10.0).toStringAsFixed(1)}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                      _calcMatchedRuleDesc ?? 'Using platform default commission (10.0%)',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                    const Gap(16),
+                    _buildBreakdownItem('Base Fare (Vendor Payout)', _calcResult!.baseFare),
+                    _buildBreakdownItem('Platform Fee (Commission)', _calcResult!.platformFee),
+                    _buildBreakdownItem('GST (18% on platform fee)', _calcResult!.gst),
+                    const Gap(8),
+                    const Divider(),
+                    const Gap(8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Customer Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        PriceTag(
+                          amount: _calcResult!.total,
+                          amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                Text(
-                  _calcMatchedRuleDesc ?? 'Using platform default commission (10.0%)',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12, fontStyle: FontStyle.italic),
-                ),
-                const Gap(16),
-                _buildBreakdownItem('Base Fare (Vendor Payout)', _calcResult!.baseFare),
-                _buildBreakdownItem('Platform Fee (Commission)', _calcResult!.platformFee),
-                _buildBreakdownItem('GST (18% on platform fee)', _calcResult!.gst),
-                const Gap(8),
-                const Divider(),
-                const Gap(8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Total Customer Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    PriceTag(
-                      amount: _calcResult!.total,
-                      amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   Widget _buildBreakdownItem(String label, double amount) {

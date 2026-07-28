@@ -72,4 +72,17 @@ class MockAdminVendorRepository with LatencySimulator implements AdminVendorRepo
       MockData.vendors[idx] = old.copyWith(verificationStatus: status);
     }
   }
+
+  @override
+  Future<void> updateSponsorship(String vendorId, bool isSponsored, DateTime? boostExpiresAt) async {
+    await simulateLatency();
+    final idx = MockData.vendors.indexWhere((v) => v.id == vendorId);
+    if (idx != -1) {
+      final old = MockData.vendors[idx];
+      MockData.vendors[idx] = old.copyWith(
+        isSponsored: isSponsored,
+        boostExpiresAt: boostExpiresAt,
+      );
+    }
+  }
 }

@@ -40,6 +40,9 @@ mixin _$VendorModel {
   double? get longitude => throw _privateConstructorUsedError;
   String? get subscriptionTier => throw _privateConstructorUsedError;
   bool get isSponsored => throw _privateConstructorUsedError;
+  String? get branchOfId => throw _privateConstructorUsedError;
+  String? get parentBusinessName => throw _privateConstructorUsedError;
+  DateTime? get boostExpiresAt => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -72,7 +75,10 @@ abstract class $VendorModelCopyWith<$Res> {
       double? latitude,
       double? longitude,
       String? subscriptionTier,
-      bool isSponsored});
+      bool isSponsored,
+      String? branchOfId,
+      String? parentBusinessName,
+      DateTime? boostExpiresAt});
 }
 
 /// @nodoc
@@ -107,6 +113,9 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
     Object? longitude = freezed,
     Object? subscriptionTier = freezed,
     Object? isSponsored = null,
+    Object? branchOfId = freezed,
+    Object? parentBusinessName = freezed,
+    Object? boostExpiresAt = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -185,6 +194,18 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
           ? _value.isSponsored
           : isSponsored // ignore: cast_nullable_to_non_nullable
               as bool,
+      branchOfId: freezed == branchOfId
+          ? _value.branchOfId
+          : branchOfId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      parentBusinessName: freezed == parentBusinessName
+          ? _value.parentBusinessName
+          : parentBusinessName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      boostExpiresAt: freezed == boostExpiresAt
+          ? _value.boostExpiresAt
+          : boostExpiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ) as $Val);
   }
 }
@@ -216,7 +237,10 @@ abstract class _$$VendorModelImplCopyWith<$Res>
       double? latitude,
       double? longitude,
       String? subscriptionTier,
-      bool isSponsored});
+      bool isSponsored,
+      String? branchOfId,
+      String? parentBusinessName,
+      DateTime? boostExpiresAt});
 }
 
 /// @nodoc
@@ -249,6 +273,9 @@ class __$$VendorModelImplCopyWithImpl<$Res>
     Object? longitude = freezed,
     Object? subscriptionTier = freezed,
     Object? isSponsored = null,
+    Object? branchOfId = freezed,
+    Object? parentBusinessName = freezed,
+    Object? boostExpiresAt = freezed,
   }) {
     return _then(_$VendorModelImpl(
       id: null == id
@@ -327,6 +354,18 @@ class __$$VendorModelImplCopyWithImpl<$Res>
           ? _value.isSponsored
           : isSponsored // ignore: cast_nullable_to_non_nullable
               as bool,
+      branchOfId: freezed == branchOfId
+          ? _value.branchOfId
+          : branchOfId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      parentBusinessName: freezed == parentBusinessName
+          ? _value.parentBusinessName
+          : parentBusinessName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      boostExpiresAt: freezed == boostExpiresAt
+          ? _value.boostExpiresAt
+          : boostExpiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ));
   }
 }
@@ -353,7 +392,10 @@ class _$VendorModelImpl implements _VendorModel {
       this.latitude,
       this.longitude,
       this.subscriptionTier = 'BASIC',
-      this.isSponsored = false});
+      this.isSponsored = false,
+      this.branchOfId,
+      this.parentBusinessName,
+      this.boostExpiresAt});
 
   factory _$VendorModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$VendorModelImplFromJson(json);
@@ -402,10 +444,16 @@ class _$VendorModelImpl implements _VendorModel {
   @override
   @JsonKey()
   final bool isSponsored;
+  @override
+  final String? branchOfId;
+  @override
+  final String? parentBusinessName;
+  @override
+  final DateTime? boostExpiresAt;
 
   @override
   String toString() {
-    return 'VendorModel(id: $id, businessName: $businessName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, displayName: $displayName, locality: $locality, latitude: $latitude, longitude: $longitude, subscriptionTier: $subscriptionTier, isSponsored: $isSponsored)';
+    return 'VendorModel(id: $id, businessName: $businessName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, displayName: $displayName, locality: $locality, latitude: $latitude, longitude: $longitude, subscriptionTier: $subscriptionTier, isSponsored: $isSponsored, branchOfId: $branchOfId, parentBusinessName: $parentBusinessName, boostExpiresAt: $boostExpiresAt)';
   }
 
   @override
@@ -445,7 +493,13 @@ class _$VendorModelImpl implements _VendorModel {
             (identical(other.subscriptionTier, subscriptionTier) ||
                 other.subscriptionTier == subscriptionTier) &&
             (identical(other.isSponsored, isSponsored) ||
-                other.isSponsored == isSponsored));
+                other.isSponsored == isSponsored) &&
+            (identical(other.branchOfId, branchOfId) ||
+                other.branchOfId == branchOfId) &&
+            (identical(other.parentBusinessName, parentBusinessName) ||
+                other.parentBusinessName == parentBusinessName) &&
+            (identical(other.boostExpiresAt, boostExpiresAt) ||
+                other.boostExpiresAt == boostExpiresAt));
   }
 
   @JsonKey(ignore: true)
@@ -470,7 +524,10 @@ class _$VendorModelImpl implements _VendorModel {
         latitude,
         longitude,
         subscriptionTier,
-        isSponsored
+        isSponsored,
+        branchOfId,
+        parentBusinessName,
+        boostExpiresAt
       ]);
 
   @JsonKey(ignore: true)
@@ -507,7 +564,10 @@ abstract class _VendorModel implements VendorModel {
       final double? latitude,
       final double? longitude,
       final String? subscriptionTier,
-      final bool isSponsored}) = _$VendorModelImpl;
+      final bool isSponsored,
+      final String? branchOfId,
+      final String? parentBusinessName,
+      final DateTime? boostExpiresAt}) = _$VendorModelImpl;
 
   factory _VendorModel.fromJson(Map<String, dynamic> json) =
       _$VendorModelImpl.fromJson;
@@ -550,6 +610,12 @@ abstract class _VendorModel implements VendorModel {
   String? get subscriptionTier;
   @override
   bool get isSponsored;
+  @override
+  String? get branchOfId;
+  @override
+  String? get parentBusinessName;
+  @override
+  DateTime? get boostExpiresAt;
   @override
   @JsonKey(ignore: true)
   _$$VendorModelImplCopyWith<_$VendorModelImpl> get copyWith =>

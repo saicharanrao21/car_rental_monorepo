@@ -80,7 +80,7 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
               color: Colors.white,
               elevation: 16,
               child: SizedBox(
-                width: 500,
+                width: 540,
                 height: double.infinity,
                 child: _VendorDetailPanel(
                   vendorId: vendorId,
@@ -103,108 +103,174 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
     final vendorsAsync = ref.watch(adminVendorsProvider);
     final cityFilter = ref.watch(vendorCityFilterProvider);
     final statusFilter = ref.watch(vendorStatusFilterProvider);
+    final typeFilter = ref.watch(vendorTypeFilterProvider);
+    final sponsoredFilter = ref.watch(vendorSponsoredFilterProvider);
     final controllerState = ref.watch(adminVendorControllerProvider);
 
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── Filter Top Bar ───
+            // Header
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: AppTextField(
-                    label: 'Search Partner',
-                    controller: _searchController,
-                    hint: 'Search by business or owner name...',
-                    prefixIcon: const Icon(Icons.search),
-                  ),
-                ),
-                const Gap(16),
-                Expanded(
-                  flex: 2,
-                  child: AppDropdown<String>(
-                    label: 'City',
-                    value: cityFilter ?? 'All',
-                    items: ['All', ...AppConstants.indianCities]
-                        .map((city) => DropdownMenuItem<String>(
-                              value: city,
-                              child: Text(city),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      ref.read(vendorCityFilterProvider.notifier).state =
-                          (val == 'All' || val == null) ? null : val;
-                    },
-                  ),
-                ),
-                const Gap(16),
-                Expanded(
-                  flex: 2,
-                  child: AppDropdown<String>(
-                    label: 'Status',
-                    value: statusFilter ?? 'All',
-                    items: const ['All', 'pending', 'verified', 'suspended']
-                        .map((status) => DropdownMenuItem<String>(
-                              value: status,
-                              child: Text(status),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      ref.read(vendorStatusFilterProvider.notifier).state =
-                          (val == 'All' || val == null) ? null : val;
-                    },
-                  ),
-                ),
-                const Gap(16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('', style: TextStyle(fontSize: 12)),
-                    const Gap(6),
-                    AppButton(
-                      isFullWidth: false,
-                      text: _selectedPendingIds.isEmpty
-                          ? 'Bulk Approve'
-                          : 'Approve Selected (${_selectedPendingIds.length})',
-                      onPressed: _selectedPendingIds.isEmpty || controllerState.isLoading
-                          ? null
-                          : () {
-                              _showConfirmDialog(
-                                context: context,
-                                title: 'Bulk Approve',
-                                content: 'Are you sure you want to approve ${_selectedPendingIds.length} partners?',
-                                onConfirm: () async {
-                                  await ref
-                                      .read(adminVendorControllerProvider.notifier)
-                                      .bulkApprove(_selectedPendingIds.toList());
-                                  setState(() {
-                                    _selectedPendingIds.clear();
-                                  });
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Selected partners verified successfully')),
-                                    );
-                                  }
-                                },
-                              );
-                            },
+                    const Text(
+                      'Vendor Partner Management',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const Gap(4),
+                    Text(
+                      'Approve accounts, manage location branches, and configure sponsored listing boosts.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                   ],
                 ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => ref.invalidate(adminVendorsProvider),
+                  tooltip: 'Refresh Vendors List',
+                ),
               ],
+            ),
+            const Gap(20),
+
+            // Filter Bar
+            AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: AppTextField(
+                        label: 'Search Partners',
+                        hint: 'Search by vendor name, owner, phone...',
+                        controller: _searchController,
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      flex: 2,
+                      child: AppDropdown<String>(
+                        label: 'City',
+                        value: cityFilter ?? 'All',
+                        items: ['All', ...AppConstants.indianCities]
+                            .map((city) => DropdownMenuItem<String>(
+                                  value: city,
+                                  child: Text(city),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          ref.read(vendorCityFilterProvider.notifier).state =
+                              (val == 'All' || val == null) ? null : val;
+                        },
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      flex: 2,
+                      child: AppDropdown<String>(
+                        label: 'Status',
+                        value: statusFilter ?? 'All',
+                        items: const ['All', 'PENDING', 'VERIFIED', 'SUSPENDED']
+                            .map((st) => DropdownMenuItem<String>(
+                                  value: st,
+                                  child: Text(st),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          ref.read(vendorStatusFilterProvider.notifier).state =
+                              (val == 'All' || val == null) ? null : val;
+                        },
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      flex: 2,
+                      child: AppDropdown<String>(
+                        label: 'Type',
+                        value: typeFilter,
+                        items: const [
+                          DropdownMenuItem(value: 'ALL', child: Text('All Types')),
+                          DropdownMenuItem(value: 'HQ', child: Text('Headquarters')),
+                          DropdownMenuItem(value: 'BRANCH', child: Text('Branches')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) ref.read(vendorTypeFilterProvider.notifier).state = val;
+                        },
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      flex: 2,
+                      child: AppDropdown<String>(
+                        label: 'Sponsorship',
+                        value: sponsoredFilter,
+                        items: const [
+                          DropdownMenuItem(value: 'ALL', child: Text('All Listings')),
+                          DropdownMenuItem(value: 'SPONSORED', child: Text('Sponsored Only')),
+                          DropdownMenuItem(value: 'ORGANIC', child: Text('Organic Only')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) ref.read(vendorSponsoredFilterProvider.notifier).state = val;
+                        },
+                      ),
+                    ),
+                    const Gap(16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('', style: TextStyle(fontSize: 12)),
+                        const Gap(6),
+                        AppButton(
+                          isFullWidth: false,
+                          text: _selectedPendingIds.isEmpty
+                              ? 'Bulk Approve'
+                              : 'Approve Selected (${_selectedPendingIds.length})',
+                          onPressed: _selectedPendingIds.isEmpty || controllerState.isLoading
+                              ? null
+                              : () {
+                                  _showConfirmDialog(
+                                    context: context,
+                                    title: 'Bulk Approve',
+                                    content: 'Are you sure you want to approve ${_selectedPendingIds.length} partners?',
+                                    onConfirm: () async {
+                                      await ref
+                                          .read(adminVendorControllerProvider.notifier)
+                                          .bulkApprove(_selectedPendingIds.toList());
+                                      setState(() {
+                                        _selectedPendingIds.clear();
+                                      });
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Selected partners verified successfully')),
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
             const Gap(24),
 
-            // ─── Data List Area ───
+            // Data Table List Area
             Expanded(
               child: vendorsAsync.when(
                 loading: () => const Center(child: AppLoader()),
                 error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading vendors list',
+                  message: 'Error loading vendors list: $err',
                   onRetry: () => ref.invalidate(adminVendorsProvider),
                 ),
                 data: (vendors) {
@@ -213,7 +279,7 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
                       child: EmptyStateWidget(
                         icon: Icons.people_outline,
                         title: 'No Partners Found',
-                        subtitle: 'No vendor partners match the filters.',
+                        subtitle: 'No vendor partners match the selected filters.',
                       ),
                     );
                   }
@@ -225,20 +291,22 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
                         headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
                         columns: const [
                           DataColumn(label: Text('Business Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('City', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Cars', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Bookings', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('City / Locality', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Sponsored Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Trips', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: vendors.map((v) {
-                          // Check if row is selectable (only pending rows can be checkbox selected for bulk approval)
-                          final isPending = v.verificationStatus == 'pending';
+                          final isPending = v.verificationStatus.toUpperCase() == 'PENDING';
                           final isChecked = _selectedPendingIds.contains(v.id);
+                          final isBranch = v.branchOfId != null && v.branchOfId!.isNotEmpty;
 
-                          // Lookup stats synchronously
-                          final carsCount = MockData.cars.where((c) => c.vendorId == v.id).length;
-                          final bookingsCount = MockData.bookings.where((b) => b.vendorId == v.id).length;
+                          int? daysUntilBoostExpires;
+                          if (v.isSponsored && v.boostExpiresAt != null) {
+                            daysUntilBoostExpires = v.boostExpiresAt!.difference(DateTime.now()).inDays;
+                          }
 
                           return DataRow(
                             selected: isChecked,
@@ -255,99 +323,104 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
                                 : null,
                             cells: [
                               DataCell(
-                                InkWell(
-                                  onTap: () => _showDetailPanel(context, v.id),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(v.businessName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text('Owner: ${v.ownerName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  v.locality != null && v.locality!.isNotEmpty ? '${v.locality}, ${v.city}' : v.city,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              DataCell(
+                                isBranch
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange[50],
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.orange[300]!),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'BRANCH',
+                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                                            ),
+                                            if (v.parentBusinessName != null)
+                                              Text(
+                                                'of ${v.parentBusinessName}',
+                                                style: TextStyle(fontSize: 9, color: Colors.orange[800]),
+                                              ),
+                                          ],
+                                        ),
+                                      )
+                                    : Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue[50],
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.blue[200]!),
+                                        ),
                                         child: Text(
-                                          v.businessName.isNotEmpty ? v.businessName[0].toUpperCase() : 'V',
-                                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                                          'HQ',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue[800]),
                                         ),
                                       ),
-                                      const Gap(12),
-                                      Column(
+                              ),
+                              DataCell(
+                                v.isSponsored
+                                    ? Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Text(v.businessName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          Text(v.ownerName, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.purple[50],
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.purple[300]!),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.star, size: 12, color: Colors.purple[700]),
+                                                const Gap(4),
+                                                Text(
+                                                  'BOOSTED',
+                                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple[900]),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (daysUntilBoostExpires != null) ...[
+                                            const Gap(2),
+                                            if (daysUntilBoostExpires < 0)
+                                              Text('Boost Expired', style: TextStyle(fontSize: 10, color: Colors.red[700], fontWeight: FontWeight.bold))
+                                            else if (daysUntilBoostExpires <= 7)
+                                              Text('Expires in ${daysUntilBoostExpires}d', style: TextStyle(fontSize: 10, color: Colors.amber[900], fontWeight: FontWeight.bold))
+                                            else
+                                              Text('Expires ${DateFormat('dd MMM').format(v.boostExpiresAt!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                          ],
                                         ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                      )
+                                    : const Text('Organic', style: TextStyle(fontSize: 12, color: Colors.grey)),
                               ),
-                              DataCell(Text(v.city)),
-                              DataCell(Text('$carsCount')),
-                              DataCell(Text('$bookingsCount')),
-                              DataCell(StatusBadge(status: v.verificationStatus)),
+                              DataCell(Text('${v.totalTrips}')),
+                              DataCell(StatusBadge(status: v.verificationStatus.toLowerCase())),
                               DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (v.verificationStatus == 'pending' || v.verificationStatus == 'suspended')
-                                      IconButton(
-                                        icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                                        onPressed: () {
-                                          _showConfirmDialog(
-                                            context: context,
-                                            title: 'Verify Vendor',
-                                            content: 'Approve "${v.businessName}" as a verified platform partner?',
-                                            onConfirm: () async {
-                                              await ref
-                                                  .read(adminVendorControllerProvider.notifier)
-                                                  .setVendorStatus(v.id, 'verified');
-                                              setState(() {
-                                                _selectedPendingIds.remove(v.id);
-                                              });
-                                            },
-                                          );
-                                        },
-                                        tooltip: 'Approve',
-                                      ),
-                                    if (v.verificationStatus == 'verified')
-                                      IconButton(
-                                        icon: const Icon(Icons.block_flipped, color: Colors.orange),
-                                        onPressed: () {
-                                          _showConfirmDialog(
-                                            context: context,
-                                            title: 'Suspend Vendor',
-                                            content: 'Suspend "${v.businessName}"? Their listings will be temporarily disabled.',
-                                            onConfirm: () async {
-                                              await ref
-                                                  .read(adminVendorControllerProvider.notifier)
-                                                  .setVendorStatus(v.id, 'suspended');
-                                              setState(() {
-                                                _selectedPendingIds.remove(v.id);
-                                              });
-                                            },
-                                          );
-                                        },
-                                        tooltip: 'Suspend',
-                                      ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                      onPressed: () {
-                                        _showConfirmDialog(
-                                          context: context,
-                                          title: 'Remove Vendor',
-                                          content: 'Permanently remove "${v.businessName}"? This action is irreversible.',
-                                          onConfirm: () async {
-                                            await ref
-                                                .read(adminVendorControllerProvider.notifier)
-                                                .setVendorStatus(v.id, 'removed');
-                                            setState(() {
-                                              _selectedPendingIds.remove(v.id);
-                                            });
-                                          },
-                                        );
-                                      },
-                                      tooltip: 'Remove',
-                                    ),
-                                  ],
+                                OutlinedButton.icon(
+                                  onPressed: () => _showDetailPanel(context, v.id),
+                                  icon: const Icon(Icons.visibility_outlined, size: 14),
+                                  label: const Text('View / Manage', style: TextStyle(fontSize: 12)),
                                 ),
                               ),
                             ],
@@ -367,7 +440,7 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
 }
 
 // ─── Right Side Detail Panel Widget ───
-class _VendorDetailPanel extends ConsumerWidget {
+class _VendorDetailPanel extends ConsumerStatefulWidget {
   final String vendorId;
   final VoidCallback onStatusChanged;
 
@@ -375,6 +448,16 @@ class _VendorDetailPanel extends ConsumerWidget {
     required this.vendorId,
     required this.onStatusChanged,
   });
+
+  @override
+  ConsumerState<_VendorDetailPanel> createState() => _VendorDetailPanelState();
+}
+
+class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
+  bool _isSponsoredLocal = false;
+  DateTime? _boostExpiresAtLocal;
+  bool _initialized = false;
+  bool _isUpdatingSponsorship = false;
 
   void _showConfirm(BuildContext context, String action, VoidCallback onConfirm) {
     showDialog(
@@ -396,10 +479,47 @@ class _VendorDetailPanel extends ConsumerWidget {
     );
   }
 
+  Future<void> _pickBoostDate(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _boostExpiresAtLocal ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _boostExpiresAtLocal = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      });
+    }
+  }
+
+  Future<void> _saveSponsorship() async {
+    setState(() => _isUpdatingSponsorship = true);
+    try {
+      await ref
+          .read(adminVendorControllerProvider.notifier)
+          .updateSponsorship(widget.vendorId, _isSponsoredLocal, _boostExpiresAtLocal);
+
+      if (mounted) {
+        setState(() => _isUpdatingSponsorship = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sponsorship boost updated successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUpdatingSponsorship = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update sponsorship: $e')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailAsync = ref.watch(vendorDetailBundleProvider(vendorId));
-    final controllerState = ref.watch(adminVendorControllerProvider);
+  Widget build(BuildContext context) {
+    final detailAsync = ref.watch(vendorDetailBundleProvider(widget.vendorId));
 
     return Scaffold(
       appBar: AppBar(
@@ -415,7 +535,13 @@ class _VendorDetailPanel extends ConsumerWidget {
         data: (bundle) {
           final v = bundle.vendor;
 
-          // Lookup car models details in mock data
+          if (!_initialized) {
+            _isSponsoredLocal = v.isSponsored;
+            _boostExpiresAtLocal = v.boostExpiresAt ?? DateTime.now().add(const Duration(days: 30));
+            _initialized = true;
+          }
+
+          final isBranch = v.branchOfId != null && v.branchOfId!.isNotEmpty;
           final carsList = MockData.cars.where((c) => c.vendorId == v.id).toList();
 
           return Column(
@@ -446,55 +572,152 @@ class _VendorDetailPanel extends ConsumerWidget {
                                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                                   ),
                                 ),
-                                StatusBadge(status: v.verificationStatus),
+                                StatusBadge(status: v.verificationStatus.toLowerCase()),
                               ],
                             ),
                             const Gap(8),
-                            Text('Owner: ${v.ownerName}', style: const TextStyle(fontWeight: FontWeight.w500)),
-                            const Gap(4),
-                            Text('City: ${v.city} • Phone: ${v.phone}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                            const Gap(8),
+                            if (isBranch) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[50],
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.orange[300]!),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.store_mall_directory_outlined, size: 14, color: Colors.orange[800]),
+                                    const Gap(6),
+                                    Text(
+                                      'Location Branch of ${v.parentBusinessName ?? 'Parent HQ'}',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Gap(8),
+                            ],
+                            Text('Owner: ${v.ownerName} • Phone: ${v.phone}', style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                            if (v.email != null) Text('Email: ${v.email}', style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      const Gap(20),
+
+                      // Sponsorship Controls Card
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.purple[50]!.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.purple[200]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                StarRating(rating: v.rating, size: 16),
-                                const Gap(6),
-                                Text(
-                                  '(${v.rating.toStringAsFixed(1)}) • ${v.totalTrips} Trips Completed',
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                Row(
+                                  children: [
+                                    Icon(Icons.star, color: Colors.purple[700], size: 20),
+                                    const Gap(8),
+                                    const Text(
+                                      'Sponsored Listing Controls',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                  ],
+                                ),
+                                Switch(
+                                  value: _isSponsoredLocal,
+                                  activeColor: Colors.purple[700],
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _isSponsoredLocal = val;
+                                    });
+                                  },
                                 ),
                               ],
+                            ),
+                            const Gap(6),
+                            Text(
+                              'Sponsored partners receive priority ranking boost in customer search results.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                            ),
+                            if (_isSponsoredLocal) ...[
+                              const Gap(14),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Boost Expiry Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      const Gap(2),
+                                      Text(
+                                        _boostExpiresAtLocal != null
+                                            ? DateFormat('dd MMM yyyy, hh:mm a').format(_boostExpiresAtLocal!)
+                                            : 'No expiration date',
+                                        style: TextStyle(fontSize: 13, color: Colors.purple[900], fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () => _pickBoostDate(context),
+                                    icon: const Icon(Icons.calendar_today, size: 14),
+                                    label: const Text('Pick Expiry Date', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const Gap(16),
+                            ElevatedButton.icon(
+                              onPressed: _isUpdatingSponsorship ? null : _saveSponsorship,
+                              icon: const Icon(Icons.save, size: 16),
+                              label: Text(_isUpdatingSponsorship ? 'Saving...' : 'Update Sponsorship Boost'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple[700],
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 40),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Gap(24),
+                      const Gap(20),
 
-                      // Business & Bank details
-                      const SectionHeader(title: 'Legal & Bank Information'),
+                      // Business & Location Info
+                      const SectionHeader(title: 'Business & Location Profile'),
                       const Gap(12),
-                      _DetailRow(label: 'GST Number', value: (v.gstNumber != null && v.gstNumber!.isNotEmpty) ? v.gstNumber! : 'N/A'),
-                      _DetailRow(label: 'Bank Account', value: (v.bankDetails != null && v.bankDetails!.isNotEmpty) ? v.bankDetails! : 'N/A'),
-                      const Gap(24),
-
-                      // Documents checklist (Placeholders)
-                      const SectionHeader(title: 'Verification Documents'),
-                      const Gap(12),
-                      const _DocumentItem(name: 'Certificate of Incorporation / Business License'),
-                      const _DocumentItem(name: 'Owner PAN & Aadhaar Cards'),
-                      const _DocumentItem(name: 'Cancelled Bank Cheque / Passbook'),
-                      const Gap(24),
-
-                      // Fleet List Summary
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const SectionHeader(title: 'Vehicles Fleet'),
-                          Text(
-                            '${bundle.carCount} Listed',
-                            style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12),
+                      AppCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _InfoRow(label: 'City', value: v.city),
+                              const Divider(height: 20),
+                              _InfoRow(label: 'Locality', value: v.locality ?? 'Main Locality'),
+                              const Divider(height: 20),
+                              _InfoRow(
+                                label: 'GPS Coordinates',
+                                value: (v.latitude != null && v.longitude != null)
+                                    ? '${v.latitude!.toStringAsFixed(4)}, ${v.longitude!.toStringAsFixed(4)}'
+                                    : 'Not provided',
+                              ),
+                              const Divider(height: 20),
+                              _InfoRow(label: 'GST Number', value: v.gstNumber ?? 'Not provided'),
+                              const Divider(height: 20),
+                              _InfoRow(label: 'PAN Number', value: v.panNumber ?? 'Not provided'),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
+                      const Gap(20),
+
+                      // Vehicles in Fleet
+                      SectionHeader(title: 'Fleet Vehicles (${bundle.carCount})'),
                       const Gap(12),
                       if (carsList.isEmpty)
                         const Text('No cars added to this fleet yet.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
@@ -523,7 +746,7 @@ class _VendorDetailPanel extends ConsumerWidget {
                         ),
                       const Gap(24),
 
-                      // Booking History Table
+                      // Booking History
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -572,7 +795,7 @@ class _VendorDetailPanel extends ConsumerWidget {
                 ),
               ),
 
-              // Action Buttons Bottom Bar
+              // Status Action Bottom Bar
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -581,59 +804,70 @@ class _VendorDetailPanel extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    if (v.verificationStatus == 'pending' || v.verificationStatus == 'suspended')
+                    if (v.verificationStatus.toUpperCase() == 'PENDING') ...[
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: AppButton(
-                            text: 'Approve Partner',
-                            backgroundColor: Colors.green,
-                            onPressed: controllerState.isLoading
-                                ? null
-                                : () => _showConfirm(context, 'Approve', () async {
-                                      await ref
-                                          .read(adminVendorControllerProvider.notifier)
-                                          .setVendorStatus(v.id, 'verified');
-                                      onStatusChanged();
-                                    }),
+                        child: AppButton(
+                          text: isBranch ? 'Approve Branch' : 'Approve Partner',
+                          onPressed: () {
+                            _showConfirm(context, 'VERIFIED', () async {
+                              await ref.read(adminVendorControllerProvider.notifier).setVendorStatus(v.id, 'VERIFIED');
+                              widget.onStatusChanged();
+                              if (context.mounted) Navigator.pop(context);
+                            });
+                          },
+                        ),
+                      ),
+                      const Gap(12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            _showConfirm(context, 'REJECTED', () async {
+                              await ref.read(adminVendorControllerProvider.notifier).setVendorStatus(v.id, 'REJECTED');
+                              widget.onStatusChanged();
+                              if (context.mounted) Navigator.pop(context);
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            minimumSize: const Size(0, 48),
+                          ),
+                          child: Text(isBranch ? 'Reject Branch' : 'Reject Partner'),
+                        ),
+                      ),
+                    ] else if (v.verificationStatus.toUpperCase() == 'VERIFIED') ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            _showConfirm(context, 'SUSPENDED', () async {
+                              await ref.read(adminVendorControllerProvider.notifier).setVendorStatus(v.id, 'SUSPENDED');
+                              widget.onStatusChanged();
+                              if (context.mounted) Navigator.pop(context);
+                            });
+                          },
+                          icon: const Icon(Icons.block, size: 16),
+                          label: const Text('Suspend Account'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            minimumSize: const Size(0, 48),
                           ),
                         ),
                       ),
-                    if (v.verificationStatus == 'verified')
+                    ] else ...[
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: AppButton(
-                            text: 'Suspend',
-                            backgroundColor: Colors.orange,
-                            onPressed: controllerState.isLoading
-                                ? null
-                                : () => _showConfirm(context, 'Suspend', () async {
-                                      await ref
-                                          .read(adminVendorControllerProvider.notifier)
-                                          .setVendorStatus(v.id, 'suspended');
-                                      onStatusChanged();
-                                    }),
-                          ),
+                        child: AppButton(
+                          text: 'Re-Verify Account',
+                          onPressed: () {
+                            _showConfirm(context, 'VERIFIED', () async {
+                              await ref.read(adminVendorControllerProvider.notifier).setVendorStatus(v.id, 'VERIFIED');
+                              widget.onStatusChanged();
+                              if (context.mounted) Navigator.pop(context);
+                            });
+                          },
                         ),
                       ),
-                    Expanded(
-                      child: AppButton(
-                        text: 'Remove',
-                        backgroundColor: Colors.red,
-                        onPressed: controllerState.isLoading
-                            ? null
-                            : () => _showConfirm(context, 'Remove', () async {
-                                  await ref
-                                      .read(adminVendorControllerProvider.notifier)
-                                      .setVendorStatus(v.id, 'removed');
-                                  onStatusChanged();
-                                  if (context.mounted) {
-                                    Navigator.pop(context);
-                                  }
-                                }),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -645,65 +879,24 @@ class _VendorDetailPanel extends ConsumerWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
+class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  const _DetailRow({required this.label, required this.value});
+
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentItem extends StatelessWidget {
-  final String name;
-  const _DocumentItem({required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                const Icon(Icons.description_outlined, color: Colors.grey, size: 20),
-                const Gap(10),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () {}, // No-op View button
-            child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+        ),
+      ],
     );
   }
 }

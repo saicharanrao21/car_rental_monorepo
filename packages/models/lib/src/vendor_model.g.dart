@@ -27,6 +27,11 @@ _$VendorModelImpl _$$VendorModelImplFromJson(Map<String, dynamic> json) =>
       longitude: (json['longitude'] as num?)?.toDouble(),
       subscriptionTier: json['subscriptionTier'] as String? ?? 'BASIC',
       isSponsored: json['isSponsored'] as bool? ?? false,
+      branchOfId: json['branchOfId'] as String?,
+      parentBusinessName: json['parentBusinessName'] as String?,
+      boostExpiresAt: json['boostExpiresAt'] == null
+          ? null
+          : DateTime.parse(json['boostExpiresAt'] as String),
     );
 
 Map<String, dynamic> _$$VendorModelImplToJson(_$VendorModelImpl instance) =>
@@ -50,4 +55,7 @@ Map<String, dynamic> _$$VendorModelImplToJson(_$VendorModelImpl instance) =>
       'longitude': instance.longitude,
       'subscriptionTier': instance.subscriptionTier,
       'isSponsored': instance.isSponsored,
+      'branchOfId': instance.branchOfId,
+      'parentBusinessName': instance.parentBusinessName,
+      'boostExpiresAt': instance.boostExpiresAt?.toIso8601String(),
     };

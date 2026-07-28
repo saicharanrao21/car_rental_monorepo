@@ -26,6 +26,12 @@ class ApiAdminVendorRepository implements AdminVendorRepository {
     if (copy['verificationStatus'] != null) {
       copy['verificationStatus'] = copy['verificationStatus'].toString().toUpperCase();
     }
+    if (copy['parentVendor'] != null && copy['parentVendor'] is Map) {
+      copy['parentBusinessName'] = copy['parentVendor']['businessName'];
+    }
+    if (copy['boostExpiresAt'] != null && copy['boostExpiresAt'] is String) {
+      copy['boostExpiresAt'] = copy['boostExpiresAt'];
+    }
     return copy;
   }
 
@@ -98,6 +104,14 @@ class ApiAdminVendorRepository implements AdminVendorRepository {
   Future<void> setVendorStatus(String id, String status) async {
     await apiClient.dio.patch('/vendors/$id/status', data: {
       'status': status.toUpperCase(),
+    });
+  }
+
+  @override
+  Future<void> updateSponsorship(String vendorId, bool isSponsored, DateTime? boostExpiresAt) async {
+    await apiClient.dio.patch('/admin/vendors/$vendorId/sponsorship', data: {
+      'isSponsored': isSponsored,
+      'boostExpiresAt': boostExpiresAt?.toIso8601String(),
     });
   }
 }

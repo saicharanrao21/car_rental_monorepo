@@ -25,6 +25,9 @@ class VendorModel with _$VendorModel {
     double? longitude,
     @Default('BASIC') String? subscriptionTier,
     @Default(false) bool isSponsored,
+    String? branchOfId,
+    String? parentBusinessName,
+    DateTime? boostExpiresAt,
   }) = _VendorModel;
 
   factory VendorModel.fromJson(Map<String, dynamic> json) => _$VendorModelFromJson(json);
