@@ -304,7 +304,7 @@ export class VendorsService {
     });
   }
 
-  async addDocument(userId: string, type: any, fileUrl: string, carId?: string) {
+  async addDocument(userId: string, type: any, fileUrl: string, carId?: string, expiresAt?: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
@@ -329,6 +329,7 @@ export class VendorsService {
         carId: carId || null,
         type,
         fileUrl,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
         status: 'PENDING',
       },
     });

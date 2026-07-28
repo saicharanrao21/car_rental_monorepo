@@ -156,7 +156,7 @@ export class VendorsController {
   @Post('me/documents')
   @HttpCode(HttpStatus.CREATED)
   async addDocument(@Req() req: any, @Body() dto: CreateDocumentDto) {
-    return this.vendorsService.addDocument(req.user.userId, dto.type, dto.fileUrl, dto.carId);
+    return this.vendorsService.addDocument(req.user.userId, dto.type, dto.fileUrl, dto.carId, dto.expiresAt);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
