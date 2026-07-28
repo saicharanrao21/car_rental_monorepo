@@ -37,7 +37,7 @@ class SessionNotifier extends Notifier<AuthState> {
       }
       final user = UserModel.fromJson(userJson);
       state = AuthState.authenticated(user);
-      updateFcmTokenPlaceholder();
+      registerFcmToken();
     } catch (e) {
       await tokenStorage.clearTokens();
       state = AuthState.unauthenticated();
@@ -46,7 +46,7 @@ class SessionNotifier extends Notifier<AuthState> {
 
   void authenticate(UserModel user) {
     state = AuthState.authenticated(user);
-    updateFcmTokenPlaceholder();
+    registerFcmToken();
   }
 
   Future<void> updateProfile({required String name, required String email}) async {
@@ -68,7 +68,7 @@ class SessionNotifier extends Notifier<AuthState> {
 
 
 
-  Future<void> updateFcmTokenPlaceholder() async {
+  Future<void> registerFcmToken() async {
     try {
       String? fcmToken;
       try {
@@ -81,14 +81,15 @@ class SessionNotifier extends Notifier<AuthState> {
         if (settings.authorizationStatus == AuthorizationStatus.authorized ||
             settings.authorizationStatus == AuthorizationStatus.provisional) {
           fcmToken = await messaging.getToken();
+          print('REAL_FCM_TOKEN_FROM_SDK: $fcmToken');
         }
-      } catch (e) {
-        // Log native FCM plugin error if any
+      } catch (e, st) {
+        print('FCM_GET_TOKEN_ERROR: $e');
+        return;
       }
 
-      if (fcmToken == null || fcmToken.isEmpty) {
-        fcmToken = 'fcm_token_device_${DateTime.now().millisecondsSinceEpoch}';
-      }
+      // If the SDK did not return a token, do not store anything.
+      if (fcmToken == null || fcmToken.isEmpty) return;
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.patch(
@@ -96,6 +97,7 @@ class SessionNotifier extends Notifier<AuthState> {
         data: {'token': fcmToken},
       );
 
+      // Keep the stored token fresh on rotation.
       try {
         FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
           if (newToken.isNotEmpty) {
@@ -107,7 +109,7 @@ class SessionNotifier extends Notifier<AuthState> {
         });
       } catch (_) {}
     } catch (_) {
-      // Fail silently, don't interrupt main authentication flow
+      // Fail silently — never interrupt the main authentication flow
     }
   }
 

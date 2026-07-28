@@ -4,8 +4,18 @@ import 'package:core/core.dart';
 import 'core/router/app_router.dart';
 import 'core/providers/theme_provider.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    final token = await FirebaseMessaging.instance.getToken();
+    print('RAW_SDK_FCM_TOKEN: $token');
+  } catch (e) {
+    debugPrint('Firebase init/token error: $e');
+  }
   runApp(const ProviderScope(child: CustomerApp()));
 }
 
