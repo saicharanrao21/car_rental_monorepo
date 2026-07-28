@@ -139,12 +139,31 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
           if (draft.tripType != 'Local')
             _infoTile(Icons.flag_outlined, 'Drop',
                 draft.dropLocation.isEmpty ? 'Not specified' : draft.dropLocation),
-          _infoTile(
-            Icons.calendar_today_outlined,
-            'Dates',
-            draft.startDate != null && draft.endDate != null
-                ? '${draft.startDate!.toDDMMYYYY()} → ${draft.endDate!.toDDMMYYYY()}'
-                : 'Flexible',
+          InkWell(
+            onTap: () async {
+              final now = DateTime.now();
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: now,
+                lastDate: now.add(const Duration(days: 90)),
+                initialDateRange: draft.startDate != null && draft.endDate != null
+                    ? DateTimeRange(start: draft.startDate!, end: draft.endDate!)
+                    : DateTimeRange(start: now, end: now.add(const Duration(days: 10))),
+              );
+              if (picked != null) {
+                ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                  startDate: picked.start,
+                  endDate: picked.end,
+                ));
+              }
+            },
+            child: _infoTile(
+              Icons.calendar_today_outlined,
+              'Dates',
+              draft.startDate != null && draft.endDate != null
+                  ? '${draft.startDate!.toDDMMYYYY()} → ${draft.endDate!.toDDMMYYYY()} (Tap to change)'
+                  : 'Flexible (Tap to select)',
+            ),
           ),
           _infoTile(Icons.nights_stay_outlined, 'Duration',
               '${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}'),

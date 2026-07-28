@@ -49,3 +49,12 @@ class CarModel with _$CarModel {
     return _$CarModelFromJson(json);
   }
 }
+
+extension CarModelDiscountX on CarModel {
+  double? get weeklyDiscountPercent => (vendor != null && vendor!['weeklyDiscountPercent'] != null)
+      ? (vendor!['weeklyDiscountPercent'] as num).toDouble()
+      : 10.0;
+  double? get monthlyDiscountPercent => (vendor != null && vendor!['monthlyDiscountPercent'] != null)
+      ? (vendor!['monthlyDiscountPercent'] as num).toDouble()
+      : 20.0;
+}

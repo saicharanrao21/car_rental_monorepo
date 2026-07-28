@@ -5,6 +5,7 @@ import 'core/router/app_router.dart';
 import 'core/providers/theme_provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: CustomerApp()));
 }
 

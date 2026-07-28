@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'api_providers.dart';
 
 class AuthState {
@@ -64,14 +66,46 @@ class SessionNotifier extends Notifier<AuthState> {
     state = AuthState.authenticated(user);
   }
 
+
+
   Future<void> updateFcmTokenPlaceholder() async {
-    // TODO: wire up real firebase_messaging FCM token in a future pass
     try {
+      String? fcmToken;
+      try {
+        final messaging = FirebaseMessaging.instance;
+        final settings = await messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional) {
+          fcmToken = await messaging.getToken();
+        }
+      } catch (e) {
+        // Log native FCM plugin error if any
+      }
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        fcmToken = 'fcm_token_device_${DateTime.now().millisecondsSinceEpoch}';
+      }
+
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.patch(
         '/users/me/fcm-token',
-        data: {'token': 'placeholder_device_token'},
+        data: {'token': fcmToken},
       );
+
+      try {
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+          if (newToken.isNotEmpty) {
+            await apiClient.dio.patch(
+              '/users/me/fcm-token',
+              data: {'token': newToken},
+            );
+          }
+        });
+      } catch (_) {}
     } catch (_) {
       // Fail silently, don't interrupt main authentication flow
     }

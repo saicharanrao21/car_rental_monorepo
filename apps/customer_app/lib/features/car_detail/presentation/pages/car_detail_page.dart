@@ -150,6 +150,41 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                               ),
                             ],
                           ),
+                          if (vendor.isSponsored) ...[
+                            const Gap(10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.amber[50],
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.amber[300]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.star, size: 14, color: Colors.amber),
+                                  const Gap(6),
+                                  Text(
+                                    'Sponsored Listing',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber[900],
+                                    ),
+                                  ),
+                                  const Gap(6),
+                                  Expanded(
+                                    child: Text(
+                                      '• This listing is promoted by the partner',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.amber[900]?.withValues(alpha: 0.85),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const Gap(20),
                           Row(
                             children: [

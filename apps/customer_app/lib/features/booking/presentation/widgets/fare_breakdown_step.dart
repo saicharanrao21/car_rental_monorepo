@@ -26,6 +26,22 @@ class FareBreakdownStep extends ConsumerWidget {
     final draft = ref.watch(bookingDraftProvider);
     final repo = ref.watch(bookingRepositoryProvider);
 
+    final rentalDays = draft.rentalDays;
+    double discountPercent = 0.0;
+    String discountLabel = '';
+
+    if (rentalDays >= 30 && car.monthlyDiscountPercent != null && car.monthlyDiscountPercent! > 0) {
+      discountPercent = car.monthlyDiscountPercent!;
+      discountLabel = 'Monthly discount applied (${discountPercent.toInt()}%)';
+    } else if (rentalDays >= 7 && car.weeklyDiscountPercent != null && car.weeklyDiscountPercent! > 0) {
+      discountPercent = car.weeklyDiscountPercent!;
+      discountLabel = 'Weekly discount applied (${discountPercent.toInt()}%)';
+    }
+
+    final originalRentalFare = car.pricePerDay * rentalDays;
+    final discountAmount = originalRentalFare * (discountPercent / 100.0);
+    final actualBasePackagePrice = originalRentalFare - discountAmount;
+
     // Compute fare on every relevant change
     final config = repo.getCommissionConfig(
       city: vendor.city,
@@ -34,7 +50,7 @@ class FareBreakdownStep extends ConsumerWidget {
     );
     final result = FareCalculatorService.calculateFare(
       distanceKm: draft.estimatedDistanceKm.toDouble(),
-      basePackagePrice: car.pricePerDay * draft.rentalDays,
+      basePackagePrice: actualBasePackagePrice,
       pricePerKm: car.pricePerKm,
       commissionPercent: config.percentage,
     );
@@ -53,7 +69,46 @@ class FareBreakdownStep extends ConsumerWidget {
             child: Column(
               children: [
                 _row('Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
-                    car.pricePerDay * draft.rentalDays),
+                    originalRentalFare),
+                if (discountPercent > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.local_offer, size: 12, color: Colors.green[700]),
+                              const Gap(4),
+                              Text(
+                                discountLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '-${IndianCurrencyFormatter.format(discountAmount, showDecimals: false)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 _row('Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
                     car.pricePerKm * draft.estimatedDistanceKm),
                 const Divider(height: 24),
