@@ -11,6 +11,7 @@ import '../../features/registration/presentation/pages/registration_stepper_page
 import '../../features/registration/presentation/pages/pending_approval_page.dart';
 
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/dashboard/presentation/pages/vendor_analytics_page.dart';
 import '../../features/fleet/presentation/pages/fleet_list_page.dart';
 import '../../features/fleet/presentation/pages/fleet_car_detail_page.dart';
 import '../../features/fleet/presentation/pages/add_edit_car_page.dart';
@@ -19,6 +20,9 @@ import '../../features/bookings/presentation/pages/vendor_bookings_page.dart';
 import '../../features/bookings/presentation/pages/vendor_booking_detail_page.dart';
 import '../../features/earnings/presentation/pages/earnings_page.dart';
 import '../../features/profile/presentation/pages/vendor_profile_page.dart';
+import '../../features/profile/presentation/pages/vendor_branches_page.dart';
+import '../../features/profile/presentation/pages/add_branch_page.dart';
+import '../../features/profile/presentation/pages/branch_detail_page.dart';
 import '../widgets/vendor_app_shell.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_vendor');
@@ -162,6 +166,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return VendorBookingDetailPage(bookingId: id);
+        },
+      ),
+      GoRoute(
+        path: '/analytics',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const VendorAnalyticsPage(),
+      ),
+      GoRoute(
+        path: '/branches',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const VendorBranchesPage(),
+      ),
+      GoRoute(
+        path: '/branches/add',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AddBranchPage(),
+      ),
+      GoRoute(
+        path: '/branches/:branchId',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final branchId = state.pathParameters['branchId'] ?? '';
+          return BranchDetailPage(branchId: branchId);
         },
       ),
     ],

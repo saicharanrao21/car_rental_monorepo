@@ -23,6 +23,7 @@ class VendorModel with _$VendorModel {
     String? locality,
     double? latitude,
     double? longitude,
+    @Default('BASIC') String? subscriptionTier,
     @Default(false) bool isSponsored,
   }) = _VendorModel;
 

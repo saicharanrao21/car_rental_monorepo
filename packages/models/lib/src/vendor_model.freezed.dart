@@ -38,6 +38,7 @@ mixin _$VendorModel {
   String? get locality => throw _privateConstructorUsedError;
   double? get latitude => throw _privateConstructorUsedError;
   double? get longitude => throw _privateConstructorUsedError;
+  String? get subscriptionTier => throw _privateConstructorUsedError;
   bool get isSponsored => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -70,6 +71,7 @@ abstract class $VendorModelCopyWith<$Res> {
       String? locality,
       double? latitude,
       double? longitude,
+      String? subscriptionTier,
       bool isSponsored});
 }
 
@@ -103,6 +105,7 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
     Object? locality = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
+    Object? subscriptionTier = freezed,
     Object? isSponsored = null,
   }) {
     return _then(_value.copyWith(
@@ -174,6 +177,10 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
           ? _value.longitude
           : longitude // ignore: cast_nullable_to_non_nullable
               as double?,
+      subscriptionTier: freezed == subscriptionTier
+          ? _value.subscriptionTier
+          : subscriptionTier // ignore: cast_nullable_to_non_nullable
+              as String?,
       isSponsored: null == isSponsored
           ? _value.isSponsored
           : isSponsored // ignore: cast_nullable_to_non_nullable
@@ -208,6 +215,7 @@ abstract class _$$VendorModelImplCopyWith<$Res>
       String? locality,
       double? latitude,
       double? longitude,
+      String? subscriptionTier,
       bool isSponsored});
 }
 
@@ -239,6 +247,7 @@ class __$$VendorModelImplCopyWithImpl<$Res>
     Object? locality = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
+    Object? subscriptionTier = freezed,
     Object? isSponsored = null,
   }) {
     return _then(_$VendorModelImpl(
@@ -310,6 +319,10 @@ class __$$VendorModelImplCopyWithImpl<$Res>
           ? _value.longitude
           : longitude // ignore: cast_nullable_to_non_nullable
               as double?,
+      subscriptionTier: freezed == subscriptionTier
+          ? _value.subscriptionTier
+          : subscriptionTier // ignore: cast_nullable_to_non_nullable
+              as String?,
       isSponsored: null == isSponsored
           ? _value.isSponsored
           : isSponsored // ignore: cast_nullable_to_non_nullable
@@ -339,6 +352,7 @@ class _$VendorModelImpl implements _VendorModel {
       this.locality,
       this.latitude,
       this.longitude,
+      this.subscriptionTier = 'BASIC',
       this.isSponsored = false});
 
   factory _$VendorModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -384,11 +398,14 @@ class _$VendorModelImpl implements _VendorModel {
   final double? longitude;
   @override
   @JsonKey()
+  final String? subscriptionTier;
+  @override
+  @JsonKey()
   final bool isSponsored;
 
   @override
   String toString() {
-    return 'VendorModel(id: $id, businessName: $businessName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, displayName: $displayName, locality: $locality, latitude: $latitude, longitude: $longitude, isSponsored: $isSponsored)';
+    return 'VendorModel(id: $id, businessName: $businessName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, displayName: $displayName, locality: $locality, latitude: $latitude, longitude: $longitude, subscriptionTier: $subscriptionTier, isSponsored: $isSponsored)';
   }
 
   @override
@@ -425,32 +442,36 @@ class _$VendorModelImpl implements _VendorModel {
                 other.latitude == latitude) &&
             (identical(other.longitude, longitude) ||
                 other.longitude == longitude) &&
+            (identical(other.subscriptionTier, subscriptionTier) ||
+                other.subscriptionTier == subscriptionTier) &&
             (identical(other.isSponsored, isSponsored) ||
                 other.isSponsored == isSponsored));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      businessName,
-      ownerName,
-      city,
-      phone,
-      email,
-      businessType,
-      gstNumber,
-      panNumber,
-      bankDetails,
-      verificationStatus,
-      rating,
-      totalTrips,
-      displayName,
-      locality,
-      latitude,
-      longitude,
-      isSponsored);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        businessName,
+        ownerName,
+        city,
+        phone,
+        email,
+        businessType,
+        gstNumber,
+        panNumber,
+        bankDetails,
+        verificationStatus,
+        rating,
+        totalTrips,
+        displayName,
+        locality,
+        latitude,
+        longitude,
+        subscriptionTier,
+        isSponsored
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -485,6 +506,7 @@ abstract class _VendorModel implements VendorModel {
       final String? locality,
       final double? latitude,
       final double? longitude,
+      final String? subscriptionTier,
       final bool isSponsored}) = _$VendorModelImpl;
 
   factory _VendorModel.fromJson(Map<String, dynamic> json) =
@@ -524,6 +546,8 @@ abstract class _VendorModel implements VendorModel {
   double? get latitude;
   @override
   double? get longitude;
+  @override
+  String? get subscriptionTier;
   @override
   bool get isSponsored;
   @override

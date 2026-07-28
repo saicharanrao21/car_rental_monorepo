@@ -369,8 +369,38 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                       ),
                       const Gap(10),
                       Text(vendor.businessName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const Gap(4),
-                      StatusBadge(status: vendor.verificationStatus),
+                      const Gap(6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          StatusBadge(status: vendor.verificationStatus),
+                          const Gap(8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.purple[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.purple[300]!),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.workspace_premium, size: 14, color: Colors.purple[700]),
+                                const Gap(4),
+                                Text(
+                                  '${vendor.subscriptionTier ?? 'BASIC'} TIER',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple[800],
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -512,6 +542,148 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                   ),
                   const Gap(20),
                 ],
+
+                // Subscription & Partner Tier
+                const SectionHeader(title: 'Partner Tier & Benefits'),
+                const Gap(12),
+                AppCard(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.star, color: Colors.amber, size: 20),
+                                const Gap(8),
+                                Text(
+                                  'Current Plan: ${vendor.subscriptionTier ?? 'BASIC'}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (vendor.subscriptionTier == 'PRO' ? Colors.green : Colors.purple).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                vendor.subscriptionTier == 'PRO' ? 'ACTIVE' : 'BASIC PLAN',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: vendor.subscriptionTier == 'PRO' ? Colors.green[800] : Colors.purple[800],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Gap(12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.purple[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.purple[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PRO Tier Advantages:',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.purple[900]),
+                              ),
+                              const Gap(4),
+                              Text(
+                                '• Priority placement in search results for all your vehicles\n• Boosted fleet visibility and dedicated partner support\n• Reduced platform commission fees on outstation trips',
+                                style: TextStyle(fontSize: 12, color: Colors.purple[900]!.withOpacity(0.9), height: 1.4),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(16),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Upgrade to PRO Tier'),
+                                content: const Text(
+                                  'To upgrade your account to PRO Partner Tier, please reach out to our partner support team at support@drivego.in or call your account manager.',
+                                ),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Support request sent. Our team will contact you shortly!')),
+                                      );
+                                    },
+                                    child: const Text('Contact Support'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.arrow_upward, size: 16),
+                          label: const Text('Contact Support to Upgrade'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.purple[800],
+                            side: BorderSide(color: Colors.purple[300]!),
+                            minimumSize: const Size(double.infinity, 44),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(20),
+
+                // Multi-Branch Management Entry Tile
+                const SectionHeader(title: 'Multi-Branch Management'),
+                const Gap(12),
+                AppCard(
+                  onTap: () => context.push('/branches'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.store_mall_directory_outlined, color: AppColors.primary),
+                        ),
+                        const Gap(16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'My Branches',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              Gap(2),
+                              Text(
+                                'Manage location branches across multiple cities & areas',
+                                style: TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(20),
 
                 // Bank Details
                 const SectionHeader(title: 'Bank Details'),

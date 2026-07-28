@@ -25,6 +25,7 @@ _$VendorModelImpl _$$VendorModelImplFromJson(Map<String, dynamic> json) =>
       locality: json['locality'] as String?,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      subscriptionTier: json['subscriptionTier'] as String? ?? 'BASIC',
       isSponsored: json['isSponsored'] as bool? ?? false,
     );
 
@@ -47,5 +48,6 @@ Map<String, dynamic> _$$VendorModelImplToJson(_$VendorModelImpl instance) =>
       'locality': instance.locality,
       'latitude': instance.latitude,
       'longitude': instance.longitude,
+      'subscriptionTier': instance.subscriptionTier,
       'isSponsored': instance.isSponsored,
     };

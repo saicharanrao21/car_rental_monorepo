@@ -331,7 +331,7 @@ export class VendorsService {
     const confirmedBookings = await this.prisma.booking.count({
       where: {
         carId: { in: carIds },
-        status: { in: ['CONFIRMED', 'COMPLETED', 'ACTIVE'] as any },
+        status: { in: ['CONFIRMED', 'ONGOING', 'COMPLETED'] as any },
       },
     });
 
