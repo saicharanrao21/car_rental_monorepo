@@ -304,6 +304,71 @@ export class VendorsService {
     });
   }
 
+  async getVendorAnalytics(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const cars = await this.prisma.car.findMany({
+      where: { vendorId: vendor.id },
+      select: { id: true, make: true, model: true },
+    });
+
+    const carIds = cars.map((c) => c.id);
+
+    const totalViews = await this.prisma.recentlyViewed.count({
+      where: { carId: { in: carIds } },
+    });
+
+    const wishlistCount = await this.prisma.wishlist.count({
+      where: { carId: { in: carIds } },
+    });
+
+    const confirmedBookings = await this.prisma.booking.count({
+      where: {
+        carId: { in: carIds },
+        status: { in: ['CONFIRMED', 'COMPLETED', 'ACTIVE'] as any },
+      },
+    });
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const viewsRaw = await this.prisma.recentlyViewed.groupBy({
+      by: ['carId'],
+      where: {
+        carId: { in: carIds },
+        viewedAt: { gte: thirtyDaysAgo },
+      },
+      _count: { carId: true },
+      orderBy: { _count: { carId: 'desc' } },
+      take: 5,
+    });
+
+    const carMap = new Map(cars.map((c) => [c.id, `${c.make} ${c.model}`]));
+
+    const viewsByCarLast30Days = viewsRaw.map((item) => ({
+      carId: item.carId,
+      carName: carMap.get(item.carId) || 'Car',
+      views: item._count.carId,
+    }));
+
+    const conversionRate = totalViews > 0
+      ? Number(((confirmedBookings / totalViews) * 100).toFixed(1))
+      : 0;
+
+    return {
+      totalViews,
+      wishlistCount,
+      confirmedBookings,
+      conversionRate,
+      viewsByCarLast30Days,
+    };
+  }
+
   async addDocument(userId: string, type: any, fileUrl: string, carId?: string, expiresAt?: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },

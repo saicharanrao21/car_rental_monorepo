@@ -66,6 +66,13 @@ export class VendorsController {
     return this.vendorsService.getMyBranches(req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Get('me/analytics')
+  async getVendorAnalytics(@Req() req: any) {
+    return this.vendorsService.getVendorAnalytics(req.user.userId);
+  }
+
   // --- Vendor own fleet operations (Must be defined before wildcard GET :id routes) ---
 
   @UseGuards(JwtAuthGuard, RolesGuard)
