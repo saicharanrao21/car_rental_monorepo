@@ -47,15 +47,7 @@ export class PaymentsController {
     return this.paymentsService.handleWebhook(rawBody, signature);
   }
 
-  // 3. POST /payments/confirm-test-payment (CUSTOMER)
-  @Post('confirm-test-payment')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CUSTOMER)
-  async confirmTestPayment(@Req() req: any, @Body() dto: { bookingId: string; paymentId?: string }) {
-    return this.paymentsService.markAsPaidTest(dto.bookingId, req.user.userId, dto.paymentId);
-  }
-
-  // 4. GET /payments/:bookingId (CUSTOMER who owns it, or ADMIN)
+  // 3. GET /payments/:bookingId (CUSTOMER who owns it, or ADMIN)
   @Get(':bookingId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER, Role.ADMIN)

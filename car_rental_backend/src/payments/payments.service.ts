@@ -219,50 +219,6 @@ export class PaymentsService {
   }
 
   /**
-   * Directly marks a booking and payment as PAID in test mode.
-   */
-  async markAsPaidTest(bookingId: string, customerId: string, razorpayPaymentId?: string) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
-    if (!booking) throw new NotFoundException('Booking not found');
-    if (booking.customerId !== customerId) throw new ForbiddenException('Access denied');
-
-    const payment = await this.prisma.payment.findFirst({
-      where: { bookingId },
-    });
-
-    const paymentId = razorpayPaymentId || `pay_test_${Math.random().toString(36).substring(2, 15)}`;
-
-    if (payment) {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.PAID,
-          razorpayPaymentId: paymentId,
-        },
-      });
-    } else {
-      await this.prisma.payment.create({
-        data: {
-          bookingId,
-          razorpayOrderId: `order_test_${Math.random().toString(36).substring(2, 15)}`,
-          razorpayPaymentId: paymentId,
-          amount: booking.totalFare,
-          status: PaymentStatus.PAID,
-        },
-      });
-    }
-
-    const updated = await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: BookingStatus.CONFIRMED },
-    });
-
-    return updated;
-  }
-
-  /**
    * Performs refund on PAID payment for a booking.
    */
   async refund(bookingId: string, reason?: string) {
