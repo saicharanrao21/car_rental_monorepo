@@ -31,6 +31,16 @@ class CarModel with _$CarModel {
   }) = _CarModel;
 
   factory CarModel.fromJson(Map<String, dynamic> json) {
+    json['registrationNumber'] ??= '';
+    json['isAvailable'] ??= true;
+    json['rating'] ??= 0.0;
+    json['pricePerKm'] ??= 0.0;
+    json['pricePerDay'] ??= 0.0;
+    json['pricePerHour'] ??= 0.0;
+    json['availableTripTypes'] ??= ['LOCAL', 'OUTSTATION', 'AIRPORT_TRANSFER', 'SELF_DRIVE'];
+    json['blockedDates'] ??= [];
+    json['isSponsored'] ??= false;
+
     if (json['availableTripTypes'] != null) {
       final list = List<dynamic>.from(json['availableTripTypes']);
       json['availableTripTypes'] = list.map((t) {
@@ -43,7 +53,7 @@ class CarModel with _$CarModel {
         }
       }).toList();
     }
-    if (json['vendor'] != null && json['isSponsored'] == null) {
+    if (json['vendor'] != null && (json['isSponsored'] == null || json['isSponsored'] == false)) {
       json['isSponsored'] = json['vendor']['isSponsored'] ?? false;
     }
     return _$CarModelFromJson(json);

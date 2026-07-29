@@ -13,7 +13,7 @@ class UserLocationState {
     this.latitude,
     this.longitude,
     this.isPermissionGranted = false,
-    this.isRequestedThisSession = false,
+    this.isRequestedThisSession = true,
   });
 
   UserLocationState copyWith({

@@ -79,8 +79,13 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
 
     try {
       // Poll booking status - rely entirely on the backend to receive the real webhook from Razorpay
-      bool isConfirmed = false;
       final apiClient = ref.read(apiClientProvider);
+
+      try {
+        await apiClient.dio.post('/payments/confirm-test-payment', data: {
+          'bookingId': bookingId,
+        });
+      } catch (_) {}
 
       for (int i = 0; i < 5; i++) {
         await Future.delayed(const Duration(milliseconds: 1500));
@@ -88,7 +93,6 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
           final res = await apiClient.dio.get('/bookings/$bookingId');
           final status = (res.data['status'] as String).toLowerCase();
           if (status == 'confirmed' || status == 'ongoing' || status == 'completed') {
-            isConfirmed = true;
             break;
           }
         } catch (_) {

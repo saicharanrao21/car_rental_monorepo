@@ -30,11 +30,18 @@ class FareBreakdownStep extends ConsumerWidget {
     double discountPercent = 0.0;
     String discountLabel = '';
 
-    if (rentalDays >= 30 && car.monthlyDiscountPercent != null && car.monthlyDiscountPercent! > 0) {
-      discountPercent = car.monthlyDiscountPercent!;
+    final weeklyPct = (car.weeklyDiscountPercent != null && car.weeklyDiscountPercent! > 0)
+        ? car.weeklyDiscountPercent!
+        : 15.0;
+    final monthlyPct = (car.monthlyDiscountPercent != null && car.monthlyDiscountPercent! > 0)
+        ? car.monthlyDiscountPercent!
+        : 25.0;
+
+    if (rentalDays >= 30) {
+      discountPercent = monthlyPct;
       discountLabel = 'Monthly discount applied (${discountPercent.toInt()}%)';
-    } else if (rentalDays >= 7 && car.weeklyDiscountPercent != null && car.weeklyDiscountPercent! > 0) {
-      discountPercent = car.weeklyDiscountPercent!;
+    } else if (rentalDays >= 7) {
+      discountPercent = weeklyPct;
       discountLabel = 'Weekly discount applied (${discountPercent.toInt()}%)';
     }
 

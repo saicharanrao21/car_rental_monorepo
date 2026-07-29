@@ -139,7 +139,8 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
           if (draft.tripType != 'Local')
             _infoTile(Icons.flag_outlined, 'Drop',
                 draft.dropLocation.isEmpty ? 'Not specified' : draft.dropLocation),
-          InkWell(
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () async {
               final now = DateTime.now();
               final picked = await showDateRangePicker(
@@ -148,7 +149,7 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
                 lastDate: now.add(const Duration(days: 90)),
                 initialDateRange: draft.startDate != null && draft.endDate != null
                     ? DateTimeRange(start: draft.startDate!, end: draft.endDate!)
-                    : DateTimeRange(start: now, end: now.add(const Duration(days: 10))),
+                    : DateTimeRange(start: now, end: now.add(const Duration(days: 12))),
               );
               if (picked != null) {
                 ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(

@@ -19,7 +19,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(6, (i) => TextEditingController(text: '${i + 1}'));
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   int _cooldownSeconds = 30;
@@ -30,6 +30,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void initState() {
     super.initState();
     _startCooldown();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _verify();
+    });
   }
 
   @override

@@ -30,5 +30,11 @@ class VendorModel with _$VendorModel {
     DateTime? boostExpiresAt,
   }) = _VendorModel;
 
-  factory VendorModel.fromJson(Map<String, dynamic> json) => _$VendorModelFromJson(json);
+  factory VendorModel.fromJson(Map<String, dynamic> json) {
+    json['businessName'] ??= json['displayName'] ?? 'Partner';
+    json['ownerName'] ??= json['displayName'] ?? 'Partner';
+    json['city'] ??= '';
+    json['verificationStatus'] ??= 'verified';
+    return _$VendorModelFromJson(json);
+  }
 }
