@@ -55,9 +55,9 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
         title: const Text('My Bookings'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: AppColors.primary,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           tabs: const [
             Tab(text: 'Upcoming'),
             Tab(text: 'Ongoing'),
@@ -87,13 +87,13 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.directions_car_outlined,
                         size: 64,
-                        color: Colors.grey[400],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const Gap(24),
@@ -110,7 +110,7 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const Gap(24),

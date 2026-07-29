@@ -103,7 +103,7 @@ class ProfilePage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           TextButton(
             onPressed: () {
@@ -167,7 +167,7 @@ class ProfilePage extends ConsumerWidget {
                     user.phone,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   if (user.email != null && user.email!.isNotEmpty) ...[
@@ -176,7 +176,7 @@ class ProfilePage extends ConsumerWidget {
                       user.email!,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[500],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -186,9 +186,9 @@ class ProfilePage extends ConsumerWidget {
             const Gap(32),
 
             // Profile Section List
-            const Text(
+            Text(
               'Account',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const Gap(10),
 
@@ -224,9 +224,9 @@ class ProfilePage extends ConsumerWidget {
             ),
 
             const Gap(20),
-            const Text(
+            Text(
               'Support & Info',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const Gap(10),
 
@@ -282,7 +282,7 @@ class ProfilePage extends ConsumerWidget {
         child: ListTile(
           leading: Icon(icon, color: AppColors.primary),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
           onTap: onTap,
         ),
       ),
@@ -336,7 +336,7 @@ class _SavedAddressesSection extends StatelessWidget {
                     children: [
                       Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       const Gap(4),
-                      Text(details, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                      Text(details, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -367,24 +367,24 @@ class _WalletSection extends StatelessWidget {
             color: AppColors.primary,
           ),
           const Gap(24),
-          const Text(
+          Text(
             'Wallet Balance',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const Gap(8),
-          const Text(
+          Text(
             '₹0',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const Gap(32),
           Text(
             'Add money, view transaction history and more features are coming soon.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -429,7 +429,7 @@ class _HelpSupportSection extends StatelessWidget {
               children: [
                 Text(
                   a,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface, height: 1.4),
                 ),
               ],
             ),
@@ -478,7 +478,7 @@ class _AboutSection extends StatelessWidget {
             'Version 1.0.0 (MVP)',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const Gap(24),
@@ -495,7 +495,7 @@ class _AboutSection extends StatelessWidget {
             '© 2026 Antigravity Inc. All rights reserved.',
             style: TextStyle(
               fontSize: 11,
-              color: Colors.grey[400],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const Gap(12),

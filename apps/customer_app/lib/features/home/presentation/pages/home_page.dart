@@ -79,7 +79,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               city,
               style: TextStyle(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? AppColors.primary : Colors.black87,
+                color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
               ),
             ),
             trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
@@ -143,10 +143,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final selectedCity = ref.watch(selectedCityProvider);
     final tripType = ref.watch(selectedTripTypeProvider);
     final dateRange = ref.watch(selectedDateRangeProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final searchQuery = ref.watch(homeSearchQueryProvider);
 
     final bannersVal = ref.watch(bannersProvider);
     final vendorsVal = ref.watch(topVendorsProvider);
@@ -166,24 +167,24 @@ class _HomePageState extends ConsumerState<HomePage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Your City',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                    style: TextStyle(fontSize: 12, color: cs.onPrimary.withValues(alpha: 0.7)),
                   ),
                   Row(
                     children: [
                       Text(
                         selectedCity,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const Gap(4),
-                      const Icon(
+                      Icon(
                         Icons.keyboard_arrow_down,
-                        color: Colors.white,
+                        color: cs.onPrimary,
                         size: 20,
                       ),
                     ],
@@ -206,11 +207,12 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           IconButton(
             icon: Icon(
-              themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
+              Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
             ),
             onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               ref.read(themeModeProvider.notifier).state =
-                  themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+                  isDark ? ThemeMode.light : ThemeMode.dark;
             },
           ),
         ],
@@ -237,7 +239,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -249,13 +251,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? AppColors.primary : Colors.transparent,
+                                  color: isSelected ? cs.primary : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   type,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black87,
+                                    color: isSelected ? cs.onPrimary : cs.onSurface,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -290,10 +292,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 child: Container(
                                   margin: const EdgeInsets.only(top: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: cs.surface,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.grey[300]!),
-                                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                                    border: Border.all(color: cs.outline),
+                                    boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.08), blurRadius: 4)],
                                   ),
                                   child: ListView.builder(
                                     shrinkWrap: true,
@@ -388,14 +390,27 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       ),
                                     ),
                                     Container(
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         gradient: LinearGradient(
                                           begin: Alignment.topCenter,
                                           end: Alignment.bottomCenter,
                                           colors: [
                                             Colors.transparent,
-                                            Colors.black.withValues(alpha: 0.6),
+                                            Color(0x99000000), // intentional dark scrim for image overlay
                                           ],
+                                        ),
+                                      ),
+                                    ),
+                                    const Positioned(
+                                      bottom: 12,
+                                      left: 12,
+                                      right: 12,
+                                      child: Text(
+                                        '',
+                                        style: TextStyle(
+                                          color: Colors.white, // on dark image scrim — intentional
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
                                         ),
                                       ),
                                     ),
@@ -406,7 +421,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       child: Text(
                                         banner.title,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: Colors.white, // on dark image scrim — intentional
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
                                         ),
@@ -599,7 +614,7 @@ class _VendorCard extends StatelessWidget {
               vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.grey[600],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const Gap(8),
@@ -623,7 +638,7 @@ class _VendorCard extends StatelessWidget {
               '${vendor.totalTrips} Trips',
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.grey[500],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],

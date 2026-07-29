@@ -152,8 +152,9 @@ class _StepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +171,7 @@ class _StepIndicator extends StatelessWidget {
                       Expanded(
                         child: Container(
                           height: 2,
-                          color: isDone ? AppColors.primary : Colors.grey[300],
+                          color: isDone ? cs.primary : cs.outlineVariant,
                         ),
                       ),
                   ],
@@ -181,8 +182,8 @@ class _StepIndicator extends StatelessWidget {
           const Gap(6),
           Text(
             'Step ${current + 1} of $total — ${_stepTitles[current]}',
-            style: const TextStyle(
-                fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -199,6 +200,7 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: isActive ? 28 : 22,
@@ -206,24 +208,24 @@ class _Dot extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isDone
-            ? AppColors.primary
+            ? cs.primary
             : isActive
-                ? AppColors.primary
-                : Colors.grey[200],
-        border: isActive ? Border.all(color: AppColors.primary, width: 2) : null,
+                ? cs.primary
+                : cs.surfaceContainerHighest,
+        border: isActive ? Border.all(color: cs.primary, width: 2) : null,
         boxShadow: isActive
-            ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 8)]
+            ? [BoxShadow(color: cs.primary.withValues(alpha: 0.3), blurRadius: 8)]
             : null,
       ),
       child: Center(
         child: isDone
-            ? const Icon(Icons.check, color: Colors.white, size: 14)
+            ? Icon(Icons.check, color: cs.onPrimary, size: 14)
             : Text(
                 '${index + 1}',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isActive ? Colors.white : Colors.grey,
+                  color: isActive ? cs.onPrimary : cs.onSurfaceVariant,
                 ),
               ),
       ),

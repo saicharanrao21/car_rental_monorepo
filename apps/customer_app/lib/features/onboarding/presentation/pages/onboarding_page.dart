@@ -133,7 +133,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           slide.description,
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -152,7 +152,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     width: isActive ? 24 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: isActive ? AppColors.primary : Colors.grey[300],
+                      color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );

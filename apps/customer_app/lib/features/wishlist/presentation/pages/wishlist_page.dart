@@ -22,15 +22,15 @@ class WishlistPage extends ConsumerWidget {
         data: (cars) {
           final activeCars = cars.where((c) => wishlistedIds.contains(c.id)).toList();
           if (activeCars.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.favorite_border, size: 64, color: Colors.grey),
-                  Gap(16),
-                  Text('No Saved Cars Yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Gap(8),
-                  Text('Tap the heart icon on any car to save it for later.', style: TextStyle(color: Colors.grey)),
+                  Icon(Icons.favorite_border, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  const Gap(16),
+                  const Text('No Saved Cars Yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Gap(8),
+                  Text('Tap the heart icon on any car to save it for later.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             );

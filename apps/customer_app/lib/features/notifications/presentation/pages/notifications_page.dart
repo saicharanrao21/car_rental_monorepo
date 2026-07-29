@@ -44,13 +44,13 @@ class NotificationsPage extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.notifications_off_outlined,
                         size: 48,
-                        color: Colors.grey[400],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const Gap(16),
@@ -67,7 +67,7 @@ class NotificationsPage extends ConsumerWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -113,7 +113,9 @@ class NotificationsPage extends ConsumerWidget {
                               style: TextStyle(
                                 fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
                                 fontSize: 14,
-                                color: item.isRead ? Colors.black87 : Colors.black,
+                                color: item.isRead
+                                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                                    : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const Gap(4),
@@ -121,7 +123,9 @@ class NotificationsPage extends ConsumerWidget {
                               item.body,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: item.isRead ? Colors.grey[600] : Colors.grey[800],
+                                color: item.isRead
+                                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                                    : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const Gap(8),
@@ -129,7 +133,7 @@ class NotificationsPage extends ConsumerWidget {
                               item.createdAt.toDDMMYYYY(),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[500],
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],

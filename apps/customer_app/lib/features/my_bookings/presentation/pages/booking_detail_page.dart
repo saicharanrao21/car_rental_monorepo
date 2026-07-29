@@ -48,9 +48,9 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Please select a reason for cancellation. This help us improve our services.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const Gap(16),
               AppDropdown<String>(
@@ -182,15 +182,15 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                                     errorBuilder: (_, __, ___) => Container(
                                       width: 100,
                                       height: 75,
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.directions_car, color: Colors.grey),
+                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                      child: Icon(Icons.directions_car, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                     ),
                                   )
                                 : Container(
                                     width: 100,
                                     height: 75,
-                                    color: Colors.grey[200],
-                                    child: const Icon(Icons.directions_car, color: Colors.grey),
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                    child: Icon(Icons.directions_car, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                   ),
                           ),
                           const Gap(16),
@@ -216,7 +216,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                                 const Gap(4),
                                 Text(
                                   '${car.type} | ${car.isAC ? "AC" : "Non-AC"}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                                 const Gap(4),
                                 Text(
@@ -312,9 +312,9 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const Gap(2),
-                                const Text(
+                                Text(
                                   'Contact support to coordinate delivery/pickup questions.',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -384,9 +384,9 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'How was your trip? Tap the stars to rate.',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                                 const Gap(12),
                                 Center(
@@ -460,7 +460,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
           const Gap(10),
           SizedBox(
             width: 110,
-            child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            child: Text(label, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           Expanded(
             child: Text(
@@ -479,10 +479,10 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: color ?? Colors.black87)),
+          Text(label, style: TextStyle(fontSize: 13, color: color ?? Theme.of(context).colorScheme.onSurface)),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(fontSize: 13, color: color ?? Colors.black87),
+            style: TextStyle(fontSize: 13, color: color ?? Theme.of(context).colorScheme.onSurface),
           ),
         ],
       ),

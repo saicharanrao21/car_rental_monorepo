@@ -67,15 +67,15 @@ class FareBreakdownStep extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Your fare is calculated based on distance, duration, and applicable platform commission.',
-              style: TextStyle(fontSize: 13, color: Colors.grey)),
+          Text('Your fare is calculated based on distance, duration, and applicable platform commission.',
+              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const Gap(16),
 
           AppCard(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _row('Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
+                _row(context, 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
                     originalRentalFare),
                 if (discountPercent > 0)
                   Padding(
@@ -116,18 +116,19 @@ class FareBreakdownStep extends ConsumerWidget {
                       ],
                     ),
                   ),
-                _row('Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
+                _row(context, 'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
                     car.pricePerKm * draft.estimatedDistanceKm),
                 const Divider(height: 24),
-                _row('Base Fare', result.baseFare, bold: true),
-                _row('Platform Fee (${config.percentage.toInt()}%)', result.platformFee,
+                _row(context, 'Base Fare', result.baseFare, bold: true),
+                _row(context, 'Platform Fee (${config.percentage.toInt()}%)', result.platformFee,
                     color: Colors.orange[700]),
-                _row('GST (18% on platform fee)', result.gst, color: Colors.orange[700]),
+                _row(context, 'GST (18% on platform fee)', result.gst, color: Colors.orange[700]),
                 const Divider(height: 24),
-                _row('Total Payable', result.total,
-                    bold: true, color: AppColors.primary, fontSize: 20),
+                _row(context, 'Total Payable', result.total,
+                    bold: true, color: Theme.of(context).colorScheme.primary, fontSize: 20),
                 const Gap(4),
-                _row('Vendor Receives', result.netToVendor, color: Colors.grey),
+                _row(context, 'Vendor Receives', result.netToVendor,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -213,8 +214,9 @@ class FareBreakdownStep extends ConsumerWidget {
         ),
       );
 
-  Widget _row(String label, double amount,
+  Widget _row(BuildContext context, String label, double amount,
       {bool bold = false, Color? color, double fontSize = 13}) {
+    final defaultColor = Theme.of(context).colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -225,13 +227,13 @@ class FareBreakdownStep extends ConsumerWidget {
                   style: TextStyle(
                       fontSize: fontSize,
                       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                      color: color ?? Colors.black87))),
+                      color: color ?? defaultColor))),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
             style: TextStyle(
                 fontSize: fontSize,
                 fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                color: color ?? Colors.black87),
+                color: color ?? defaultColor),
           ),
         ],
       ),

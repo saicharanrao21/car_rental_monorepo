@@ -277,11 +277,18 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
           children: [
             Text(
               titleText,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
             ),
             Text(
               subtitleText,
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
+              ),
             ),
           ],
         ),

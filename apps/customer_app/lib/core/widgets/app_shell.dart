@@ -12,13 +12,16 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: cs.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: cs.shadow.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -28,29 +31,30 @@ class AppShell extends StatelessWidget {
           currentIndex: navigationShell.currentIndex,
           onTap: (index) => _onTabSelected(context, index),
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey,
+          backgroundColor: cs.surface,
+          selectedItemColor: cs.primary,
+          unselectedItemColor: cs.onSurfaceVariant,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
           unselectedLabelStyle: const TextStyle(fontSize: 11),
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home, color: AppColors.primary),
+              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant),
+              activeIcon: Icon(Icons.home, color: cs.primary),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.search_outlined),
-              activeIcon: Icon(Icons.search, color: AppColors.primary),
+              icon: Icon(Icons.search_outlined, color: cs.onSurfaceVariant),
+              activeIcon: Icon(Icons.search, color: cs.primary),
               label: 'Search',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.directions_car_outlined),
-              activeIcon: Icon(Icons.directions_car, color: AppColors.primary),
+              icon: Icon(Icons.directions_car_outlined, color: cs.onSurfaceVariant),
+              activeIcon: Icon(Icons.directions_car, color: cs.primary),
               label: 'Bookings',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person, color: AppColors.primary),
+              icon: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
+              activeIcon: Icon(Icons.person, color: cs.primary),
               label: 'Profile',
             ),
           ],

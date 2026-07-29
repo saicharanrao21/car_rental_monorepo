@@ -53,6 +53,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final detailVal = ref.watch(carDetailDataProvider(widget.carId));
     final wishlistedIds = ref.watch(wishlistIdsProvider);
     final isWishlisted = wishlistedIds.contains(widget.carId);
@@ -64,7 +65,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
           IconButton(
             icon: Icon(
               isWishlisted ? Icons.favorite : Icons.favorite_border,
-              color: isWishlisted ? Colors.red : Colors.white,
+              color: isWishlisted ? Colors.red : Theme.of(context).colorScheme.onPrimary,
             ),
             tooltip: isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist',
             onPressed: () {
@@ -139,7 +140,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                       '${car.year} • ${car.fuelType}',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.grey[600],
+                                        color: cs.onSurfaceVariant,
                                       ),
                                     ),
                                   ],
@@ -188,9 +189,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                           const Gap(20),
                           Row(
                             children: [
-                              Expanded(child: _buildSpecTile(Icons.event_seat, '${car.seating} Seater')),
+                              Expanded(child: _buildSpecTile(context, Icons.event_seat, '${car.seating} Seater')),
                               const Gap(12),
-                              Expanded(child: _buildSpecTile(Icons.ac_unit, car.isAC ? 'Air Conditioned' : 'Non AC')),
+                              Expanded(child: _buildSpecTile(context, Icons.ac_unit, car.isAC ? 'Air Conditioned' : 'Non AC')),
                             ],
                           ),
                           const Gap(24),
@@ -201,9 +202,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                           const Gap(12),
                           Row(
                             children: [
-                              _buildPricePlanTile('Hourly', car.pricePerHour, '/ hr'),
-                              _buildPricePlanTile('Daily', car.pricePerDay, '/ day'),
-                              _buildPricePlanTile('Kilometer', car.pricePerKm, '/ km'),
+                              _buildPricePlanTile(context, 'Hourly', car.pricePerHour, '/ hr'),
+                              _buildPricePlanTile(context, 'Daily', car.pricePerDay, '/ day'),
+                              _buildPricePlanTile(context, 'Kilometer', car.pricePerKm, '/ km'),
                             ],
                           ),
                           const Gap(24),
@@ -235,7 +236,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                             vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[600],
+                                              color: cs.onSurfaceVariant,
                                             ),
                                           ),
                                         ],
@@ -265,9 +266,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                             ),
                                           ],
                                         ),
-                                        const Text(
+                                        Text(
                                           'Vendor Rating',
-                                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                                          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
                                         ),
                                       ],
                                     ),
@@ -281,9 +282,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                             fontSize: 14,
                                           ),
                                         ),
-                                        const Text(
+                                        Text(
                                           'Trips Completed',
-                                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                                          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
                                         ),
                                       ],
                                     ),
@@ -318,7 +319,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                     const Gap(8),
                                     Text(
                                       '$totalReviewsCount reviews',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                                     ),
                                   ],
                                 ),
@@ -340,7 +341,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                             child: Container(
                                               height: 6,
                                               decoration: BoxDecoration(
-                                                color: Colors.grey[200],
+                                                color: cs.surfaceContainerHighest,
                                                 borderRadius: BorderRadius.circular(3),
                                               ),
                                               child: FractionallySizedBox(
@@ -395,7 +396,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                         ),
                                         Text(
                                           r.createdAt.toDDMMYYYY(),
-                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                                         ),
                                       ],
                                     ),
@@ -404,7 +405,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                     const Gap(6),
                                     Text(
                                       r.comment,
-                                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                                      style: TextStyle(fontSize: 13, color: cs.onSurface),
                                     ),
                                   ],
                                 );
@@ -423,10 +424,10 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: cs.shadow.withValues(alpha: 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, -4),
                       ),
@@ -441,9 +442,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Est. Fare (50km)',
-                                style: TextStyle(fontSize: 11, color: Colors.grey),
+                                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                               ),
                               const Gap(4),
                               PriceTag(
@@ -483,11 +484,12 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
     );
   }
 
-  Widget _buildSpecTile(IconData icon, String text) {
+  Widget _buildSpecTile(BuildContext context, IconData icon, String text) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -508,7 +510,8 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
     );
   }
 
-  Widget _buildPricePlanTile(String title, double amount, String suffix) {
+  Widget _buildPricePlanTile(BuildContext context, String title, double amount, String suffix) {
+    final cs = Theme.of(context).colorScheme;
     return Expanded(
       child: AppCard(
         padding: const EdgeInsets.all(10),
@@ -517,7 +520,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
           children: [
             Text(
               title,
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const Gap(8),
             PriceTag(
@@ -528,9 +531,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                 fontWeight: FontWeight.bold,
                 color: AppColors.accent,
               ),
-              suffixStyle: const TextStyle(
+              suffixStyle: TextStyle(
                 fontSize: 10,
-                color: Colors.grey,
+                color: cs.onSurfaceVariant,
               ),
             ),
           ],

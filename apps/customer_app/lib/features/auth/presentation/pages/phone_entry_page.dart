@@ -51,7 +51,7 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
       ),
       body: SafeArea(
         child: Padding(
@@ -73,7 +73,7 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
                   'Enter your 10-digit mobile number to proceed.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const Gap(32),
@@ -82,14 +82,14 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
                   hint: '98765 43210',
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Text(
                       '+91',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ),

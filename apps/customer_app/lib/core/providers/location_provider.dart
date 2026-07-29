@@ -77,8 +77,8 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(ctx).colorScheme.primary,
+              foregroundColor: Theme.of(ctx).colorScheme.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
