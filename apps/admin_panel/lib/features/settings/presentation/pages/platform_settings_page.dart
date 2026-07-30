@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../domain/repositories/platform_settings_repository.dart';
 import '../providers/settings_providers.dart';
-import '../../../../core/providers/theme_provider.dart';
+// TODO: re-enable for v2 dark mode — theme_provider import removed
+// import '../../../../core/providers/theme_provider.dart';
 
 class PlatformSettingsPage extends ConsumerStatefulWidget {
   const PlatformSettingsPage({super.key});
@@ -253,8 +253,6 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _buildAppInfoCard(settings),
-                              const Gap(24),
-                              _buildThemeCard(context),
                             ],
                           ),
                         ),
@@ -349,62 +347,8 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
     );
   }
 
-  Widget _buildThemeCard(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
-    final isDarkMode = themeMode == ThemeMode.dark;
-
-    return AppCard(
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Theme Settings',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          const Gap(12),
-          Text(
-            'Customize your workspace experience. Toggle between Light Mode and Dark Mode settings.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-          const Gap(16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                    color: AppColors.primary,
-                  ),
-                  const Gap(8),
-                  Text(
-                    isDarkMode ? 'Dark Mode Active' : 'Light Mode Active',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                ],
-              ),
-              Switch(
-                value: isDarkMode,
-                activeThumbColor: AppColors.primary,
-                onChanged: (val) {
-                  ref.read(themeModeProvider.notifier).state =
-                      val ? ThemeMode.dark : ThemeMode.light;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Theme mode switched to ${val ? "Dark" : "Light"}!'),
-                      duration: const Duration(milliseconds: 600),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // TODO: re-enable for v2 dark mode — theme toggle removed for v1 (light-only)
+  // Widget _buildThemeCard(BuildContext context) { ... }
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(

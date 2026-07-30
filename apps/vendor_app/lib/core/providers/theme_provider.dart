@@ -1,4 +1,2 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
+// TODO: re-enable for v2 dark mode
+// final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);

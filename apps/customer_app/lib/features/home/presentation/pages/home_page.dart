@@ -9,7 +9,6 @@ import 'package:gap/gap.dart';
 import '../../home_providers.dart';
 import '../../recently_viewed_providers.dart';
 import '../../../wishlist/wishlist_providers.dart';
-import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/location_provider.dart';
 import '../../../../core/providers/locality_provider.dart';
 
@@ -203,16 +202,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: const Icon(Icons.notifications_none_outlined),
             tooltip: 'Notifications',
             onPressed: () => context.push('/notifications'),
-          ),
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
-            ),
-            onPressed: () {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              ref.read(themeModeProvider.notifier).state =
-                  isDark ? ThemeMode.light : ThemeMode.dark;
-            },
           ),
         ],
       ),
