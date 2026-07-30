@@ -147,7 +147,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCity = ref.watch(selectedCityProvider);
     final tripType = ref.watch(selectedTripTypeProvider);
     final dateRange = ref.watch(selectedDateRangeProvider);
-    final searchQuery = ref.watch(homeSearchQueryProvider);
 
     final bannersVal = ref.watch(bannersProvider);
     final vendorsVal = ref.watch(topVendorsProvider);

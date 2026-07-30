@@ -10,8 +10,13 @@ class ApiNotificationsRepository implements NotificationsRepository {
   @override
   Future<List<NotificationModel>> getNotifications(String userId) async {
     final response = await apiClient.dio.get('/notifications/me');
-    final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
-    return data.map((json) => NotificationModel.fromJson(Map<String, dynamic>.from(json))).toList();
+    final List<dynamic> rawList = response.data is List
+        ? response.data
+        : (response.data is Map && response.data['data'] is List ? response.data['data'] : []);
+    return rawList.whereType<Map>().map((json) {
+      final map = Map<String, dynamic>.from(json);
+      return NotificationModel.fromJson(map);
+    }).toList();
   }
 
   @override

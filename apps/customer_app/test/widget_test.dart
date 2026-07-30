@@ -6,5 +6,6 @@ void main() {
   testWidgets('App splash screen smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: CustomerApp()));
     expect(find.byType(CustomerApp), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 }

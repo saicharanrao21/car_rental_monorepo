@@ -10,10 +10,10 @@ _$NotificationModelImpl _$$NotificationModelImplFromJson(
         Map<String, dynamic> json) =>
     _$NotificationModelImpl(
       id: json['id'] as String,
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      type: json['type'] as String,
+      userId: json['userId'] as String? ?? '',
+      title: json['title'] as String? ?? 'Notification',
+      body: json['body'] as String? ?? '',
+      type: json['type'] as String? ?? 'SYSTEM',
       isRead: json['isRead'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );

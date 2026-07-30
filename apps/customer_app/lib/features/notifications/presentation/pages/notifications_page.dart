@@ -109,7 +109,7 @@ class NotificationsPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              item.title,
+                              item.title.isNotEmpty ? item.title : 'Notification',
                               style: TextStyle(
                                 fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
                                 fontSize: 14,
@@ -118,16 +118,18 @@ class NotificationsPage extends ConsumerWidget {
                                     : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
-                            const Gap(4),
-                            Text(
-                              item.body,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: item.isRead
-                                    ? Theme.of(context).colorScheme.onSurfaceVariant
-                                    : Theme.of(context).colorScheme.onSurface,
+                            if (item.body.isNotEmpty) ...[
+                              const Gap(4),
+                              Text(
+                                item.body,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: item.isRead
+                                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
-                            ),
+                            ],
                             const Gap(8),
                             Text(
                               item.createdAt.toDDMMYYYY(),

@@ -14,27 +14,25 @@ T _$identity<T>(T value) => value;
 final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
-VendorModel _$VendorModelFromJson(Map<String, dynamic> json) {
-  return _VendorModel.fromJson(json);
-}
-
 /// @nodoc
 mixin _$VendorModel {
   String get id => throw _privateConstructorUsedError;
   String get businessName => throw _privateConstructorUsedError;
+  String? get displayName => throw _privateConstructorUsedError;
   String get ownerName => throw _privateConstructorUsedError;
   String get city => throw _privateConstructorUsedError;
   String get phone => throw _privateConstructorUsedError;
   String? get email => throw _privateConstructorUsedError;
   String? get businessType => throw _privateConstructorUsedError;
+  int? get yearsInOperation => throw _privateConstructorUsedError;
+  String get verificationStatus => throw _privateConstructorUsedError;
+  double get rating => throw _privateConstructorUsedError;
+  int get totalTrips => throw _privateConstructorUsedError;
+  String? get logoUrl => throw _privateConstructorUsedError;
   String? get gstNumber => throw _privateConstructorUsedError;
   String? get panNumber => throw _privateConstructorUsedError;
   String? get bankDetails => throw _privateConstructorUsedError;
-  String get verificationStatus =>
-      throw _privateConstructorUsedError; // pending, verified, rejected, suspended
-  double get rating => throw _privateConstructorUsedError;
-  int get totalTrips => throw _privateConstructorUsedError;
-  String? get displayName => throw _privateConstructorUsedError;
+  String? get addressLine => throw _privateConstructorUsedError;
   String? get locality => throw _privateConstructorUsedError;
   double? get latitude => throw _privateConstructorUsedError;
   double? get longitude => throw _privateConstructorUsedError;
@@ -44,7 +42,6 @@ mixin _$VendorModel {
   String? get parentBusinessName => throw _privateConstructorUsedError;
   DateTime? get boostExpiresAt => throw _privateConstructorUsedError;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
   $VendorModelCopyWith<VendorModel> get copyWith =>
       throw _privateConstructorUsedError;
@@ -59,18 +56,21 @@ abstract class $VendorModelCopyWith<$Res> {
   $Res call(
       {String id,
       String businessName,
+      String? displayName,
       String ownerName,
       String city,
       String phone,
       String? email,
       String? businessType,
-      String? gstNumber,
-      String? panNumber,
-      String? bankDetails,
+      int? yearsInOperation,
       String verificationStatus,
       double rating,
       int totalTrips,
-      String? displayName,
+      String? logoUrl,
+      String? gstNumber,
+      String? panNumber,
+      String? bankDetails,
+      String? addressLine,
       String? locality,
       double? latitude,
       double? longitude,
@@ -96,18 +96,21 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
   $Res call({
     Object? id = null,
     Object? businessName = null,
+    Object? displayName = freezed,
     Object? ownerName = null,
     Object? city = null,
     Object? phone = null,
     Object? email = freezed,
     Object? businessType = freezed,
-    Object? gstNumber = freezed,
-    Object? panNumber = freezed,
-    Object? bankDetails = freezed,
+    Object? yearsInOperation = freezed,
     Object? verificationStatus = null,
     Object? rating = null,
     Object? totalTrips = null,
-    Object? displayName = freezed,
+    Object? logoUrl = freezed,
+    Object? gstNumber = freezed,
+    Object? panNumber = freezed,
+    Object? bankDetails = freezed,
+    Object? addressLine = freezed,
     Object? locality = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
@@ -126,6 +129,10 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
           ? _value.businessName
           : businessName // ignore: cast_nullable_to_non_nullable
               as String,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
       ownerName: null == ownerName
           ? _value.ownerName
           : ownerName // ignore: cast_nullable_to_non_nullable
@@ -146,18 +153,10 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
           ? _value.businessType
           : businessType // ignore: cast_nullable_to_non_nullable
               as String?,
-      gstNumber: freezed == gstNumber
-          ? _value.gstNumber
-          : gstNumber // ignore: cast_nullable_to_non_nullable
-              as String?,
-      panNumber: freezed == panNumber
-          ? _value.panNumber
-          : panNumber // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bankDetails: freezed == bankDetails
-          ? _value.bankDetails
-          : bankDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
+      yearsInOperation: freezed == yearsInOperation
+          ? _value.yearsInOperation
+          : yearsInOperation // ignore: cast_nullable_to_non_nullable
+              as int?,
       verificationStatus: null == verificationStatus
           ? _value.verificationStatus
           : verificationStatus // ignore: cast_nullable_to_non_nullable
@@ -170,9 +169,25 @@ class _$VendorModelCopyWithImpl<$Res, $Val extends VendorModel>
           ? _value.totalTrips
           : totalTrips // ignore: cast_nullable_to_non_nullable
               as int,
-      displayName: freezed == displayName
-          ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
+      logoUrl: freezed == logoUrl
+          ? _value.logoUrl
+          : logoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      gstNumber: freezed == gstNumber
+          ? _value.gstNumber
+          : gstNumber // ignore: cast_nullable_to_non_nullable
+              as String?,
+      panNumber: freezed == panNumber
+          ? _value.panNumber
+          : panNumber // ignore: cast_nullable_to_non_nullable
+              as String?,
+      bankDetails: freezed == bankDetails
+          ? _value.bankDetails
+          : bankDetails // ignore: cast_nullable_to_non_nullable
+              as String?,
+      addressLine: freezed == addressLine
+          ? _value.addressLine
+          : addressLine // ignore: cast_nullable_to_non_nullable
               as String?,
       locality: freezed == locality
           ? _value.locality
@@ -221,18 +236,21 @@ abstract class _$$VendorModelImplCopyWith<$Res>
   $Res call(
       {String id,
       String businessName,
+      String? displayName,
       String ownerName,
       String city,
       String phone,
       String? email,
       String? businessType,
-      String? gstNumber,
-      String? panNumber,
-      String? bankDetails,
+      int? yearsInOperation,
       String verificationStatus,
       double rating,
       int totalTrips,
-      String? displayName,
+      String? logoUrl,
+      String? gstNumber,
+      String? panNumber,
+      String? bankDetails,
+      String? addressLine,
       String? locality,
       double? latitude,
       double? longitude,
@@ -256,18 +274,21 @@ class __$$VendorModelImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? businessName = null,
+    Object? displayName = freezed,
     Object? ownerName = null,
     Object? city = null,
     Object? phone = null,
     Object? email = freezed,
     Object? businessType = freezed,
-    Object? gstNumber = freezed,
-    Object? panNumber = freezed,
-    Object? bankDetails = freezed,
+    Object? yearsInOperation = freezed,
     Object? verificationStatus = null,
     Object? rating = null,
     Object? totalTrips = null,
-    Object? displayName = freezed,
+    Object? logoUrl = freezed,
+    Object? gstNumber = freezed,
+    Object? panNumber = freezed,
+    Object? bankDetails = freezed,
+    Object? addressLine = freezed,
     Object? locality = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
@@ -286,6 +307,10 @@ class __$$VendorModelImplCopyWithImpl<$Res>
           ? _value.businessName
           : businessName // ignore: cast_nullable_to_non_nullable
               as String,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
       ownerName: null == ownerName
           ? _value.ownerName
           : ownerName // ignore: cast_nullable_to_non_nullable
@@ -306,18 +331,10 @@ class __$$VendorModelImplCopyWithImpl<$Res>
           ? _value.businessType
           : businessType // ignore: cast_nullable_to_non_nullable
               as String?,
-      gstNumber: freezed == gstNumber
-          ? _value.gstNumber
-          : gstNumber // ignore: cast_nullable_to_non_nullable
-              as String?,
-      panNumber: freezed == panNumber
-          ? _value.panNumber
-          : panNumber // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bankDetails: freezed == bankDetails
-          ? _value.bankDetails
-          : bankDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
+      yearsInOperation: freezed == yearsInOperation
+          ? _value.yearsInOperation
+          : yearsInOperation // ignore: cast_nullable_to_non_nullable
+              as int?,
       verificationStatus: null == verificationStatus
           ? _value.verificationStatus
           : verificationStatus // ignore: cast_nullable_to_non_nullable
@@ -330,9 +347,25 @@ class __$$VendorModelImplCopyWithImpl<$Res>
           ? _value.totalTrips
           : totalTrips // ignore: cast_nullable_to_non_nullable
               as int,
-      displayName: freezed == displayName
-          ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
+      logoUrl: freezed == logoUrl
+          ? _value.logoUrl
+          : logoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      gstNumber: freezed == gstNumber
+          ? _value.gstNumber
+          : gstNumber // ignore: cast_nullable_to_non_nullable
+              as String?,
+      panNumber: freezed == panNumber
+          ? _value.panNumber
+          : panNumber // ignore: cast_nullable_to_non_nullable
+              as String?,
+      bankDetails: freezed == bankDetails
+          ? _value.bankDetails
+          : bankDetails // ignore: cast_nullable_to_non_nullable
+              as String?,
+      addressLine: freezed == addressLine
+          ? _value.addressLine
+          : addressLine // ignore: cast_nullable_to_non_nullable
               as String?,
       locality: freezed == locality
           ? _value.locality
@@ -371,23 +404,26 @@ class __$$VendorModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
 class _$VendorModelImpl implements _VendorModel {
   const _$VendorModelImpl(
       {required this.id,
       required this.businessName,
+      this.displayName,
       required this.ownerName,
       required this.city,
       this.phone = '',
       this.email,
       this.businessType,
+      this.yearsInOperation,
+      this.verificationStatus = 'pending',
+      this.rating = 0.0,
+      this.totalTrips = 0,
+      this.logoUrl,
       this.gstNumber,
       this.panNumber,
       this.bankDetails,
-      required this.verificationStatus,
-      this.rating = 0.0,
-      this.totalTrips = 0,
-      this.displayName,
+      this.addressLine,
       this.locality,
       this.latitude,
       this.longitude,
@@ -397,13 +433,12 @@ class _$VendorModelImpl implements _VendorModel {
       this.parentBusinessName,
       this.boostExpiresAt});
 
-  factory _$VendorModelImpl.fromJson(Map<String, dynamic> json) =>
-      _$$VendorModelImplFromJson(json);
-
   @override
   final String id;
   @override
   final String businessName;
+  @override
+  final String? displayName;
   @override
   final String ownerName;
   @override
@@ -416,14 +451,10 @@ class _$VendorModelImpl implements _VendorModel {
   @override
   final String? businessType;
   @override
-  final String? gstNumber;
+  final int? yearsInOperation;
   @override
-  final String? panNumber;
-  @override
-  final String? bankDetails;
-  @override
+  @JsonKey()
   final String verificationStatus;
-// pending, verified, rejected, suspended
   @override
   @JsonKey()
   final double rating;
@@ -431,7 +462,15 @@ class _$VendorModelImpl implements _VendorModel {
   @JsonKey()
   final int totalTrips;
   @override
-  final String? displayName;
+  final String? logoUrl;
+  @override
+  final String? gstNumber;
+  @override
+  final String? panNumber;
+  @override
+  final String? bankDetails;
+  @override
+  final String? addressLine;
   @override
   final String? locality;
   @override
@@ -453,7 +492,7 @@ class _$VendorModelImpl implements _VendorModel {
 
   @override
   String toString() {
-    return 'VendorModel(id: $id, businessName: $businessName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, displayName: $displayName, locality: $locality, latitude: $latitude, longitude: $longitude, subscriptionTier: $subscriptionTier, isSponsored: $isSponsored, branchOfId: $branchOfId, parentBusinessName: $parentBusinessName, boostExpiresAt: $boostExpiresAt)';
+    return 'VendorModel(id: $id, businessName: $businessName, displayName: $displayName, ownerName: $ownerName, city: $city, phone: $phone, email: $email, businessType: $businessType, yearsInOperation: $yearsInOperation, verificationStatus: $verificationStatus, rating: $rating, totalTrips: $totalTrips, logoUrl: $logoUrl, gstNumber: $gstNumber, panNumber: $panNumber, bankDetails: $bankDetails, addressLine: $addressLine, locality: $locality, latitude: $latitude, longitude: $longitude, subscriptionTier: $subscriptionTier, isSponsored: $isSponsored, branchOfId: $branchOfId, parentBusinessName: $parentBusinessName, boostExpiresAt: $boostExpiresAt)';
   }
 
   @override
@@ -464,6 +503,8 @@ class _$VendorModelImpl implements _VendorModel {
             (identical(other.id, id) || other.id == id) &&
             (identical(other.businessName, businessName) ||
                 other.businessName == businessName) &&
+            (identical(other.displayName, displayName) ||
+                other.displayName == displayName) &&
             (identical(other.ownerName, ownerName) ||
                 other.ownerName == ownerName) &&
             (identical(other.city, city) || other.city == city) &&
@@ -471,19 +512,22 @@ class _$VendorModelImpl implements _VendorModel {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.businessType, businessType) ||
                 other.businessType == businessType) &&
+            (identical(other.yearsInOperation, yearsInOperation) ||
+                other.yearsInOperation == yearsInOperation) &&
+            (identical(other.verificationStatus, verificationStatus) ||
+                other.verificationStatus == verificationStatus) &&
+            (identical(other.rating, rating) || other.rating == rating) &&
+            (identical(other.totalTrips, totalTrips) ||
+                other.totalTrips == totalTrips) &&
+            (identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl) &&
             (identical(other.gstNumber, gstNumber) ||
                 other.gstNumber == gstNumber) &&
             (identical(other.panNumber, panNumber) ||
                 other.panNumber == panNumber) &&
             (identical(other.bankDetails, bankDetails) ||
                 other.bankDetails == bankDetails) &&
-            (identical(other.verificationStatus, verificationStatus) ||
-                other.verificationStatus == verificationStatus) &&
-            (identical(other.rating, rating) || other.rating == rating) &&
-            (identical(other.totalTrips, totalTrips) ||
-                other.totalTrips == totalTrips) &&
-            (identical(other.displayName, displayName) ||
-                other.displayName == displayName) &&
+            (identical(other.addressLine, addressLine) ||
+                other.addressLine == addressLine) &&
             (identical(other.locality, locality) ||
                 other.locality == locality) &&
             (identical(other.latitude, latitude) ||
@@ -502,24 +546,26 @@ class _$VendorModelImpl implements _VendorModel {
                 other.boostExpiresAt == boostExpiresAt));
   }
 
-  @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hashAll([
         runtimeType,
         id,
         businessName,
+        displayName,
         ownerName,
         city,
         phone,
         email,
         businessType,
-        gstNumber,
-        panNumber,
-        bankDetails,
+        yearsInOperation,
         verificationStatus,
         rating,
         totalTrips,
-        displayName,
+        logoUrl,
+        gstNumber,
+        panNumber,
+        bankDetails,
+        addressLine,
         locality,
         latitude,
         longitude,
@@ -535,31 +581,27 @@ class _$VendorModelImpl implements _VendorModel {
   @pragma('vm:prefer-inline')
   _$$VendorModelImplCopyWith<_$VendorModelImpl> get copyWith =>
       __$$VendorModelImplCopyWithImpl<_$VendorModelImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$VendorModelImplToJson(
-      this,
-    );
-  }
 }
 
 abstract class _VendorModel implements VendorModel {
   const factory _VendorModel(
       {required final String id,
       required final String businessName,
+      final String? displayName,
       required final String ownerName,
       required final String city,
       final String phone,
       final String? email,
       final String? businessType,
+      final int? yearsInOperation,
+      final String verificationStatus,
+      final double rating,
+      final int totalTrips,
+      final String? logoUrl,
       final String? gstNumber,
       final String? panNumber,
       final String? bankDetails,
-      required final String verificationStatus,
-      final double rating,
-      final int totalTrips,
-      final String? displayName,
+      final String? addressLine,
       final String? locality,
       final double? latitude,
       final double? longitude,
@@ -569,13 +611,12 @@ abstract class _VendorModel implements VendorModel {
       final String? parentBusinessName,
       final DateTime? boostExpiresAt}) = _$VendorModelImpl;
 
-  factory _VendorModel.fromJson(Map<String, dynamic> json) =
-      _$VendorModelImpl.fromJson;
-
   @override
   String get id;
   @override
   String get businessName;
+  @override
+  String? get displayName;
   @override
   String get ownerName;
   @override
@@ -587,19 +628,23 @@ abstract class _VendorModel implements VendorModel {
   @override
   String? get businessType;
   @override
+  int? get yearsInOperation;
+  @override
+  String get verificationStatus;
+  @override
+  double get rating;
+  @override
+  int get totalTrips;
+  @override
+  String? get logoUrl;
+  @override
   String? get gstNumber;
   @override
   String? get panNumber;
   @override
   String? get bankDetails;
   @override
-  String get verificationStatus;
-  @override // pending, verified, rejected, suspended
-  double get rating;
-  @override
-  int get totalTrips;
-  @override
-  String? get displayName;
+  String? get addressLine;
   @override
   String? get locality;
   @override

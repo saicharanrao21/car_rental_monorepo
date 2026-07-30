@@ -179,10 +179,10 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
 class _$NotificationModelImpl implements _NotificationModel {
   const _$NotificationModelImpl(
       {required this.id,
-      required this.userId,
-      required this.title,
-      required this.body,
-      required this.type,
+      this.userId = '',
+      this.title = 'Notification',
+      this.body = '',
+      this.type = 'SYSTEM',
       this.isRead = false,
       required this.createdAt});
 
@@ -192,12 +192,16 @@ class _$NotificationModelImpl implements _NotificationModel {
   @override
   final String id;
   @override
+  @JsonKey()
   final String userId;
   @override
+  @JsonKey()
   final String title;
   @override
+  @JsonKey()
   final String body;
   @override
+  @JsonKey()
   final String type;
   @override
   @JsonKey()
@@ -248,10 +252,10 @@ class _$NotificationModelImpl implements _NotificationModel {
 abstract class _NotificationModel implements NotificationModel {
   const factory _NotificationModel(
       {required final String id,
-      required final String userId,
-      required final String title,
-      required final String body,
-      required final String type,
+      final String userId,
+      final String title,
+      final String body,
+      final String type,
       final bool isRead,
       required final DateTime createdAt}) = _$NotificationModelImpl;
 
