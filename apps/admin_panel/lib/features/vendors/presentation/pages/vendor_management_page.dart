@@ -589,9 +589,12 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
                                   children: [
                                     Icon(Icons.store_mall_directory_outlined, size: 14, color: Colors.orange[800]),
                                     const Gap(6),
-                                    Text(
-                                      'Location Branch of ${v.parentBusinessName ?? 'Parent HQ'}',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                                    Flexible(
+                                      child: Text(
+                                        'Location Branch of ${v.parentBusinessName ?? 'Parent HQ'}',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -609,7 +612,7 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.purple[50]!.withOpacity(0.5),
+                          color: Colors.purple[50]!.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.purple[200]!),
                         ),
@@ -631,7 +634,7 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
                                 ),
                                 Switch(
                                   value: _isSponsoredLocal,
-                                  activeColor: Colors.purple[700],
+                                  activeThumbColor: Colors.purple[700],
                                   onChanged: (val) {
                                     setState(() {
                                       _isSponsoredLocal = val;

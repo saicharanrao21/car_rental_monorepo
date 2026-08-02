@@ -447,7 +447,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SectionHeader(title: 'Recently Viewed'),
                       const Gap(12),
                       SizedBox(
-                        height: 240,
+                        height: AppSpacing.carCardHorizontalHeight,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: recentCars.length,
@@ -455,7 +455,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             final car = recentCars[index];
                             final isWishlisted = wishlistedIds.contains(car.id);
                             return Container(
-                              width: 260,
+                              width: 280,
                               margin: const EdgeInsets.only(right: 12),
                               child: CarCard(
                                 car: car,
@@ -469,7 +469,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           },
                         ),
                       ),
-                      const Gap(24),
+                      const Gap(AppSpacing.sectionGap),
                     ],
                   );
                 },

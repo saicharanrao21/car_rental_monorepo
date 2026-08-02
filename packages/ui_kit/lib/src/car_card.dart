@@ -8,6 +8,7 @@ class CarCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool isWishlisted;
   final VoidCallback? onWishlistToggle;
+  final double imageHeight;
 
   const CarCard({
     super.key,
@@ -15,6 +16,7 @@ class CarCard extends StatelessWidget {
     required this.onTap,
     this.isWishlisted = false,
     this.onWishlistToggle,
+    this.imageHeight = 150.0,
   });
 
   @override
@@ -37,7 +39,7 @@ class CarCard extends StatelessWidget {
             Stack(
               children: [
                 Container(
-                  height: 180,
+                  height: imageHeight,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
@@ -102,7 +104,7 @@ class CarCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: AppSpacing.cardPadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -135,9 +137,12 @@ class CarCard extends StatelessWidget {
                       children: [
                         const Icon(Icons.verified_user_outlined, size: 14, color: AppColors.primary),
                         const Gap(4),
-                        Text(
-                          vendorDisplayName.toString(),
-                          style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                        Expanded(
+                          child: Text(
+                            vendorDisplayName.toString(),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -148,17 +153,20 @@ class CarCard extends StatelessWidget {
                       const Icon(Icons.event_seat, size: 16, color: Colors.grey),
                       const Gap(4),
                       Text('${car.seating} Seats'),
-                      const Gap(16),
+                      const Gap(12),
                       const Icon(Icons.ac_unit, size: 16, color: Colors.grey),
                       const Gap(4),
                       Text(car.isAC ? 'AC' : 'Non-AC'),
                       if (distanceKm != null) ...[
-                        const Gap(16),
+                        const Gap(12),
                         const Icon(Icons.location_on, size: 16, color: Colors.blue),
                         const Gap(4),
-                        Text(
-                          '${distanceKm.toStringAsFixed(1)} km away',
-                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                        Expanded(
+                          child: Text(
+                            '${distanceKm.toStringAsFixed(1)} km away',
+                            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ],

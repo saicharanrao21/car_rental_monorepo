@@ -58,7 +58,7 @@ class BookingCard extends StatelessWidget {
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: AppSpacing.cardPadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -81,9 +81,12 @@ class BookingCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.person_outline, size: 16, color: Colors.grey),
                       const Gap(4),
-                      Text(
-                        partnerName,
-                        style: const TextStyle(color: Colors.grey, fontSize: 13),
+                      Expanded(
+                        child: Text(
+                          partnerName,
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -92,9 +95,12 @@ class BookingCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                       const Gap(4),
-                      Text(
-                        '${booking.startDate.toDDMMYYYY()} - ${booking.endDate.toDDMMYYYY()}',
-                        style: const TextStyle(fontSize: 13),
+                      Expanded(
+                        child: Text(
+                          '${booking.startDate.toDDMMYYYY()} - ${booking.endDate.toDDMMYYYY()}',
+                          style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

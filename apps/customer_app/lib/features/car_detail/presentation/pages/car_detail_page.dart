@@ -523,17 +523,20 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const Gap(8),
-            PriceTag(
-              amount: amount,
-              suffix: suffix,
-              amountStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.accent,
-              ),
-              suffixStyle: TextStyle(
-                fontSize: 10,
-                color: cs.onSurfaceVariant,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: PriceTag(
+                amount: amount,
+                suffix: suffix,
+                amountStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.accent,
+                ),
+                suffixStyle: TextStyle(
+                  fontSize: 10,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
           ],
