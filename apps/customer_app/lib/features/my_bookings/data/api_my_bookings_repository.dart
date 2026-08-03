@@ -30,11 +30,14 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
       copy['status'] = rawStatus.toLowerCase();
     }
 
-    // Parse decimal/numeric values to double
+    // Ensure required string fields are never null
+    copy['pickupLocation'] ??= 'Location not specified';
+    copy['tripType'] ??= 'Local';
+    copy['status'] ??= 'pending';
+
+    // Parse decimal/numeric values to double with 0.0 fallback
     for (final field in ['totalFare', 'platformFee', 'gstAmount', 'netToVendor']) {
-      if (copy[field] != null) {
-        copy[field] = double.tryParse(copy[field].toString()) ?? 0.0;
-      }
+      copy[field] = double.tryParse(copy[field]?.toString() ?? '') ?? 0.0;
     }
 
     return copy;

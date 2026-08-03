@@ -5,6 +5,7 @@ import 'package:core/core.dart';
 import 'domain/repositories/home_repository.dart';
 import 'data/api_home_repository.dart';
 import '../../core/providers/api_providers.dart';
+import '../../core/providers/location_provider.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -15,8 +16,14 @@ final selectedCityProvider = StateProvider<String>((ref) => 'Mumbai');
 
 final availableCarsProvider = FutureProvider<List<CarModel>>((ref) async {
   final city = ref.watch(selectedCityProvider);
+  final location = ref.watch(userLocationProvider);
   final repo = ref.watch(homeRepositoryProvider);
-  return repo.getCarsByCity(city);
+  return repo.getCarsByCity(
+    city,
+    lat: location.latitude,
+    lng: location.longitude,
+    sortBy: 'RECOMMENDED',
+  );
 });
 
 final topVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {

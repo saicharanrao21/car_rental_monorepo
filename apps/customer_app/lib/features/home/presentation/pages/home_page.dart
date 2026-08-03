@@ -69,31 +69,18 @@ class _HomePageState extends ConsumerState<HomePage> {
     AppBottomSheet.show(
       context,
       title: 'Select City',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: AppConstants.indianCities.map((city) {
-          final isSelected = city == selectedCity;
-          return ListTile(
-            title: Text(
-              city,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
-            onTap: () {
-              ref.read(selectedCityProvider.notifier).state = city;
-              ref.read(selectedLocalityProvider.notifier).state = null;
-              _localityController.clear();
-              setState(() {
-                _localitySearchText = '';
-                _showLocalitySuggestions = false;
-              });
-              Navigator.pop(context);
-            },
-          );
-        }).toList(),
+      child: _SearchableCitySelector(
+        selectedCity: selectedCity,
+        onSelectCity: (city) {
+          ref.read(selectedCityProvider.notifier).state = city;
+          ref.read(selectedLocalityProvider.notifier).state = null;
+          _localityController.clear();
+          setState(() {
+            _localitySearchText = '';
+            _showLocalitySuggestions = false;
+          });
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -632,6 +619,103 @@ class _VendorCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SearchableCitySelector extends StatefulWidget {
+  final String selectedCity;
+  final Function(String city) onSelectCity;
+
+  const _SearchableCitySelector({
+    required this.selectedCity,
+    required this.onSelectCity,
+  });
+
+  @override
+  State<_SearchableCitySelector> createState() => _SearchableCitySelectorState();
+}
+
+class _SearchableCitySelectorState extends State<_SearchableCitySelector> {
+  late TextEditingController _searchController;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredCities = AppConstants.indianCities
+        .where((city) => city.toLowerCase().contains(_searchQuery.toLowerCase().trim()))
+        .toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (val) => setState(() => _searchQuery = val),
+            decoration: InputDecoration(
+              hintText: 'Search city...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.45,
+          ),
+          child: filteredCities.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Text('No matching cities found', style: TextStyle(color: Colors.grey)),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: filteredCities.length,
+                  itemBuilder: (context, index) {
+                    final city = filteredCities[index];
+                    final isSelected = city == widget.selectedCity;
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        city,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary, size: 18) : null,
+                      onTap: () => widget.onSelectCity(city),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import '../domain/repositories/search_repository.dart';
@@ -35,6 +36,11 @@ class ApiSearchRepository implements SearchRepository {
       backendSortBy = 'RECOMMENDED';
     }
 
+    // Fall back to RATING when location permission is denied (lat/lng is null)
+    if (lat == null && backendSortBy == 'RECOMMENDED') {
+      backendSortBy = 'RATING';
+    }
+
     // Map carType from UI to uppercase backend enum (e.g. Sedan -> SEDAN)
     String? backendCarType;
     if (carType != null && carType.isNotEmpty) {
@@ -55,6 +61,7 @@ class ApiSearchRepository implements SearchRepository {
       'limit': 50,
     };
 
+    debugPrint('[API Search] GET /cars params: $queryParams');
     final response = await apiClient.dio.get(
       '/cars',
       queryParameters: queryParams,

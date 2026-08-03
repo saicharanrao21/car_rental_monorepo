@@ -16,7 +16,12 @@ class MockHomeRepository implements HomeRepository {
         _bannerRepository = bannerRepository ?? MockBannerRepository();
 
   @override
-  Future<List<CarModel>> getCarsByCity(String city) {
+  Future<List<CarModel>> getCarsByCity(
+    String city, {
+    double? lat,
+    double? lng,
+    String sortBy = 'RECOMMENDED',
+  }) {
     return _carRepository.getCarsByCity(city);
   }
 

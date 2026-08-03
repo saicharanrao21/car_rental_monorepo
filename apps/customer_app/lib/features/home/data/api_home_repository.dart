@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import '../domain/repositories/home_repository.dart';
@@ -8,10 +9,22 @@ class ApiHomeRepository implements HomeRepository {
   ApiHomeRepository({required this.apiClient});
 
   @override
-  Future<List<CarModel>> getCarsByCity(String city) async {
+  Future<List<CarModel>> getCarsByCity(
+    String city, {
+    double? lat,
+    double? lng,
+    String sortBy = 'RECOMMENDED',
+  }) async {
+    final queryParams = <String, dynamic>{
+      'city': city,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      'sortBy': sortBy,
+    };
+    debugPrint('[API Home] GET /cars params: $queryParams');
     final response = await apiClient.dio.get(
       '/cars',
-      queryParameters: {'city': city},
+      queryParameters: queryParams,
     );
     final data = response.data['data'] as List<dynamic>;
     return data.map((json) => CarModel.fromJson(Map<String, dynamic>.from(json))).toList();

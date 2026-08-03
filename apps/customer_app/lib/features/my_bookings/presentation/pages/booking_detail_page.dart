@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
@@ -259,34 +260,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                     // Itemized Fare breakdown
                     const Text('Fare Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     const Gap(8),
-                    AppCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          _fareRow(
-                            'Base Package',
-                            booking.totalFare - booking.platformFee - booking.gstAmount,
-                          ),
-                          _fareRow('Platform Fee', booking.platformFee, color: Colors.orange[700]),
-                          _fareRow('GST (18%)', booking.gstAmount, color: Colors.orange[700]),
-                          const Divider(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              PriceTag(
-                                amount: booking.totalFare,
-                                amountStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    _BookingFareBreakdownCard(booking: booking),
                     const Gap(16),
 
                     // Vendor support card
@@ -472,17 +446,135 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
       ),
     );
   }
+}
 
-  Widget _fareRow(String label, double amount, {Color? color}) {
+class _BookingFareBreakdownCard extends StatefulWidget {
+  final BookingModel booking;
+  const _BookingFareBreakdownCard({required this.booking});
+
+  @override
+  State<_BookingFareBreakdownCard> createState() => _BookingFareBreakdownCardState();
+}
+
+class _BookingFareBreakdownCardState extends State<_BookingFareBreakdownCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tripFare = widget.booking.totalFare - widget.booking.platformFee - widget.booking.gstAmount;
+    final taxesAndFees = widget.booking.platformFee + widget.booking.gstAmount;
+    final cs = Theme.of(context).colorScheme;
+
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _fareRow('Trip Fare', tripFare, bold: true),
+          _fareRow('Taxes & Fees', taxesAndFees),
+
+          // Inline toggle link
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isExpanded ? 'Hide breakdown' : 'View breakdown',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const Gap(2),
+                  Icon(
+                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: cs.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (_isExpanded)
+            Container(
+              margin: const EdgeInsets.only(top: 6, bottom: 4),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _subRow('Platform Fee', widget.booking.platformFee, color: Colors.orange[800]),
+                  _subRow('GST (18%)', widget.booking.gstAmount, color: Colors.orange[800]),
+                ],
+              ),
+            ),
+
+          const Divider(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              PriceTag(
+                amount: widget.booking.totalFare,
+                amountStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fareRow(String label, double amount, {bool bold = false, Color? color}) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: color ?? Theme.of(context).colorScheme.onSurface)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? cs.onSurface,
+            ),
+          ),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(fontSize: 13, color: color ?? Theme.of(context).colorScheme.onSurface),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? cs.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _subRow(String label, double amount, {Color? color}) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, color: color ?? cs.onSurfaceVariant)),
+          Text(
+            IndianCurrencyFormatter.format(amount, showDecimals: false),
+            style: TextStyle(fontSize: 12, color: color ?? cs.onSurfaceVariant),
           ),
         ],
       ),
