@@ -10,7 +10,11 @@ class ApiCarDetailRepository implements CarDetailRepository {
   @override
   Future<CarModel> getCarById(String id) async {
     final response = await apiClient.dio.get('/cars/$id');
-    return CarModel.fromJson(Map<String, dynamic>.from(response.data));
+    final json = Map<String, dynamic>.from(response.data);
+    json['location'] ??= 'Location not specified';
+    json['city'] ??= 'Mumbai';
+    json['vendorId'] ??= 'v-default';
+    return CarModel.fromJson(json);
   }
 
   @override

@@ -165,7 +165,7 @@ class FareBreakdownStep extends ConsumerWidget {
       );
 }
 
-class _CollapsibleFareCard extends StatefulWidget {
+class _CollapsibleFareCard extends StatelessWidget {
   final BuildContext context;
   final BookingDraft draft;
   final CarModel car;
@@ -189,37 +189,31 @@ class _CollapsibleFareCard extends StatefulWidget {
   });
 
   @override
-  State<_CollapsibleFareCard> createState() => _CollapsibleFareCardState();
-}
-
-class _CollapsibleFareCardState extends State<_CollapsibleFareCard> {
-  bool _isExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final taxesAndFees = widget.result.platformFee + widget.result.gst;
+    // Fold Platform Fee into Trip Fare for customer display
+    final tripFare = result.baseFare + result.platformFee;
 
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Trip Fare
-          _row('Trip Fare', widget.result.baseFare, bold: true),
+          // 1. Trip Fare (base + platform fee folded together)
+          _row(context, 'Trip Fare', tripFare, bold: true),
 
           // Sub-details for rental and distance
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 2, bottom: 4),
             child: Column(
               children: [
-                _subRow('Rental (${widget.draft.rentalDays}d × ₹${widget.car.pricePerDay.toInt()}/day)', widget.originalRentalFare),
-                _subRow('Distance (${widget.draft.estimatedDistanceKm}km × ₹${widget.car.pricePerKm.toInt()}/km)', widget.car.pricePerKm * widget.draft.estimatedDistanceKm),
+                _subRow(context, 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)', originalRentalFare),
+                _subRow(context, 'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)', car.pricePerKm * draft.estimatedDistanceKm),
               ],
             ),
           ),
 
           // Multi-day discount (visible by default when applicable)
-          if (widget.discountPercent > 0)
+          if (discountPercent > 0)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
@@ -237,7 +231,7 @@ class _CollapsibleFareCardState extends State<_CollapsibleFareCard> {
                         Icon(Icons.local_offer, size: 12, color: Colors.green[700]),
                         const Gap(4),
                         Text(
-                          widget.discountLabel,
+                          discountLabel,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -248,7 +242,7 @@ class _CollapsibleFareCardState extends State<_CollapsibleFareCard> {
                     ),
                   ),
                   Text(
-                    '-${IndianCurrencyFormatter.format(widget.discountAmount, showDecimals: false)}',
+                    '-${IndianCurrencyFormatter.format(discountAmount, showDecimals: false)}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -261,76 +255,26 @@ class _CollapsibleFareCardState extends State<_CollapsibleFareCard> {
 
           const Divider(height: 20),
 
-          // 2. Taxes & Fees
-          _row('Taxes & Fees', taxesAndFees),
-
-          // Inline "View breakdown" / "Hide breakdown" toggle
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _isExpanded ? 'Hide breakdown' : 'View breakdown',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const Gap(2),
-                  Icon(
-                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Itemized breakdown when expanded
-          if (_isExpanded)
-            Container(
-              margin: const EdgeInsets.only(top: 6, bottom: 4),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  _subRow('Platform Fee (${widget.config.percentage.toInt()}%)', widget.result.platformFee, color: Colors.orange[800]),
-                  _subRow('GST (18% on platform fee)', widget.result.gst, color: Colors.orange[800]),
-                ],
-              ),
-            ),
+          // 2. GST line (tax compliance)
+          _row(context, 'GST (18%)', result.gst),
 
           const Divider(height: 20),
 
           // 3. Total Payable
           _row(
+            context,
             'Total Payable',
-            widget.result.total,
+            result.total,
             bold: true,
             color: Theme.of(context).colorScheme.primary,
             fontSize: 18,
-          ),
-          const Gap(4),
-          _row(
-            'Vendor Receives',
-            widget.result.netToVendor,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 12,
           ),
         ],
       ),
     );
   }
 
-  Widget _row(String label, double amount, {bool bold = false, Color? color, double fontSize = 13}) {
+  Widget _row(BuildContext context, String label, double amount, {bool bold = false, Color? color, double fontSize = 13}) {
     final defaultColor = Theme.of(context).colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -360,7 +304,7 @@ class _CollapsibleFareCardState extends State<_CollapsibleFareCard> {
     );
   }
 
-  Widget _subRow(String label, double amount, {Color? color}) {
+  Widget _subRow(BuildContext context, String label, double amount, {Color? color}) {
     final defaultColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

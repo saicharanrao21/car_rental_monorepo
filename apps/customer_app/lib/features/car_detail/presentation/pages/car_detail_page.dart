@@ -442,9 +442,63 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Est. Fare (50km)',
-                                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  final tripFare = fareResult.baseFare + fareResult.platformFee;
+                                  AppBottomSheet.show(
+                                    context,
+                                    title: 'Estimated Fare Breakdown',
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('Trip Fare', style: TextStyle(fontWeight: FontWeight.bold)),
+                                              Text(IndianCurrencyFormatter.format(tripFare, showDecimals: false), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Gap(4),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('GST (18%)'),
+                                              Text(IndianCurrencyFormatter.format(fareResult.gst, showDecimals: false)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Divider(height: 20),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('Total Estimated Fare', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                              PriceTag(amount: fareResult.total, amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Gap(16),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      'Est. Fare (50km)',
+                                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                                    ),
+                                    const Gap(4),
+                                    Icon(Icons.info_outline, size: 14, color: cs.primary),
+                                  ],
+                                ),
                               ),
                               const Gap(4),
                               PriceTag(

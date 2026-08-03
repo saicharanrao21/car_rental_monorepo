@@ -448,81 +448,30 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
   }
 }
 
-class _BookingFareBreakdownCard extends StatefulWidget {
+class _BookingFareBreakdownCard extends StatelessWidget {
   final BookingModel booking;
   const _BookingFareBreakdownCard({required this.booking});
 
   @override
-  State<_BookingFareBreakdownCard> createState() => _BookingFareBreakdownCardState();
-}
-
-class _BookingFareBreakdownCardState extends State<_BookingFareBreakdownCard> {
-  bool _isExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final tripFare = widget.booking.totalFare - widget.booking.platformFee - widget.booking.gstAmount;
-    final taxesAndFees = widget.booking.platformFee + widget.booking.gstAmount;
-    final cs = Theme.of(context).colorScheme;
+    // Fold Platform Fee into Trip Fare for customer-facing display
+    final tripFare = booking.totalFare - booking.gstAmount;
 
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _fareRow('Trip Fare', tripFare, bold: true),
-          _fareRow('Taxes & Fees', taxesAndFees),
-
-          // Inline toggle link
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _isExpanded ? 'Hide breakdown' : 'View breakdown',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const Gap(2),
-                  Icon(
-                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    size: 16,
-                    color: cs.primary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (_isExpanded)
-            Container(
-              margin: const EdgeInsets.only(top: 6, bottom: 4),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  _subRow('Platform Fee', widget.booking.platformFee, color: Colors.orange[800]),
-                  _subRow('GST (18%)', widget.booking.gstAmount, color: Colors.orange[800]),
-                ],
-              ),
-            ),
-
+          _fareRow(context, 'Trip Fare', tripFare, bold: true),
+          const Gap(4),
+          _fareRow(context, 'GST (18%)', booking.gstAmount),
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               PriceTag(
-                amount: widget.booking.totalFare,
+                amount: booking.totalFare,
                 amountStyle: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -536,7 +485,7 @@ class _BookingFareBreakdownCardState extends State<_BookingFareBreakdownCard> {
     );
   }
 
-  Widget _fareRow(String label, double amount, {bool bold = false, Color? color}) {
+  Widget _fareRow(BuildContext context, String label, double amount, {bool bold = false, Color? color}) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -558,23 +507,6 @@ class _BookingFareBreakdownCardState extends State<_BookingFareBreakdownCard> {
               fontWeight: bold ? FontWeight.bold : FontWeight.normal,
               color: color ?? cs.onSurface,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _subRow(String label, double amount, {Color? color}) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, color: color ?? cs.onSurfaceVariant)),
-          Text(
-            IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(fontSize: 12, color: color ?? cs.onSurfaceVariant),
           ),
         ],
       ),
