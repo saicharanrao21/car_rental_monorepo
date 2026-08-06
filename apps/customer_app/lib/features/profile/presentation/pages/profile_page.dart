@@ -401,7 +401,7 @@ class _HelpSupportSection extends StatelessWidget {
     const faqs = [
       ('How do I cancel my booking?', 'You can cancel any upcoming booking directly from the My Bookings list. Simply tap on the booking card, click "Cancel Booking", select your reason, and confirm.'),
       ('Are there any cancellation charges?', 'Cancellations made more than 24 hours before the trip start time are completely free. Inside 24 hours, a standard platform processing fee may apply.'),
-      ('How is the fare calculated?', 'Fares include the package base rate per day, distance packages, platform fee, and GST. Tolls, parking, and fuel are to be settled directly as per trip type rules.'),
+      ('How is the fare calculated?', 'Fares include trip rate per day, distance packages, and GST. Tolls, parking, and fuel are to be settled directly as per trip type rules.'),
       ('How do I contact the vendor?', 'Once your booking is confirmed, the vendor will contact you directly to coordinate car dropoff and key handover. Support contact options are also visible on the booking details page.'),
       ('What documents do I need to present?', 'You must present a valid original Driving License (DL) and an Aadhaar/Govt ID card matching the booking name to the vendor during delivery.'),
     ];

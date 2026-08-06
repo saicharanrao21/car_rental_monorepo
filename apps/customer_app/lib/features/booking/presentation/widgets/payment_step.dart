@@ -286,17 +286,21 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
           const Gap(8),
 
           // ── Order summary ─────────────────────────────────────────────
+          // Fold Platform Fee into Trip Fare for customer-facing display
           AppCard(
             padding: const EdgeInsets.all(14),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Base Fare'),
-                Text(IndianCurrencyFormatter.format(draft.baseFare, showDecimals: false)),
+                const Text('Trip Fare', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  IndianCurrencyFormatter.format(draft.baseFare + draft.platformFee, showDecimals: false),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ]),
               const Gap(4),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Platform Fee + GST'),
-                Text(IndianCurrencyFormatter.format(draft.platformFee + draft.gst, showDecimals: false)),
+                const Text('GST (18%)'),
+                Text(IndianCurrencyFormatter.format(draft.gst, showDecimals: false)),
               ]),
               const Divider(height: 20),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
