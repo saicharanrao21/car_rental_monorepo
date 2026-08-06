@@ -19,6 +19,7 @@ async function main() {
   await prisma.notification.deleteMany();
   await prisma.commissionConfig.deleteMany();
   await prisma.banner.deleteMany();
+  await prisma.supportedCity.deleteMany();
   await prisma.platformSettings.deleteMany();
   await prisma.user.deleteMany();
 
@@ -32,8 +33,24 @@ async function main() {
       supportEmail: 'support@drivego.in',
       supportPhone: '+919876543210',
       appVersion: '1.0.0',
+      enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
     },
   });
+
+  // Seed 5 Supported Cities
+  const seededCities = [
+    { name: 'Mumbai', state: 'Maharashtra', latitude: 19.0760, longitude: 72.8777 },
+    { name: 'Delhi', state: 'Delhi', latitude: 28.6139, longitude: 77.2090 },
+    { name: 'Bangalore', state: 'Karnataka', latitude: 12.9716, longitude: 77.5946 },
+    { name: 'Chennai', state: 'Tamil Nadu', latitude: 13.0827, longitude: 80.2707 },
+    { name: 'Hyderabad', state: 'Telangana', latitude: 17.3850, longitude: 78.4867 },
+  ];
+
+  for (const city of seededCities) {
+    await prisma.supportedCity.create({
+      data: city,
+    });
+  }
 
   // 3. Create Admin User
   const adminPasswordHash = bcrypt.hashSync('Admin@123', 10);

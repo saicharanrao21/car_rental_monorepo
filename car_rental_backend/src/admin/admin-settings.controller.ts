@@ -48,6 +48,7 @@ export class AdminSettingsController {
       supportEmail?: string;
       supportPhone?: string;
       appVersion?: string;
+      enabledTripTypes?: string[];
     },
   ) {
     const data: any = {};
@@ -57,6 +58,7 @@ export class AdminSettingsController {
     if (dto.supportEmail !== undefined) data.supportEmail = dto.supportEmail;
     if (dto.supportPhone !== undefined) data.supportPhone = dto.supportPhone;
     if (dto.appVersion !== undefined) data.appVersion = dto.appVersion;
+    if (dto.enabledTripTypes !== undefined) data.enabledTripTypes = dto.enabledTripTypes;
 
     const settings = await this.prisma.platformSettings.upsert({
       where: { id: 'singleton' },
@@ -69,6 +71,7 @@ export class AdminSettingsController {
         supportEmail: dto.supportEmail ?? 'support@drivego.in',
         supportPhone: dto.supportPhone ?? '+919876543210',
         appVersion: dto.appVersion ?? '1.0.0',
+        enabledTripTypes: dto.enabledTripTypes ?? ['SELF_DRIVE', 'OUTSTATION'],
       },
     });
 

@@ -8,6 +8,7 @@ import { AdminRevenueController } from './admin-revenue.controller';
 import { AdminCommissionController } from './admin-commission.controller';
 import { AdminSettingsController } from './admin-settings.controller';
 import { AdminAuditLogController } from './admin-audit-log.controller';
+import { PublicSettingsController } from './public-settings.controller';
 
 @Global()
 @Module({
@@ -19,6 +20,7 @@ import { AdminAuditLogController } from './admin-audit-log.controller';
     AdminCommissionController,
     AdminSettingsController,
     AdminAuditLogController,
+    PublicSettingsController,
   ],
   exports: [AuditLogService],
 })

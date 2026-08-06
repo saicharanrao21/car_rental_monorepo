@@ -20,6 +20,7 @@ import { BannersModule } from './banners/banners.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { SupportedCitiesModule } from './supported-cities/supported-cities.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { DisputesModule } from './disputes/disputes.module';
     WishlistModule,
     RecentlyViewedModule,
     DisputesModule,
+    SupportedCitiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

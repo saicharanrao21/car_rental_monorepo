@@ -316,13 +316,24 @@ model Banner {
 }
 
 model PlatformSettings {
-  id           String  @id @default("singleton")
-  platformName String
-  logoUrl      String?
-  gstNumber    String
-  supportEmail String
-  supportPhone String
-  appVersion   String
+  id               String   @id @default("singleton")
+  platformName     String
+  logoUrl          String?
+  gstNumber        String
+  supportEmail     String
+  supportPhone     String
+  appVersion       String
+  enabledTripTypes String[] @default(["SELF_DRIVE", "OUTSTATION"])
+}
+
+model SupportedCity {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  state     String
+  latitude  Float
+  longitude Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 model RefreshToken {

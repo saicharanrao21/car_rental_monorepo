@@ -39,6 +39,28 @@ export class BookingsService {
       throw new BadRequestException('Start date must be before end date.');
     }
 
+    // Validate if platform enabledTripTypes allows this tripType
+    let settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'singleton' },
+    });
+    if (!settings) {
+      settings = await this.prisma.platformSettings.create({
+        data: {
+          id: 'singleton',
+          platformName: 'DriveGo',
+          gstNumber: '27AAAAA1111A1Z1',
+          supportEmail: 'support@drivego.in',
+          supportPhone: '+919876543210',
+          appVersion: '1.0.0',
+          enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
+        },
+      });
+    }
+
+    if (!settings.enabledTripTypes.includes(dto.tripType)) {
+      throw new BadRequestException('This trip type is not currently available');
+    }
+
     // 1. Acquire Redis distributed lock
     const lockToken = await this.bookingLockService.acquireLock(dto.carId, start, end);
 
