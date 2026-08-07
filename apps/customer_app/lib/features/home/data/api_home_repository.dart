@@ -53,4 +53,26 @@ class ApiHomeRepository implements HomeRepository {
     final data = response.data as List<dynamic>;
     return data.map((json) => BannerModel.fromJson(Map<String, dynamic>.from(json))).toList();
   }
+
+  @override
+  Future<List<SupportedCityModel>> getSupportedCities() async {
+    final response = await apiClient.dio.get('/supported-cities');
+    final data = response.data as List<dynamic>;
+    return data.map((json) => SupportedCityModel.fromJson(Map<String, dynamic>.from(json))).toList();
+  }
+
+  @override
+  Future<SupportedCityModel> getNearestCity(double lat, double lng) async {
+    final response = await apiClient.dio.get(
+      '/supported-cities/nearest',
+      queryParameters: {'lat': lat, 'lng': lng},
+    );
+    return SupportedCityModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
+  Future<PublicSettingsModel> getPublicSettings() async {
+    final response = await apiClient.dio.get('/settings/public');
+    return PublicSettingsModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
 }

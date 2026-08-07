@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:core/core.dart';
 import 'domain/repositories/home_repository.dart';
 import 'data/api_home_repository.dart';
 import '../../core/providers/api_providers.dart';
@@ -39,7 +38,17 @@ final bannersProvider = FutureProvider<List<BannerModel>>((ref) async {
   return repo.getBanners();
 });
 
-final selectedTripTypeProvider = StateProvider<String>((ref) => AppConstants.tripTypes.first);
+final publicSettingsProvider = FutureProvider<PublicSettingsModel>((ref) async {
+  final repo = ref.watch(homeRepositoryProvider);
+  return repo.getPublicSettings();
+});
+
+final supportedCitiesProvider = FutureProvider<List<SupportedCityModel>>((ref) async {
+  final repo = ref.watch(homeRepositoryProvider);
+  return repo.getSupportedCities();
+});
+
+final selectedTripTypeProvider = StateProvider<String>((ref) => 'Self-Drive');
 
 final selectedDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 

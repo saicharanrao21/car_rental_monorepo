@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
@@ -38,8 +39,26 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Trigger location permission rationale dialog on first load post-login
       ref.read(userLocationProvider.notifier).requestLocationPermission(
         context,
-        onCityAutoSelected: (nearestCity) {
-          ref.read(selectedCityProvider.notifier).state = nearestCity;
+        onLocationResolved: (lat, lng) async {
+          try {
+            final nearestCity = await ref.read(homeRepositoryProvider).getNearestCity(lat, lng);
+            final distanceMeters = Geolocator.distanceBetween(
+              lat,
+              lng,
+              nearestCity.latitude,
+              nearestCity.longitude,
+            );
+            final distanceKm = distanceMeters / 1000.0;
+            if (!mounted) return;
+
+            if (distanceKm <= 50.0) {
+              ref.read(selectedCityProvider.notifier).state = nearestCity.name;
+            } else {
+              _showOutOfAreaSheet(context, nearestCity, distanceKm);
+            }
+          } catch (e) {
+            debugPrint('Error resolving location/nearest city: $e');
+          }
         },
       );
     });
@@ -82,6 +101,75 @@ class _HomePageState extends ConsumerState<HomePage> {
           Navigator.pop(context);
         },
       ),
+    );
+  }
+
+  bool _isTripTypeEnabled(String type, List<String> enabledTypes) {
+    final norm = type.toUpperCase().replaceAll(' ', '_');
+    if (norm == 'AIRPORT') return enabledTypes.contains('AIRPORT_TRANSFER');
+    return enabledTypes.contains(norm);
+  }
+
+  void _showOutOfAreaSheet(BuildContext context, SupportedCityModel nearestCity, double distanceKm) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.location_off_outlined, size: 48, color: Colors.orange),
+              const Gap(16),
+              const Text(
+                "We're not in your area yet",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(8),
+              Text(
+                "Our nearest service area is ${nearestCity.name}, ${distanceKm.toStringAsFixed(0)}km away.",
+                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  ref.read(selectedCityProvider.notifier).state = nearestCity.name;
+                  Navigator.pop(ctx);
+                },
+                child: Text('Browse ${nearestCity.name} anyway'),
+              ),
+              const Gap(12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Thank you! We'll notify you when DriveGo launches in your area."),
+                    ),
+                  );
+                },
+                child: const Text('Notify me when available in my area'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -219,26 +307,56 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                       child: Row(
                         children: AppConstants.tripTypes.map((type) {
-                          final isSelected = type == tripType;
+                          final publicSettingsVal = ref.watch(publicSettingsProvider);
+                          final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+                          final isEnabled = _isTripTypeEnabled(type, enabledTripTypes);
+                          final isSelected = isEnabled && type == tripType;
                           return Expanded(
                             child: GestureDetector(
-                              onTap: () => ref.read(selectedTripTypeProvider.notifier).state = type,
+                              onTap: isEnabled
+                                  ? () => ref.read(selectedTripTypeProvider.notifier).state = type
+                                  : null,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(vertical: 6),
                                 decoration: BoxDecoration(
                                   color: isSelected ? cs.primary : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(
-                                  type,
-                                  style: TextStyle(
-                                    color: isSelected ? cs.onPrimary : cs.onSurface,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      type,
+                                      style: TextStyle(
+                                        color: isEnabled
+                                            ? (isSelected ? cs.onPrimary : cs.onSurface)
+                                            : cs.onSurface.withValues(alpha: 0.38),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (!isEnabled) ...[
+                                      const Gap(2),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber[800],
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'Coming Soon',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 7,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
@@ -623,7 +741,7 @@ class _VendorCard extends StatelessWidget {
   }
 }
 
-class _SearchableCitySelector extends StatefulWidget {
+class _SearchableCitySelector extends ConsumerStatefulWidget {
   final String selectedCity;
   final Function(String city) onSelectCity;
 
@@ -633,10 +751,10 @@ class _SearchableCitySelector extends StatefulWidget {
   });
 
   @override
-  State<_SearchableCitySelector> createState() => _SearchableCitySelectorState();
+  ConsumerState<_SearchableCitySelector> createState() => _SearchableCitySelectorState();
 }
 
-class _SearchableCitySelectorState extends State<_SearchableCitySelector> {
+class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector> {
   late TextEditingController _searchController;
   String _searchQuery = '';
 
@@ -654,7 +772,13 @@ class _SearchableCitySelectorState extends State<_SearchableCitySelector> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredCities = AppConstants.indianCities
+    final supportedCitiesVal = ref.watch(supportedCitiesProvider);
+    final allCityNames = supportedCitiesVal.maybeWhen(
+      data: (cities) => cities.map((c) => c.name).toList(),
+      orElse: () => AppConstants.indianCities,
+    );
+
+    final filteredCities = allCityNames
         .where((city) => city.toLowerCase().contains(_searchQuery.toLowerCase().trim()))
         .toList();
 

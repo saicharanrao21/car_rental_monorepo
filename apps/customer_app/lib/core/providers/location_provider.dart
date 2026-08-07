@@ -48,6 +48,7 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
   Future<void> requestLocationPermission(
     BuildContext context, {
     void Function(String city)? onCityAutoSelected,
+    void Function(double lat, double lng)? onLocationResolved,
   }) async {
     if (state.isRequestedThisSession) return;
 
@@ -110,9 +111,10 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
           isPermissionGranted: true,
         );
 
-        // Calculate nearest city
-        final nearest = _findNearestCity(position.latitude, position.longitude);
-        if (onCityAutoSelected != null) {
+        if (onLocationResolved != null) {
+          onLocationResolved(position.latitude, position.longitude);
+        } else if (onCityAutoSelected != null) {
+          final nearest = _findNearestCity(position.latitude, position.longitude);
           onCityAutoSelected(nearest);
         }
       }

@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
+import '../../../home/home_providers.dart';
 
 class TripDetailsStep extends ConsumerStatefulWidget {
   final CarModel car;
@@ -62,11 +63,19 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
     super.dispose();
   }
 
+  bool _isTripTypeEnabled(String type, List<String> enabledTypes) {
+    final norm = type.toUpperCase().replaceAll(' ', '_');
+    if (norm == 'AIRPORT') return enabledTypes.contains('AIRPORT_TRANSFER');
+    return enabledTypes.contains(norm);
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
     final car = widget.car;
     final vendor = widget.vendor;
+    final publicSettingsVal = ref.watch(publicSettingsProvider);
+    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -120,10 +129,17 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
                 value: car.availableTripTypes.contains(draft.tripType)
                     ? draft.tripType
                     : car.availableTripTypes.first,
-                items: car.availableTripTypes.map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type),
-                )).toList(),
+                items: car.availableTripTypes.map((type) {
+                  final enabled = _isTripTypeEnabled(type, enabledTripTypes);
+                  return DropdownMenuItem(
+                    value: type,
+                    enabled: enabled,
+                    child: Text(
+                      enabled ? type : '$type (Coming Soon)',
+                      style: TextStyle(color: enabled ? null : Colors.grey),
+                    ),
+                  );
+                }).toList(),
                 onChanged: (val) {
                   if (val != null) {
                     ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(

@@ -17,8 +17,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
 
   int _cooldownSeconds = 30;
   Timer? _timer;
@@ -33,12 +32,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -63,7 +57,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       _errorMessage = null;
     });
 
-    final otp = _controllers.map((c) => c.text).join();
+    final otp = _otpController.text.trim();
     if (otp.length < 6) {
       setState(() {
         _errorMessage = 'Please enter all 6 digits of the OTP';
@@ -144,45 +138,29 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 ),
               ),
               const Gap(32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: 48,
-                    height: 56,
-                    child: TextField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          if (index < 5) {
-                            _focusNodes[index + 1].requestFocus();
-                          } else {
-                            _focusNodes[index].unfocus();
-                          }
-                        } else {
-                          if (index > 0) {
-                            _focusNodes[index - 1].requestFocus();
-                          }
-                        }
-                      },
-                    ),
-                  );
-                }),
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
+                decoration: InputDecoration(
+                  hintText: 'Enter 6-digit OTP',
+                  counterText: '',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+                onChanged: (val) {
+                  if (val.trim().length == 6) {
+                    _verify();
+                  }
+                },
               ),
               if (_errorMessage != null) ...[
                 const Gap(16),

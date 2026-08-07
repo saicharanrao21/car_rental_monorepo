@@ -9,4 +9,7 @@ abstract class HomeRepository {
   });
   Future<List<VendorModel>> getTopVendorsByCity(String city);
   Future<List<BannerModel>> getBanners();
+  Future<List<SupportedCityModel>> getSupportedCities();
+  Future<SupportedCityModel> getNearestCity(double lat, double lng);
+  Future<PublicSettingsModel> getPublicSettings();
 }
