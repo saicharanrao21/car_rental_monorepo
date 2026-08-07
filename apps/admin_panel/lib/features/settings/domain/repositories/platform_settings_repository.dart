@@ -5,6 +5,7 @@ class PlatformSettings {
   final String supportEmail;
   final String supportPhone;
   final String appVersion;
+  final List<String> enabledTripTypes;
 
   const PlatformSettings({
     required this.platformName,
@@ -13,6 +14,7 @@ class PlatformSettings {
     required this.supportEmail,
     required this.supportPhone,
     required this.appVersion,
+    this.enabledTripTypes = const ['SELF_DRIVE', 'OUTSTATION'],
   });
 
   PlatformSettings copyWith({
@@ -22,6 +24,7 @@ class PlatformSettings {
     String? supportEmail,
     String? supportPhone,
     String? appVersion,
+    List<String>? enabledTripTypes,
   }) {
     return PlatformSettings(
       platformName: platformName ?? this.platformName,
@@ -30,6 +33,7 @@ class PlatformSettings {
       supportEmail: supportEmail ?? this.supportEmail,
       supportPhone: supportPhone ?? this.supportPhone,
       appVersion: appVersion ?? this.appVersion,
+      enabledTripTypes: enabledTripTypes ?? this.enabledTripTypes,
     );
   }
 }

@@ -15,6 +15,7 @@ import '../../features/disputes/presentation/pages/admin_disputes_page.dart';
 import '../../features/audit_log/presentation/pages/admin_audit_log_page.dart';
 import '../../features/notifications/presentation/pages/push_notifications_page.dart';
 import '../../features/banners/presentation/pages/banners_promotions_page.dart';
+import '../../features/supported_cities/presentation/pages/supported_cities_page.dart';
 import '../../features/settings/presentation/pages/platform_settings_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
@@ -99,6 +100,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/banners',
             builder: (context, state) => const BannersPromotionsPage(),
+          ),
+          GoRoute(
+            path: '/supported-cities',
+            builder: (context, state) => const SupportedCitiesPage(),
           ),
           GoRoute(
             path: '/settings',

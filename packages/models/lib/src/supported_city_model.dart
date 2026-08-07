@@ -36,4 +36,22 @@ class SupportedCityModel {
       'isActive': isActive,
     };
   }
+
+  SupportedCityModel copyWith({
+    String? id,
+    String? name,
+    String? state,
+    double? latitude,
+    double? longitude,
+    bool? isActive,
+  }) {
+    return SupportedCityModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      state: state ?? this.state,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }

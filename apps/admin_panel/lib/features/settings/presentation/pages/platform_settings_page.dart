@@ -4,8 +4,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import '../../domain/repositories/platform_settings_repository.dart';
 import '../providers/settings_providers.dart';
-// TODO: re-enable for v2 dark mode — theme_provider import removed
-// import '../../../../core/providers/theme_provider.dart';
 
 class PlatformSettingsPage extends ConsumerStatefulWidget {
   const PlatformSettingsPage({super.key});
@@ -24,6 +22,7 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
   String? _logoUrl;
+  List<String> _enabledTripTypes = ['SELF_DRIVE', 'OUTSTATION'];
 
   void _initControllers(PlatformSettings settings) {
     if (_initialized) return;
@@ -32,6 +31,7 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
     _emailController = TextEditingController(text: settings.supportEmail);
     _phoneController = TextEditingController(text: settings.supportPhone);
     _logoUrl = settings.logoUrl;
+    _enabledTripTypes = List<String>.from(settings.enabledTripTypes);
     _initialized = true;
   }
 
@@ -59,6 +59,7 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
       supportEmail: _emailController.text.trim(),
       supportPhone: _phoneController.text.trim(),
       logoUrl: _logoUrl,
+      enabledTripTypes: _enabledTripTypes,
     );
 
     final messenger = ScaffoldMessenger.of(context);
@@ -110,7 +111,7 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
                 ),
                 Gap(4),
                 Text(
-                  'Configure drivego platform core configurations and customer support channels.',
+                  'Configure drivego platform core configurations, customer support channels, and enabled trip types.',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ],
@@ -230,6 +231,11 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
                                   ),
                                   const Gap(24),
 
+                                  // Enabled Trip Types Section
+                                  _buildTripTypesSection(),
+
+                                  const Gap(24),
+
                                   // Save changes button
                                   _isSaving
                                       ? const Center(child: AppLoader())
@@ -264,6 +270,59 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTripTypesSection() {
+    final availableTypes = [
+      (key: 'SELF_DRIVE', label: 'Self Drive', subtitle: 'Customer drives the rented car'),
+      (key: 'OUTSTATION', label: 'Outstation', subtitle: 'Inter-city multi-day trip'),
+      (key: 'LOCAL', label: 'Local', subtitle: 'Intra-city hourly rental'),
+      (key: 'AIRPORT_TRANSFER', label: 'Airport Transfer', subtitle: 'Dedicated airport pick & drop'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Enabled Trip Types',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const Gap(4),
+          const Text(
+            'Select which booking trip types are active for customer app bookings.',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const Gap(12),
+          ...availableTypes.map((type) {
+            final isChecked = _enabledTripTypes.contains(type.key);
+            return CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(type.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              subtitle: Text(type.subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              value: isChecked,
+              onChanged: (bool? val) {
+                setState(() {
+                  if (val == true) {
+                    if (!_enabledTripTypes.contains(type.key)) {
+                      _enabledTripTypes.add(type.key);
+                    }
+                  } else {
+                    _enabledTripTypes.remove(type.key);
+                  }
+                });
+              },
+            );
+          }),
+        ],
       ),
     );
   }
@@ -346,9 +405,6 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
       ),
     );
   }
-
-  // TODO: re-enable for v2 dark mode — theme toggle removed for v1 (light-only)
-  // Widget _buildThemeCard(BuildContext context) { ... }
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(

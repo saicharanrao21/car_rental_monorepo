@@ -10,6 +10,11 @@ class ApiPlatformSettingsRepository implements PlatformSettingsRepository {
   Future<PlatformSettings> getSettings() async {
     final response = await _apiClient.dio.get('/admin/settings');
     final data = response.data;
+    final enabledTripTypesRaw = data['enabledTripTypes'] as List?;
+    final enabledTripTypes = enabledTripTypesRaw != null
+        ? enabledTripTypesRaw.map((e) => e.toString()).toList()
+        : const ['SELF_DRIVE', 'OUTSTATION'];
+
     return PlatformSettings(
       platformName: data['platformName'] ?? 'DriveGo',
       logoUrl: data['logoUrl'],
@@ -17,6 +22,7 @@ class ApiPlatformSettingsRepository implements PlatformSettingsRepository {
       supportEmail: data['supportEmail'] ?? 'support@drivego.in',
       supportPhone: data['supportPhone'] ?? '+919876543210',
       appVersion: data['appVersion'] ?? '1.0.0',
+      enabledTripTypes: enabledTripTypes,
     );
   }
 
@@ -31,6 +37,7 @@ class ApiPlatformSettingsRepository implements PlatformSettingsRepository {
         'supportEmail': settings.supportEmail,
         'supportPhone': settings.supportPhone,
         'appVersion': settings.appVersion,
+        'enabledTripTypes': settings.enabledTripTypes,
       },
     );
   }
