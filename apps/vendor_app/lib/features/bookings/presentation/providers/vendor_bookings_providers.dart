@@ -22,6 +22,11 @@ final bookingInspectionsProvider = FutureProvider.family.autoDispose<List<Inspec
   return repo.getInspections(bookingId);
 });
 
+final bookingDamageClaimsProvider = FutureProvider.family.autoDispose<List<DamageClaimModel>, String>((ref, bookingId) async {
+  final repo = ref.watch(vendorBookingsRepositoryProvider);
+  return repo.getDamageClaims(bookingId);
+});
+
 class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>> {
   @override
   FutureOr<List<BookingModel>> build() async {
@@ -123,6 +128,27 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     final result = await AsyncValue.guard(() async {
       await repo.sendHandoverOtp(bookingId, otpType);
     });
+    return !result.hasError;
+  }
+
+  Future<bool> submitDamageClaim(
+    String bookingId, {
+    required double claimedAmount,
+    required String description,
+    required List<String> damagePhotos,
+    String? vendorNotes,
+  }) async {
+    final repo = ref.read(vendorBookingsRepositoryProvider);
+    final result = await AsyncValue.guard(() async {
+      await repo.submitDamageClaim(
+        bookingId,
+        claimedAmount: claimedAmount,
+        description: description,
+        damagePhotos: damagePhotos,
+        vendorNotes: vendorNotes,
+      );
+    });
+    ref.invalidate(bookingDamageClaimsProvider(bookingId));
     return !result.hasError;
   }
 }

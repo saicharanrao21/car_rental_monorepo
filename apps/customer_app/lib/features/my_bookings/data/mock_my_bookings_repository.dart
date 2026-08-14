@@ -46,4 +46,18 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
     await simulateLatency();
     _reviews.add(review);
   }
+
+  @override
+  Future<SecurityDepositModel?> getSecurityDeposit(String bookingId) async {
+    await simulateLatency();
+    return SecurityDepositModel(
+      id: 'dep_mock_$bookingId',
+      bookingId: bookingId,
+      amount: 5000.0,
+      refundedAmount: 0.0,
+      deductedAmount: 0.0,
+      status: SecurityDepositStatus.HELD,
+      createdAt: DateTime.now(),
+    );
+  }
 }

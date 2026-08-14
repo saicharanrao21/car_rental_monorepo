@@ -31,6 +31,7 @@ describe('Phase 5: DamageClaimsService (Post-Trip Damage Claims Workflow & Concu
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
       },
     };
 
@@ -219,6 +220,33 @@ describe('Phase 5: DamageClaimsService (Post-Trip Damage Claims Workflow & Concu
         expect.stringContaining('Scratch was already present'),
       );
       expect(result.status).toBe(DamageClaimStatus.REJECTED);
+    });
+  });
+
+  describe('getAllClaimsForAdmin', () => {
+    it('returns paginated list of claims with signed photo URLs', async () => {
+      prisma.damageClaim.findMany.mockResolvedValue([
+        {
+          id: 'claim_1',
+          bookingId: 'b1',
+          status: DamageClaimStatus.SUBMITTED,
+          claimedAmount: new Prisma.Decimal(4000),
+          damagePhotos: ['damage/photo1.jpg'],
+          booking: {
+            customer: { id: 'c1', name: 'John Doe' },
+            vendor: { id: 'v1', businessName: 'Prime Rentals' },
+            car: { id: 'car1', brand: 'Hyundai', model: 'Creta' },
+          },
+        },
+      ]);
+      prisma.damageClaim.count.mockResolvedValue(1);
+
+      const result = await service.getAllClaimsForAdmin('SUBMITTED', 1, 20);
+
+      expect(result.claims).toHaveLength(1);
+      expect(result.claims[0].damagePhotos[0]).toContain('https://signed.r2.dev/damage/photo1.jpg');
+      expect(result.pagination.total).toBe(1);
+      expect(result.pagination.totalPages).toBe(1);
     });
   });
 });

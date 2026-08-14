@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -45,6 +46,18 @@ export class DamageClaimsController {
     @Request() req: any,
   ) {
     return this.damageClaimsService.disputeClaim(claimId, dto, req.user);
+  }
+
+  @Get('admin/damage-claims')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async getAllClaimsForAdmin(
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 50;
+    return this.damageClaimsService.getAllClaimsForAdmin(status, pageNum, limitNum);
   }
 
   @Patch('admin/damage-claims/:id/adjudicate')

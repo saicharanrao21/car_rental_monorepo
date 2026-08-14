@@ -13,6 +13,11 @@ final myBookingsRepositoryProvider = Provider<MyBookingsRepository>((ref) {
 
 final myBookingsTabProvider = StateProvider.autoDispose<int>((ref) => 0);
 
+final bookingSecurityDepositProvider = FutureProvider.autoDispose.family<SecurityDepositModel?, String>((ref, bookingId) async {
+  final repo = ref.watch(myBookingsRepositoryProvider);
+  return repo.getSecurityDeposit(bookingId);
+});
+
 final myBookingsListProvider = AutoDisposeAsyncNotifierProvider<MyBookingsListNotifier, List<BookingModel>>(() {
   return MyBookingsListNotifier();
 });

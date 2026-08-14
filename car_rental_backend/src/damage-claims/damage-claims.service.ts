@@ -321,4 +321,65 @@ export class DamageClaimsService {
 
     return updated;
   }
+
+  /**
+   * Retrieves all damage claims for Admin/Support panel with signed photo URLs.
+   */
+  async getAllClaimsForAdmin(status?: string, page = 1, limit = 50) {
+    const whereClause: any = {};
+    if (status && status !== 'ALL') {
+      whereClause.status = status as DamageClaimStatus;
+    }
+
+    const skip = (page - 1) * limit;
+    const [claims, total] = await Promise.all([
+      this.prisma.damageClaim.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          booking: {
+            include: {
+              customer: {
+                select: { id: true, name: true, phone: true, email: true },
+              },
+              vendor: {
+                select: { id: true, businessName: true, ownerName: true, city: true },
+              },
+              car: {
+                select: { id: true, make: true, model: true, registrationNumber: true, year: true },
+              },
+              securityDeposit: true,
+            },
+          },
+        },
+      }),
+      this.prisma.damageClaim.count({ where: whereClause }),
+    ]);
+
+    const claimsWithSignedPhotos = await Promise.all(
+      claims.map(async (claim) => {
+        const signedPhotos = await Promise.all(
+          claim.damagePhotos.map((photoKey) =>
+            this.uploadsService.getPresignedDownloadUrl(photoKey, 900),
+          ),
+        );
+        return {
+          ...claim,
+          damagePhotos: signedPhotos,
+        };
+      }),
+    );
+
+    return {
+      claims: claimsWithSignedPhotos,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

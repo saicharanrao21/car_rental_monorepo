@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:models/models.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../domain/dispute_model.dart';
 import '../../domain/repositories/admin_disputes_repository.dart';
@@ -9,10 +10,16 @@ final adminDisputesRepositoryProvider = Provider<AdminDisputesRepository>((ref) 
 });
 
 final disputeStatusFilterProvider = StateProvider<String>((ref) => 'ALL'); // ALL, OPEN, UNDER_REVIEW, RESOLVED, REJECTED
+final damageClaimStatusFilterProvider = StateProvider<String>((ref) => 'ALL'); // ALL, SUBMITTED, UNDER_REVIEW, APPROVED, PARTIALLY_APPROVED, REJECTED
 
 final adminDisputesProvider = FutureProvider.autoDispose<List<DisputeModel>>((ref) async {
   final status = ref.watch(disputeStatusFilterProvider);
   return ref.watch(adminDisputesRepositoryProvider).getDisputes(status: status);
+});
+
+final adminDamageClaimsProvider = FutureProvider.autoDispose<List<DamageClaimModel>>((ref) async {
+  final status = ref.watch(damageClaimStatusFilterProvider);
+  return ref.watch(adminDisputesRepositoryProvider).getDamageClaims(status: status);
 });
 
 final disputeDetailProvider = FutureProvider.autoDispose.family<DisputeModel, String>((ref, id) async {
@@ -40,6 +47,29 @@ class AdminDisputesController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<bool> adjudicateClaim({
+    required String claimId,
+    required String decision,
+    double? approvedAmount,
+    required String adminNotes,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(adminDisputesRepositoryProvider).adjudicateDamageClaim(
+        claimId: claimId,
+        decision: decision,
+        approvedAmount: approvedAmount,
+        adminNotes: adminNotes,
+      );
+      _ref.invalidate(adminDamageClaimsProvider);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      return false;
     }
   }
 }

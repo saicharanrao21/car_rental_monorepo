@@ -1,4 +1,5 @@
 import 'package:core/core.dart';
+import 'package:models/models.dart';
 import '../domain/dispute_model.dart';
 import '../domain/repositories/admin_disputes_repository.dart';
 
@@ -35,5 +36,36 @@ class ApiAdminDisputesRepository implements AdminDisputesRepository {
       'status': status.toUpperCase(),
       if (resolutionNote != null && resolutionNote.isNotEmpty) 'resolutionNote': resolutionNote,
     });
+  }
+
+  @override
+  Future<List<DamageClaimModel>> getDamageClaims({String? status}) async {
+    final query = <String, dynamic>{};
+    if (status != null && status.isNotEmpty && status != 'ALL') {
+      query['status'] = status.toUpperCase();
+    }
+
+    final res = await apiClient.dio.get('/admin/damage-claims', queryParameters: query);
+    final List list = res.data is Map ? (res.data['claims'] as List? ?? res.data['data'] as List? ?? []) : (res.data as List);
+    return list.map((item) => DamageClaimModel.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
+
+  @override
+  Future<DamageClaimModel> adjudicateDamageClaim({
+    required String claimId,
+    required String decision,
+    double? approvedAmount,
+    required String adminNotes,
+  }) async {
+    final res = await apiClient.dio.patch(
+      '/admin/damage-claims/$claimId/adjudicate',
+      data: {
+        'decision': decision.toUpperCase(),
+        if (approvedAmount != null && approvedAmount > 0) 'approvedAmount': approvedAmount,
+        'adminNotes': adminNotes,
+      },
+    );
+    final data = res.data is Map<String, dynamic> ? res.data : (res.data['data'] ?? res.data);
+    return DamageClaimModel.fromJson(Map<String, dynamic>.from(data));
   }
 }

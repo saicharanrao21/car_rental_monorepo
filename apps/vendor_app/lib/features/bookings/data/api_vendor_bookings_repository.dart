@@ -126,4 +126,32 @@ class ApiVendorBookingsRepository implements VendorBookingsRepository {
       },
     );
   }
+
+  @override
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId) async {
+    final response = await apiClient.dio.get('/bookings/$bookingId/damage-claims');
+    final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+    return data.map((json) => DamageClaimModel.fromJson(Map<String, dynamic>.from(json))).toList();
+  }
+
+  @override
+  Future<DamageClaimModel> submitDamageClaim(
+    String bookingId, {
+    required double claimedAmount,
+    required String description,
+    required List<String> damagePhotos,
+    String? vendorNotes,
+  }) async {
+    final response = await apiClient.dio.post(
+      '/bookings/$bookingId/damage-claims',
+      data: {
+        'claimedAmount': claimedAmount,
+        'description': description,
+        'damagePhotos': damagePhotos,
+        if (vendorNotes != null && vendorNotes.isNotEmpty) 'vendorNotes': vendorNotes,
+      },
+    );
+    final data = response.data is Map<String, dynamic> ? response.data : (response.data['data'] ?? response.data);
+    return DamageClaimModel.fromJson(Map<String, dynamic>.from(data));
+  }
 }

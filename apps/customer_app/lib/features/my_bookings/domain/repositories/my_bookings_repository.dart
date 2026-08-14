@@ -52,4 +52,5 @@ abstract class MyBookingsRepository {
   Future<CancellationPreviewModel> getCancellationPreview(String bookingId);
   Future<void> cancelBooking(String bookingId, String reason);
   Future<void> submitReview(ReviewModel review);
+  Future<SecurityDepositModel?> getSecurityDeposit(String bookingId);
 }

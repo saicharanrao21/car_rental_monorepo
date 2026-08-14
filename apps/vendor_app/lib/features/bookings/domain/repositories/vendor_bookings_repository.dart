@@ -15,4 +15,12 @@ abstract class VendorBookingsRepository {
     bool finalize = true,
   });
   Future<void> sendHandoverOtp(String bookingId, String otpType);
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId);
+  Future<DamageClaimModel> submitDamageClaim(
+    String bookingId, {
+    required double claimedAmount,
+    required String description,
+    required List<String> damagePhotos,
+    String? vendorNotes,
+  });
 }

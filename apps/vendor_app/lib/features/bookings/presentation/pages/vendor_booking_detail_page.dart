@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../providers/vendor_bookings_providers.dart';
 import '../widgets/handover_inspection_sheet.dart';
 import '../widgets/inspection_history_card.dart';
+import '../widgets/damage_claim_submission_sheet.dart';
 
 class VendorBookingDetailPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -41,6 +42,20 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
         minOdometer: minOdo,
         onSaved: () {
           ref.invalidate(bookingInspectionsProvider(widget.bookingId));
+        },
+      ),
+    );
+  }
+
+  void _openDamageClaimSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DamageClaimSubmissionSheet(
+        bookingId: widget.bookingId,
+        onSubmitted: () {
+          ref.invalidate(bookingDamageClaimsProvider(widget.bookingId));
         },
       ),
     );
@@ -334,6 +349,12 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                         child: InspectionHistoryCard(inspection: insp),
                       )),
                   const Gap(12),
+                ],
+
+                // Post-Trip Damage Claims
+                if (booking.status.toLowerCase() == 'completed') ...[
+                  _buildDamageClaimSection(),
+                  const Gap(24),
                 ],
 
                 // Payout Transparency Breakdown
@@ -730,5 +751,192 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
         ),
       ],
     );
+  }
+
+  Widget _buildDamageClaimSection() {
+    final claimsAsync = ref.watch(bookingDamageClaimsProvider(widget.bookingId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Vehicle Damage Claims',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 18),
+              onPressed: () => ref.invalidate(bookingDamageClaimsProvider(widget.bookingId)),
+            ),
+          ],
+        ),
+        const Gap(8),
+        claimsAsync.when(
+          data: (claims) {
+            if (claims.isEmpty) {
+              return AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_outline, color: Colors.green[700], size: 20),
+                          const Gap(10),
+                          const Text(
+                            'No Damage Reported',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const Gap(6),
+                      Text(
+                        'If new damage was discovered during post-trip return inspection, submit a claim with repair estimates and photo evidence for admin adjudication.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const Gap(14),
+                      OutlinedButton.icon(
+                        onPressed: _openDamageClaimSheet,
+                        icon: const Icon(Icons.report_problem_outlined, size: 16, color: Colors.red),
+                        label: const Text('Report Vehicle Damage', style: TextStyle(color: Colors.red)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final claim = claims.first;
+            final (statusText, statusBg, statusFg) = _resolveClaimStatusStyle(claim.status);
+
+            return AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.shield_outlined, size: 18, color: Colors.red),
+                            const Gap(8),
+                            const Text(
+                              'Claim #',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            Text(
+                              claim.id.length > 8 ? claim.id.substring(0, 8) : claim.id,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            statusText,
+                            style: TextStyle(color: statusFg, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Claimed Repair Cost:', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                        PriceTag(
+                          amount: claim.claimedAmount,
+                          amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                    if (claim.approvedAmount != null) ...[
+                      const Gap(4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Approved Deducted Amount:', style: TextStyle(fontSize: 13, color: Colors.green)),
+                          PriceTag(
+                            amount: claim.approvedAmount!,
+                            amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const Gap(10),
+                    Text(
+                      'Description: ${claim.description}',
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    ),
+                    if (claim.damagePhotos.isNotEmpty) ...[
+                      const Gap(10),
+                      Text(
+                        'Attached Photos: ${claim.damagePhotos.length}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                    if (claim.adminNotes != null && claim.adminNotes!.isNotEmpty) ...[
+                      const Gap(10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.gavel, size: 16, color: Colors.blue),
+                            const Gap(8),
+                            Expanded(
+                              child: Text(
+                                'Admin Resolution: ${claim.adminNotes}',
+                                style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+          loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  (String, Color, Color) _resolveClaimStatusStyle(DamageClaimStatus status) {
+    switch (status) {
+      case DamageClaimStatus.SUBMITTED:
+        return ('SUBMITTED', Colors.amber.withValues(alpha: 0.15), Colors.amber[900]!);
+      case DamageClaimStatus.UNDER_REVIEW:
+        return ('UNDER REVIEW', Colors.blue.withValues(alpha: 0.15), Colors.blue[900]!);
+      case DamageClaimStatus.APPROVED:
+        return ('APPROVED', Colors.green.withValues(alpha: 0.15), Colors.green[900]!);
+      case DamageClaimStatus.PARTIALLY_APPROVED:
+        return ('PARTIALLY APPROVED', Colors.orange.withValues(alpha: 0.15), Colors.orange[900]!);
+      case DamageClaimStatus.REJECTED:
+        return ('REJECTED', Colors.red.withValues(alpha: 0.15), Colors.red[900]!);
+      case DamageClaimStatus.SETTLED:
+        return ('SETTLED', Colors.purple.withValues(alpha: 0.15), Colors.purple[900]!);
+    }
   }
 }

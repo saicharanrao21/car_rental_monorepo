@@ -78,9 +78,42 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     return inspection;
   }
 
+  final Map<String, List<DamageClaimModel>> _mockDamageClaims = {};
+
   @override
   Future<void> sendHandoverOtp(String bookingId, String otpType) async {
     await simulateLatency();
     // In mock mode, simply simulate successful dispatch
+  }
+
+  @override
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId) async {
+    await simulateLatency();
+    return _mockDamageClaims[bookingId] ?? [];
+  }
+
+  @override
+  Future<DamageClaimModel> submitDamageClaim(
+    String bookingId, {
+    required double claimedAmount,
+    required String description,
+    required List<String> damagePhotos,
+    String? vendorNotes,
+  }) async {
+    await simulateLatency();
+    final claim = DamageClaimModel(
+      id: 'claim-${DateTime.now().millisecondsSinceEpoch}',
+      bookingId: bookingId,
+      vendorId: 'vendor-mock',
+      claimedAmount: claimedAmount,
+      status: DamageClaimStatus.SUBMITTED,
+      description: description,
+      damagePhotos: damagePhotos,
+      vendorNotes: vendorNotes,
+      createdAt: DateTime.now(),
+    );
+    final list = _mockDamageClaims.putIfAbsent(bookingId, () => []);
+    list.add(claim);
+    return claim;
   }
 }
