@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,6 +21,9 @@ import { WishlistModule } from './wishlist/wishlist.module';
 import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
 import { DisputesModule } from './disputes/disputes.module';
 import { SupportedCitiesModule } from './supported-cities/supported-cities.module';
+import { DepositsModule } from './deposits/deposits.module';
+import { DamageClaimsModule } from './damage-claims/damage-claims.module';
+import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { validateEnv } from './common/env.validation';
 
@@ -49,8 +52,14 @@ import { validateEnv } from './common/env.validation';
     RecentlyViewedModule,
     DisputesModule,
     SupportedCitiesModule,
+    DepositsModule,
+    DamageClaimsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}

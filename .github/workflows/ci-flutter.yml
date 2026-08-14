@@ -1,0 +1,58 @@
+name: Flutter Monorepo CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/ci-flutter.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/ci-flutter.yml'
+
+jobs:
+  test-and-analyze:
+    name: Flutter Apps Test & Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap Workspace
+        run: melos bootstrap
+
+      - name: Run Tests (Customer App)
+        working-directory: apps/customer_app
+        run: flutter test
+
+      - name: Run Tests (Vendor App)
+        working-directory: apps/vendor_app
+        run: flutter test
+
+      - name: Run Tests (Admin Panel)
+        working-directory: apps/admin_panel
+        run: flutter test
+
+      - name: Run Static Analysis
+        run: flutter analyze

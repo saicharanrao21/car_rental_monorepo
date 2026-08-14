@@ -12,3 +12,5 @@ export 'src/banner_model.dart';
 export 'src/supported_city_model.dart';
 export 'src/public_settings_model.dart';
 export 'src/inspection_model.dart';
+export 'src/security_deposit_model.dart';
+export 'src/damage_claim_model.dart';

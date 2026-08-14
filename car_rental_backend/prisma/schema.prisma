@@ -111,6 +111,24 @@ enum HandoverOtpType {
   RETURN
 }
 
+enum SecurityDepositStatus {
+  REQUIRED
+  HELD
+  REFUNDED
+  PARTIALLY_REFUNDED
+  FORFEITED
+  CANCELLED
+}
+
+enum DamageClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  SETTLED
+}
+
 model User {
   id               String            @id @default(cuid())
   name             String
@@ -168,6 +186,7 @@ model Vendor {
   cars               Car[]
   bookings           Booking[]
   payouts            Payout[]
+  damageClaims       DamageClaim[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -258,6 +277,8 @@ model Booking {
   dispute            Dispute?
   inspections        Inspection[]
   handoverOtps       HandoverOtp[]
+  securityDeposit    SecurityDeposit?
+  damageClaims       DamageClaim[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -506,5 +527,46 @@ model HandoverOtp {
 
   @@index([bookingId, otpType])
   @@index([recipientId])
+}
+
+model SecurityDeposit {
+  id                String                @id @default(cuid())
+  bookingId         String                @unique
+  booking           Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount            Decimal               @db.Decimal(10, 2)
+  refundedAmount    Decimal               @default(0) @db.Decimal(10, 2)
+  deductedAmount    Decimal               @default(0) @db.Decimal(10, 2)
+  razorpayPaymentId String?
+  razorpayRefundId  String?               @unique
+  status            SecurityDepositStatus @default(REQUIRED)
+  heldAt            DateTime?
+  releasedAt        DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model DamageClaim {
+  id              String            @id @default(cuid())
+  bookingId       String
+  booking         Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId        String
+  vendor          Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  claimedAmount   Decimal           @db.Decimal(10, 2)
+  approvedAmount  Decimal?          @db.Decimal(10, 2)
+  status          DamageClaimStatus @default(SUBMITTED)
+  description     String
+  damagePhotos    String[]
+  vendorNotes     String?
+  adminNotes      String?
+  customerDispute String?
+  createdAt       DateTime          @default(now())
+  resolvedAt      DateTime?
+
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([status])
 }
 

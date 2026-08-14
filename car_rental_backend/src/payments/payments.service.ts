@@ -15,6 +15,7 @@ import {
   PaymentStatus,
   BookingStatus,
   RefundStatus,
+  SecurityDepositStatus,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -82,6 +83,7 @@ export class PaymentsService {
   async createOrder(bookingId: string, customerId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
+      include: { securityDeposit: true },
     });
 
     if (!booking) {
@@ -116,14 +118,17 @@ export class PaymentsService {
       });
     }
 
-    const amountInPaise = Math.round(booking.totalFare.toNumber() * 100);
+    const tripFare = booking.totalFare;
+    const depositAmount = booking.securityDeposit?.amount || new Decimal(0);
+    const totalAmount = tripFare.add(depositAmount);
+    const amountInPaise = Math.round(totalAmount.toNumber() * 100);
 
     let orderId: string;
 
     if (this.useMock) {
       orderId = `order_mock_${Math.random().toString(36).substring(2, 15)}`;
       this.logger.log(
-        `[RAZORPAY-MOCK] Created mock order ${orderId} for booking ${bookingId} of amount ${amountInPaise} paise`,
+        `[RAZORPAY-MOCK] Created mock order ${orderId} for booking ${bookingId} of amount ${amountInPaise} paise (Fare: ${tripFare}, Deposit: ${depositAmount})`,
       );
     } else {
       try {
@@ -146,7 +151,7 @@ export class PaymentsService {
       data: {
         bookingId,
         razorpayOrderId: orderId,
-        amount: booking.totalFare,
+        amount: totalAmount,
         status: PaymentStatus.CREATED,
       },
     });
@@ -156,6 +161,11 @@ export class PaymentsService {
       amount: amountInPaise,
       currency: 'INR',
       keyId: this.keyId,
+      breakdown: {
+        tripFare: tripFare.toNumber(),
+        securityDeposit: depositAmount.toNumber(),
+        totalAmount: totalAmount.toNumber(),
+      },
     };
   }
 
@@ -170,6 +180,7 @@ export class PaymentsService {
     // 1. Authoritative Booking existence & Ownership check
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
+      include: { securityDeposit: true },
     });
 
     if (!booking) {
@@ -297,9 +308,10 @@ export class PaymentsService {
         }
 
         // Verify amount
-        const expectedAmountInPaise = Math.round(
-          booking.totalFare.toNumber() * 100,
+        const totalExpected = booking.totalFare.add(
+          booking.securityDeposit?.amount || new Decimal(0),
         );
+        const expectedAmountInPaise = Math.round(totalExpected.toNumber() * 100);
         if (Number(razorpayPayment.amount) !== expectedAmountInPaise) {
           this.logger.error(
             `CRITICAL PAYMENT FRAUD ATTEMPT: Expected ${expectedAmountInPaise} paise, but received ${razorpayPayment.amount} paise for booking ${bookingId}!`,
@@ -362,6 +374,17 @@ export class PaymentsService {
           razorpayPaymentId,
         },
       });
+
+      if (booking.securityDeposit) {
+        await tx.securityDeposit.update({
+          where: { id: booking.securityDeposit.id },
+          data: {
+            status: SecurityDepositStatus.HELD,
+            razorpayPaymentId,
+            heldAt: new Date(),
+          },
+        });
+      }
 
       const b = await tx.booking.findUnique({
         where: { id: bookingId },
