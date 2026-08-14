@@ -6,6 +6,8 @@ import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import '../providers/vendor_bookings_providers.dart';
+import '../widgets/handover_inspection_sheet.dart';
+import '../widgets/inspection_history_card.dart';
 
 class VendorBookingDetailPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -18,6 +20,120 @@ class VendorBookingDetailPage extends ConsumerStatefulWidget {
 
 class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPage> {
   bool _isLoadingAction = false;
+  bool _isSendingOtp = false;
+  final _otpCtrl = TextEditingController();
+  DateTime? _lastOtpSentAt;
+
+  @override
+  void dispose() {
+    _otpCtrl.dispose();
+    super.dispose();
+  }
+
+  void _openInspectionSheet(String type, double? minOdo) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => HandoverInspectionSheet(
+        bookingId: widget.bookingId,
+        type: type,
+        minOdometer: minOdo,
+        onSaved: () {
+          ref.invalidate(bookingInspectionsProvider(widget.bookingId));
+        },
+      ),
+    );
+  }
+
+  Future<void> _sendOtp(String otpType) async {
+    // 60s cooldown check
+    if (_lastOtpSentAt != null &&
+        DateTime.now().difference(_lastOtpSentAt!).inSeconds < 60) {
+      final remaining = 60 - DateTime.now().difference(_lastOtpSentAt!).inSeconds;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please wait $remaining seconds before requesting another OTP')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSendingOtp = true;
+    });
+
+    final success = await ref
+        .read(vendorBookingsProvider.notifier)
+        .sendHandoverOtp(widget.bookingId, otpType);
+
+    if (mounted) {
+      setState(() {
+        _isSendingOtp = false;
+        if (success) {
+          _lastOtpSentAt = DateTime.now();
+        }
+      });
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green[800],
+            content: Text(
+              '${otpType == 'PICKUP' ? 'Pickup' : 'Return'} OTP successfully sent to customer\'s registered mobile number.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to dispatch handover OTP. Please try again.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _verifyAndTransition({
+    required String targetStatus,
+    required String successMessage,
+  }) async {
+    final otp = _otpCtrl.text.trim();
+    if (otp.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the complete 6-digit customer handover OTP')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoadingAction = true;
+    });
+
+    final success = await ref.read(vendorBookingsProvider.notifier).updateStatus(
+      widget.bookingId,
+      targetStatus,
+      handoverOtp: otp,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoadingAction = false;
+      });
+
+      if (success) {
+        _otpCtrl.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green[800],
+            content: Text(successMessage),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Handover verification failed. Please ensure the inspection is finalized and OTP is correct.'),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +155,19 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
       );
     }
 
+    final inspectionsVal = ref.watch(bookingInspectionsProvider(booking.id));
+    final inspections = inspectionsVal.value ?? [];
+    final preTrip = inspections.where((i) => i.type == 'PRE_TRIP').firstOrNull;
+    final postTrip = inspections.where((i) => i.type == 'POST_TRIP').firstOrNull;
+
     final customerName = 'Customer #${booking.customerId.length > 6 ? booking.customerId.substring(0, 6) : booking.customerId}';
-    final customerPhone = 'Verified Phone';
     final carTitle = 'Vehicle #${booking.carId.length > 6 ? booking.carId.substring(0, 6) : booking.carId}';
 
     final formatter = DateFormat('dd MMM yyyy, hh:mm a');
     final startStr = formatter.format(booking.startDate);
     final endStr = formatter.format(booking.endDate);
+
+    final statusLower = booking.status.toLowerCase();
 
     return Scaffold(
       appBar: AppBar(
@@ -70,6 +192,12 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   ],
                 ),
                 const Divider(height: 32),
+
+                // Active Handover Workflow Card (Pickup / Return)
+                if (statusLower == 'confirmed')
+                  _buildPickupWorkflowCard(preTrip)
+                else if (statusLower == 'ongoing')
+                  _buildReturnWorkflowCard(preTrip, postTrip),
 
                 // Vehicle Details Card
                 const Text('Vehicle Info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -197,6 +325,17 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                 ),
                 const Gap(24),
 
+                // Inspection History for Completed Bookings
+                if (inspections.isNotEmpty) ...[
+                  const Text('Inspection Records', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Gap(12),
+                  ...inspections.map((insp) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: InspectionHistoryCard(inspection: insp),
+                      )),
+                  const Gap(12),
+                ],
+
                 // Payout Transparency Breakdown
                 const Text('Earnings Transparency', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const Gap(12),
@@ -234,22 +373,311 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   ),
                 ),
                 const Gap(40),
-
-                // Action Buttons
-                _buildActionButtons(context, booking),
-                const Gap(40),
               ],
             ),
           ),
           if (_isLoadingAction)
             Container(
-              color: Colors.black12,
+              color: Colors.black26,
               child: const Center(
                 child: AppLoader(),
               ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPickupWorkflowCard(InspectionModel? preTrip) {
+    final hasFinalizedPreTrip = preTrip != null && preTrip.finalized;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Vehicle Handover & Pickup Flow',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const Gap(12),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Step 1: Pre-Trip Inspection
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: hasFinalizedPreTrip ? Colors.green : Colors.blue,
+                      child: Text(
+                        hasFinalizedPreTrip ? '✓' : '1',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const Gap(10),
+                    const Text(
+                      'Step 1: Pre-Trip Inspection',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                if (!hasFinalizedPreTrip) ...[
+                  Text(
+                    'Record vehicle odometer, fuel level, and condition before handing over keys.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const Gap(10),
+                  ElevatedButton.icon(
+                    onPressed: () => _openInspectionSheet('PRE_TRIP', null),
+                    icon: const Icon(Icons.fact_check_outlined, size: 16),
+                    label: const Text('Record Pre-Trip Inspection'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green[700], size: 18),
+                        const Gap(8),
+                        Expanded(
+                          child: Text(
+                            'Pre-Trip Finalized: ${preTrip.odometer.toStringAsFixed(1)} km | Fuel: ${preTrip.fuelPercent}%',
+                            style: TextStyle(color: Colors.green[900], fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const Divider(height: 24),
+
+                // Step 2: Handover OTP
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: hasFinalizedPreTrip ? Colors.blue : Colors.grey,
+                      child: const Text(
+                        '2',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const Gap(10),
+                    const Text(
+                      'Step 2: Customer Handover OTP',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                Text(
+                  'Customer receives a 6-digit OTP via SMS when you initiate handover.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const Gap(10),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isSendingOtp ? null : () => _sendOtp('PICKUP'),
+                      icon: _isSendingOtp
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send_outlined, size: 16),
+                      label: Text(_isSendingOtp ? 'Sending...' : 'Send Pickup OTP'),
+                    ),
+                  ],
+                ),
+                const Gap(12),
+                AppTextField(
+                  label: '6-Digit Customer Pickup OTP',
+                  controller: _otpCtrl,
+                  keyboardType: TextInputType.number,
+                  hint: 'Enter OTP provided by customer',
+                ),
+                const Gap(16),
+
+                // Start Trip Button
+                AppButton(
+                  text: 'Verify OTP & Start Trip',
+                  onPressed: !hasFinalizedPreTrip
+                      ? null
+                      : () => _verifyAndTransition(
+                            targetStatus: 'ongoing',
+                            successMessage: 'Pickup verified and trip started successfully!',
+                          ),
+                ),
+                if (!hasFinalizedPreTrip) ...[
+                  const Gap(6),
+                  Text(
+                    'Complete Step 1 (Pre-Trip Inspection) to enable trip start.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.orange[800], fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const Gap(24),
+      ],
+    );
+  }
+
+  Widget _buildReturnWorkflowCard(InspectionModel? preTrip, InspectionModel? postTrip) {
+    final hasFinalizedPostTrip = postTrip != null && postTrip.finalized;
+    final minOdometer = preTrip?.odometer;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Vehicle Return & Handover Flow',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const Gap(12),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Step 1: Post-Trip Inspection
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: hasFinalizedPostTrip ? Colors.green : Colors.purple,
+                      child: Text(
+                        hasFinalizedPostTrip ? '✓' : '1',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const Gap(10),
+                    const Text(
+                      'Step 1: Post-Trip Inspection',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                if (!hasFinalizedPostTrip) ...[
+                  Text(
+                    'Record return odometer (>= ${minOdometer ?? 0} km), fuel level, and any new damage.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const Gap(10),
+                  ElevatedButton.icon(
+                    onPressed: () => _openInspectionSheet('POST_TRIP', minOdometer),
+                    icon: const Icon(Icons.fact_check_outlined, size: 16),
+                    label: const Text('Record Post-Trip Inspection'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[700],
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green[700], size: 18),
+                        const Gap(8),
+                        Expanded(
+                          child: Text(
+                            'Post-Trip Finalized: ${postTrip.odometer.toStringAsFixed(1)} km | Fuel: ${postTrip.fuelPercent}%',
+                            style: TextStyle(color: Colors.green[900], fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const Divider(height: 24),
+
+                // Step 2: Return Handover OTP
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: hasFinalizedPostTrip ? Colors.purple : Colors.grey,
+                      child: const Text(
+                        '2',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const Gap(10),
+                    const Text(
+                      'Step 2: Customer Return OTP',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                Text(
+                  'Customer receives a return 6-digit OTP to authorize trip completion.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const Gap(10),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isSendingOtp ? null : () => _sendOtp('RETURN'),
+                      icon: _isSendingOtp
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send_outlined, size: 16),
+                      label: Text(_isSendingOtp ? 'Sending...' : 'Send Return OTP'),
+                    ),
+                  ],
+                ),
+                const Gap(12),
+                AppTextField(
+                  label: '6-Digit Customer Return OTP',
+                  controller: _otpCtrl,
+                  keyboardType: TextInputType.number,
+                  hint: 'Enter OTP provided by customer',
+                ),
+                const Gap(16),
+
+                // Complete Trip Button
+                AppButton(
+                  text: 'Verify OTP & Complete Trip',
+                  onPressed: !hasFinalizedPostTrip
+                      ? null
+                      : () => _verifyAndTransition(
+                            targetStatus: 'completed',
+                            successMessage: 'Return verified and trip completed successfully!',
+                          ),
+                ),
+                if (!hasFinalizedPostTrip) ...[
+                  const Gap(6),
+                  Text(
+                    'Complete Step 1 (Post-Trip Inspection) to enable trip completion.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.orange[800], fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const Gap(24),
+      ],
     );
   }
 
@@ -298,48 +726,9 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
             color: color ?? (amount < 0 ? Colors.red[700] : Colors.black87),
           ),
-          suffix: amount < 0 ? ' -' : null, // Display negative sign appropriately
+          suffix: amount < 0 ? ' -' : null,
         ),
       ],
     );
-  }
-
-  Widget _buildActionButtons(BuildContext context, BookingModel booking) {
-    if (booking.status == 'confirmed') {
-      return AppButton(
-        text: 'Mark as Started',
-        onPressed: () => _updateStatus(booking.id, 'ongoing', 'Trip started successfully'),
-      );
-    } else if (booking.status == 'ongoing') {
-      return AppButton(
-        text: 'Mark as Completed',
-        onPressed: () => _updateStatus(booking.id, 'completed', 'Trip completed successfully'),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Future<void> _updateStatus(String id, String status, String successMessage) async {
-    setState(() {
-      _isLoadingAction = true;
-    });
-
-    final success = await ref.read(vendorBookingsProvider.notifier).updateStatus(id, status);
-
-    if (mounted) {
-      setState(() {
-        _isLoadingAction = false;
-      });
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMessage)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update booking status')),
-        );
-      }
-    }
   }
 }

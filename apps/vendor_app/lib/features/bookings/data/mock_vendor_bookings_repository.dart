@@ -14,13 +14,20 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     return bookings;
   }
 
+  final Map<String, List<InspectionModel>> _mockInspections = {};
+
   @override
-  Future<void> updateBookingStatus(String bookingId, String newStatus) async {
+  Future<void> updateBookingStatus(
+    String bookingId,
+    String newStatus, {
+    String? handoverOtp,
+    String? reason,
+  }) async {
     await simulateLatency();
     final index = MockData.bookings.indexWhere((b) => b.id == bookingId);
     if (index != -1) {
       final old = MockData.bookings[index];
-      MockData.bookings[index] = old.copyWith(status: newStatus);
+      MockData.bookings[index] = old.copyWith(status: newStatus.toLowerCase());
     }
   }
 
@@ -33,5 +40,47 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
       final old = MockData.bookings[index];
       MockData.bookings[index] = old.copyWith(status: 'cancelled');
     }
+  }
+
+  @override
+  Future<List<InspectionModel>> getInspections(String bookingId) async {
+    await simulateLatency();
+    return _mockInspections[bookingId] ?? [];
+  }
+
+  @override
+  Future<InspectionModel> upsertInspection(
+    String bookingId, {
+    required String type,
+    required double odometer,
+    required int fuelPercent,
+    String? conditionNotes,
+    List<String>? damagePhotos,
+    bool finalize = true,
+  }) async {
+    await simulateLatency();
+    final inspection = InspectionModel(
+      id: 'insp-${DateTime.now().millisecondsSinceEpoch}',
+      bookingId: bookingId,
+      type: type,
+      performedById: 'vendor-mock',
+      odometer: odometer,
+      fuelPercent: fuelPercent,
+      conditionNotes: conditionNotes,
+      damagePhotos: damagePhotos ?? [],
+      finalized: finalize,
+      finalizedAt: finalize ? DateTime.now() : null,
+      createdAt: DateTime.now(),
+    );
+    final list = _mockInspections.putIfAbsent(bookingId, () => []);
+    list.removeWhere((i) => i.type == type);
+    list.add(inspection);
+    return inspection;
+  }
+
+  @override
+  Future<void> sendHandoverOtp(String bookingId, String otpType) async {
+    await simulateLatency();
+    // In mock mode, simply simulate successful dispatch
   }
 }

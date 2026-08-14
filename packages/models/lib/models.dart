@@ -11,3 +11,4 @@ export 'src/earnings_model.dart';
 export 'src/banner_model.dart';
 export 'src/supported_city_model.dart';
 export 'src/public_settings_model.dart';
+export 'src/inspection_model.dart';

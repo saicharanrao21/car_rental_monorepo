@@ -17,6 +17,11 @@ final vendorBookingsProvider = AsyncNotifierProvider.autoDispose<VendorBookingsN
   return VendorBookingsNotifier();
 });
 
+final bookingInspectionsProvider = FutureProvider.family.autoDispose<List<InspectionModel>, String>((ref, bookingId) async {
+  final repo = ref.watch(vendorBookingsRepositoryProvider);
+  return repo.getInspections(bookingId);
+});
+
 class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>> {
   @override
   FutureOr<List<BookingModel>> build() async {
@@ -55,14 +60,25 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     }
   }
 
-  Future<bool> updateStatus(String bookingId, String newStatus) async {
+  Future<bool> updateStatus(
+    String bookingId,
+    String newStatus, {
+    String? handoverOtp,
+    String? reason,
+  }) async {
     final repo = ref.read(vendorBookingsRepositoryProvider);
     final result = await AsyncValue.guard(() async {
-      await repo.updateBookingStatus(bookingId, newStatus);
+      await repo.updateBookingStatus(
+        bookingId,
+        newStatus,
+        handoverOtp: handoverOtp,
+        reason: reason,
+      );
     });
     ref.invalidateSelf();
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
+    ref.invalidate(bookingInspectionsProvider(bookingId));
     return !result.hasError;
   }
 
@@ -74,6 +90,39 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidateSelf();
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
+    return !result.hasError;
+  }
+
+  Future<bool> submitInspection(
+    String bookingId, {
+    required String type,
+    required double odometer,
+    required int fuelPercent,
+    String? conditionNotes,
+    List<String>? damagePhotos,
+    bool finalize = true,
+  }) async {
+    final repo = ref.read(vendorBookingsRepositoryProvider);
+    final result = await AsyncValue.guard(() async {
+      await repo.upsertInspection(
+        bookingId,
+        type: type,
+        odometer: odometer,
+        fuelPercent: fuelPercent,
+        conditionNotes: conditionNotes,
+        damagePhotos: damagePhotos,
+        finalize: finalize,
+      );
+    });
+    ref.invalidate(bookingInspectionsProvider(bookingId));
+    return !result.hasError;
+  }
+
+  Future<bool> sendHandoverOtp(String bookingId, String otpType) async {
+    final repo = ref.read(vendorBookingsRepositoryProvider);
+    final result = await AsyncValue.guard(() async {
+      await repo.sendHandoverOtp(bookingId, otpType);
+    });
     return !result.hasError;
   }
 }
