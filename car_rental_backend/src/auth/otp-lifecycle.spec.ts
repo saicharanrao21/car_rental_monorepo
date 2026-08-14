@@ -186,4 +186,17 @@ describe('OTP Lifecycle & Security Hardening (Phase 2A)', () => {
     expect(otpDatabase.length).toBe(1);
     expect(otpDatabase[0].expiresAt.getTime()).toBeLessThan(Date.now());
   });
+
+  it('should generate cryptographically strong 6-digit numeric OTP (CSPRNG)', async () => {
+    for (let i = 0; i < 10; i++) {
+      mockRedis.store.clear();
+      await otpService.sendOtp(`+91987654321${i}`);
+      const lastCall = mockSmsProvider.sendSms.mock.calls[mockSmsProvider.sendSms.mock.calls.length - 1];
+      const otpArg = lastCall[2];
+      expect(otpArg).toMatch(/^\d{6}$/);
+      const numericOtp = parseInt(otpArg, 10);
+      expect(numericOtp).toBeGreaterThanOrEqual(100000);
+      expect(numericOtp).toBeLessThan(1000000);
+    }
+  });
 });

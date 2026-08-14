@@ -10,6 +10,7 @@ import { SmsProviderService } from './sms-provider.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class OtpService {
@@ -44,8 +45,8 @@ export class OtpService {
       },
     });
 
-    // 3. Generate 6-digit numeric OTP code and bcrypt hash
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // 3. Generate 6-digit numeric OTP code using CSPRNG and bcrypt hash
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
     const otpHash = bcrypt.hashSync(otpCode, 10);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
 
