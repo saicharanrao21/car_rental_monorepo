@@ -93,8 +93,12 @@ export class PayoutsController {
   @Roles(Role.ADMIN)
   @Post('admin/payouts')
   @HttpCode(HttpStatus.CREATED)
-  async createPayout(@Body() dto: CreatePayoutDto) {
-    return this.payoutsService.createPayout(dto.vendorId, dto.amount);
+  async createPayout(@Req() req: any, @Body() dto: CreatePayoutDto) {
+    return this.payoutsService.createPayout(
+      dto.vendorId,
+      dto.amount,
+      req.user?.userId,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

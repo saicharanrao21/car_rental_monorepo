@@ -5,8 +5,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PayoutStatus, Prisma } from '@prisma/client';
+import { PayoutStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditLogService } from '../admin/audit-log.service';
 
 @Injectable()
 export class PayoutsService {
@@ -15,6 +16,7 @@ export class PayoutsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async getVendorEarningsSummary(vendorId: string) {
@@ -25,9 +27,13 @@ export class PayoutsService {
       throw new NotFoundException('Vendor not found.');
     }
 
-    // 1. Sum netToVendor for all COMPLETED bookings
+    // 1. Sum netToVendor for all COMPLETED bookings with verified PAID payment
     const completedBookings = await this.prisma.booking.findMany({
-      where: { vendorId, status: 'COMPLETED' },
+      where: {
+        vendorId,
+        status: 'COMPLETED',
+        payment: { status: PaymentStatus.PAID },
+      },
     });
 
     const totalEarnings = completedBookings.reduce(
@@ -45,10 +51,22 @@ export class PayoutsService {
       new Prisma.Decimal(0),
     );
 
-    // 3. Compute outstanding balance
+    // 3. Sum amount for all PENDING payouts (reserved funds)
+    const pendingPayouts = await this.prisma.payout.findMany({
+      where: { vendorId, status: PayoutStatus.PENDING },
+    });
+
+    const totalPending = pendingPayouts.reduce(
+      (sum, p) => sum.add(p.amount),
+      new Prisma.Decimal(0),
+    );
+
+    // 4. Compute balances
+    const reservedTotal = totalPaid.add(totalPending);
+    const availableBalance = totalEarnings.sub(reservedTotal);
     const outstandingBalance = totalEarnings.sub(totalPaid);
 
-    // 4. Calculate thisMonth and lastMonth breakdowns
+    // 5. Calculate thisMonth and lastMonth breakdowns
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -81,7 +99,9 @@ export class PayoutsService {
     return {
       totalEarnings: totalEarnings.toNumber(),
       totalPaid: totalPaid.toNumber(),
-      outstandingBalance: outstandingBalance.toNumber(),
+      totalPending: totalPending.toNumber(),
+      availableBalance: Math.max(0, availableBalance.toNumber()),
+      outstandingBalance: Math.max(0, outstandingBalance.toNumber()),
       thisMonthEarnings: thisMonthEarnings.toNumber(),
       lastMonthEarnings: lastMonthEarnings.toNumber(),
     };
@@ -103,6 +123,7 @@ export class PayoutsService {
       where: {
         vendorId,
         status: 'COMPLETED',
+        payment: { status: PaymentStatus.PAID },
         createdAt: { gte: limitDate },
       },
       orderBy: { createdAt: 'asc' },
@@ -137,28 +158,79 @@ export class PayoutsService {
     return result;
   }
 
-  async createPayout(vendorId: string, amount: number) {
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-    });
-    if (!vendor) {
-      throw new NotFoundException('Vendor not found');
+  async createPayout(vendorId: string, amount: number, adminUserId?: string) {
+    if (amount <= 0) {
+      throw new BadRequestException('Payout amount must be greater than zero.');
     }
 
-    // Validation: make sure outstanding balance is enough
-    const summary = await this.getVendorEarningsSummary(vendorId);
-    if (amount > summary.outstandingBalance) {
-      throw new BadRequestException(
-        `Requested payout amount (${amount}) exceeds vendor's outstanding balance (${summary.outstandingBalance})`,
+    return this.prisma.$transaction(async (tx) => {
+      const vendor = await tx.vendor.findUnique({
+        where: { id: vendorId },
+      });
+      if (!vendor) {
+        throw new NotFoundException('Vendor not found');
+      }
+
+      // Tier 2 Concurrency: Acquire row lock on Vendor record to serialize concurrent payout creations
+      await tx.$queryRaw`SELECT id FROM "Vendor" WHERE id = ${vendorId} FOR UPDATE`;
+
+      // Calculate live available balance inside transaction
+      const completed = await tx.booking.findMany({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+        },
+      });
+      const totalEarned = completed.reduce(
+        (sum, b) => sum.add(b.netToVendor),
+        new Prisma.Decimal(0),
       );
-    }
 
-    return this.prisma.payout.create({
-      data: {
-        vendorId,
-        amount: new Prisma.Decimal(amount),
-        status: PayoutStatus.PENDING,
-      },
+      const paid = await tx.payout.findMany({
+        where: { vendorId, status: PayoutStatus.PAID },
+      });
+      const totalPaidAmount = paid.reduce(
+        (sum, p) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+
+      const pending = await tx.payout.findMany({
+        where: { vendorId, status: PayoutStatus.PENDING },
+      });
+      const totalPendingAmount = pending.reduce(
+        (sum, p) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+
+      const available = totalEarned.sub(totalPaidAmount).sub(totalPendingAmount);
+
+      const reqAmount = new Prisma.Decimal(amount);
+      if (reqAmount.gt(available)) {
+        throw new BadRequestException(
+          `Requested payout amount (${amount}) exceeds vendor's available balance (${Math.max(0, available.toNumber())}). Reserved in pending payouts: ${totalPendingAmount.toNumber()}`,
+        );
+      }
+
+      const payout = await tx.payout.create({
+        data: {
+          vendorId,
+          amount: reqAmount,
+          status: PayoutStatus.PENDING,
+        },
+      });
+
+      if (adminUserId) {
+        this.auditLogService.log(
+          adminUserId,
+          'PAYOUT_CREATED',
+          'Payout',
+          payout.id,
+          { vendorId, amount: reqAmount.toNumber() },
+        );
+      }
+
+      return payout;
     });
   }
 

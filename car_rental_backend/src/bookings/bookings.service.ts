@@ -23,6 +23,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
 import { redactVendor } from '../common/vendor-redactor.util';
+import { AuditLogService } from '../admin/audit-log.service';
 
 @Injectable()
 export class BookingsService {
@@ -36,6 +37,7 @@ export class BookingsService {
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
     private readonly cancellationPolicyService: CancellationPolicyService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -495,6 +497,38 @@ export class BookingsService {
     }
 
     // Additional validations
+    if (newStatus === BookingStatus.CONFIRMED) {
+      const payment = await this.prisma.payment.findUnique({
+        where: { bookingId },
+      });
+      const isPaid = payment && payment.status === PaymentStatus.PAID;
+
+      if (!isAdmin && !isPaid) {
+        throw new BadRequestException(
+          `Cannot confirm booking: Payment has not been captured (Payment status: ${payment?.status || 'NONE'}). Bookings must be paid before confirmation.`,
+        );
+      }
+
+      if (isAdmin && !isPaid) {
+        if (!reason || reason.trim().length < 10) {
+          throw new BadRequestException(
+            'Admin confirmation of an unpaid booking requires an explicit justification (minimum 10 characters) in the reason field.',
+          );
+        }
+        await this.auditLogService.log(
+          requestingUser.userId,
+          'BOOKING_ADMIN_FORCE_CONFIRMED',
+          'Booking',
+          bookingId,
+          {
+            previousStatus: booking.status,
+            paymentStatus: payment?.status || 'NONE',
+            justification: reason,
+          },
+        );
+      }
+    }
+
     if (newStatus === BookingStatus.CANCELLED && isVendor && !reason) {
       throw new BadRequestException(
         'Vendors must specify a reason when rejecting/cancelling a booking.',
