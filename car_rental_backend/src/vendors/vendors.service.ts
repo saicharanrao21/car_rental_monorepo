@@ -8,6 +8,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { SubscriptionTier } from '@prisma/client';
 import { AuditLogService } from '../admin/audit-log.service';
 
+import { BankEncryptionService } from '../common/bank-encryption.service';
+
 @Injectable()
 export class VendorsService {
   private readonly logger = new Logger(VendorsService.name);
@@ -16,6 +18,7 @@ export class VendorsService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
+    private readonly bankEncryptionService: BankEncryptionService,
   ) {}
 
   async findAll(query: VendorsQueryDto): Promise<PaginatedResult<any>> {
@@ -70,6 +73,10 @@ export class VendorsService {
       throw new NotFoundException('Vendor not found');
     }
 
+    if (vendor.bankDetails) {
+      vendor.bankDetails = this.bankEncryptionService.mask(vendor.bankDetails);
+    }
+
     return vendor;
   }
 
@@ -88,6 +95,10 @@ export class VendorsService {
 
     if (!vendor) {
       throw new NotFoundException('Vendor account not found for this user');
+    }
+
+    if (vendor.bankDetails) {
+      vendor.bankDetails = this.bankEncryptionService.mask(vendor.bankDetails);
     }
 
     return vendor;
@@ -167,6 +178,13 @@ export class VendorsService {
       throw new NotFoundException('Vendor profile not found');
     }
 
+    const encryptedBankDetails =
+      dto.bankDetails !== undefined
+        ? dto.bankDetails
+          ? this.bankEncryptionService.encrypt(dto.bankDetails)
+          : null
+        : undefined;
+
     return this.prisma.vendor.update({
       where: { userId },
       data: {
@@ -178,7 +196,7 @@ export class VendorsService {
         longitude: dto.longitude ?? undefined,
         gstNumber: dto.gstNumber ?? undefined,
         panNumber: dto.panNumber ?? undefined,
-        bankDetails: dto.bankDetails ?? undefined,
+        bankDetails: encryptedBankDetails,
         businessType: dto.businessType ?? undefined,
         yearsInOperation: dto.yearsInOperation ?? undefined,
       },
@@ -308,6 +326,10 @@ export class VendorsService {
       );
     }
 
+    const encryptedBankDetails = dto.bankDetails
+      ? this.bankEncryptionService.encrypt(dto.bankDetails)
+      : parentVendor.bankDetails;
+
     return this.prisma.vendor.create({
       data: {
         branchOfId: parentVendor.id,
@@ -320,7 +342,7 @@ export class VendorsService {
         longitude: dto.longitude ?? null,
         gstNumber: dto.gstNumber ?? parentVendor.gstNumber,
         panNumber: dto.panNumber ?? parentVendor.panNumber,
-        bankDetails: dto.bankDetails ?? parentVendor.bankDetails,
+        bankDetails: encryptedBankDetails,
         businessType: dto.businessType || parentVendor.businessType,
         yearsInOperation: dto.yearsInOperation ?? 0,
         verificationStatus: 'PENDING',

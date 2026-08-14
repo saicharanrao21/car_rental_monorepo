@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from './otp.service';
 import { Role, User, VerificationStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { BankEncryptionService } from '../common/bank-encryption.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly bankEncryptionService: BankEncryptionService,
   ) {
     this.accessSecret =
       this.configService.get<string>('JWT_ACCESS_SECRET') ||
@@ -177,6 +179,10 @@ export class AuthService {
         },
       });
 
+      const encryptedBankDetails = bankDetails
+        ? this.bankEncryptionService.encrypt(bankDetails)
+        : null;
+
       const newVendor = await tx.vendor.create({
         data: {
           userId: newUser.id,
@@ -185,7 +191,7 @@ export class AuthService {
           city,
           gstNumber,
           panNumber,
-          bankDetails,
+          bankDetails: encryptedBankDetails,
           businessType,
           yearsInOperation: yearsInOperation || null,
           verificationStatus: VerificationStatus.PENDING,

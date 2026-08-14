@@ -34,6 +34,8 @@ describe('Environment Configuration Validation (Phase 1, 2A & 2B)', () => {
     R2_ACCESS_KEY_ID: 'real_r2_access_key_id_123456789',
     R2_SECRET_ACCESS_KEY: 'real_r2_secret_access_key_123456789_abcdef',
     R2_ENDPOINT: 'https://real-account-id.r2.cloudflarestorage.com',
+    BANK_ENCRYPTION_KEY:
+      'real_production_bank_encryption_key_32_bytes_hex_1234567890abcdef',
   };
 
   it('should pass validation for valid development configuration', () => {
@@ -174,14 +176,15 @@ describe('Environment Configuration Validation (Phase 1, 2A & 2B)', () => {
     );
   });
 
-  it('should fail startup in production if R2 credentials are placeholder defaults or missing', () => {
+  it('should fail startup in production if BANK_ENCRYPTION_KEY is placeholder or missing', () => {
     const badConfig = {
       ...validProdConfig,
-      R2_ACCESS_KEY_ID: 'mock_access_key',
+      BANK_ENCRYPTION_KEY:
+        'dev_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef',
     };
 
     expect(() => validateEnv(badConfig)).toThrow(
-      /Real Cloudflare R2 credentials .* are required in production/,
+      /BANK_ENCRYPTION_KEY is mandatory in production/,
     );
   });
 });

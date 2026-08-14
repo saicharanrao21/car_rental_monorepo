@@ -4,6 +4,18 @@ export interface VendorRedactionOptions {
   isPaid?: boolean;
 }
 
+export function maskBankDetails(value: string | null | undefined): string | null {
+  if (!value || value.trim() === '') {
+    return null;
+  }
+  // If ciphertext enc:v1:..., we handle inside service or fallback
+  return value.replace(/\b(\d{4,})\b/g, (match) => {
+    if (match.length <= 4) return match;
+    const visible = match.slice(-4);
+    return '••••••••' + visible;
+  });
+}
+
 export function redactVendor(
   vendor: any,
   options: VendorRedactionOptions = {},
@@ -18,8 +30,11 @@ export function redactVendor(
     ? `Partner in ${localityStr}`
     : 'Verified Partner';
 
-  // Admin or Vendor Owner sees full unredacted vendor identity & details
+  // Admin or Vendor Owner sees vendor identity & details (bankDetails masked for display)
   if (options.isAdmin || options.isOwner) {
+    if (copy.bankDetails && !copy.bankDetails.startsWith('enc:v1:')) {
+      copy.bankDetails = maskBankDetails(copy.bankDetails);
+    }
     return copy;
   }
 

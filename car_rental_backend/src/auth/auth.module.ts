@@ -12,10 +12,13 @@ import {
 } from './sms-provider.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
+import { CommonModule } from '../common/common.module';
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
+    CommonModule,
   ],
   controllers: [AuthController],
   providers: [

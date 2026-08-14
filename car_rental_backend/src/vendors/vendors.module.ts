@@ -6,9 +6,10 @@ import { LocalitiesController } from './localities.controller';
 import { AuthModule } from '../auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
 import { CarsModule } from '../cars/cars.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [AuthModule, JwtModule.register({}), CarsModule],
+  imports: [AuthModule, JwtModule.register({}), CarsModule, CommonModule],
   controllers: [
     VendorsController,
     AdminVendorsController,

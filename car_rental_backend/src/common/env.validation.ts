@@ -108,11 +108,16 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   R2_PUBLIC_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  BANK_ENCRYPTION_KEY?: string;
 }
 
 const KNOWN_PLACEHOLDER_SECRETS = new Set([
   'dev_access_secret_key_change_me_12345!',
   'dev_refresh_secret_key_change_me_12345!',
+  'dev_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef',
   'placeholderKeySecret',
   'placeholderWebhookSecret',
   'rzp_test_placeholderKeyId',
@@ -261,6 +266,17 @@ export function validateEnv(
           'PRODUCTION ERROR: Real Cloudflare R2 credentials (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT) are required in production.',
         );
       }
+    }
+
+    // 7. Bank encryption key is mandatory and must not be a known placeholder in production
+    if (
+      !validatedConfig.BANK_ENCRYPTION_KEY ||
+      KNOWN_PLACEHOLDER_SECRETS.has(validatedConfig.BANK_ENCRYPTION_KEY) ||
+      validatedConfig.BANK_ENCRYPTION_KEY.length < 32
+    ) {
+      validationErrors.push(
+        'PRODUCTION ERROR: BANK_ENCRYPTION_KEY is mandatory in production, must not be a placeholder, and must be at least 32 characters.',
+      );
     }
   } else if (validatedConfig.SMS_PROVIDER === 'msg91') {
     // Non-production environment explicitly choosing MSG91
