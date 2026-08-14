@@ -14,6 +14,7 @@ void main() {
   testWidgets('Vendor app build smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const ProviderScope(child: VendorApp()));
+    await tester.pumpAndSettle(const Duration(seconds: 4));
 
     // Verify that the splash or initial route is loaded.
     expect(find.byType(VendorApp), findsOneWidget);

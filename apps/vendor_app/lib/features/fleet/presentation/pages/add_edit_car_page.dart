@@ -283,10 +283,10 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       pricePerHour: double.tryParse(_priceHourCtrl.text.trim()) ?? 0.0,
       registrationNumber: _regNumCtrl.text.trim(),
       isAvailable: isEditMode
-          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).isAvailable)
+          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).isAvailable ?? true)
           : true,
       rating: isEditMode
-          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).rating)
+          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).rating ?? 5.0)
           : 5.0,
       availableTripTypes: _selectedTripTypes,
     );

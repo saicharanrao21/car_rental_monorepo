@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import * as crypto from 'crypto';
 
@@ -77,11 +77,14 @@ export class UploadsService {
 
     const filename = `${crypto.randomUUID()}.${ext}`;
     const key = `${fileType}/${userId}/${filename}`;
+    const isPrivate = fileType === 'vendor-document';
 
     if (this.useMock) {
       // In local dev mock mode, return local endpoints for upload/read simulation
       const uploadUrl = `http://localhost:3000/uploads/mock-put/${fileType}/${userId}/${filename}`;
-      const publicUrl = `http://localhost:3000/uploads/mock-files/${fileType}/${userId}/${filename}`;
+      const publicUrl = isPrivate
+        ? null
+        : `http://localhost:3000/uploads/mock-files/${fileType}/${userId}/${filename}`;
 
       return {
         uploadUrl,
@@ -100,7 +103,7 @@ export class UploadsService {
       const uploadUrl = await getSignedUrl(this.s3Client!, command, {
         expiresIn: 300,
       });
-      const publicUrl = `${this.publicUrl}/${key}`;
+      const publicUrl = isPrivate ? null : `${this.publicUrl}/${key}`;
 
       return {
         uploadUrl,
@@ -113,4 +116,49 @@ export class UploadsService {
       );
     }
   }
+
+  /**
+   * Generates a short-lived presigned GET URL for accessing private files.
+   * Extracts canonical S3 key if a full legacy URL is provided.
+   */
+  async getPresignedDownloadUrl(
+    fileUrlOrKey: string,
+    expiresInSec: number = 900,
+  ): Promise<string> {
+    if (!fileUrlOrKey || fileUrlOrKey.trim() === '') {
+      return fileUrlOrKey;
+    }
+
+    // Extract relative key if full URL is passed
+    let key = fileUrlOrKey.trim();
+    if (key.startsWith('http://') || key.startsWith('https://')) {
+      try {
+        const urlObj = new URL(key);
+        // Pathname starts with '/', remove leading slash to get key
+        key = urlObj.pathname.replace(/^\/+/, '');
+      } catch {
+        // Fallback: keep key as is
+      }
+    }
+
+    if (this.useMock) {
+      return `http://localhost:3000/uploads/mock-files/${key}`;
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    try {
+      return await getSignedUrl(this.s3Client!, command, {
+        expiresIn: expiresInSec,
+      });
+    } catch (err: any) {
+      throw new BadRequestException(
+        'Failed to generate presigned download URL for document',
+      );
+    }
+  }
 }
+

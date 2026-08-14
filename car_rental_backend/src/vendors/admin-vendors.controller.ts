@@ -20,9 +20,14 @@ import { redactVendor } from '../common/vendor-redactor.util';
 
 @Controller('admin/vendors')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, Role.SUPPORT_AGENT)
 export class AdminVendorsController {
   constructor(private readonly vendorsService: VendorsService) {}
+
+  @Get(':vendorId/documents')
+  async getVendorDocuments(@Param('vendorId') vendorId: string) {
+    return this.vendorsService.getDocumentsForAdmin(vendorId);
+  }
 
   @Get()
   async findAll(@Query() query: VendorsQueryDto) {

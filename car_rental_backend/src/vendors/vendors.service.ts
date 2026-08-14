@@ -9,6 +9,8 @@ import { SubscriptionTier } from '@prisma/client';
 import { AuditLogService } from '../admin/audit-log.service';
 
 import { BankEncryptionService } from '../common/bank-encryption.service';
+import { UploadsService } from '../uploads/uploads.service';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class VendorsService {
@@ -19,6 +21,7 @@ export class VendorsService {
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
     private readonly bankEncryptionService: BankEncryptionService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   async findAll(query: VendorsQueryDto): Promise<PaginatedResult<any>> {
@@ -448,6 +451,24 @@ export class VendorsService {
       throw new NotFoundException('Vendor profile not found');
     }
 
+    // Normalize and validate key ownership to prevent IDOR object hijacking
+    let storageKey = fileUrl.trim();
+    if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
+      try {
+        const urlObj = new URL(storageKey);
+        storageKey = urlObj.pathname.replace(/^\/+/, '');
+      } catch {
+        // Fallback: keep storageKey
+      }
+    }
+
+    const expectedUserPrefix = `vendor-document/${userId}/`;
+    if (!storageKey.startsWith(expectedUserPrefix) && !storageKey.startsWith(`vendor-document/${vendor.id}/`)) {
+      throw new BadRequestException(
+        'Invalid document key: File does not belong to the authenticated user.',
+      );
+    }
+
     if (carId) {
       const car = await this.prisma.car.findUnique({
         where: { id: carId },
@@ -465,7 +486,7 @@ export class VendorsService {
         vendorId: vendor.id,
         carId: carId || null,
         type,
-        fileUrl,
+        fileUrl: storageKey,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         status: 'PENDING',
       },
@@ -481,10 +502,17 @@ export class VendorsService {
       throw new NotFoundException('Vendor profile not found');
     }
 
-    return this.prisma.document.findMany({
+    const docs = await this.prisma.document.findMany({
       where: { vendorId: vendor.id, carId: null },
       orderBy: { uploadedAt: 'desc' },
     });
+
+    return Promise.all(
+      docs.map(async (doc) => ({
+        ...doc,
+        fileUrl: await this.uploadsService.getPresignedDownloadUrl(doc.fileUrl),
+      })),
+    );
   }
 
   async getCarDocuments(userId: string, carId: string) {
@@ -506,10 +534,39 @@ export class VendorsService {
       );
     }
 
-    return this.prisma.document.findMany({
+    const docs = await this.prisma.document.findMany({
       where: { vendorId: vendor.id, carId },
       orderBy: { uploadedAt: 'desc' },
     });
+
+    return Promise.all(
+      docs.map(async (doc) => ({
+        ...doc,
+        fileUrl: await this.uploadsService.getPresignedDownloadUrl(doc.fileUrl),
+      })),
+    );
+  }
+
+  async getDocumentsForAdmin(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    const docs = await this.prisma.document.findMany({
+      where: { vendorId },
+      orderBy: { uploadedAt: 'desc' },
+    });
+
+    return Promise.all(
+      docs.map(async (doc) => ({
+        ...doc,
+        fileUrl: await this.uploadsService.getPresignedDownloadUrl(doc.fileUrl),
+      })),
+    );
   }
 
   async updateDocumentStatus(
