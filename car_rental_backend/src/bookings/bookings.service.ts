@@ -70,12 +70,8 @@ export class BookingsService {
       );
     }
 
-    // 1. Acquire Redis distributed lock
-    const lockToken = await this.bookingLockService.acquireLock(
-      dto.carId,
-      start,
-      end,
-    );
+    // 1. Acquire Redis distributed car lock
+    const lockToken = await this.bookingLockService.acquireLock(dto.carId);
 
     try {
       // Fetch car outside of the transaction to do validations and resolve fares
@@ -154,6 +150,9 @@ export class BookingsService {
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)
       const booking = await this.prisma.$transaction(
         async (tx) => {
+          // Tier 2: Acquire pessimistic database row-level lock on the Car record to serialize concurrent transactions
+          await tx.$queryRaw`SELECT id FROM "Car" WHERE id = ${dto.carId} FOR UPDATE`;
+
           // Check overlapping bookings
           const overlappingBooking = await tx.booking.findFirst({
             where: {
@@ -233,13 +232,8 @@ export class BookingsService {
 
       return booking;
     } finally {
-      // 6. Release lock
-      await this.bookingLockService.releaseLock(
-        dto.carId,
-        start,
-        end,
-        lockToken,
-      );
+      // 6. Release car-level lock
+      await this.bookingLockService.releaseLock(dto.carId, lockToken);
     }
   }
 

@@ -7,22 +7,17 @@ import { randomUUID } from 'crypto';
 export class BookingLockService {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  private getLockKey(carId: string, startDate: Date, endDate: Date): string {
-    return `lock:car:${carId}:${startDate.toISOString()}:${endDate.toISOString()}`;
+  private getLockKey(carId: string): string {
+    return `lock:car:${carId}`;
   }
 
   /**
-   * Tries to acquire a lock for a car booking in a specific date range.
-   * Throws a 409 Conflict if the lock is already held.
-   * Returns the lock token value to be used for release.
+   * Tries to acquire a distributed lock for creating a booking on a specific car.
+   * Throws a 409 Conflict if the car is currently locked by a concurrent booking transaction.
+   * Returns the lock token value to be used for safe release.
    */
-  async acquireLock(
-    carId: string,
-    startDate: Date,
-    endDate: Date,
-    ttlMs: number = 10000,
-  ): Promise<string> {
-    const key = this.getLockKey(carId, startDate, endDate);
+  async acquireLock(carId: string, ttlMs: number = 10000): Promise<string> {
+    const key = this.getLockKey(carId);
     const token = randomUUID();
 
     // NX - Only set if not exists, PX - Expiration in milliseconds
@@ -38,15 +33,10 @@ export class BookingLockService {
   }
 
   /**
-   * Releases the lock safely using a Lua script to compare value first.
+   * Releases the car booking lock safely using a Lua script to compare token value first.
    */
-  async releaseLock(
-    carId: string,
-    startDate: Date,
-    endDate: Date,
-    token: string,
-  ): Promise<boolean> {
-    const key = this.getLockKey(carId, startDate, endDate);
+  async releaseLock(carId: string, token: string): Promise<boolean> {
+    const key = this.getLockKey(carId);
 
     const luaScript = `
       if redis.call("get", KEYS[1]) == ARGV[1] then
