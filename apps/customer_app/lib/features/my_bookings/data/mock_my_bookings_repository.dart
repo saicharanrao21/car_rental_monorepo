@@ -19,6 +19,24 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
   }
 
   @override
+  Future<CancellationPreviewModel> getCancellationPreview(String bookingId) async {
+    return CancellationPreviewModel(
+      bookingId: bookingId,
+      tier: 'FULL_REFUND_FREE_CANCELLATION',
+      tierDescription: 'Free cancellation (> 24 hours before pickup)',
+      startDate: DateTime.now().add(const Duration(days: 2)),
+      hoursRemaining: 48.0,
+      amountPaid: 5000.0,
+      cancellationFeePercent: 0,
+      cancellationFee: 0.0,
+      refundAmountPercent: 100,
+      refundAmount: 5000.0,
+      currency: 'INR',
+      isEligibleForRefund: true,
+    );
+  }
+
+  @override
   Future<void> cancelBooking(String bookingId, String reason) async {
     await _bookingRepo.cancelBooking(bookingId);
   }

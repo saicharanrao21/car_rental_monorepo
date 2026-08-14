@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
-import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:gap/gap.dart';
 import '../providers/car_detail_providers.dart';
 import '../../../wishlist/wishlist_providers.dart';
@@ -35,20 +33,7 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
   }
 
   double _getCommissionPercentage(String city, String carCategory) {
-    final configs = MockData.commissionConfigs;
-    final match = configs.firstWhere(
-      (c) => (c.city == 'All' || c.city.toLowerCase() == city.toLowerCase()) &&
-             (c.carCategory == 'All' || c.carCategory.toLowerCase() == carCategory.toLowerCase()),
-      orElse: () => CommissionConfigModel(
-        id: 'default',
-        tripType: 'All',
-        city: 'All',
-        carCategory: 'All',
-        percentage: 10.0,
-        effectiveFrom: DateTime(2026, 1, 1),
-      ),
-    );
-    return match.percentage;
+    return 10.0;
   }
 
   @override

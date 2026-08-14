@@ -65,6 +65,12 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
   }
 
   @override
+  Future<CancellationPreviewModel> getCancellationPreview(String bookingId) async {
+    final response = await apiClient.dio.get('/bookings/$bookingId/cancellation-preview');
+    return CancellationPreviewModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
   Future<void> cancelBooking(String bookingId, String reason) async {
     await apiClient.dio.post(
       '/bookings/$bookingId/cancel',

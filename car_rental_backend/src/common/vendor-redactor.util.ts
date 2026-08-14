@@ -4,14 +4,19 @@ export interface VendorRedactionOptions {
   isPaid?: boolean;
 }
 
-export function redactVendor(vendor: any, options: VendorRedactionOptions = {}) {
+export function redactVendor(
+  vendor: any,
+  options: VendorRedactionOptions = {},
+) {
   if (!vendor) return vendor;
 
   const copy = { ...vendor };
 
   // Compute displayName
   const localityStr = copy.locality || copy.city || '';
-  copy.displayName = localityStr ? `Partner in ${localityStr}` : 'Verified Partner';
+  copy.displayName = localityStr
+    ? `Partner in ${localityStr}`
+    : 'Verified Partner';
 
   // Admin or Vendor Owner sees full unredacted vendor identity & details
   if (options.isAdmin || options.isOwner) {

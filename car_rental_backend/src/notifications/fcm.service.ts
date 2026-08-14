@@ -17,6 +17,9 @@ export class FcmService {
     const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
     const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
 
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+
     if (
       !projectId ||
       !clientEmail ||
@@ -24,8 +27,17 @@ export class FcmService {
       privateKey.startsWith('YOUR_') ||
       privateKey.startsWith('placeholder')
     ) {
-      this.logger.warn('Firebase credentials not fully configured. Running FCM in Mock mode.');
-      this.isMock = true;
+      if (isProduction) {
+        this.logger.warn(
+          'Firebase credentials not configured in production. Push notifications are disabled.',
+        );
+        this.isMock = false;
+      } else {
+        this.logger.warn(
+          'Firebase credentials not fully configured. Running FCM in Mock mode.',
+        );
+        this.isMock = true;
+      }
     } else {
       try {
         if (getApps().length === 0) {
@@ -41,8 +53,19 @@ export class FcmService {
         this.isMock = false;
         this.logger.log('Firebase Admin initialized successfully.');
       } catch (error) {
-        this.logger.error('Failed to initialize Firebase Admin, falling back to Mock mode:', error);
-        this.isMock = true;
+        if (isProduction) {
+          this.logger.error(
+            'Failed to initialize Firebase Admin in production. Push notifications are disabled.',
+            error,
+          );
+          this.isMock = false;
+        } else {
+          this.logger.error(
+            'Failed to initialize Firebase Admin, falling back to Mock mode in development:',
+            error,
+          );
+          this.isMock = true;
+        }
       }
     }
   }
@@ -54,12 +77,16 @@ export class FcmService {
     });
 
     if (!user || !user.fcmToken) {
-      this.logger.log(`[FCM] Skip push for user ${userId} - no token registered.`);
+      this.logger.log(
+        `[FCM] Skip push for user ${userId} - no token registered.`,
+      );
       return;
     }
 
     if (this.isMock) {
-      this.logger.log(`[FCM-MOCK] Push to ${userId} (Token: ${user.fcmToken}): "${title}" - "${body}"`);
+      this.logger.log(
+        `[FCM-MOCK] Push to ${userId} (Token: ${user.fcmToken}): "${title}" - "${body}"`,
+      );
       return;
     }
 
@@ -73,7 +100,10 @@ export class FcmService {
       });
       this.logger.log(`[FCM] Push sent to user ${userId}`);
     } catch (error) {
-      this.logger.error(`[FCM] Failed to send push to user ${userId} (Token: ${user.fcmToken}):`, error);
+      this.logger.error(
+        `[FCM] Failed to send push to user ${userId} (Token: ${user.fcmToken}):`,
+        error,
+      );
     }
   }
 
@@ -81,7 +111,9 @@ export class FcmService {
     if (tokens.length === 0) return;
 
     if (this.isMock) {
-      this.logger.log(`[FCM-MOCK] Multicast to ${tokens.length} tokens: "${title}" - "${body}"`);
+      this.logger.log(
+        `[FCM-MOCK] Multicast to ${tokens.length} tokens: "${title}" - "${body}"`,
+      );
       return;
     }
 
@@ -97,7 +129,9 @@ export class FcmService {
             body,
           },
         });
-        this.logger.log(`[FCM] Multicast chunk of ${chunk.length} tokens sent successfully.`);
+        this.logger.log(
+          `[FCM] Multicast chunk of ${chunk.length} tokens sent successfully.`,
+        );
       } catch (error) {
         this.logger.error('[FCM] Multicast chunk failed to send:', error);
       }

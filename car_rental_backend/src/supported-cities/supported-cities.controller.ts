@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { SupportedCitiesService } from './supported-cities.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -7,7 +18,9 @@ import { Role } from '@prisma/client';
 
 @Controller()
 export class SupportedCitiesController {
-  constructor(private readonly supportedCitiesService: SupportedCitiesService) {}
+  constructor(
+    private readonly supportedCitiesService: SupportedCitiesService,
+  ) {}
 
   // 1. PUBLIC ENDPOINTS
   @Get('supported-cities')
@@ -38,7 +51,14 @@ export class SupportedCitiesController {
   @Roles(Role.ADMIN)
   async createCity(
     @Req() req: any,
-    @Body() dto: { name: string; state: string; latitude: number; longitude: number; isActive?: boolean },
+    @Body()
+    dto: {
+      name: string;
+      state: string;
+      latitude: number;
+      longitude: number;
+      isActive?: boolean;
+    },
   ) {
     return this.supportedCitiesService.create(dto, req.user.userId);
   }
@@ -49,7 +69,14 @@ export class SupportedCitiesController {
   async updateCity(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() dto: { name?: string; state?: string; latitude?: number; longitude?: number; isActive?: boolean },
+    @Body()
+    dto: {
+      name?: string;
+      state?: string;
+      latitude?: number;
+      longitude?: number;
+      isActive?: boolean;
+    },
   ) {
     return this.supportedCitiesService.update(id, dto, req.user.userId);
   }

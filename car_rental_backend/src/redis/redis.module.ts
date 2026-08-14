@@ -8,10 +8,16 @@ import { REDIS_CLIENT } from './redis.constants';
 const redisProvider: Provider = {
   provide: REDIS_CLIENT,
   useFactory: (configService: ConfigService) => {
-    const redisUrl = configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
-    
+    const redisUrl =
+      configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
+
     // Check if we have REDIS_USE_MOCK env var or if we want to run with real Redis
     if (process.env.REDIS_USE_MOCK === 'true') {
+      if (configService.get<string>('NODE_ENV') === 'production') {
+        throw new Error(
+          'CRITICAL SECURITY CONFIGURATION ERROR: REDIS_USE_MOCK is set to true, but NODE_ENV is production! Running in-memory mock Redis in production is forbidden.',
+        );
+      }
       console.log('Using ioredis-mock for local development environment');
       return new RedisMock();
     }

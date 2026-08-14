@@ -13,16 +13,32 @@ export class UploadsService {
 
   constructor(private readonly configService: ConfigService) {
     this.useMock = this.configService.get<string>('R2_USE_MOCK') === 'true';
-    this.bucketName = this.configService.get<string>('R2_BUCKET_NAME') || 'drivego-uploads';
-    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL') || 'https://pub-placeholder.r2.dev';
+    this.bucketName =
+      this.configService.get<string>('R2_BUCKET_NAME') || 'drivego-uploads';
+    this.publicUrl =
+      this.configService.get<string>('R2_PUBLIC_URL') ||
+      'https://pub-placeholder.r2.dev';
+
+    if (
+      this.useMock &&
+      this.configService.get<string>('NODE_ENV') === 'production'
+    ) {
+      throw new Error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: R2_USE_MOCK is set to true, but NODE_ENV is production! Localhost mock file uploads are forbidden in production.',
+      );
+    }
 
     if (!this.useMock) {
       const endpoint = this.configService.get<string>('R2_ENDPOINT');
       const accessKeyId = this.configService.get<string>('R2_ACCESS_KEY_ID');
-      const secretAccessKey = this.configService.get<string>('R2_SECRET_ACCESS_KEY');
+      const secretAccessKey = this.configService.get<string>(
+        'R2_SECRET_ACCESS_KEY',
+      );
 
       if (!endpoint || !accessKeyId || !secretAccessKey) {
-        throw new Error('Cloudflare R2 keys are required when R2_USE_MOCK is false.');
+        throw new Error(
+          'Cloudflare R2 keys are required when R2_USE_MOCK is false.',
+        );
       }
 
       this.s3Client = new S3Client({
@@ -41,9 +57,16 @@ export class UploadsService {
     contentType: string,
     userId: string,
   ) {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+    ];
     if (!allowedMimeTypes.includes(contentType)) {
-      throw new BadRequestException('Invalid contentType. Allowed types: image/jpeg, image/png, image/webp, application/pdf.');
+      throw new BadRequestException(
+        'Invalid contentType. Allowed types: image/jpeg, image/png, image/webp, application/pdf.',
+      );
     }
 
     let ext = 'bin';
@@ -74,7 +97,9 @@ export class UploadsService {
     });
 
     try {
-      const uploadUrl = await getSignedUrl(this.s3Client!, command, { expiresIn: 300 });
+      const uploadUrl = await getSignedUrl(this.s3Client!, command, {
+        expiresIn: 300,
+      });
       const publicUrl = `${this.publicUrl}/${key}`;
 
       return {
@@ -83,7 +108,9 @@ export class UploadsService {
         key,
       };
     } catch (err) {
-      throw new BadRequestException('Failed to generate presigned upload URL with R2');
+      throw new BadRequestException(
+        'Failed to generate presigned upload URL with R2',
+      );
     }
   }
 }

@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -16,10 +23,14 @@ export class AdminRevenueController {
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      throw new BadRequestException('Invalid date format. Must be valid ISO strings.');
+      throw new BadRequestException(
+        'Invalid date format. Must be valid ISO strings.',
+      );
     }
     if (start > end) {
-      throw new BadRequestException('startDate must be before or equal to endDate');
+      throw new BadRequestException(
+        'startDate must be before or equal to endDate',
+      );
     }
   }
 
@@ -48,7 +59,9 @@ export class AdminRevenueController {
   }
 
   @Get('top-vendors')
-  async getTopVendors(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
+  async getTopVendors(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
     return this.revenueService.getTopVendorsByRevenue(limit ?? 10);
   }
 }

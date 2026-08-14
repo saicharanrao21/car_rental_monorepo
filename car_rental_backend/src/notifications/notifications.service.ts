@@ -32,7 +32,10 @@ export class NotificationsService {
     return notification;
   }
 
-  async sendBulk(dto: { target: string; title: string; body: string }, adminUserId?: string) {
+  async sendBulk(
+    dto: { target: string; title: string; body: string },
+    adminUserId?: string,
+  ) {
     const { target, title, body } = dto;
 
     // 1. Log the broadcast broadcast in SentBroadcast
@@ -45,7 +48,13 @@ export class NotificationsService {
     });
 
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'NOTIFICATION_SENT', 'SentBroadcast', broadcast.id, { target, title, body });
+      this.auditLogService.log(
+        adminUserId,
+        'NOTIFICATION_SENT',
+        'SentBroadcast',
+        broadcast.id,
+        { target, title, body },
+      );
     }
 
     // 2. Resolve users and their fcmTokens
@@ -86,7 +95,9 @@ export class NotificationsService {
     }
 
     if (users.length === 0) {
-      this.logger.log(`Bulk notification broadcast for target: ${target} resolved to 0 users.`);
+      this.logger.log(
+        `Bulk notification broadcast for target: ${target} resolved to 0 users.`,
+      );
       return { sentCount: 0 };
     }
 

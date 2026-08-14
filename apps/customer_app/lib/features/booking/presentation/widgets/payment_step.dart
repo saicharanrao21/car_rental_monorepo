@@ -53,8 +53,23 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
   void _handlePaymentSuccess(PaymentSuccessResponse response) {
     final bookingId = _currentBookingId;
     final orderId = _currentOrderId ?? response.orderId;
-    if (bookingId == null || orderId == null) return;
-    _onPaymentFlowComplete(orderId, bookingId);
+    final paymentId = response.paymentId;
+    final signature = response.signature;
+
+    if (bookingId == null || orderId == null || paymentId == null || signature == null) {
+      setState(() {
+        _isProcessingPayment = false;
+        _errorMessage = 'Payment completion data is incomplete. Please contact support.';
+      });
+      return;
+    }
+
+    _verifyAndConfirmPayment(
+      bookingId: bookingId,
+      orderId: orderId,
+      paymentId: paymentId,
+      signature: signature,
+    );
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
@@ -66,47 +81,104 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     final bookingId = _currentBookingId;
-    final orderId = _currentOrderId;
-    if (bookingId == null || orderId == null) return;
-    _onPaymentFlowComplete(orderId, bookingId);
+    if (bookingId == null) return;
+    _pollBookingConfirmation(bookingId);
   }
 
-  Future<void> _onPaymentFlowComplete(String orderId, String bookingId) async {
+  Future<void> _verifyAndConfirmPayment({
+    required String bookingId,
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
     setState(() {
       _isProcessingPayment = true;
       _errorMessage = null;
     });
 
+    final apiClient = ref.read(apiClientProvider);
+
     try {
-      // Poll booking status - rely entirely on the backend to receive the real webhook from Razorpay
-      final apiClient = ref.read(apiClientProvider);
-
-      try {
-        await apiClient.dio.post('/payments/confirm-test-payment', data: {
+      // 1. Submit cryptographic verification request to backend
+      final verifyRes = await apiClient.dio.post(
+        '/payments/verify',
+        data: {
           'bookingId': bookingId,
-        });
-      } catch (_) {}
+          'razorpayOrderId': orderId,
+          'razorpayPaymentId': paymentId,
+          'razorpaySignature': signature,
+        },
+      );
 
-      for (int i = 0; i < 5; i++) {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        try {
+      final isSuccess = verifyRes.data['success'] == true ||
+          verifyRes.data['status'] == 'PAID';
+
+      if (isSuccess) {
+        if (context.mounted) {
+          widget.onSuccess(bookingId);
+        }
+        return;
+      }
+    } catch (e) {
+      // If direct verification encountered an error, poll booking status to check if webhook confirmed it
+      try {
+        for (int i = 0; i < 3; i++) {
+          await Future.delayed(const Duration(milliseconds: 1500));
           final res = await apiClient.dio.get('/bookings/$bookingId');
           final status = (res.data['status'] as String).toLowerCase();
           if (status == 'confirmed' || status == 'ongoing' || status == 'completed') {
-            break;
+            if (context.mounted) {
+              widget.onSuccess(bookingId);
+            }
+            return;
           }
-        } catch (_) {
-          // Ignore polling errors
         }
+      } catch (_) {
+        // Ignore fallback polling errors
       }
 
       if (context.mounted) {
-        widget.onSuccess(bookingId);
+        setState(() {
+          _isProcessingPayment = false;
+          _errorMessage = e is DioException
+              ? (e.response?.data['message'] ?? 'Payment verification failed.')
+              : 'Payment verification failed: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _pollBookingConfirmation(String bookingId) async {
+    setState(() {
+      _isProcessingPayment = true;
+      _errorMessage = null;
+    });
+
+    final apiClient = ref.read(apiClientProvider);
+    try {
+      for (int i = 0; i < 5; i++) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        final res = await apiClient.dio.get('/bookings/$bookingId');
+        final status = (res.data['status'] as String).toLowerCase();
+        if (status == 'confirmed' || status == 'ongoing' || status == 'completed') {
+          if (context.mounted) {
+            widget.onSuccess(bookingId);
+          }
+          return;
+        }
+      }
+      if (context.mounted) {
+        setState(() {
+          _isProcessingPayment = false;
+          _errorMessage = 'Payment not yet confirmed by gateway. Please check My Bookings.';
+        });
       }
     } catch (e) {
       if (context.mounted) {
-        // Even if polling fails, navigate to confirmation so the user is not stuck
-        widget.onSuccess(bookingId);
+        setState(() {
+          _isProcessingPayment = false;
+          _errorMessage = 'Unable to confirm payment status. Please check My Bookings.';
+        });
       }
     }
   }
@@ -151,6 +223,7 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       final options = {
         'key': keyId,
         'amount': amount,
+        'currency': currency,
         'name': 'Car Rental Platform',
         'order_id': orderId,
         'description': 'Payment for booking ${booking.id}',

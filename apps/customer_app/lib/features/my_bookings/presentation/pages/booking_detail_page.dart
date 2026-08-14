@@ -6,6 +6,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/my_bookings_providers.dart';
+import '../../domain/repositories/my_bookings_repository.dart';
 import '../../../booking/presentation/providers/booking_providers.dart';
 import '../../../../core/providers/session_provider.dart';
 
@@ -39,21 +40,132 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
       'Booked by mistake',
       'Other',
     ];
+    CancellationPreviewModel? preview;
+    bool isLoadingPreview = true;
+    bool hasInitiatedFetch = false;
 
     AppBottomSheet.show(
       context,
       title: 'Cancel Booking',
       child: StatefulBuilder(
         builder: (context, setSheetState) {
+          if (!hasInitiatedFetch) {
+            hasInitiatedFetch = true;
+            ref
+                .read(myBookingsRepositoryProvider)
+                .getCancellationPreview(bookingId)
+                .then((data) {
+              setSheetState(() {
+                preview = data;
+                isLoadingPreview = false;
+              });
+            }).catchError((_) {
+              setSheetState(() {
+                isLoadingPreview = false;
+              });
+            });
+          }
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (isLoadingPreview)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: AppLoader()),
+                )
+              else if (preview != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: preview!.cancellationFeePercent == 0
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : (preview!.cancellationFeePercent <= 25
+                            ? Colors.orange.withValues(alpha: 0.1)
+                            : Colors.red.withValues(alpha: 0.1)),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: preview!.cancellationFeePercent == 0
+                          ? Colors.green
+                          : (preview!.cancellationFeePercent <= 25
+                              ? Colors.orange
+                              : Colors.red),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        preview!.tierDescription,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: preview!.cancellationFeePercent == 0
+                              ? Colors.green[800]
+                              : (preview!.cancellationFeePercent <= 25
+                                  ? Colors.orange[900]
+                                  : Colors.red[900]),
+                        ),
+                      ),
+                      const Gap(8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Paid Amount:', style: TextStyle(fontSize: 12)),
+                          Text(
+                            IndianCurrencyFormatter.format(preview!.amountPaid, showDecimals: false),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      const Gap(4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Cancellation Fee (${preview!.cancellationFeePercent}%):',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          Text(
+                            '- ${IndianCurrencyFormatter.format(preview!.cancellationFee, showDecimals: false)}',
+                            style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Refund to Source:',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            IndianCurrencyFormatter.format(preview!.refundAmount, showDecimals: false),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(8),
+                Text(
+                  'Refunds typically credit to your bank account within 5–7 business days.',
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const Gap(16),
+              ],
               Text(
-                'Please select a reason for cancellation. This help us improve our services.',
+                'Please select a reason for cancellation:',
                 style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-              const Gap(16),
+              const Gap(12),
               AppDropdown<String>(
                 label: 'Reason',
                 value: selectedReason,
@@ -88,19 +200,21 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                   Expanded(
                     child: AppButton(
                       text: 'Confirm Cancel',
-                      onPressed: () async {
-                        // Call cancel in the notifier
-                        Navigator.pop(context); // Close sheet
-                        await ref.read(myBookingsListProvider.notifier).cancel(bookingId, selectedReason);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Booking cancelled successfully'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: isLoadingPreview
+                          ? null
+                          : () async {
+                              // Call cancel in the notifier
+                              Navigator.pop(context); // Close sheet
+                              await ref.read(myBookingsListProvider.notifier).cancel(bookingId, selectedReason);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Booking cancelled successfully'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
                     ),
                   ),
                 ],

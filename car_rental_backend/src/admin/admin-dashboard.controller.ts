@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,17 +23,23 @@ export class AdminDashboardController {
   }
 
   @Get('bookings-per-day')
-  async getBookingsPerDay(@Query('days', new ParseIntPipe({ optional: true })) days?: number) {
+  async getBookingsPerDay(
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ) {
     return this.dashboardService.getBookingsPerDay(days ?? 30);
   }
 
   @Get('revenue-per-city')
-  async getRevenuePerCity(@Query('days', new ParseIntPipe({ optional: true })) days?: number) {
+  async getRevenuePerCity(
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ) {
     return this.dashboardService.getRevenuePerCity(days ?? 30);
   }
 
   @Get('recent-bookings')
-  async getRecentBookings(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
+  async getRecentBookings(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
     return this.dashboardService.getRecentBookings(limit ?? 10);
   }
 
@@ -37,7 +49,9 @@ export class AdminDashboardController {
   }
 
   @Get('top-vendors')
-  async getTopVendors(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
+  async getTopVendors(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
     return this.dashboardService.getTopVendorsByBookings(limit ?? 5);
   }
 }

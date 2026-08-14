@@ -1,22 +1,21 @@
-import { 
-  Controller, 
-  Post, 
-  Put, 
-  Get, 
-  Body, 
-  Param, 
-  UseGuards, 
-  Req, 
-  Res, 
-  NotFoundException, 
-  HttpStatus 
+import {
+  Controller,
+  Post,
+  Put,
+  Get,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  Res,
+  NotFoundException,
+  HttpStatus,
 } from '@nestjs/common';
 import { UploadsService } from './uploads.service';
 import { PresignUploadDto } from './dto/presign-upload.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import * as fs from 'fs';
 import * as path from 'path';
-
 
 @Controller('uploads')
 export class UploadsController {
@@ -45,12 +44,12 @@ export class UploadsController {
   ) {
     const dir = path.join(this.storageDir, fileType, userId);
     fs.mkdirSync(dir, { recursive: true });
-    
+
     const filePath = path.join(dir, filename);
     const writeStream = fs.createWriteStream(filePath);
-    
+
     req.pipe(writeStream);
-    
+
     req.on('end', () => {
       res.status(HttpStatus.OK).send({ success: true });
     });
@@ -69,7 +68,7 @@ export class UploadsController {
     @Res() res: any,
   ) {
     const filePath = path.join(this.storageDir, fileType, userId, filename);
-    
+
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException('File not found');
     }

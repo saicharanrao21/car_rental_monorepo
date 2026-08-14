@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { CarsService } from './cars.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -8,16 +16,19 @@ import { CarsQueryDto } from './dto/cars-query.dto';
 import { AdminCarsQueryDto } from './dto/admin-cars-query.dto';
 import { JwtService } from '@nestjs/jwt';
 
+import { ConfigService } from '@nestjs/config';
+
 @Controller()
 export class CarsController {
   constructor(
     private readonly carsService: CarsService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get('cars')
   async searchCars(@Req() req: any, @Query() query: CarsQueryDto) {
-    const isAdmin = this.getIsAdmin(req);
+    const isAdmin = await this.getIsAdmin(req);
     return this.carsService.searchCars(query, isAdmin);
   }
 
@@ -27,7 +38,7 @@ export class CarsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   @Get('admin/cars')
   async adminFindAll(@Query() query: AdminCarsQueryDto) {
     return this.carsService.adminFindAll(query);
@@ -42,15 +53,23 @@ export class CarsController {
 
   // --- Helper Methods ---
 
-  private getIsAdmin(req: any): boolean {
+  private async getIsAdmin(req: any): Promise<boolean> {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return false;
     }
     const token = authHeader.split(' ')[1];
+    const secret =
+      this.configService.get<string>('JWT_ACCESS_SECRET') ||
+      'dev_access_secret_key_change_me_12345!';
     try {
-      const decoded: any = this.jwtService.decode(token);
-      return decoded && decoded.role === Role.ADMIN;
+      const verified: any = await this.jwtService.verifyAsync(token, {
+        secret,
+      });
+      return (
+        verified &&
+        (verified.role === Role.ADMIN || verified.role === Role.SUPPORT_AGENT)
+      );
     } catch {
       return false;
     }

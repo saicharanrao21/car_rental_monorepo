@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { WishlistService } from './wishlist.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/pagination.dto';

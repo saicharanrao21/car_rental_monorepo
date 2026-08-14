@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { CarsService } from '../cars/cars.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,19 +30,24 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 import { redactVendor } from '../common/vendor-redactor.util';
 
+import { ConfigService } from '@nestjs/config';
+
 @Controller('vendors')
 export class VendorsController {
   constructor(
     private readonly vendorsService: VendorsService,
     private readonly carsService: CarsService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: VendorsQueryDto) {
-    const isAdmin = this.getIsAdmin(req);
+    const isAdmin = await this.getIsAdmin(req);
     const result = await this.vendorsService.findAll(query);
-    result.data = result.data.map((vendor) => redactVendor(vendor, { isAdmin }));
+    result.data = result.data.map((vendor) =>
+      redactVendor(vendor, { isAdmin }),
+    );
     return result;
   }
 
@@ -109,7 +126,11 @@ export class VendorsController {
     @Req() req: any,
     @Body() dto: UpdateAvailabilityDto,
   ) {
-    return this.carsService.updateAvailability(id, req.user.userId, dto.isAvailable);
+    return this.carsService.updateAvailability(
+      id,
+      req.user.userId,
+      dto.isAvailable,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -120,14 +141,18 @@ export class VendorsController {
     @Req() req: any,
     @Body() dto: UpdateBlockedDatesDto,
   ) {
-    return this.carsService.updateBlockedDates(id, req.user.userId, dto.blockedDates);
+    return this.carsService.updateBlockedDates(
+      id,
+      req.user.userId,
+      dto.blockedDates,
+    );
   }
 
   // --- Wildcard & Param based routes ---
 
   @Get(':id')
   async findOne(@Req() req: any, @Param('id') id: string) {
-    const isAdmin = this.getIsAdmin(req);
+    const isAdmin = await this.getIsAdmin(req);
     const vendor = await this.vendorsService.findOne(id);
     return redactVendor(vendor, { isAdmin });
   }
@@ -145,7 +170,11 @@ export class VendorsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/status')
-  async updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateVendorStatusDto) {
+  async updateStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateVendorStatusDto,
+  ) {
     return this.vendorsService.updateStatus(id, dto, req.user.userId);
   }
 
@@ -163,7 +192,13 @@ export class VendorsController {
   @Post('me/documents')
   @HttpCode(HttpStatus.CREATED)
   async addDocument(@Req() req: any, @Body() dto: CreateDocumentDto) {
-    return this.vendorsService.addDocument(req.user.userId, dto.type, dto.fileUrl, dto.carId, dto.expiresAt);
+    return this.vendorsService.addDocument(
+      req.user.userId,
+      dto.type,
+      dto.fileUrl,
+      dto.carId,
+      dto.expiresAt,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -175,15 +210,23 @@ export class VendorsController {
 
   // --- Helper Methods ---
 
-  private getIsAdmin(req: any): boolean {
+  private async getIsAdmin(req: any): Promise<boolean> {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return false;
     }
     const token = authHeader.split(' ')[1];
+    const secret =
+      this.configService.get<string>('JWT_ACCESS_SECRET') ||
+      'dev_access_secret_key_change_me_12345!';
     try {
-      const decoded: any = this.jwtService.decode(token);
-      return decoded && decoded.role === Role.ADMIN;
+      const verified: any = await this.jwtService.verifyAsync(token, {
+        secret,
+      });
+      return (
+        verified &&
+        (verified.role === Role.ADMIN || verified.role === Role.SUPPORT_AGENT)
+      );
     } catch {
       return false;
     }

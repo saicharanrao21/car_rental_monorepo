@@ -1,15 +1,15 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Patch, 
-  Body, 
-  Param, 
-  Query, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
   Req,
   HttpCode,
-  HttpStatus
+  HttpStatus,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -39,7 +39,11 @@ export class BookingsController {
     const pagination = new PaginationDto();
     if (page) pagination.page = Number(page);
     if (limit) pagination.limit = Number(limit);
-    return this.bookingsService.getBookingsForCustomer(req.user.userId, status, pagination);
+    return this.bookingsService.getBookingsForCustomer(
+      req.user.userId,
+      status,
+      pagination,
+    );
   }
 
   // 2. GET vendor's own bookings (VENDOR)
@@ -54,12 +58,16 @@ export class BookingsController {
     const pagination = new PaginationDto();
     if (page) pagination.page = Number(page);
     if (limit) pagination.limit = Number(limit);
-    return this.bookingsService.getBookingsForVendor(req.user.userId, status, pagination);
+    return this.bookingsService.getBookingsForVendor(
+      req.user.userId,
+      status,
+      pagination,
+    );
   }
 
-  // 3. GET all bookings (ADMIN) with advanced filters
+  // 3. GET all bookings (ADMIN, SUPPORT_AGENT) with advanced filters
   @Get('admin/bookings')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   async getAdminBookings(
     @Query('city') city?: string,
     @Query('startDate') startDate?: string,
@@ -77,7 +85,7 @@ export class BookingsController {
 
     return this.bookingsService.getBookingsForAdmin(
       { city, startDate, endDate, tripType, status, vendorId, carType },
-      pagination
+      pagination,
     );
   }
 
@@ -88,7 +96,14 @@ export class BookingsController {
     return this.bookingsService.createBooking(req.user.userId, dto);
   }
 
-  // 5. POST cancel booking (CUSTOMER)
+  // 5. GET cancellation preview (CUSTOMER, VENDOR, ADMIN, SUPPORT_AGENT)
+  @Get('bookings/:id/cancellation-preview')
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
+  async getCancellationPreview(@Param('id') id: string, @Req() req: any) {
+    return this.bookingsService.getCancellationPreview(id, req.user);
+  }
+
+  // 6. POST cancel booking (CUSTOMER)
   @Post('bookings/:id/cancel')
   @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.OK)
@@ -119,8 +134,14 @@ export class BookingsController {
   // 8. PATCH override status (ADMIN)
   @Patch('admin/bookings/:id/override-status')
   @Roles(Role.ADMIN)
-  async overrideStatus(@Param('id') id: string, @Body() dto: UpdateBookingStatusDto) {
-    return this.bookingsService.updateStatus(id, dto.status, { userId: 'admin', role: Role.ADMIN });
+  async overrideStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingStatusDto,
+  ) {
+    return this.bookingsService.updateStatus(id, dto.status, {
+      userId: 'admin',
+      role: Role.ADMIN,
+    });
   }
 
   // 9. PATCH status (VENDOR or ADMIN)

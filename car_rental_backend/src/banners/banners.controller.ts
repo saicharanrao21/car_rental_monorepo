@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { BannersService } from './banners.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,7 +38,13 @@ export class BannersController {
   @Roles(Role.ADMIN)
   async createBanner(
     @Req() req: any,
-    @Body() dto: { imageUrl: string; title: string; ctaLink?: string; displayOrder: number },
+    @Body()
+    dto: {
+      imageUrl: string;
+      title: string;
+      ctaLink?: string;
+      displayOrder: number;
+    },
   ) {
     return this.bannersService.create(dto, req.user.userId);
   }
@@ -39,7 +55,14 @@ export class BannersController {
   async updateBanner(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() dto: { imageUrl?: string; title?: string; ctaLink?: string; displayOrder?: number; isActive?: boolean },
+    @Body()
+    dto: {
+      imageUrl?: string;
+      title?: string;
+      ctaLink?: string;
+      displayOrder?: number;
+      isActive?: boolean;
+    },
   ) {
     return this.bannersService.update(id, dto, req.user.userId);
   }
@@ -54,14 +77,21 @@ export class BannersController {
   @Patch('admin/banners/:id/active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  async toggleActive(@Req() req: any, @Param('id') id: string, @Body('isActive') isActive: boolean) {
+  async toggleActive(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+  ) {
     return this.bannersService.toggleActive(id, isActive, req.user.userId);
   }
 
   @Post('admin/banners/reorder')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  async reorderBanners(@Req() req: any, @Body('orderedIds') orderedIds: string[]) {
+  async reorderBanners(
+    @Req() req: any,
+    @Body('orderedIds') orderedIds: string[],
+  ) {
     return this.bannersService.reorder(orderedIds, req.user.userId);
   }
 }

@@ -1,4 +1,11 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { BusinessType } from '@prisma/client';
 import { Type } from 'class-transformer';
 

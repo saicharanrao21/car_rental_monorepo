@@ -1,4 +1,14 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -26,13 +36,13 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   async findAll(@Query() query: UsersQueryDto) {
     return this.usersService.findAll(query);
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   async findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
@@ -43,16 +53,24 @@ export class UsersController {
     @Req() req: any,
     @Query() query: PaginationDto,
   ) {
-    // ADMIN can access any user's bookings. Non-admins can only access their own.
-    if (req.user.role !== Role.ADMIN && req.user.userId !== id) {
-      throw new ForbiddenException('You are not authorized to view this user’s bookings.');
+    // ADMIN and SUPPORT_AGENT can access any user's bookings. Customers/Vendors can only access their own.
+    const isStaff =
+      req.user.role === Role.ADMIN || req.user.role === Role.SUPPORT_AGENT;
+    if (!isStaff && req.user.userId !== id) {
+      throw new ForbiddenException(
+        'You are not authorized to view this user’s bookings.',
+      );
     }
     return this.usersService.findUserBookings(id, query);
   }
 
   @Patch(':id/ban')
   @Roles(Role.ADMIN)
-  async banUser(@Req() req: any, @Param('id') id: string, @Body() dto: BanUserDto) {
+  async banUser(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: BanUserDto,
+  ) {
     return this.usersService.banUser(id, dto, req.user.userId);
   }
 }

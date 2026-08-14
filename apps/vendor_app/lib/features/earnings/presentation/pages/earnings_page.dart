@@ -6,7 +6,6 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/earnings_providers.dart';
 import '../../domain/repositories/earnings_repository.dart';
 
@@ -285,14 +284,6 @@ class _BookingEarningsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final car = MockData.cars.firstWhere(
-      (c) => c.id == booking.carId,
-      orElse: () => const CarModel(
-        id: '', vendorId: '', make: 'Unknown', model: 'Car',
-        year: 2022, type: '', fuelType: '', seating: 5, isAC: true,
-        photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0,
-      ),
-    );
     final formatter = DateFormat('dd MMM yyyy');
     final commissionPct = ((booking.platformFee / booking.totalFare) * 100).toStringAsFixed(0);
 
@@ -308,7 +299,7 @@ class _BookingEarningsRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${car.make} ${car.model}',
+                    'Booking #${booking.id.length > 8 ? booking.id.substring(0, 8) : booking.id} • ${booking.tripType}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),

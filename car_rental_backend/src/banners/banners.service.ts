@@ -22,7 +22,15 @@ export class BannersService {
     });
   }
 
-  async create(data: { imageUrl: string; title: string; ctaLink?: string; displayOrder: number }, adminUserId?: string) {
+  async create(
+    data: {
+      imageUrl: string;
+      title: string;
+      ctaLink?: string;
+      displayOrder: number;
+    },
+    adminUserId?: string,
+  ) {
     const banner = await this.prisma.banner.create({
       data: {
         ...data,
@@ -30,12 +38,28 @@ export class BannersService {
       },
     });
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'BANNER_CREATED', 'Banner', banner.id, data);
+      this.auditLogService.log(
+        adminUserId,
+        'BANNER_CREATED',
+        'Banner',
+        banner.id,
+        data,
+      );
     }
     return banner;
   }
 
-  async update(id: string, data: { imageUrl?: string; title?: string; ctaLink?: string; displayOrder?: number; isActive?: boolean }, adminUserId?: string) {
+  async update(
+    id: string,
+    data: {
+      imageUrl?: string;
+      title?: string;
+      ctaLink?: string;
+      displayOrder?: number;
+      isActive?: boolean;
+    },
+    adminUserId?: string,
+  ) {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) {
       throw new NotFoundException(`Banner with ID ${id} not found`);
@@ -45,7 +69,13 @@ export class BannersService {
       data,
     });
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'BANNER_UPDATED', 'Banner', id, data);
+      this.auditLogService.log(
+        adminUserId,
+        'BANNER_UPDATED',
+        'Banner',
+        id,
+        data,
+      );
     }
     return updated;
   }
@@ -74,7 +104,13 @@ export class BannersService {
       data: { isActive },
     });
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'BANNER_TOGGLE_ACTIVE', 'Banner', id, { isActive });
+      this.auditLogService.log(
+        adminUserId,
+        'BANNER_TOGGLE_ACTIVE',
+        'Banner',
+        id,
+        { isActive },
+      );
     }
     return updated;
   }
@@ -89,7 +125,13 @@ export class BannersService {
       ),
     );
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'BANNERS_REORDERED', 'Banner', 'all', { orderedIds });
+      this.auditLogService.log(
+        adminUserId,
+        'BANNERS_REORDERED',
+        'Banner',
+        'all',
+        { orderedIds },
+      );
     }
     return result;
   }

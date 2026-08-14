@@ -124,7 +124,9 @@ export class AdminRevenueService {
       },
     });
 
-    const cityStats: { [city: string]: { count: number; totalFareSum: number } } = {};
+    const cityStats: {
+      [city: string]: { count: number; totalFareSum: number };
+    } = {};
 
     bookings.forEach((b) => {
       const city = b.car?.vendor?.city || 'Unknown';
@@ -158,7 +160,9 @@ export class AdminRevenueService {
       },
     });
 
-    const tripStats: { [tripType: string]: { count: number; totalFareSum: number } } = {};
+    const tripStats: {
+      [tripType: string]: { count: number; totalFareSum: number };
+    } = {};
 
     bookings.forEach((b) => {
       const type = b.tripType;
@@ -191,7 +195,8 @@ export class AdminRevenueService {
 
     const vendorRevenue: { [vendorId: string]: number } = {};
     bookings.forEach((b) => {
-      vendorRevenue[b.vendorId] = (vendorRevenue[b.vendorId] || 0) + Number(b.platformFee);
+      vendorRevenue[b.vendorId] =
+        (vendorRevenue[b.vendorId] || 0) + Number(b.platformFee);
     });
 
     const sortedVendorIds = Object.keys(vendorRevenue)

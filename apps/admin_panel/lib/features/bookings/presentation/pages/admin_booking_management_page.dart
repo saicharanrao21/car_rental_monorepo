@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../providers/admin_booking_providers.dart';
+import '../../vendors/presentation/providers/admin_vendor_providers.dart';
 
 class AdminBookingManagementPage extends ConsumerStatefulWidget {
   const AdminBookingManagementPage({super.key});
@@ -141,7 +141,7 @@ class _AdminBookingManagementPageState extends ConsumerState<AdminBookingManagem
                           child: Text('All Vendors', overflow: TextOverflow.ellipsis),
                         ),
                       ),
-                      ...MockData.vendors.map((v) => DropdownMenuItem<String>(
+                      ...(ref.watch(adminVendorsProvider).value ?? []).map((v) => DropdownMenuItem<String>(
                             value: v.id,
                             child: SizedBox(
                               width: 150,
@@ -299,18 +299,9 @@ class _AdminBookingManagementPageState extends ConsumerState<AdminBookingManagem
                           DataColumn(label: Text('Dispute', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: bookings.map((b) {
-                          final cust = MockData.customers.firstWhere(
-                            (c) => c.id == b.customerId,
-                            orElse: () => UserModel(id: b.customerId, name: 'Unknown', phone: '', role: 'customer'),
-                          );
-                          final vend = MockData.vendors.firstWhere(
-                            (v) => v.id == b.vendorId,
-                            orElse: () => const VendorModel(id: '', businessName: 'Unknown', ownerName: '', city: '', verificationStatus: ''),
-                          );
-                          final car = MockData.cars.firstWhere(
-                            (c) => c.id == b.carId,
-                            orElse: () => const CarModel(id: '', vendorId: '', make: 'Unknown', model: '', year: 2020, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0),
-                          );
+                          final custName = 'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}';
+                          final vendName = 'Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}';
+                          final carTitle = 'Vehicle #${b.carId.length > 6 ? b.carId.substring(0, 6) : b.carId}';
 
                           return DataRow(
                             cells: [
@@ -323,10 +314,10 @@ class _AdminBookingManagementPageState extends ConsumerState<AdminBookingManagem
                                   ),
                                 ),
                               ),
-                              DataCell(Text(cust.name)),
-                              DataCell(Text(vend.businessName)),
-                              DataCell(Text('${car.make} ${car.model}')),
-                              DataCell(Text(vend.city)),
+                              DataCell(Text(custName)),
+                              DataCell(Text(vendName)),
+                              DataCell(Text(carTitle)),
+                              DataCell(Text(b.pickupLocation)),
                               DataCell(Text(b.tripType)),
                               DataCell(Text('${DateFormat('dd MMM').format(b.startDate)} - ${DateFormat('dd MMM yyyy').format(b.endDate)}')),
                               DataCell(Text('₹${b.totalFare.toStringAsFixed(0)}')),

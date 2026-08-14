@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { AddEvidenceDto } from './dto/add-evidence.dto';
@@ -28,7 +33,9 @@ export class DisputesService {
     const isVendor = booking.vendor?.userId === userId;
 
     if (!isCustomer && !isVendor) {
-      throw new ForbiddenException('Only the customer or vendor on this booking can raise a dispute');
+      throw new ForbiddenException(
+        'Only the customer or vendor on this booking can raise a dispute',
+      );
     }
 
     const existing = await this.prisma.dispute.findUnique({
@@ -80,7 +87,9 @@ export class DisputesService {
     const isRaiser = dispute.raisedByUserId === userId;
 
     if (!isCustomer && !isVendor && !isRaiser) {
-      throw new ForbiddenException('Only parties involved in this dispute can submit evidence');
+      throw new ForbiddenException(
+        'Only parties involved in this dispute can submit evidence',
+      );
     }
 
     return this.prisma.disputeEvidence.create({
@@ -119,19 +128,25 @@ export class DisputesService {
       throw new NotFoundException('Dispute not found');
     }
 
-    const isAdmin = role === Role.ADMIN;
+    const isStaff = role === Role.ADMIN || role === Role.SUPPORT_AGENT;
     const isCustomer = dispute.booking.customerId === userId;
     const isVendor = dispute.booking.vendor?.userId === userId;
     const isRaiser = dispute.raisedByUserId === userId;
 
-    if (!isAdmin && !isCustomer && !isVendor && !isRaiser) {
-      throw new ForbiddenException('Access denied: You are not a party to this dispute');
+    if (!isStaff && !isCustomer && !isVendor && !isRaiser) {
+      throw new ForbiddenException(
+        'Access denied: You are not a party to this dispute',
+      );
     }
 
     return dispute;
   }
 
-  async adminUpdateDispute(adminUserId: string, disputeId: string, dto: UpdateDisputeDto) {
+  async adminUpdateDispute(
+    adminUserId: string,
+    disputeId: string,
+    dto: UpdateDisputeDto,
+  ) {
     const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
     });
@@ -140,7 +155,9 @@ export class DisputesService {
       throw new NotFoundException('Dispute not found');
     }
 
-    const isResolvedOrRejected = dto.status === DisputeStatus.RESOLVED || dto.status === DisputeStatus.REJECTED;
+    const isResolvedOrRejected =
+      dto.status === DisputeStatus.RESOLVED ||
+      dto.status === DisputeStatus.REJECTED;
 
     const updatedDispute = await this.prisma.dispute.update({
       where: { id: disputeId },
@@ -161,7 +178,13 @@ export class DisputesService {
       });
     }
 
-    this.auditLogService.log(adminUserId, 'DISPUTE_UPDATED', 'Dispute', disputeId, { status: dto.status, resolutionNote: dto.resolutionNote });
+    this.auditLogService.log(
+      adminUserId,
+      'DISPUTE_UPDATED',
+      'Dispute',
+      disputeId,
+      { status: dto.status, resolutionNote: dto.resolutionNote },
+    );
 
     return updatedDispute;
   }

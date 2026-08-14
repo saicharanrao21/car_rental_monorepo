@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { DisputesService } from './disputes.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -9,11 +18,11 @@ import { PaginationDto } from '../common/pagination.dto';
 
 @Controller('admin/disputes')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
 export class AdminDisputesController {
   constructor(private readonly disputesService: DisputesService) {}
 
   @Get()
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   async adminGetDisputes(
     @Query('status') status?: DisputeStatus,
     @Query() pagination?: PaginationDto,
@@ -22,6 +31,7 @@ export class AdminDisputesController {
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN)
   async adminUpdateDispute(
     @Req() req: any,
     @Param('id') id: string,

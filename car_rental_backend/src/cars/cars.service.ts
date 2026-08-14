@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
@@ -35,7 +39,12 @@ export class CarsService {
     return { car, vendor };
   }
 
-  private calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateHaversine(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -49,7 +58,12 @@ export class CarsService {
     return R * c;
   }
 
-  private computeScore(rating: number, rawDistance: number | null, maxDistance: number, hasLocation: boolean): number {
+  private computeScore(
+    rating: number,
+    rawDistance: number | null,
+    maxDistance: number,
+    hasLocation: boolean,
+  ): number {
     const rScore = (rating || 0) / 5;
     if (hasLocation && rawDistance !== null) {
       const normDist = Math.min(1, rawDistance / maxDistance);
@@ -58,7 +72,10 @@ export class CarsService {
     return rScore;
   }
 
-  async searchCars(query: CarsQueryDto, isAdmin: boolean): Promise<PaginatedResult<any>> {
+  async searchCars(
+    query: CarsQueryDto,
+    isAdmin: boolean,
+  ): Promise<PaginatedResult<any>> {
     const where: any = {};
 
     if (query.city) {
@@ -121,7 +138,7 @@ export class CarsService {
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
     const now = new Date();
 
-    let processedCars = allCars.map((car) => {
+    const processedCars = allCars.map((car) => {
       let rawDistance: number | null = null;
       let distanceKm: number | null = null;
 
@@ -143,7 +160,8 @@ export class CarsService {
 
       const isSponsored =
         car.vendor.isSponsored === true &&
-        (!car.vendor.boostExpiresAt || new Date(car.vendor.boostExpiresAt) > now);
+        (!car.vendor.boostExpiresAt ||
+          new Date(car.vendor.boostExpiresAt) > now);
 
       const vendorCopy = {
         ...car.vendor,
@@ -174,11 +192,17 @@ export class CarsService {
         return a.rawDistance - b.rawDistance;
       });
     } else if (sortBy === SortByOption.PRICE_ASC) {
-      processedCars.sort((a, b) => Number(a.pricePerDay) - Number(b.pricePerDay));
+      processedCars.sort(
+        (a, b) => Number(a.pricePerDay) - Number(b.pricePerDay),
+      );
     } else if (sortBy === SortByOption.PRICE_DESC) {
-      processedCars.sort((a, b) => Number(b.pricePerDay) - Number(a.pricePerDay));
+      processedCars.sort(
+        (a, b) => Number(b.pricePerDay) - Number(a.pricePerDay),
+      );
     } else if (sortBy === SortByOption.RATING) {
-      processedCars.sort((a, b) => (b.vendor.rating || 0) - (a.vendor.rating || 0));
+      processedCars.sort(
+        (a, b) => (b.vendor.rating || 0) - (a.vendor.rating || 0),
+      );
     } else {
       // SortByOption.RECOMMENDED or RELEVANCE
       processedCars.sort((a, b) => {
@@ -186,8 +210,18 @@ export class CarsService {
           return a.isSponsored ? -1 : 1;
         }
 
-        const scoreA = this.computeScore(a.vendor.rating, a.rawDistance, maxDistance, hasLocation);
-        const scoreB = this.computeScore(b.vendor.rating, b.rawDistance, maxDistance, hasLocation);
+        const scoreA = this.computeScore(
+          a.vendor.rating,
+          a.rawDistance,
+          maxDistance,
+          hasLocation,
+        );
+        const scoreB = this.computeScore(
+          b.vendor.rating,
+          b.rawDistance,
+          maxDistance,
+          hasLocation,
+        );
         return scoreB - scoreA;
       });
     }
@@ -307,7 +341,11 @@ export class CarsService {
     });
   }
 
-  async updateAvailability(carId: string, userId: string, isAvailable: boolean) {
+  async updateAvailability(
+    carId: string,
+    userId: string,
+    isAvailable: boolean,
+  ) {
     await this.verifyOwnership(carId, userId);
 
     return this.prisma.car.update({
@@ -316,7 +354,11 @@ export class CarsService {
     });
   }
 
-  async updateBlockedDates(carId: string, userId: string, blockedDates: string[]) {
+  async updateBlockedDates(
+    carId: string,
+    userId: string,
+    blockedDates: string[],
+  ) {
     await this.verifyOwnership(carId, userId);
 
     const dates = blockedDates.map((d) => new Date(d));

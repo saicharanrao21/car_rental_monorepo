@@ -1,9 +1,9 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  ForbiddenException, 
-  BadRequestException, 
-  ConflictException 
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -26,12 +26,16 @@ export class ReviewsService {
 
       // 2. Verify booking belongs to this customer
       if (booking.customerId !== customerId) {
-        throw new ForbiddenException('Access denied: You can only review your own bookings.');
+        throw new ForbiddenException(
+          'Access denied: You can only review your own bookings.',
+        );
       }
 
       // 3. Verify booking status is COMPLETED
       if (booking.status !== BookingStatus.COMPLETED) {
-        throw new BadRequestException('You can only review completed bookings.');
+        throw new BadRequestException(
+          'You can only review completed bookings.',
+        );
       }
 
       // 4. Verify no review exists yet for this booking (Prisma unique constraint is a backstop)
@@ -40,7 +44,9 @@ export class ReviewsService {
       });
 
       if (existingReview) {
-        throw new ConflictException('A review has already been submitted for this booking.');
+        throw new ConflictException(
+          'A review has already been submitted for this booking.',
+        );
       }
 
       // 5. Create the review

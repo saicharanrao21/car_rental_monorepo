@@ -8,12 +8,12 @@ import { JwtModule } from '@nestjs/jwt';
 import { CarsModule } from '../cars/cars.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    JwtModule.register({}),
-    CarsModule,
+  imports: [AuthModule, JwtModule.register({}), CarsModule],
+  controllers: [
+    VendorsController,
+    AdminVendorsController,
+    LocalitiesController,
   ],
-  controllers: [VendorsController, AdminVendorsController, LocalitiesController],
   providers: [VendorsService],
   exports: [VendorsService],
 })

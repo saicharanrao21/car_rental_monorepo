@@ -87,6 +87,13 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum RefundStatus {
+  NONE
+  PENDING
+  PROCESSED
+  FAILED
+}
+
 enum DisputeStatus {
   OPEN
   UNDER_REVIEW
@@ -226,6 +233,10 @@ model Booking {
   netToVendor        Decimal       @db.Decimal(10, 2)
   status             BookingStatus @default(PENDING)
   cancellationReason String?
+  cancellationFee    Decimal?      @db.Decimal(10, 2)
+  refundAmount       Decimal?      @db.Decimal(10, 2)
+  cancelledAt        DateTime?
+  cancelledBy        String?
   disputeFlag        Boolean       @default(false)
   disputeNote        String?
   createdAt          DateTime      @default(now())
@@ -298,10 +309,15 @@ model Payment {
   booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   razorpayOrderId   String?
   razorpayPaymentId String?
+  razorpayRefundId  String?       @unique
   amount            Decimal       @db.Decimal(10, 2)
+  refundAmount      Decimal?      @db.Decimal(10, 2)
   status            PaymentStatus @default(CREATED)
+  refundStatus      RefundStatus  @default(NONE)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([razorpayRefundId])
 }
 
 model Banner {

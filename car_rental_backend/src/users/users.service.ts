@@ -100,7 +100,10 @@ export class UsersService {
     return user;
   }
 
-  async findUserBookings(id: string, query: any): Promise<PaginatedResult<any>> {
+  async findUserBookings(
+    id: string,
+    query: any,
+  ): Promise<PaginatedResult<any>> {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -154,7 +157,9 @@ export class UsersService {
     });
 
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'USER_BAN_UPDATED', 'User', id, { banned: dto.banned });
+      this.auditLogService.log(adminUserId, 'USER_BAN_UPDATED', 'User', id, {
+        banned: dto.banned,
+      });
     }
 
     return updated;

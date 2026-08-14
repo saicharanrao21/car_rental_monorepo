@@ -41,7 +41,8 @@ export class AdminSettingsController {
   @Patch()
   async updateSettings(
     @Req() req: any,
-    @Body() dto: {
+    @Body()
+    dto: {
       platformName?: string;
       logoUrl?: string;
       gstNumber?: string;
@@ -58,7 +59,8 @@ export class AdminSettingsController {
     if (dto.supportEmail !== undefined) data.supportEmail = dto.supportEmail;
     if (dto.supportPhone !== undefined) data.supportPhone = dto.supportPhone;
     if (dto.appVersion !== undefined) data.appVersion = dto.appVersion;
-    if (dto.enabledTripTypes !== undefined) data.enabledTripTypes = dto.enabledTripTypes;
+    if (dto.enabledTripTypes !== undefined)
+      data.enabledTripTypes = dto.enabledTripTypes;
 
     const settings = await this.prisma.platformSettings.upsert({
       where: { id: 'singleton' },
@@ -75,7 +77,13 @@ export class AdminSettingsController {
       },
     });
 
-    this.auditLogService.log(req.user.userId, 'PLATFORM_SETTINGS_UPDATED', 'PlatformSettings', 'singleton', dto);
+    this.auditLogService.log(
+      req.user.userId,
+      'PLATFORM_SETTINGS_UPDATED',
+      'PlatformSettings',
+      'singleton',
+      dto,
+    );
 
     return settings;
   }

@@ -1,17 +1,17 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Patch, 
-  Body, 
-  Param, 
-  Query, 
-  UseGuards, 
-  Req, 
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
   NotFoundException,
   ParseIntPipe,
   HttpCode,
-  HttpStatus
+  HttpStatus,
 } from '@nestjs/common';
 import { PayoutsService } from './payouts.service';
 import { CreatePayoutDto } from './dto/create-payout.dto';
@@ -53,10 +53,7 @@ export class PayoutsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
   @Get('vendors/me/earnings/daily')
-  async getMyDailyEarnings(
-    @Req() req: any,
-    @Query('days') days?: string,
-  ) {
+  async getMyDailyEarnings(@Req() req: any, @Query('days') days?: string) {
     const vendorId = await this.getVendorId(req.user.userId);
     const dayCount = days ? parseInt(days, 10) : 30;
     return this.payoutsService.getDailyEarnings(vendorId, dayCount);
@@ -103,10 +100,7 @@ export class PayoutsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Patch('admin/payouts/:id/mark-paid')
-  async markPayoutPaid(
-    @Param('id') id: string,
-    @Body() dto: MarkPaidDto,
-  ) {
+  async markPayoutPaid(@Param('id') id: string, @Body() dto: MarkPaidDto) {
     return this.payoutsService.markPayoutPaid(id, dto.note);
   }
 }

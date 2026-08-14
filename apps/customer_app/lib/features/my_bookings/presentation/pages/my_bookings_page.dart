@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:core/core.dart';
 import 'package:gap/gap.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/my_bookings_providers.dart';
 
 class MyBookingsPage extends ConsumerStatefulWidget {
@@ -137,23 +135,14 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
               itemCount: bookings.length,
               itemBuilder: (context, index) {
                 final booking = bookings[index];
-                final car = MockData.cars.firstWhere(
-                  (c) => c.id == booking.carId,
-                  orElse: () => MockData.cars.first,
-                );
-                final vendor = MockData.vendors.firstWhere(
-                  (v) => v.id == booking.vendorId,
-                  orElse: () => MockData.vendors.first,
-                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: BookingCard(
                     booking: booking,
-                    carMake: car.make,
-                    carModel: car.model,
-                    carPhoto: car.photos.isNotEmpty ? car.photos.first : null,
-                    partnerName: vendor.businessName,
+                    carMake: 'Trip',
+                    carModel: booking.tripType,
+                    partnerName: 'Booking #${booking.id.length > 8 ? booking.id.substring(0, 8) : booking.id}',
                     onTap: () {
                       context.push('/bookings/${booking.id}');
                     },

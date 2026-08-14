@@ -4,7 +4,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:intl/intl.dart';
 import '../providers/vendor_bookings_providers.dart';
 
@@ -24,41 +23,25 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
   Widget build(BuildContext context) {
     final bookingsVal = ref.watch(vendorBookingsProvider);
     final booking = bookingsVal.maybeWhen(
-          data: (list) {
-            final idx = list.indexWhere((b) => b.id == widget.bookingId);
-            return idx != -1 ? list[idx] : null;
-          },
-          orElse: () => null,
-        ) ??
-        MockData.bookings.firstWhere(
-          (b) => b.id == widget.bookingId,
-        );
-
-    // Lookup customer name
-    final customer = MockData.customers.firstWhere(
-      (c) => c.id == booking.customerId,
-      orElse: () => UserModel(id: booking.customerId, name: 'Customer', phone: '', email: '', role: 'customer'),
+      data: (list) {
+        final idx = list.indexWhere((b) => b.id == widget.bookingId);
+        return idx != -1 ? list[idx] : null;
+      },
+      orElse: () => null,
     );
 
-    // Lookup car details
-    final car = MockData.cars.firstWhere(
-      (c) => c.id == booking.carId,
-      orElse: () => const CarModel(
-        id: '',
-        vendorId: '',
-        make: 'Unknown',
-        model: 'Car',
-        year: 2022,
-        type: '',
-        fuelType: '',
-        seating: 5,
-        isAC: true,
-        photos: [],
-        pricePerKm: 0,
-        pricePerDay: 0,
-        pricePerHour: 0,
-      ),
-    );
+    if (booking == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Booking Details')),
+        body: bookingsVal.isLoading
+            ? const Center(child: AppLoader())
+            : const Center(child: Text('Booking not found')),
+      );
+    }
+
+    final customerName = 'Customer #${booking.customerId.length > 6 ? booking.customerId.substring(0, 6) : booking.customerId}';
+    final customerPhone = 'Verified Phone';
+    final carTitle = 'Vehicle #${booking.carId.length > 6 ? booking.carId.substring(0, 6) : booking.carId}';
 
     final formatter = DateFormat('dd MMM yyyy, hh:mm a');
     final startStr = formatter.format(booking.startDate);
@@ -111,12 +94,12 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${car.make} ${car.model}',
+                                carTitle,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const Gap(4),
                               Text(
-                                'Year ${car.year} | ${car.fuelType} | ${car.type}',
+                                'Trip: ${booking.tripType}',
                                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
                               ),
                             ],
@@ -129,18 +112,18 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                 const Gap(24),
 
                 // Trip Duration & Route Card
-                const Text('Trip Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Trip Schedule', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const Gap(12),
                 AppCard(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        _buildInfoRow(Icons.calendar_month, 'Pickup Date', startStr),
+                        _buildInfoRow(Icons.calendar_today, 'Start Date & Time', startStr),
                         const Divider(height: 24),
-                        _buildInfoRow(Icons.calendar_month, 'Return Date', endStr),
+                        _buildInfoRow(Icons.event, 'End Date & Time', endStr),
                         const Divider(height: 24),
-                        _buildInfoRow(Icons.location_on_outlined, 'Pickup Location', booking.pickupLocation),
+                        _buildInfoRow(Icons.my_location, 'Pickup Location', booking.pickupLocation),
                         if (booking.dropLocation != null) ...[
                           const Divider(height: 24),
                           _buildInfoRow(Icons.location_on, 'Drop Location', booking.dropLocation!),
@@ -174,7 +157,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    customer.name,
+                                    customerName,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
                                   const Gap(4),

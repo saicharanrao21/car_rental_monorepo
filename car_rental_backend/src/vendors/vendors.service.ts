@@ -108,7 +108,10 @@ export class VendorsService {
     });
   }
 
-  async findReviews(vendorId: string, query: any): Promise<PaginatedResult<any>> {
+  async findReviews(
+    vendorId: string,
+    query: any,
+  ): Promise<PaginatedResult<any>> {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
     });
@@ -182,7 +185,11 @@ export class VendorsService {
     });
   }
 
-  async updateSponsorship(id: string, dto: { isSponsored: boolean; boostExpiresAt?: string }, adminUserId?: string) {
+  async updateSponsorship(
+    id: string,
+    dto: { isSponsored: boolean; boostExpiresAt?: string },
+    adminUserId?: string,
+  ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -195,18 +202,30 @@ export class VendorsService {
       where: { id },
       data: {
         isSponsored: dto.isSponsored,
-        boostExpiresAt: dto.boostExpiresAt ? new Date(dto.boostExpiresAt) : null,
+        boostExpiresAt: dto.boostExpiresAt
+          ? new Date(dto.boostExpiresAt)
+          : null,
       },
     });
 
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'VENDOR_SPONSORSHIP_UPDATED', 'Vendor', id, { isSponsored: dto.isSponsored, boostExpiresAt: dto.boostExpiresAt });
+      this.auditLogService.log(
+        adminUserId,
+        'VENDOR_SPONSORSHIP_UPDATED',
+        'Vendor',
+        id,
+        { isSponsored: dto.isSponsored, boostExpiresAt: dto.boostExpiresAt },
+      );
     }
 
     return updated;
   }
 
-  async updateSubscription(id: string, dto: { subscriptionTier: SubscriptionTier }, adminUserId?: string) {
+  async updateSubscription(
+    id: string,
+    dto: { subscriptionTier: SubscriptionTier },
+    adminUserId?: string,
+  ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -223,13 +242,23 @@ export class VendorsService {
     });
 
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'VENDOR_SUBSCRIPTION_UPDATED', 'Vendor', id, { subscriptionTier: dto.subscriptionTier });
+      this.auditLogService.log(
+        adminUserId,
+        'VENDOR_SUBSCRIPTION_UPDATED',
+        'Vendor',
+        id,
+        { subscriptionTier: dto.subscriptionTier },
+      );
     }
 
     return updated;
   }
 
-  async updateStatus(id: string, dto: UpdateVendorStatusDto, adminUserId?: string) {
+  async updateStatus(
+    id: string,
+    dto: UpdateVendorStatusDto,
+    adminUserId?: string,
+  ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });
@@ -244,7 +273,13 @@ export class VendorsService {
     });
 
     if (adminUserId) {
-      this.auditLogService.log(adminUserId, 'VENDOR_STATUS_UPDATED', 'Vendor', id, { status: dto.status });
+      this.auditLogService.log(
+        adminUserId,
+        'VENDOR_STATUS_UPDATED',
+        'Vendor',
+        id,
+        { status: dto.status },
+      );
     }
 
     if (vendor.userId) {
@@ -254,7 +289,9 @@ export class VendorsService {
           `Account Status Update`,
           `Your vendor account status has been updated to ${dto.status}.`,
         )
-        .catch((err) => this.logger.error('Failed to notify vendor of status update', err));
+        .catch((err) =>
+          this.logger.error('Failed to notify vendor of status update', err),
+        );
     }
 
     return updated;
@@ -266,7 +303,9 @@ export class VendorsService {
     });
 
     if (!parentVendor) {
-      throw new NotFoundException('Parent vendor profile not found for this user');
+      throw new NotFoundException(
+        'Parent vendor profile not found for this user',
+      );
     }
 
     return this.prisma.vendor.create({
@@ -295,7 +334,9 @@ export class VendorsService {
     });
 
     if (!parentVendor) {
-      throw new NotFoundException('Parent vendor profile not found for this user');
+      throw new NotFoundException(
+        'Parent vendor profile not found for this user',
+      );
     }
 
     return this.prisma.vendor.findMany({
@@ -356,9 +397,10 @@ export class VendorsService {
       views: item._count.carId,
     }));
 
-    const conversionRate = totalViews > 0
-      ? Number(((confirmedBookings / totalViews) * 100).toFixed(1))
-      : 0;
+    const conversionRate =
+      totalViews > 0
+        ? Number(((confirmedBookings / totalViews) * 100).toFixed(1))
+        : 0;
 
     return {
       totalViews,
@@ -369,7 +411,13 @@ export class VendorsService {
     };
   }
 
-  async addDocument(userId: string, type: any, fileUrl: string, carId?: string, expiresAt?: string) {
+  async addDocument(
+    userId: string,
+    type: any,
+    fileUrl: string,
+    carId?: string,
+    expiresAt?: string,
+  ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
     });
@@ -384,7 +432,9 @@ export class VendorsService {
       });
 
       if (!car || car.vendorId !== vendor.id) {
-        throw new NotFoundException('Car not found or does not belong to this vendor');
+        throw new NotFoundException(
+          'Car not found or does not belong to this vendor',
+        );
       }
     }
 
@@ -429,7 +479,9 @@ export class VendorsService {
     });
 
     if (!car || car.vendorId !== vendor.id) {
-      throw new NotFoundException('Car not found or does not belong to this vendor');
+      throw new NotFoundException(
+        'Car not found or does not belong to this vendor',
+      );
     }
 
     return this.prisma.document.findMany({
@@ -438,7 +490,11 @@ export class VendorsService {
     });
   }
 
-  async updateDocumentStatus(vendorId: string, documentId: string, status: any) {
+  async updateDocumentStatus(
+    vendorId: string,
+    documentId: string,
+    status: any,
+  ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
@@ -448,7 +504,9 @@ export class VendorsService {
     }
 
     if (document.vendorId !== vendorId) {
-      throw new NotFoundException('Document does not belong to the specified vendor');
+      throw new NotFoundException(
+        'Document does not belong to the specified vendor',
+      );
     }
 
     return this.prisma.document.update({
@@ -457,4 +515,3 @@ export class VendorsService {
     });
   }
 }
-

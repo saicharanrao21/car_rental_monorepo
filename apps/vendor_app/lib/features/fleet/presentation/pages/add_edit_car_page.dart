@@ -5,7 +5,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/fleet_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 
@@ -65,8 +64,9 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
 
     // If edit mode, populate data
     if (isEditMode) {
-      // Find the car in MockData or providers
-      final car = MockData.cars.firstWhere(
+      // Find the car in live fleet provider
+      final carsList = ref.read(fleetCarsProvider).value ?? [];
+      final car = carsList.firstWhere(
         (c) => c.id == widget.carId,
         orElse: () => const CarModel(
           id: '',
@@ -283,10 +283,10 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       pricePerHour: double.tryParse(_priceHourCtrl.text.trim()) ?? 0.0,
       registrationNumber: _regNumCtrl.text.trim(),
       isAvailable: isEditMode
-          ? (MockData.cars.firstWhere((c) => c.id == widget.carId).isAvailable)
+          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).isAvailable)
           : true,
       rating: isEditMode
-          ? (MockData.cars.firstWhere((c) => c.id == widget.carId).rating)
+          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).rating)
           : 5.0,
       availableTripTypes: _selectedTripTypes,
     );

@@ -1,4 +1,10 @@
-import { IsEnum, IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 import { DocumentType } from '@prisma/client';
 
 export class CreateDocumentDto {
@@ -18,4 +24,3 @@ export class CreateDocumentDto {
   @IsDateString()
   expiresAt?: string;
 }
-

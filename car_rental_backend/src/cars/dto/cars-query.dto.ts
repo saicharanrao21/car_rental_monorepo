@@ -1,4 +1,11 @@
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/pagination.dto';
 import { CarCategory } from '@prisma/client';

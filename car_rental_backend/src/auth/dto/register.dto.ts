@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, Matches, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  Matches,
+  IsString,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsNotEmpty()

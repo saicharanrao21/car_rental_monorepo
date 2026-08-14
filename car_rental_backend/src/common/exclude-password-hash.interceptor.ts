@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Prisma } from '@prisma/client';
@@ -6,9 +11,7 @@ import { Prisma } from '@prisma/client';
 @Injectable()
 export class ExcludePasswordHashInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    return next.handle().pipe(
-      map((data) => this.stripPasswordHash(data)),
-    );
+    return next.handle().pipe(map((data) => this.stripPasswordHash(data)));
   }
 
   private stripPasswordHash(data: any): any {
@@ -28,9 +31,10 @@ export class ExcludePasswordHashInterceptor implements NestInterceptor {
       }
       // Check if it's a Decimal from prisma/client (handling name mangling)
       if (
-        data instanceof Prisma.Decimal || 
-        (data.constructor && 
-          (data.constructor.name === 'Decimal' || data.constructor.name === 'i') && 
+        data instanceof Prisma.Decimal ||
+        (data.constructor &&
+          (data.constructor.name === 'Decimal' ||
+            data.constructor.name === 'i') &&
           typeof data.toNumber === 'function')
       ) {
         return data.toNumber();

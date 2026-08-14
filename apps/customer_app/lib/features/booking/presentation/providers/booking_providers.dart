@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../../data/api_booking_repository.dart';
 import '../../../car_detail/presentation/providers/car_detail_providers.dart';
@@ -56,22 +55,10 @@ final bookingWithDetailsProvider =
   final booking = await ref.watch(bookingRepositoryProvider).getBookingById(bookingId);
   if (booking == null) return null;
 
-  CarModel car;
-  VendorModel vendor;
-  try {
-    final detail = await ref.watch(carDetailDataProvider(booking.carId).future);
-    car = detail.car;
-    vendor = detail.vendor;
-  } catch (_) {
-    car = MockData.cars.firstWhere(
-      (c) => c.id == booking.carId,
-      orElse: () => MockData.cars.first,
-    );
-    vendor = MockData.vendors.firstWhere(
-      (v) => v.id == booking.vendorId,
-      orElse: () => MockData.vendors.first,
-    );
-  }
-
-  return BookingWithDetails(booking: booking, car: car, vendor: vendor);
+  final detail = await ref.watch(carDetailDataProvider(booking.carId).future);
+  return BookingWithDetails(
+    booking: booking,
+    car: detail.car,
+    vendor: detail.vendor,
+  );
 });

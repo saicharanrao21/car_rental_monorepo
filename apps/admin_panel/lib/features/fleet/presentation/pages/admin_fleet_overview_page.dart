@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../providers/admin_fleet_providers.dart';
+import '../../vendors/presentation/providers/admin_vendor_providers.dart';
 
 class AdminFleetOverviewPage extends ConsumerStatefulWidget {
   const AdminFleetOverviewPage({super.key});
@@ -174,7 +174,7 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                             child: Text('All Vendors', overflow: TextOverflow.ellipsis),
                           ),
                         ),
-                        ...MockData.vendors.map((v) => DropdownMenuItem<String>(
+                        ...(ref.watch(adminVendorsProvider).value ?? []).map((v) => DropdownMenuItem<String>(
                               value: v.id,
                               child: SizedBox(
                                 width: 150,
@@ -244,11 +244,11 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                           DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: cars.map((c) {
-                          final vendor = MockData.vendors.firstWhere(
+                          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
                             (v) => v.id == c.vendorId,
-                            orElse: () => const VendorModel(
-                              id: '',
-                              businessName: 'Unknown',
+                            orElse: () => VendorModel(
+                              id: c.vendorId,
+                              businessName: 'Vendor #${c.vendorId.length > 6 ? c.vendorId.substring(0, 6) : c.vendorId}',
                               ownerName: '',
                               city: '',
                               verificationStatus: '',
@@ -378,11 +378,11 @@ class _CarDetailPanel extends ConsumerWidget {
         loading: () => const Center(child: AppLoader()),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (car) {
-          final vendor = MockData.vendors.firstWhere(
+          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
             (v) => v.id == car.vendorId,
-            orElse: () => const VendorModel(
-              id: '',
-              businessName: 'Unknown Vendor',
+            orElse: () => VendorModel(
+              id: car.vendorId,
+              businessName: 'Vendor #${car.vendorId.length > 6 ? car.vendorId.substring(0, 6) : car.vendorId}',
               ownerName: '',
               city: '',
               verificationStatus: '',

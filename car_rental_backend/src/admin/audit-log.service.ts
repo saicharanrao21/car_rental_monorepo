@@ -27,7 +27,10 @@ export class AuditLogService {
         },
       });
     } catch (err) {
-      this.logger.error(`Failed to record audit log for action ${action}:`, err);
+      this.logger.error(
+        `Failed to record audit log for action ${action}:`,
+        err,
+      );
     }
   }
 

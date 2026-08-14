@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -18,7 +27,9 @@ export class AdminVendorsController {
   @Get()
   async findAll(@Query() query: VendorsQueryDto) {
     const result = await this.vendorsService.findAll(query);
-    result.data = result.data.map((vendor) => redactVendor(vendor, { isAdmin: true }));
+    result.data = result.data.map((vendor) =>
+      redactVendor(vendor, { isAdmin: true }),
+    );
     return result;
   }
 
@@ -37,7 +48,11 @@ export class AdminVendorsController {
     @Param('id') id: string,
     @Body('subscriptionTier') subscriptionTier: SubscriptionTier,
   ) {
-    return this.vendorsService.updateSubscription(id, { subscriptionTier }, req.user.userId);
+    return this.vendorsService.updateSubscription(
+      id,
+      { subscriptionTier },
+      req.user.userId,
+    );
   }
 
   @Patch(':vendorId/documents/:id')

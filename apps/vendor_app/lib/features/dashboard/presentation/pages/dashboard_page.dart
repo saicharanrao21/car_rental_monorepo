@@ -5,7 +5,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../providers/dashboard_providers.dart';
@@ -453,31 +452,8 @@ class DashboardPage extends ConsumerWidget {
   }
 
   Widget _buildRequestCard(BuildContext context, WidgetRef ref, BookingModel req) {
-    // Synchronous user lookup
-    final customer = MockData.customers.firstWhere(
-      (c) => c.id == req.customerId,
-      orElse: () => UserModel(id: req.customerId, name: 'Customer', phone: '', email: '', role: 'customer'),
-    );
-
-    // Synchronous car lookup
-    final car = MockData.cars.firstWhere(
-      (c) => c.id == req.carId,
-      orElse: () => const CarModel(
-        id: '',
-        vendorId: '',
-        make: 'Unknown',
-        model: 'Car',
-        year: 2022,
-        type: '',
-        fuelType: '',
-        seating: 5,
-        isAC: true,
-        photos: [],
-        pricePerKm: 0,
-        pricePerDay: 0,
-        pricePerHour: 0,
-      ),
-    );
+    final customerName = 'Customer #${req.customerId.length > 6 ? req.customerId.substring(0, 6) : req.customerId}';
+    final carTitle = 'Vehicle #${req.carId.length > 6 ? req.carId.substring(0, 6) : req.carId}';
 
     final formatter = DateFormat('dd MMM, hh:mm a');
     final dateStr = '${formatter.format(req.startDate)} - ${formatter.format(req.endDate)}';
@@ -493,7 +469,7 @@ class DashboardPage extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  customer.name,
+                  customerName,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 StatusBadge(
@@ -507,7 +483,7 @@ class DashboardPage extends ConsumerWidget {
                 const Icon(Icons.directions_car_outlined, size: 16, color: Colors.grey),
                 const Gap(8),
                 Text(
-                  '${car.make} ${car.model}',
+                  carTitle,
                   style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                 ),
               ],

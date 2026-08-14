@@ -1,4 +1,12 @@
-import { IsString, IsEnum, IsNotEmpty, IsOptional, IsDateString, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsDateString,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { TripType } from '@prisma/client';
 
 export class CreateBookingDto {

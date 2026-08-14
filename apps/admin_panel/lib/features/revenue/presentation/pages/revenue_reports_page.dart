@@ -5,7 +5,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import 'package:gap/gap.dart';
-import 'package:mock_data/mock_data.dart';
 import 'package:admin_panel/features/revenue/domain/repositories/revenue_repository.dart';
 import '../providers/revenue_providers.dart';
 
@@ -592,20 +591,14 @@ class _TopVendorsRevenueChart extends StatelessWidget {
   final List<VendorModel> vendors;
   const _TopVendorsRevenueChart({required this.vendors});
 
-  double _getVendorRevenue(String vendorId) {
-    return MockData.bookings
-        .where((b) => b.vendorId == vendorId)
-        .map((b) => b.totalFare)
-        .fold(0.0, (sum, val) => sum + val);
+  double _getVendorRevenue(VendorModel v) {
+    return (v.rating * 15000.0) + (v.totalTrips * 350.0);
   }
 
   @override
   Widget build(BuildContext context) {
     final List<MapEntry<VendorModel, double>> vendorRevenues = vendors.map((v) {
-      double rev = _getVendorRevenue(v.id);
-      if (rev == 0.0) {
-        rev = (v.rating * 15000.0) + (v.totalTrips * 350.0);
-      }
+      double rev = _getVendorRevenue(v);
       return MapEntry(v, rev);
     }).toList();
 

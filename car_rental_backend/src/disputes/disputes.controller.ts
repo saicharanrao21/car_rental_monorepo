@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { DisputesService } from './disputes.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
@@ -27,6 +37,10 @@ export class DisputesController {
 
   @Get(':id')
   async getDisputeById(@Req() req: any, @Param('id') id: string) {
-    return this.disputesService.getDisputeById(req.user.userId, req.user.role, id);
+    return this.disputesService.getDisputeById(
+      req.user.userId,
+      req.user.role,
+      id,
+    );
   }
 }

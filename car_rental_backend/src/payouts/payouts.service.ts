@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayoutStatus, Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -47,16 +52,26 @@ export class PayoutsService {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const lastMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
-    const thisMonthBookings = completedBookings.filter(b => b.createdAt >= thisMonthStart);
+    const thisMonthBookings = completedBookings.filter(
+      (b) => b.createdAt >= thisMonthStart,
+    );
     const thisMonthEarnings = thisMonthBookings.reduce(
       (sum, b) => sum.add(b.netToVendor),
       new Prisma.Decimal(0),
     );
 
     const lastMonthBookings = completedBookings.filter(
-      b => b.createdAt >= lastMonthStart && b.createdAt <= lastMonthEnd,
+      (b) => b.createdAt >= lastMonthStart && b.createdAt <= lastMonthEnd,
     );
     const lastMonthEarnings = lastMonthBookings.reduce(
       (sum, b) => sum.add(b.netToVendor),
@@ -112,10 +127,12 @@ export class PayoutsService {
     }
 
     // Convert map to sorted array list
-    const result = Array.from(dailyMap.entries()).map(([date, amount]) => ({
-      date,
-      amount,
-    })).sort((a, b) => a.date.localeCompare(b.date));
+    const result = Array.from(dailyMap.entries())
+      .map(([date, amount]) => ({
+        date,
+        amount,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     return result;
   }
@@ -158,7 +175,9 @@ export class PayoutsService {
     }
 
     if (adminNote) {
-      this.logger.log(`Marking payout ${payoutId} as PAID. Admin Note: ${adminNote}`);
+      this.logger.log(
+        `Marking payout ${payoutId} as PAID. Admin Note: ${adminNote}`,
+      );
     }
 
     const updated = await this.prisma.payout.update({
@@ -179,7 +198,12 @@ export class PayoutsService {
           'Payout Marked Paid',
           `Your payout of INR ${updated.amount} has been processed and marked as paid.`,
         )
-        .catch((err) => this.logger.error('Failed to notify vendor of payout status change', err));
+        .catch((err) =>
+          this.logger.error(
+            'Failed to notify vendor of payout status change',
+            err,
+          ),
+        );
     }
 
     return updated;

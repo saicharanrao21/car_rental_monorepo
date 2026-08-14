@@ -1,4 +1,13 @@
-import { IsArray, IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsNumber, Min } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { CarCategory, FuelType } from '@prisma/client';
 
 export class UpdateCarDto {

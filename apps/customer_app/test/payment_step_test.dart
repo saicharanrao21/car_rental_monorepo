@@ -58,6 +58,16 @@ class MockInterceptor extends Interceptor {
         },
         statusCode: 201,
       ));
+    } else if (options.path.contains('/payments/verify')) {
+      handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'success': true,
+          'bookingId': 'booking_test_id',
+          'status': 'PAID',
+        },
+        statusCode: 200,
+      ));
     } else {
       handler.next(options);
     }

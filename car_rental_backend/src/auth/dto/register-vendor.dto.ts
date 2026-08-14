@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
 import { BusinessType } from '@prisma/client';
 
 export class RegisterVendorDto {

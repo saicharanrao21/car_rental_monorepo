@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Body, Query, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -33,7 +43,11 @@ export class NotificationsController {
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    return this.notificationsService.getMyNotifications(req.user.userId, page ?? 1, limit ?? 10);
+    return this.notificationsService.getMyNotifications(
+      req.user.userId,
+      page ?? 1,
+      limit ?? 10,
+    );
   }
 
   @Patch('notifications/me/mark-all-read')

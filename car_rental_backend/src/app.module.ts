@@ -22,9 +22,14 @@ import { RecentlyViewedModule } from './recently-viewed/recently-viewed.module';
 import { DisputesModule } from './disputes/disputes.module';
 import { SupportedCitiesModule } from './supported-cities/supported-cities.module';
 
+import { validateEnv } from './common/env.validation';
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+    }),
     PrismaModule,
     RedisModule,
     AuthModule,

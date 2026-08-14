@@ -6,7 +6,6 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/admin_dashboard_providers.dart';
 import '../../domain/repositories/admin_dashboard_repository.dart';
 
@@ -501,29 +500,17 @@ class _RecentBookingsTable extends StatelessWidget {
             DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
           ],
           rows: bookings.map((b) {
-            // Synchronously look up mock relations
-            final customerName = MockData.customers.firstWhere(
-              (c) => c.id == b.customerId,
-              orElse: () => UserModel(id: b.customerId, name: 'Unknown User', phone: '', role: 'customer'),
-            ).name;
-
-            final vendor = MockData.vendors.firstWhere(
-              (v) => v.id == b.vendorId,
-              orElse: () => VendorModel(id: b.vendorId, businessName: 'Unknown Vendor', ownerName: '', city: 'Unknown', verificationStatus: ''),
-            );
-
-            final carModel = MockData.cars.firstWhere(
-              (c) => c.id == b.carId,
-              orElse: () => const CarModel(id: '', vendorId: '', make: '', model: 'Unknown Car', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0),
-            );
+            final customerName = 'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}';
+            final vendorName = 'Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}';
+            final carTitle = 'Vehicle #${b.carId.length > 6 ? b.carId.substring(0, 6) : b.carId}';
 
             return DataRow(
               cells: [
                 DataCell(Text('#${b.id.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.blue))),
                 DataCell(Text(customerName)),
-                DataCell(Text(vendor.businessName)),
-                DataCell(Text('${carModel.make} ${carModel.model}')),
-                DataCell(Text(vendor.city)),
+                DataCell(Text(vendorName)),
+                DataCell(Text(carTitle)),
+                DataCell(Text(b.pickupLocation)),
                 DataCell(Text(DateFormat('dd MMM yyyy').format(b.startDate))),
                 DataCell(PriceTag(
                   amount: b.totalFare,

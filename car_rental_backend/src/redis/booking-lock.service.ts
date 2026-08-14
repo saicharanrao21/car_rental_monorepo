@@ -5,9 +5,7 @@ import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BookingLockService {
-  constructor(
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
-  ) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private getLockKey(carId: string, startDate: Date, endDate: Date): string {
     return `lock:car:${carId}:${startDate.toISOString()}:${endDate.toISOString()}`;
@@ -18,7 +16,12 @@ export class BookingLockService {
    * Throws a 409 Conflict if the lock is already held.
    * Returns the lock token value to be used for release.
    */
-  async acquireLock(carId: string, startDate: Date, endDate: Date, ttlMs: number = 10000): Promise<string> {
+  async acquireLock(
+    carId: string,
+    startDate: Date,
+    endDate: Date,
+    ttlMs: number = 10000,
+  ): Promise<string> {
     const key = this.getLockKey(carId, startDate, endDate);
     const token = randomUUID();
 
@@ -26,7 +29,9 @@ export class BookingLockService {
     const result = await this.redis.set(key, token, 'PX', ttlMs, 'NX');
 
     if (result !== 'OK') {
-      throw new ConflictException('This car is currently being booked by someone else, please try again.');
+      throw new ConflictException(
+        'This car is currently being booked by someone else, please try again.',
+      );
     }
 
     return token;
@@ -35,9 +40,62 @@ export class BookingLockService {
   /**
    * Releases the lock safely using a Lua script to compare value first.
    */
-  async releaseLock(carId: string, startDate: Date, endDate: Date, token: string): Promise<boolean> {
+  async releaseLock(
+    carId: string,
+    startDate: Date,
+    endDate: Date,
+    token: string,
+  ): Promise<boolean> {
     const key = this.getLockKey(carId, startDate, endDate);
-    
+
+    const luaScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+      else
+          return 0
+      end
+    `;
+
+    const result = await this.redis.eval(luaScript, 1, key, token);
+    return result === 1;
+  }
+
+  private getCancellationLockKey(bookingId: string): string {
+    return `lock:cancel:booking:${bookingId}`;
+  }
+
+  /**
+   * Tries to acquire a distributed lock for booking cancellation/refund flow.
+   * Throws a 409 Conflict if the cancellation lock is already held.
+   * Returns the lock token value to be used for safe release.
+   */
+  async acquireCancellationLock(
+    bookingId: string,
+    ttlMs: number = 10000,
+  ): Promise<string> {
+    const key = this.getCancellationLockKey(bookingId);
+    const token = randomUUID();
+
+    const result = await this.redis.set(key, token, 'PX', ttlMs, 'NX');
+
+    if (result !== 'OK') {
+      throw new ConflictException(
+        'This booking is currently undergoing cancellation/refund processing. Please wait.',
+      );
+    }
+
+    return token;
+  }
+
+  /**
+   * Releases the cancellation lock safely using a Lua script to compare token value first.
+   */
+  async releaseCancellationLock(
+    bookingId: string,
+    token: string,
+  ): Promise<boolean> {
+    const key = this.getCancellationLockKey(bookingId);
+
     const luaScript = `
       if redis.call("get", KEYS[1]) == ARGV[1] then
           return redis.call("del", KEYS[1])

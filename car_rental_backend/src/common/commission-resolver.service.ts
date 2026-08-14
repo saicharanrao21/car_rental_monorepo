@@ -22,16 +22,10 @@ export class CommissionResolverService {
             ],
           },
           {
-            OR: [
-              { carCategory: null },
-              { carCategory },
-            ],
+            OR: [{ carCategory: null }, { carCategory }],
           },
           {
-            OR: [
-              { tripType: null },
-              { tripType },
-            ],
+            OR: [{ tripType: null }, { tripType }],
           },
         ],
       },
@@ -45,7 +39,7 @@ export class CommissionResolverService {
     // city match: weight 4
     // carCategory match: weight 2
     // tripType match: weight 1
-    const scoredRules = rules.map(rule => {
+    const scoredRules = rules.map((rule) => {
       let score = 0;
       if (rule.city !== null) score += 4;
       if (rule.carCategory !== null) score += 2;

@@ -1,20 +1,27 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  ConflictException, 
-  ForbiddenException, 
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
   BadRequestException,
-  Logger
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingLockService } from '../redis/booking-lock.service';
 import { CommissionResolverService } from '../common/commission-resolver.service';
 import { FareCalculatorService } from '../common/fare-calculator.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
-import { BookingStatus, Role, TripType, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  BookingStatus,
+  Role,
+  TripType,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CancellationPolicyService } from './cancellation-policy.service';
 import { redactVendor } from '../common/vendor-redactor.util';
 
 @Injectable()
@@ -28,8 +35,8 @@ export class BookingsService {
     private readonly fareCalculator: FareCalculatorService,
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
+    private readonly cancellationPolicyService: CancellationPolicyService,
   ) {}
-
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
     const start = new Date(dto.startDate);
@@ -58,11 +65,17 @@ export class BookingsService {
     }
 
     if (!settings.enabledTripTypes.includes(dto.tripType)) {
-      throw new BadRequestException('This trip type is not currently available');
+      throw new BadRequestException(
+        'This trip type is not currently available',
+      );
     }
 
     // 1. Acquire Redis distributed lock
-    const lockToken = await this.bookingLockService.acquireLock(dto.carId, start, end);
+    const lockToken = await this.bookingLockService.acquireLock(
+      dto.carId,
+      start,
+      end,
+    );
 
     try {
       // Fetch car outside of the transaction to do validations and resolve fares
@@ -81,7 +94,9 @@ export class BookingsService {
 
       // Check if tripType is supported by the car
       if (!car.availableTripTypes.includes(dto.tripType)) {
-        throw new BadRequestException(`This car does not support ${dto.tripType} trip type.`);
+        throw new BadRequestException(
+          `This car does not support ${dto.tripType} trip type.`,
+        );
       }
 
       // Check blockedDates range overlap
@@ -91,30 +106,41 @@ export class BookingsService {
       });
 
       if (hasBlockedDate) {
-        throw new ConflictException('The requested date range conflicts with blocked dates for this car.');
+        throw new ConflictException(
+          'The requested date range conflicts with blocked dates for this car.',
+        );
       }
 
       // 3. Resolve commission percentage outside the transaction
-      const commissionPercent = await this.commissionResolver.resolveCommissionPercent(
-        car.vendor.city,
-        car.type,
-        dto.tripType,
-      );
+      const commissionPercent =
+        await this.commissionResolver.resolveCommissionPercent(
+          car.vendor.city,
+          car.type,
+          dto.tripType,
+        );
 
       // 4. Calculate fare details outside the transaction
       const durationMs = end.getTime() - start.getTime();
-      const durationDays = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60 * 24)));
+      const durationDays = Math.max(
+        1,
+        Math.ceil(durationMs / (1000 * 60 * 60 * 24)),
+      );
       let basePackagePrice = new Prisma.Decimal(0);
 
-      if (dto.tripType === TripType.LOCAL || dto.tripType === TripType.AIRPORT_TRANSFER) {
+      if (
+        dto.tripType === TripType.LOCAL ||
+        dto.tripType === TripType.AIRPORT_TRANSFER
+      ) {
         const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
         basePackagePrice = car.pricePerHour.mul(durationHours);
       } else {
         basePackagePrice = car.pricePerDay.mul(durationDays);
       }
 
-      const distance = dto.distanceKm ? new Prisma.Decimal(dto.distanceKm) : new Prisma.Decimal(0);
-      
+      const distance = dto.distanceKm
+        ? new Prisma.Decimal(dto.distanceKm)
+        : new Prisma.Decimal(0);
+
       const fareDetails = this.fareCalculator.calculateFare(
         distance,
         basePackagePrice,
@@ -126,61 +152,67 @@ export class BookingsService {
       );
 
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)
-      const booking = await this.prisma.$transaction(async (tx) => {
-        // Check overlapping bookings
-        const overlappingBooking = await tx.booking.findFirst({
-          where: {
-            carId: dto.carId,
-            status: {
-              in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.ONGOING],
+      const booking = await this.prisma.$transaction(
+        async (tx) => {
+          // Check overlapping bookings
+          const overlappingBooking = await tx.booking.findFirst({
+            where: {
+              carId: dto.carId,
+              status: {
+                in: [
+                  BookingStatus.PENDING,
+                  BookingStatus.CONFIRMED,
+                  BookingStatus.ONGOING,
+                ],
+              },
+              AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
             },
-            AND: [
-              { startDate: { lt: end } },
-              { endDate: { gt: start } },
-            ],
-          },
-        });
+          });
 
-        if (overlappingBooking) {
-          throw new ConflictException('This car is already booked during the selected date range.');
-        }
+          if (overlappingBooking) {
+            throw new ConflictException(
+              'This car is already booked during the selected date range.',
+            );
+          }
 
-        // 5. Create booking row
-        const newBooking = await tx.booking.create({
-          data: {
-            customerId,
-            vendorId: car.vendorId,
-            carId: dto.carId,
-            tripType: dto.tripType,
-            pickupLocation: dto.pickupLocation,
-            dropLocation: dto.dropLocation,
-            startDate: start,
-            endDate: end,
-            distanceKm: dto.distanceKm ? distance : null,
-            baseFare: fareDetails.baseFare,
-            platformFee: fareDetails.platformFee,
-            gstAmount: fareDetails.gst,
-            totalFare: fareDetails.total,
-            netToVendor: fareDetails.netToVendor,
-            status: BookingStatus.PENDING,
-          },
-          include: {
-            car: true,
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                email: true,
+          // 5. Create booking row
+          const newBooking = await tx.booking.create({
+            data: {
+              customerId,
+              vendorId: car.vendorId,
+              carId: dto.carId,
+              tripType: dto.tripType,
+              pickupLocation: dto.pickupLocation,
+              dropLocation: dto.dropLocation,
+              startDate: start,
+              endDate: end,
+              distanceKm: dto.distanceKm ? distance : null,
+              baseFare: fareDetails.baseFare,
+              platformFee: fareDetails.platformFee,
+              gstAmount: fareDetails.gst,
+              totalFare: fareDetails.total,
+              netToVendor: fareDetails.netToVendor,
+              status: BookingStatus.PENDING,
+            },
+            include: {
+              car: true,
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  email: true,
+                },
               },
             },
-          },
-        });
+          });
 
-        return newBooking;
-      }, {
-        timeout: 15000
-      });
+          return newBooking;
+        },
+        {
+          timeout: 15000,
+        },
+      );
 
       // After transaction completes, notify vendor
       const vendorUser = await this.prisma.vendor.findUnique({
@@ -194,17 +226,27 @@ export class BookingsService {
             'New Booking Request',
             `You have received a new booking request for ${booking.car.make} ${booking.car.model} (${booking.car.registrationNumber}).`,
           )
-          .catch((err) => this.logger.error('Failed to notify vendor of new booking', err));
+          .catch((err) =>
+            this.logger.error('Failed to notify vendor of new booking', err),
+          );
       }
 
       return booking;
     } finally {
       // 6. Release lock
-      await this.bookingLockService.releaseLock(dto.carId, start, end, lockToken);
+      await this.bookingLockService.releaseLock(
+        dto.carId,
+        start,
+        end,
+        lockToken,
+      );
     }
   }
 
-  async getBookingById(id: string, requestingUser: { userId: string; role: Role }) {
+  async getBookingById(
+    id: string,
+    requestingUser: { userId: string; role: Role },
+  ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id },
       include: {
@@ -213,7 +255,12 @@ export class BookingsService {
         vendor: {
           include: {
             user: {
-              select: { id: true, name: true, email: true, profilePhotoUrl: true },
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                profilePhotoUrl: true,
+              },
             },
           },
         },
@@ -227,16 +274,24 @@ export class BookingsService {
 
     const isCustomer = booking.customerId === requestingUser.userId;
     const isVendor = booking.vendor.userId === requestingUser.userId;
-    const isAdmin = requestingUser.role === Role.ADMIN;
+    const isStaff =
+      requestingUser.role === Role.ADMIN ||
+      requestingUser.role === Role.SUPPORT_AGENT;
 
-    if (!isCustomer && !isVendor && !isAdmin) {
-      throw new ForbiddenException('Access denied: You are not authorized to view this booking.');
+    if (!isCustomer && !isVendor && !isStaff) {
+      throw new ForbiddenException(
+        'Access denied: You are not authorized to view this booking.',
+      );
     }
 
     return this.redactVendorInBooking(booking, requestingUser);
   }
 
-  async getBookingsForCustomer(customerId: string, statusFilter?: BookingStatus, pagination?: PaginationDto) {
+  async getBookingsForCustomer(
+    customerId: string,
+    statusFilter?: BookingStatus,
+    pagination?: PaginationDto,
+  ) {
     const page = pagination?.page ?? 1;
     const limit = pagination?.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -255,7 +310,12 @@ export class BookingsService {
           vendor: {
             include: {
               user: {
-                select: { id: true, name: true, email: true, profilePhotoUrl: true },
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  profilePhotoUrl: true,
+                },
               },
             },
           },
@@ -268,7 +328,10 @@ export class BookingsService {
       this.prisma.booking.count({ where }),
     ]);
 
-    const redactedData = this.redactVendorInBooking(data, { userId: customerId, role: Role.CUSTOMER });
+    const redactedData = this.redactVendorInBooking(data, {
+      userId: customerId,
+      role: Role.CUSTOMER,
+    });
 
     return {
       data: redactedData,
@@ -278,7 +341,11 @@ export class BookingsService {
     };
   }
 
-  async getBookingsForVendor(vendorUserId: string, statusFilter?: BookingStatus, pagination?: PaginationDto) {
+  async getBookingsForVendor(
+    vendorUserId: string,
+    statusFilter?: BookingStatus,
+    pagination?: PaginationDto,
+  ) {
     const page = pagination?.page ?? 1;
     const limit = pagination?.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -326,15 +393,18 @@ export class BookingsService {
     };
   }
 
-  async getBookingsForAdmin(filters: {
-    city?: string;
-    startDate?: string;
-    endDate?: string;
-    tripType?: TripType;
-    status?: BookingStatus;
-    vendorId?: string;
-    carType?: string;
-  }, pagination?: PaginationDto) {
+  async getBookingsForAdmin(
+    filters: {
+      city?: string;
+      startDate?: string;
+      endDate?: string;
+      tripType?: TripType;
+      status?: BookingStatus;
+      vendorId?: string;
+      carType?: string;
+    },
+    pagination?: PaginationDto,
+  ) {
     const page = pagination?.page ?? 1;
     const limit = pagination?.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -345,11 +415,19 @@ export class BookingsService {
       ...(filters.tripType ? { tripType: filters.tripType } : {}),
       ...(filters.vendorId ? { vendorId: filters.vendorId } : {}),
       ...(filters.carType ? { car: { type: filters.carType as any } } : {}),
-      ...(filters.city ? { car: { vendor: { city: { equals: filters.city, mode: 'insensitive' } } } } : {}),
-      ...(filters.startDate && filters.endDate ? {
-        startDate: { gte: new Date(filters.startDate) },
-        endDate: { lte: new Date(filters.endDate) },
-      } : {}),
+      ...(filters.city
+        ? {
+            car: {
+              vendor: { city: { equals: filters.city, mode: 'insensitive' } },
+            },
+          }
+        : {}),
+      ...(filters.startDate && filters.endDate
+        ? {
+            startDate: { gte: new Date(filters.startDate) },
+            endDate: { lte: new Date(filters.endDate) },
+          }
+        : {}),
     };
 
     const [data, total] = await Promise.all([
@@ -376,10 +454,10 @@ export class BookingsService {
   }
 
   async updateStatus(
-    bookingId: string, 
-    newStatus: BookingStatus, 
+    bookingId: string,
+    newStatus: BookingStatus,
     requestingUser: { userId: string; role: Role },
-    reason?: string
+    reason?: string,
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -395,15 +473,20 @@ export class BookingsService {
     const isVendor = booking.vendor.userId === requestingUser.userId;
 
     if (!isAdmin && !isCustomer && !isVendor) {
-      throw new ForbiddenException('Access denied: You are not authorized to update this booking.');
+      throw new ForbiddenException(
+        'Access denied: You are not authorized to update this booking.',
+      );
     }
 
     // If not admin, check state machine transitions
     if (!isAdmin) {
-      const allowed = this.getAllowedNextStates(booking.status, requestingUser.role);
+      const allowed = this.getAllowedNextStates(
+        booking.status,
+        requestingUser.role,
+      );
       if (!allowed.includes(newStatus)) {
         throw new BadRequestException(
-          `Invalid transition from ${booking.status} to ${newStatus}. Allowed transitions for ${requestingUser.role}: ${allowed.join(', ') || 'None'}`
+          `Invalid transition from ${booking.status} to ${newStatus}. Allowed transitions for ${requestingUser.role}: ${allowed.join(', ') || 'None'}`,
         );
       }
 
@@ -411,17 +494,53 @@ export class BookingsService {
         throw new ForbiddenException('You can only cancel your own bookings.');
       }
       if (isVendor && booking.vendor.userId !== requestingUser.userId) {
-        throw new ForbiddenException('You can only transition bookings for your own fleet.');
+        throw new ForbiddenException(
+          'You can only transition bookings for your own fleet.',
+        );
       }
     }
 
     // Additional validations
     if (newStatus === BookingStatus.CANCELLED && isVendor && !reason) {
-      throw new BadRequestException('Vendors must specify a reason when rejecting/cancelling a booking.');
+      throw new BadRequestException(
+        'Vendors must specify a reason when rejecting/cancelling a booking.',
+      );
     }
 
+    let cancellationCalc: any = null;
+    let cancelLockToken: string | null = null;
     if (newStatus === BookingStatus.CANCELLED) {
-      await this.paymentsService.refund(bookingId, reason);
+      cancelLockToken =
+        await this.bookingLockService.acquireCancellationLock(bookingId);
+      try {
+        const payment = await this.prisma.payment.findUnique({
+          where: { bookingId },
+        });
+        const amountPaid = payment?.amount || booking.totalFare;
+        cancellationCalc = this.cancellationPolicyService.calculateCancellation(
+          {
+            startDate: booking.startDate,
+            cancellationTime: new Date(),
+            amountPaid,
+            actorRole: requestingUser.role,
+            isAdminOverride: isAdmin && reason?.includes('admin_full_refund'),
+          },
+        );
+
+        await this.paymentsService.refund(
+          bookingId,
+          cancellationCalc.refundAmountInPaise,
+          reason,
+          cancellationCalc.tier,
+        );
+      } finally {
+        if (cancelLockToken) {
+          await this.bookingLockService.releaseCancellationLock(
+            bookingId,
+            cancelLockToken,
+          );
+        }
+      }
     }
 
     const updatedBooking = await this.prisma.booking.update({
@@ -429,6 +548,14 @@ export class BookingsService {
       data: {
         status: newStatus,
         ...(reason ? { cancellationReason: reason } : {}),
+        ...(cancellationCalc
+          ? {
+              cancellationFee: cancellationCalc.cancellationFee,
+              refundAmount: cancellationCalc.refundAmount,
+              cancelledAt: new Date(),
+              cancelledBy: requestingUser.userId,
+            }
+          : {}),
       },
       include: { car: true, customer: true },
     });
@@ -448,15 +575,75 @@ export class BookingsService {
 
     this.notificationsService
       .notifyUser(updatedBooking.customerId, title, body)
-      .catch((err) => this.logger.error('Failed to notify customer of status update', err));
+      .catch((err) =>
+        this.logger.error('Failed to notify customer of status update', err),
+      );
 
     return updatedBooking;
+  }
+
+  async getCancellationPreview(
+    bookingId: string,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { payment: true, vendor: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    const isAdmin =
+      requestingUser.role === Role.ADMIN ||
+      requestingUser.role === Role.SUPPORT_AGENT;
+    const isCustomer = booking.customerId === requestingUser.userId;
+    const isVendor = booking.vendor?.userId === requestingUser.userId;
+
+    if (!isAdmin && !isCustomer && !isVendor) {
+      throw new ForbiddenException(
+        'Access denied: You are not authorized to view cancellation preview for this booking.',
+      );
+    }
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Booking is already cancelled.');
+    }
+
+    if (booking.status === BookingStatus.COMPLETED) {
+      throw new BadRequestException('Completed bookings cannot be cancelled.');
+    }
+
+    const amountPaid = booking.payment?.amount || booking.totalFare;
+    const calculation = this.cancellationPolicyService.calculateCancellation({
+      startDate: booking.startDate,
+      cancellationTime: new Date(),
+      amountPaid,
+      actorRole: requestingUser.role,
+    });
+
+    return {
+      bookingId: booking.id,
+      tier: calculation.tier,
+      tierDescription: calculation.tierDescription,
+      startDate: calculation.startDate,
+      cancellationTime: calculation.cancellationTime,
+      hoursRemaining: calculation.hoursRemaining,
+      amountPaid: calculation.amountPaid,
+      cancellationFeePercent: calculation.cancellationFeePercent,
+      cancellationFee: calculation.cancellationFee,
+      refundAmountPercent: calculation.refundAmountPercent,
+      refundAmount: calculation.refundAmount,
+      currency: 'INR',
+      isEligibleForRefund: calculation.isEligibleForRefund,
+    };
   }
 
   async cancelBooking(bookingId: string, customerId: string, reason: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { vendor: true },
+      include: { payment: true, vendor: true },
     });
 
     if (!booking) {
@@ -464,36 +651,72 @@ export class BookingsService {
     }
 
     if (booking.customerId !== customerId) {
-      throw new ForbiddenException('Access denied: You can only cancel your own bookings.');
+      throw new ForbiddenException(
+        'Access denied: You can only cancel your own bookings.',
+      );
     }
 
     const allowed = this.getAllowedNextStates(booking.status, Role.CUSTOMER);
     if (!allowed.includes(BookingStatus.CANCELLED)) {
-      throw new BadRequestException(`Cannot cancel booking in ${booking.status} status.`);
+      throw new BadRequestException(
+        `Cannot cancel booking in ${booking.status} status.`,
+      );
     }
 
-    await this.paymentsService.refund(bookingId, reason);
+    const lockToken =
+      await this.bookingLockService.acquireCancellationLock(bookingId);
 
-    const updatedBooking = await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: BookingStatus.CANCELLED,
-        cancellationReason: reason,
-      },
-      include: { car: true, vendor: true },
-    });
+    try {
+      const amountPaid = booking.payment?.amount || booking.totalFare;
+      const calculation = this.cancellationPolicyService.calculateCancellation({
+        startDate: booking.startDate,
+        cancellationTime: new Date(),
+        amountPaid,
+        actorRole: Role.CUSTOMER,
+      });
 
-    if (updatedBooking.vendor?.userId) {
-      this.notificationsService
-        .notifyUser(
-          updatedBooking.vendor.userId,
-          'Booking Cancelled',
-          `Booking for ${updatedBooking.car.make} ${updatedBooking.car.model} (${updatedBooking.car.registrationNumber}) has been cancelled by the customer.`,
-        )
-        .catch((err) => this.logger.error('Failed to notify vendor of cancellation', err));
+      await this.paymentsService.refund(
+        bookingId,
+        calculation.refundAmountInPaise,
+        reason,
+        calculation.tier,
+      );
+
+      const updatedBooking = await this.prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CANCELLED,
+          cancellationReason: reason,
+          cancellationFee: calculation.cancellationFee,
+          refundAmount: calculation.refundAmount,
+          cancelledAt: new Date(),
+          cancelledBy: customerId,
+        },
+        include: { car: true, vendor: true },
+      });
+
+      if (updatedBooking.vendor?.userId) {
+        this.notificationsService
+          .notifyUser(
+            updatedBooking.vendor.userId,
+            'Booking Cancelled',
+            `Booking for ${updatedBooking.car.make} ${updatedBooking.car.model} (${updatedBooking.car.registrationNumber}) has been cancelled by the customer.`,
+          )
+          .catch((err) =>
+            this.logger.error('Failed to notify vendor of cancellation', err),
+          );
+      }
+
+      return this.redactVendorInBooking(updatedBooking, {
+        userId: customerId,
+        role: Role.CUSTOMER,
+      });
+    } finally {
+      await this.bookingLockService.releaseCancellationLock(
+        bookingId,
+        lockToken,
+      );
     }
-
-    return this.redactVendorInBooking(updatedBooking, { userId: customerId, role: Role.CUSTOMER });
   }
 
   async flagDispute(bookingId: string, note: string) {
@@ -532,9 +755,15 @@ export class BookingsService {
     });
   }
 
-  private getAllowedNextStates(current: BookingStatus, role: Role): BookingStatus[] {
+  private getAllowedNextStates(
+    current: BookingStatus,
+    role: Role,
+  ): BookingStatus[] {
     if (role === Role.CUSTOMER) {
-      if (current === BookingStatus.PENDING || current === BookingStatus.CONFIRMED) {
+      if (
+        current === BookingStatus.PENDING ||
+        current === BookingStatus.CONFIRMED
+      ) {
         return [BookingStatus.CANCELLED];
       }
       return [];
@@ -556,7 +785,10 @@ export class BookingsService {
     return [];
   }
 
-  private redactVendorInBooking(booking: any, requestingUser: { userId: string; role: Role }) {
+  private redactVendorInBooking(
+    booking: any,
+    requestingUser: { userId: string; role: Role },
+  ) {
     if (!booking) return booking;
 
     if (Array.isArray(booking)) {
@@ -567,7 +799,9 @@ export class BookingsService {
 
     const isAdmin = requestingUser.role === Role.ADMIN;
     const isVendor = booking.vendor.userId === requestingUser.userId;
-    const isPaid = booking.payment?.status === PaymentStatus.PAID || booking.payment?.status === 'PAID';
+    const isPaid =
+      booking.payment?.status === PaymentStatus.PAID ||
+      booking.payment?.status === 'PAID';
 
     const copy = { ...booking };
     copy.vendor = redactVendor(booking.vendor, {

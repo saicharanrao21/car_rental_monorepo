@@ -10,31 +10,39 @@ export class AdminDashboardService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [totalUsers, totalVendors, activeBookings, todaysBookings] = await Promise.all([
-      this.prisma.user.count({
-        where: { role: Role.CUSTOMER },
-      }),
-      this.prisma.vendor.count(),
-      this.prisma.booking.count({
-        where: {
-          status: {
-            in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.ONGOING],
+    const [totalUsers, totalVendors, activeBookings, todaysBookings] =
+      await Promise.all([
+        this.prisma.user.count({
+          where: { role: Role.CUSTOMER },
+        }),
+        this.prisma.vendor.count(),
+        this.prisma.booking.count({
+          where: {
+            status: {
+              in: [
+                BookingStatus.PENDING,
+                BookingStatus.CONFIRMED,
+                BookingStatus.ONGOING,
+              ],
+            },
           },
-        },
-      }),
-      this.prisma.booking.findMany({
-        where: {
-          createdAt: {
-            gte: today,
+        }),
+        this.prisma.booking.findMany({
+          where: {
+            createdAt: {
+              gte: today,
+            },
           },
-        },
-        select: {
-          platformFee: true,
-        },
-      }),
-    ]);
+          select: {
+            platformFee: true,
+          },
+        }),
+      ]);
 
-    const todaysRevenue = todaysBookings.reduce((sum, b) => sum + Number(b.platformFee), 0);
+    const todaysRevenue = todaysBookings.reduce(
+      (sum, b) => sum + Number(b.platformFee),
+      0,
+    );
 
     return {
       totalUsers,

@@ -19,10 +19,16 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {
-    this.accessSecret = this.configService.get<string>('JWT_ACCESS_SECRET') || 'dev_access_secret_key_change_me_12345!';
-    this.refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'dev_refresh_secret_key_change_me_12345!';
-    this.accessExpiry = this.configService.get<string>('JWT_ACCESS_EXPIRY') || '15m';
-    this.refreshExpiry = this.configService.get<string>('JWT_REFRESH_EXPIRY') || '30d';
+    this.accessSecret =
+      this.configService.get<string>('JWT_ACCESS_SECRET') ||
+      'dev_access_secret_key_change_me_12345!';
+    this.refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      'dev_refresh_secret_key_change_me_12345!';
+    this.accessExpiry =
+      this.configService.get<string>('JWT_ACCESS_EXPIRY') || '15m';
+    this.refreshExpiry =
+      this.configService.get<string>('JWT_REFRESH_EXPIRY') || '30d';
   }
 
   async sendOtp(phone: string): Promise<void> {
@@ -47,7 +53,10 @@ export class AuthService {
     }
 
     if (user.banned) {
-      throw new HttpException('This user account has been banned.', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'This user account has been banned.',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     // 3. User exists, issue token pair
@@ -87,7 +96,10 @@ export class AuthService {
     });
 
     if (user) {
-      throw new HttpException('A user with this phone number already exists.', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'A user with this phone number already exists.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // 3. Create the user
@@ -110,7 +122,17 @@ export class AuthService {
   }
 
   async registerVendor(dto: any) {
-    const { phone, businessName, ownerName, city, gstNumber, panNumber, bankDetails, businessType, yearsInOperation } = dto;
+    const {
+      phone,
+      businessName,
+      ownerName,
+      city,
+      gstNumber,
+      panNumber,
+      bankDetails,
+      businessType,
+      yearsInOperation,
+    } = dto;
 
     // 1. Verify phone has a recent verified OTP request in last 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
@@ -133,12 +155,15 @@ export class AuthService {
     }
 
     // 2. Check if user already exists
-    let user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { phone },
     });
 
     if (user) {
-      throw new HttpException('A user with this phone number already exists.', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'A user with this phone number already exists.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // 3. Create BOTH User and Vendor in a single transaction
@@ -192,17 +217,26 @@ export class AuthService {
     });
 
     if (!user || !user.passwordHash) {
-      throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Invalid email or password',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     // 2. Validate password hash
     const isMatch = bcrypt.compareSync(password, user.passwordHash);
     if (!isMatch) {
-      throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'Invalid email or password',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     if (user.banned) {
-      throw new HttpException('This account has been banned.', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'This account has been banned.',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     // 3. Issue tokens
@@ -225,7 +259,10 @@ export class AuthService {
       const userId = payload.sub;
 
       if (!tokenId || !userId) {
-        throw new HttpException('Invalid token payload', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          'Invalid token payload',
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       // 2. Look up the token in the RefreshToken table
@@ -233,14 +270,24 @@ export class AuthService {
         where: { id: tokenId },
       });
 
-      if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date()) {
-        throw new HttpException('Refresh token has expired or is revoked', HttpStatus.UNAUTHORIZED);
+      if (
+        !storedToken ||
+        storedToken.revoked ||
+        storedToken.expiresAt < new Date()
+      ) {
+        throw new HttpException(
+          'Refresh token has expired or is revoked',
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       // 3. Confirm hash match
       const isMatch = bcrypt.compareSync(refreshToken, storedToken.tokenHash);
       if (!isMatch) {
-        throw new HttpException('Invalid refresh token signature match', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          'Invalid refresh token signature match',
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       // 4. Rotate tokens: Revoke old token and issue new pair
@@ -255,7 +302,10 @@ export class AuthService {
       });
 
       if (!user || user.banned) {
-        throw new HttpException('User not found or banned', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          'User not found or banned',
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       const tokens = await this.issueTokens(user.id, user.role);

@@ -5,8 +5,9 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/admin_vendor_providers.dart';
+import '../../fleet/presentation/providers/admin_fleet_providers.dart';
+import '../../customers/presentation/providers/admin_customer_providers.dart';
 
 class VendorManagementPage extends ConsumerStatefulWidget {
   const VendorManagementPage({super.key});
@@ -542,7 +543,7 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
           }
 
           final isBranch = v.branchOfId != null && v.branchOfId!.isNotEmpty;
-          final carsList = MockData.cars.where((c) => c.vendorId == v.id).toList();
+          final carsList = (ref.watch(adminFleetProvider).value ?? []).where((c) => c.vendorId == v.id).toList();
 
           return Column(
             children: [
@@ -778,9 +779,9 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
                               DataColumn(label: Text('Status')),
                             ],
                             rows: bundle.bookingHistory.take(5).map((b) {
-                              final cust = MockData.customers.firstWhere(
+                              final cust = (ref.watch(adminCustomersProvider).value ?? []).firstWhere(
                                 (c) => c.id == b.customerId,
-                                orElse: () => UserModel(id: b.customerId, name: 'Unknown', phone: '', role: 'customer'),
+                                orElse: () => UserModel(id: b.customerId, name: 'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}', phone: '', role: 'customer'),
                               );
                               return DataRow(cells: [
                                 DataCell(Text('#${b.id.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),

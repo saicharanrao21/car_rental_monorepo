@@ -4,7 +4,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
-import 'package:mock_data/mock_data.dart';
 import '../providers/admin_customer_providers.dart';
 
 class CustomerManagementPage extends ConsumerStatefulWidget {
@@ -89,23 +88,8 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
     );
   }
 
-  // Helper method to derive city from the customer's most recent booking.
-  // Note: Since UserModel has no explicit city field, we derive it from the
-  // customer's bookings in MockData. If none exist, we default to 'Mumbai'.
   String _deriveCustomerCity(String customerId) {
-    final customerBookings = MockData.bookings.where((b) => b.customerId == customerId).toList();
-    if (customerBookings.isEmpty) return 'Mumbai';
-    
-    // Sort bookings to find the most recent one
-    customerBookings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final latestBooking = customerBookings.first;
-
-    // Find the vendor to look up city
-    final vendor = MockData.vendors.firstWhere(
-      (v) => v.id == latestBooking.vendorId,
-      orElse: () => const VendorModel(id: '', businessName: '', ownerName: '', city: 'Mumbai', verificationStatus: ''),
-    );
-    return vendor.city.isNotEmpty ? vendor.city : 'Mumbai';
+    return 'Mumbai';
   }
 
   @override
@@ -168,7 +152,7 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
                         ],
                         rows: customers.map((c) {
                           final city = _deriveCustomerCity(c.id);
-                          final totalBookings = MockData.bookings.where((b) => b.customerId == c.id).length;
+                          final totalBookings = 0;
 
                           return DataRow(
                             cells: [
@@ -394,12 +378,7 @@ class _CustomerDetailPanel extends ConsumerWidget {
                           itemCount: bundle.bookingHistory.length,
                           itemBuilder: (context, index) {
                             final b = bundle.bookingHistory[index];
-
-                            // Lookup car details
-                            final car = MockData.cars.firstWhere(
-                              (c) => c.id == b.carId,
-                              orElse: () => const CarModel(id: '', vendorId: '', make: '', model: 'Unknown Car', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0),
-                            );
+                            final carTitle = 'Vehicle #${b.carId.length > 6 ? b.carId.substring(0, 6) : b.carId}';
 
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 4),
@@ -410,7 +389,7 @@ class _CustomerDetailPanel extends ConsumerWidget {
                               ),
                               child: ListTile(
                                 leading: const Icon(Icons.receipt_long_outlined, color: Colors.blue),
-                                title: Text('${car.make} ${car.model}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                title: Text(carTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                 subtitle: Text(
                                   'Dates: ${DateFormat('dd MMM').format(b.startDate)} - ${DateFormat('dd MMM').format(b.endDate)}',
                                   style: const TextStyle(fontSize: 11),

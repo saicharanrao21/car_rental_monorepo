@@ -1,10 +1,15 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
-import { SmsProviderService, MockSmsProvider } from './sms-provider.service';
+import {
+  SmsProviderService,
+  MockSmsProvider,
+  Msg91SmsProvider,
+} from './sms-provider.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -18,7 +23,17 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     OtpService,
     {
       provide: SmsProviderService,
-      useClass: MockSmsProvider,
+      useFactory: (configService: ConfigService) => {
+        const nodeEnv = configService.get<string>('NODE_ENV');
+        const smsProvider = configService.get<string>('SMS_PROVIDER');
+
+        if (nodeEnv === 'production' || smsProvider === 'msg91') {
+          return new Msg91SmsProvider(configService);
+        }
+
+        return new MockSmsProvider();
+      },
+      inject: [ConfigService],
     },
     JwtStrategy,
   ],

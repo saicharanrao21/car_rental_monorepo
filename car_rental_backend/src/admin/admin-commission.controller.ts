@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -20,7 +30,7 @@ export class AdminCommissionController {
     const rules = await this.prisma.commissionConfig.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    return rules.map(rule => ({
+    return rules.map((rule) => ({
       id: rule.id,
       city: rule.city ?? 'All Cities',
       carCategory: rule.carCategory ?? 'All Categories',
@@ -33,7 +43,8 @@ export class AdminCommissionController {
   @Post()
   async createRule(
     @Req() req: any,
-    @Body() dto: {
+    @Body()
+    dto: {
       tripType?: string;
       city?: string;
       carCategory?: string;
@@ -41,13 +52,22 @@ export class AdminCommissionController {
       effectiveFrom?: string;
     },
   ) {
-    const city = !dto.city || dto.city === 'All' || dto.city === 'All Cities' ? null : dto.city;
-    const carCategory = !dto.carCategory || dto.carCategory === 'All' || dto.carCategory === 'All Categories'
-      ? null
-      : (dto.carCategory as CarCategory);
-    const tripType = !dto.tripType || dto.tripType === 'All' || dto.tripType === 'All Trip Types'
-      ? null
-      : (dto.tripType as TripType);
+    const city =
+      !dto.city || dto.city === 'All' || dto.city === 'All Cities'
+        ? null
+        : dto.city;
+    const carCategory =
+      !dto.carCategory ||
+      dto.carCategory === 'All' ||
+      dto.carCategory === 'All Categories'
+        ? null
+        : (dto.carCategory as CarCategory);
+    const tripType =
+      !dto.tripType ||
+      dto.tripType === 'All' ||
+      dto.tripType === 'All Trip Types'
+        ? null
+        : (dto.tripType as TripType);
 
     const rule = await this.prisma.commissionConfig.create({
       data: {
@@ -55,11 +75,19 @@ export class AdminCommissionController {
         carCategory,
         tripType,
         percentage: new Prisma.Decimal(dto.percentage),
-        effectiveFrom: dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date(),
+        effectiveFrom: dto.effectiveFrom
+          ? new Date(dto.effectiveFrom)
+          : new Date(),
       },
     });
 
-    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_CREATED', 'CommissionConfig', rule.id, { percentage: dto.percentage, city, carCategory, tripType });
+    this.auditLogService.log(
+      req.user.userId,
+      'COMMISSION_RULE_CREATED',
+      'CommissionConfig',
+      rule.id,
+      { percentage: dto.percentage, city, carCategory, tripType },
+    );
 
     return {
       id: rule.id,
@@ -75,7 +103,8 @@ export class AdminCommissionController {
   async updateRule(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() dto: {
+    @Body()
+    dto: {
       tripType?: string;
       city?: string;
       carCategory?: string;
@@ -84,18 +113,42 @@ export class AdminCommissionController {
     },
   ) {
     const data: any = {};
-    if (dto.percentage !== undefined) data.percentage = new Prisma.Decimal(dto.percentage);
-    if (dto.city !== undefined) data.city = (!dto.city || dto.city === 'All' || dto.city === 'All Cities') ? null : dto.city;
-    if (dto.carCategory !== undefined) data.carCategory = (!dto.carCategory || dto.carCategory === 'All' || dto.carCategory === 'All Categories') ? null : (dto.carCategory as CarCategory);
-    if (dto.tripType !== undefined) data.tripType = (!dto.tripType || dto.tripType === 'All' || dto.tripType === 'All Trip Types') ? null : (dto.tripType as TripType);
-    if (dto.effectiveFrom !== undefined) data.effectiveFrom = new Date(dto.effectiveFrom);
+    if (dto.percentage !== undefined)
+      data.percentage = new Prisma.Decimal(dto.percentage);
+    if (dto.city !== undefined)
+      data.city =
+        !dto.city || dto.city === 'All' || dto.city === 'All Cities'
+          ? null
+          : dto.city;
+    if (dto.carCategory !== undefined)
+      data.carCategory =
+        !dto.carCategory ||
+        dto.carCategory === 'All' ||
+        dto.carCategory === 'All Categories'
+          ? null
+          : (dto.carCategory as CarCategory);
+    if (dto.tripType !== undefined)
+      data.tripType =
+        !dto.tripType ||
+        dto.tripType === 'All' ||
+        dto.tripType === 'All Trip Types'
+          ? null
+          : (dto.tripType as TripType);
+    if (dto.effectiveFrom !== undefined)
+      data.effectiveFrom = new Date(dto.effectiveFrom);
 
     const rule = await this.prisma.commissionConfig.update({
       where: { id },
       data,
     });
 
-    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_UPDATED', 'CommissionConfig', id, dto);
+    this.auditLogService.log(
+      req.user.userId,
+      'COMMISSION_RULE_UPDATED',
+      'CommissionConfig',
+      id,
+      dto,
+    );
 
     return {
       id: rule.id,
@@ -112,7 +165,12 @@ export class AdminCommissionController {
     await this.prisma.commissionConfig.delete({
       where: { id },
     });
-    this.auditLogService.log(req.user.userId, 'COMMISSION_RULE_DELETED', 'CommissionConfig', id);
+    this.auditLogService.log(
+      req.user.userId,
+      'COMMISSION_RULE_DELETED',
+      'CommissionConfig',
+      id,
+    );
     return { success: true };
   }
 }
