@@ -33,8 +33,9 @@ export class CarsController {
   }
 
   @Get('cars/:id')
-  async findOne(@Param('id') id: string) {
-    return this.carsService.findOne(id);
+  async findOne(@Req() req: any, @Param('id') id: string) {
+    const authUser = await this.getAuthUser(req);
+    return this.carsService.findOne(id, authUser);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -53,10 +54,12 @@ export class CarsController {
 
   // --- Helper Methods ---
 
-  private async getIsAdmin(req: any): Promise<boolean> {
-    const authHeader = req.headers.authorization;
+  private async getAuthUser(
+    req: any,
+  ): Promise<{ userId: string; role: Role } | undefined> {
+    const authHeader = req.headers?.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
+      return undefined;
     }
     const token = authHeader.split(' ')[1];
     const secret =
@@ -66,12 +69,17 @@ export class CarsController {
       const verified: any = await this.jwtService.verifyAsync(token, {
         secret,
       });
-      return (
-        verified &&
-        (verified.role === Role.ADMIN || verified.role === Role.SUPPORT_AGENT)
-      );
+      if (verified && verified.userId && verified.role) {
+        return { userId: verified.userId, role: verified.role };
+      }
+      return undefined;
     } catch {
-      return false;
+      return undefined;
     }
+  }
+
+  private async getIsAdmin(req: any): Promise<boolean> {
+    const user = await this.getAuthUser(req);
+    return user?.role === Role.ADMIN || user?.role === Role.SUPPORT_AGENT;
   }
 }

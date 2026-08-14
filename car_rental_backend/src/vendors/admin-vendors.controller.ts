@@ -39,6 +39,7 @@ export class AdminVendorsController {
   }
 
   @Patch(':id/sponsorship')
+  @Roles(Role.ADMIN)
   async updateSponsorship(
     @Req() req: any,
     @Param('id') id: string,
@@ -48,6 +49,7 @@ export class AdminVendorsController {
   }
 
   @Patch(':id/subscription')
+  @Roles(Role.ADMIN)
   async updateSubscription(
     @Req() req: any,
     @Param('id') id: string,
@@ -61,6 +63,7 @@ export class AdminVendorsController {
   }
 
   @Patch(':vendorId/documents/:id')
+  @Roles(Role.ADMIN)
   async updateDocumentStatus(
     @Param('vendorId') vendorId: string,
     @Param('id') id: string,

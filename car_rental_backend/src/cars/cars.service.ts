@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { VerificationStatus, Role } from '@prisma/client';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
@@ -29,15 +30,19 @@ export class CarsService {
       where: { id: carId },
     });
     if (!car) {
-      throw new NotFoundException('Car not found');
+      throw new NotFoundException('Car not found.');
     }
 
     if (car.vendorId !== vendor.id) {
-      throw new ForbiddenException('Access denied: You do not own this car.');
+      throw new ForbiddenException(
+        'You do not have permission to modify this vehicle.',
+      );
     }
 
-    return { car, vendor };
+    return { vendor, car };
   }
+
+  // --- Search / Ranking Algorithm ---
 
   private calculateHaversine(
     lat1: number,
@@ -59,14 +64,14 @@ export class CarsService {
   }
 
   private computeScore(
-    rating: number,
-    rawDistance: number | null,
-    maxDistance: number,
+    rating: number | null,
+    distanceKm: number | null,
+    maxDistanceKm: number,
     hasLocation: boolean,
   ): number {
-    const rScore = (rating || 0) / 5;
-    if (hasLocation && rawDistance !== null) {
-      const normDist = Math.min(1, rawDistance / maxDistance);
+    const rScore = (rating || 0) / 5.0;
+    if (hasLocation && distanceKm !== null) {
+      const normDist = Math.min(distanceKm / maxDistanceKm, 1.0);
       return rScore * 0.6 + (1 - normDist) * 0.4;
     }
     return rScore;
@@ -80,12 +85,17 @@ export class CarsService {
 
     if (query.city) {
       where.vendor = {
+        ...(where.vendor || {}),
         city: { equals: query.city, mode: 'insensitive' },
       };
     }
 
     if (!isAdmin) {
       where.isAvailable = true;
+      where.vendor = {
+        ...(where.vendor || {}),
+        verificationStatus: VerificationStatus.VERIFIED,
+      };
     }
 
     if (query.carType) {
@@ -246,13 +256,14 @@ export class CarsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, requestingUser?: { userId: string; role: Role }) {
     const car = await this.prisma.car.findUnique({
       where: { id },
       include: {
         vendor: {
           select: {
             id: true,
+            userId: true,
             businessName: true,
             ownerName: true,
             city: true,
@@ -260,6 +271,7 @@ export class CarsService {
             rating: true,
             latitude: true,
             longitude: true,
+            verificationStatus: true,
           },
         },
       },
@@ -269,9 +281,22 @@ export class CarsService {
       throw new NotFoundException('Car not found');
     }
 
+    const isAdminOrSupport =
+      requestingUser?.role === Role.ADMIN ||
+      requestingUser?.role === Role.SUPPORT_AGENT;
+    const isOwner =
+      requestingUser && car.vendor?.userId === requestingUser.userId;
+
+    // Public / Customer policy: Car must belong to a VERIFIED vendor
+    if (!isAdminOrSupport && !isOwner) {
+      if (car.vendor?.verificationStatus !== VerificationStatus.VERIFIED) {
+        throw new NotFoundException('Car not found');
+      }
+    }
+
     return {
       ...car,
-      vendor: redactVendor(car.vendor, { isAdmin: false }),
+      vendor: redactVendor(car.vendor, { isAdmin: !!isAdminOrSupport }),
     };
   }
 

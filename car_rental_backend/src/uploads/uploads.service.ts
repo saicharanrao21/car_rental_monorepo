@@ -53,7 +53,12 @@ export class UploadsService {
   }
 
   async getPresignedUploadUrl(
-    fileType: 'car-photo' | 'vendor-document' | 'profile-photo' | 'banner',
+    fileType:
+      | 'car-photo'
+      | 'vendor-document'
+      | 'profile-photo'
+      | 'banner'
+      | 'inspection-photo',
     contentType: string,
     userId: string,
   ) {
@@ -77,7 +82,8 @@ export class UploadsService {
 
     const filename = `${crypto.randomUUID()}.${ext}`;
     const key = `${fileType}/${userId}/${filename}`;
-    const isPrivate = fileType === 'vendor-document';
+    const isPrivate =
+      fileType === 'vendor-document' || fileType === 'inspection-photo';
 
     if (this.useMock) {
       // In local dev mock mode, return local endpoints for upload/read simulation

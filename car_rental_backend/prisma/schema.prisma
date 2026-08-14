@@ -101,6 +101,16 @@ enum DisputeStatus {
   REJECTED
 }
 
+enum InspectionType {
+  PRE_TRIP
+  POST_TRIP
+}
+
+enum HandoverOtpType {
+  PICKUP
+  RETURN
+}
+
 model User {
   id               String            @id @default(cuid())
   name             String
@@ -122,6 +132,8 @@ model User {
   auditLogs        AuditLog[]
   disputesRaised   Dispute[]
   disputeEvidences DisputeEvidence[]
+  inspections      Inspection[]
+  handoverOtpsReceived HandoverOtp[]
 
   @@index([phone])
   @@index([role])
@@ -244,6 +256,8 @@ model Booking {
   review             Review?
   payment            Payment?
   dispute            Dispute?
+  inspections        Inspection[]
+  handoverOtps       HandoverOtp[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -454,3 +468,43 @@ model DisputeEvidence {
   @@index([disputeId])
   @@index([uploadedByUserId])
 }
+
+model Inspection {
+  id             String         @id @default(cuid())
+  bookingId      String
+  booking        Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type           InspectionType
+  performedById  String
+  performedBy    User           @relation(fields: [performedById], references: [id], onDelete: Cascade)
+  odometer       Decimal        @db.Decimal(10, 2)
+  fuelPercent    Int
+  conditionNotes String?
+  damagePhotos   String[]
+  finalized      Boolean        @default(false)
+  finalizedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([bookingId, type])
+  @@index([bookingId])
+  @@index([performedById])
+}
+
+model HandoverOtp {
+  id           String          @id @default(cuid())
+  bookingId    String
+  booking      Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  otpType      HandoverOtpType
+  recipientId  String
+  recipient    User            @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  otpHash      String
+  expiresAt    DateTime
+  verified     Boolean         @default(false)
+  verifiedAt   DateTime?
+  attemptCount Int             @default(0)
+  createdAt    DateTime        @default(now())
+
+  @@index([bookingId, otpType])
+  @@index([recipientId])
+}
+

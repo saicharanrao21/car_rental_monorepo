@@ -12,10 +12,14 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
+import { InspectionsService } from './inspections.service';
+import { HandoverOtpService } from './handover-otp.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FlagDisputeDto } from './dto/flag-dispute.dto';
+import { CreateInspectionDto } from './dto/create-inspection.dto';
+import { SendHandoverOtpDto } from './dto/send-handover-otp.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,7 +29,11 @@ import { PaginationDto } from '../common/pagination.dto';
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly inspectionsService: InspectionsService,
+    private readonly handoverOtpService: HandoverOtpService,
+  ) {}
 
   // 1. GET own bookings (CUSTOMER)
   @Get('bookings/me')
@@ -46,7 +54,7 @@ export class BookingsController {
     );
   }
 
-  // 2. GET vendor's own bookings (VENDOR)
+  // 2. GET bookings for vendor fleet (VENDOR)
   @Get('vendors/me/bookings')
   @Roles(Role.VENDOR)
   async getVendorBookings(
@@ -115,7 +123,7 @@ export class BookingsController {
     return this.bookingsService.cancelBooking(id, req.user.userId, dto.reason);
   }
 
-  // 6. POST flag dispute (ADMIN)
+  // 7. POST flag dispute (ADMIN)
   @Post('admin/bookings/:id/flag-dispute')
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
@@ -123,7 +131,7 @@ export class BookingsController {
     return this.bookingsService.flagDispute(id, dto.note);
   }
 
-  // 7. POST resolve dispute (ADMIN)
+  // 8. POST resolve dispute (ADMIN)
   @Post('admin/bookings/:id/resolve-dispute')
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
@@ -131,20 +139,59 @@ export class BookingsController {
     return this.bookingsService.resolveDispute(id);
   }
 
-  // 8. PATCH override status (ADMIN)
+  // 9. POST create/update vehicle inspection (VENDOR, ADMIN)
+  @Post('bookings/:id/inspections')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async upsertInspection(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() dto: CreateInspectionDto,
+  ) {
+    return this.inspectionsService.upsertInspection(id, dto, req.user);
+  }
+
+  // 10. GET vehicle inspections (CUSTOMER, VENDOR, ADMIN, SUPPORT_AGENT)
+  @Get('bookings/:id/inspections')
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
+  async getInspections(@Param('id') id: string, @Req() req: any) {
+    return this.inspectionsService.getInspections(id, req.user);
+  }
+
+  // 11. POST send handover OTP (CUSTOMER, VENDOR, ADMIN)
+  @Post('bookings/:id/handover-otp/send')
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async sendHandoverOtp(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() dto: SendHandoverOtpDto,
+  ) {
+    return this.handoverOtpService.generateAndSendOtp(
+      id,
+      dto.otpType,
+      req.user,
+    );
+  }
+
+  // 12. PATCH override status (ADMIN)
   @Patch('admin/bookings/:id/override-status')
   @Roles(Role.ADMIN)
   async overrideStatus(
     @Param('id') id: string,
+    @Req() req: any,
     @Body() dto: UpdateBookingStatusDto,
   ) {
-    return this.bookingsService.updateStatus(id, dto.status, {
-      userId: 'admin',
-      role: Role.ADMIN,
-    });
+    return this.bookingsService.updateStatus(
+      id,
+      dto.status,
+      req.user,
+      dto.reason,
+      dto.handoverOtp,
+    );
   }
 
-  // 9. PATCH status (VENDOR or ADMIN)
+  // 13. PATCH status (VENDOR or ADMIN)
   @Patch('bookings/:id/status')
   @Roles(Role.VENDOR, Role.ADMIN)
   async updateStatus(
@@ -153,11 +200,18 @@ export class BookingsController {
     @Body() dto: UpdateBookingStatusDto,
     @Query('reason') reason?: string,
   ) {
-    return this.bookingsService.updateStatus(id, dto.status, req.user, reason);
+    return this.bookingsService.updateStatus(
+      id,
+      dto.status,
+      req.user,
+      dto.reason || reason,
+      dto.handoverOtp,
+    );
   }
 
-  // 10. GET booking detail (CUSTOMER, VENDOR, ADMIN)
+  // 14. GET booking detail (CUSTOMER, VENDOR, ADMIN, SUPPORT_AGENT)
   @Get('bookings/:id')
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
   async getBookingDetail(@Param('id') id: string, @Req() req: any) {
     return this.bookingsService.getBookingById(id, req.user);
   }

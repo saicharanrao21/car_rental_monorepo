@@ -16,6 +16,9 @@ import {
   Role,
   TripType,
   PaymentStatus,
+  VerificationStatus,
+  InspectionType,
+  HandoverOtpType,
   Prisma,
 } from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
@@ -24,6 +27,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
 import { redactVendor } from '../common/vendor-redactor.util';
 import { AuditLogService } from '../admin/audit-log.service';
+import { HandoverOtpService } from './handover-otp.service';
 
 @Injectable()
 export class BookingsService {
@@ -38,6 +42,7 @@ export class BookingsService {
     private readonly notificationsService: NotificationsService,
     private readonly cancellationPolicyService: CancellationPolicyService,
     private readonly auditLogService: AuditLogService,
+    private readonly handoverOtpService: HandoverOtpService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -46,6 +51,10 @@ export class BookingsService {
 
     if (start >= end) {
       throw new BadRequestException('Start date must be before end date.');
+    }
+
+    if (start < new Date()) {
+      throw new BadRequestException('Start date cannot be in the past.');
     }
 
     // Validate if platform enabledTripTypes allows this tripType
@@ -84,6 +93,12 @@ export class BookingsService {
 
       if (!car) {
         throw new NotFoundException('Car not found.');
+      }
+
+      if (car.vendor?.verificationStatus !== VerificationStatus.VERIFIED) {
+        throw new BadRequestException(
+          'Cannot book a vehicle from an unverified vendor.',
+        );
       }
 
       if (!car.isAvailable) {
@@ -454,6 +469,7 @@ export class BookingsService {
     newStatus: BookingStatus,
     requestingUser: { userId: string; role: Role },
     reason?: string,
+    handoverOtp?: string,
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -525,6 +541,96 @@ export class BookingsService {
             paymentStatus: payment?.status || 'NONE',
             justification: reason,
           },
+        );
+      }
+    }
+
+    if (newStatus === BookingStatus.ONGOING) {
+      // 1. Enforce finalized PRE_TRIP inspection
+      const preTrip = await this.prisma.inspection.findUnique({
+        where: {
+          bookingId_type: {
+            bookingId,
+            type: InspectionType.PRE_TRIP,
+          },
+        },
+      });
+
+      if (!preTrip || !preTrip.finalized) {
+        throw new BadRequestException(
+          'Cannot start trip: Pre-trip vehicle inspection must be recorded and finalized before vehicle handover.',
+        );
+      }
+
+      // 2. Enforce Handover OTP
+      if (!isAdmin) {
+        if (!handoverOtp) {
+          throw new BadRequestException(
+            'Customer handover OTP is required to verify vehicle pickup and start trip.',
+          );
+        }
+        await this.handoverOtpService.verifyOtp(
+          bookingId,
+          HandoverOtpType.PICKUP,
+          handoverOtp,
+        );
+      } else if (isAdmin && !handoverOtp) {
+        if (!reason || reason.trim().length < 10) {
+          throw new BadRequestException(
+            'Admin trip start override without handover OTP requires explicit justification (minimum 10 characters) in the reason field.',
+          );
+        }
+        await this.auditLogService.log(
+          requestingUser.userId,
+          'TRIP_ADMIN_FORCE_START',
+          'Booking',
+          bookingId,
+          { justification: reason },
+        );
+      }
+    }
+
+    if (newStatus === BookingStatus.COMPLETED) {
+      // 1. Enforce finalized POST_TRIP inspection
+      const postTrip = await this.prisma.inspection.findUnique({
+        where: {
+          bookingId_type: {
+            bookingId,
+            type: InspectionType.POST_TRIP,
+          },
+        },
+      });
+
+      if (!postTrip || !postTrip.finalized) {
+        throw new BadRequestException(
+          'Cannot complete trip: Post-trip vehicle inspection must be recorded and finalized before completing trip.',
+        );
+      }
+
+      // 2. Enforce Return OTP
+      if (!isAdmin) {
+        if (!handoverOtp) {
+          throw new BadRequestException(
+            'Customer return verification OTP is required to complete trip.',
+          );
+        }
+        await this.handoverOtpService.verifyOtp(
+          bookingId,
+          HandoverOtpType.RETURN,
+          handoverOtp,
+        );
+      } else if (isAdmin && !handoverOtp) {
+        if (!reason || reason.trim().length < 10) {
+          throw new BadRequestException(
+            'Admin trip complete override without return OTP requires explicit justification (minimum 10 characters) in the reason field.',
+          );
+        }
+        await this.auditLogService.log(
+          requestingUser.userId,
+          'TRIP_ADMIN_FORCE_COMPLETE',
+          'Booking',
+          bookingId,
+          { justification: reason },
         );
       }
     }
