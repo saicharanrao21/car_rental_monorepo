@@ -39,9 +39,11 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final car = widget.car;
       final currentDraft = ref.read(bookingDraftProvider);
-      if (!car.availableTripTypes.contains(currentDraft.tripType) &&
-          car.availableTripTypes.isNotEmpty) {
-        final correctedType = car.availableTripTypes.first;
+      final publicSettingsVal = ref.read(publicSettingsProvider);
+      final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+      final bookableTypes = car.availableTripTypes.where((t) => _isTripTypeEnabled(t, enabledTripTypes)).toList();
+      if (!bookableTypes.contains(currentDraft.tripType) && bookableTypes.isNotEmpty) {
+        final correctedType = bookableTypes.first;
         ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
           tripType: correctedType,
           driverIncluded: correctedType != 'Self-Drive',
@@ -64,8 +66,10 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
   }
 
   bool _isTripTypeEnabled(String type, List<String> enabledTypes) {
-    final norm = type.toUpperCase().replaceAll(' ', '_');
-    if (norm == 'AIRPORT') return enabledTypes.contains('AIRPORT_TRANSFER');
+    final norm = type.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    if (norm == 'AIRPORT' || norm == 'AIRPORT_TRANSFER') {
+      return enabledTypes.contains('AIRPORT_TRANSFER');
+    }
     return enabledTypes.contains(norm);
   }
 
@@ -142,6 +146,8 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
                 }).toList(),
                 onChanged: (val) {
                   if (val != null) {
+                    final enabled = _isTripTypeEnabled(val, enabledTripTypes);
+                    if (!enabled) return;
                     ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
                       tripType: val,
                       driverIncluded: val != 'Self-Drive',
@@ -214,7 +220,6 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
           AppButton(
             text: 'Next: Add-ons',
             onPressed: () {
-              print("TRIP_DETAILS_STEP: Next pressed!");
               onNext();
             },
           ),

@@ -105,8 +105,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   bool _isTripTypeEnabled(String type, List<String> enabledTypes) {
-    final norm = type.toUpperCase().replaceAll(' ', '_');
-    if (norm == 'AIRPORT') return enabledTypes.contains('AIRPORT_TRANSFER');
+    final norm = type.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    if (norm == 'AIRPORT' || norm == 'AIRPORT_TRANSFER') {
+      return enabledTypes.contains('AIRPORT_TRANSFER');
+    }
     return enabledTypes.contains(norm);
   }
 

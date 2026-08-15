@@ -10,7 +10,7 @@ class ApiClient {
           BaseOptions(
             baseUrl: const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'https://car-rental-backend-8pnr.onrender.com',
+              defaultValue: 'https://drivego-staging-api.onrender.com',
             ),
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),

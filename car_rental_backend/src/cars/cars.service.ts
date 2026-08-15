@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -121,7 +122,32 @@ export class CarsService {
       where.vendor.rating = { gte: query.minRating };
     }
 
+    let settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'singleton' },
+    });
+    if (!settings) {
+      settings = await this.prisma.platformSettings.create({
+        data: {
+          id: 'singleton',
+          platformName: 'DriveGo',
+          gstNumber: '27AAAAA1111A1Z1',
+          supportEmail: 'support@drivego.in',
+          supportPhone: '+919876543210',
+          appVersion: '1.0.0',
+          enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
+        },
+      });
+    }
+
     if (query.tripType) {
+      if (!settings.enabledTripTypes.includes(query.tripType as any)) {
+        return {
+          data: [],
+          total: 0,
+          page: query.page || 1,
+          totalPages: 0,
+        };
+      }
       where.availableTripTypes = { has: query.tripType };
     }
 
@@ -314,6 +340,36 @@ export class CarsService {
     });
   }
 
+  private async validateAvailableTripTypes(tripTypes?: string[]) {
+    if (!tripTypes || tripTypes.length === 0) return;
+
+    let settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'singleton' },
+    });
+    if (!settings) {
+      settings = await this.prisma.platformSettings.create({
+        data: {
+          id: 'singleton',
+          platformName: 'DriveGo',
+          gstNumber: '27AAAAA1111A1Z1',
+          supportEmail: 'support@drivego.in',
+          supportPhone: '+919876543210',
+          appVersion: '1.0.0',
+          enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
+        },
+      });
+    }
+
+    const invalidTypes = tripTypes.filter(
+      (t) => !settings.enabledTripTypes.includes(t as any),
+    );
+    if (invalidTypes.length > 0) {
+      throw new BadRequestException(
+        `Trip type(s) ${invalidTypes.join(', ')} are not currently enabled on the platform.`,
+      );
+    }
+  }
+
   async createCar(userId: string, dto: CreateCarDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
@@ -321,6 +377,8 @@ export class CarsService {
     if (!vendor) {
       throw new ForbiddenException('User is not registered as a vendor.');
     }
+
+    await this.validateAvailableTripTypes(dto.availableTripTypes);
 
     return this.prisma.car.create({
       data: {
@@ -345,6 +403,8 @@ export class CarsService {
 
   async updateCar(carId: string, userId: string, dto: UpdateCarDto) {
     await this.verifyOwnership(carId, userId);
+
+    await this.validateAvailableTripTypes(dto.availableTripTypes);
 
     return this.prisma.car.update({
       where: { id: carId },
