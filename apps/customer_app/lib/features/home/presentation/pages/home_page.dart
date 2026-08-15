@@ -201,6 +201,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     final pickup = _pickupController.text.trim();
     final drop = _dropController.text.trim();
 
+    final publicSettingsVal = ref.read(publicSettingsProvider);
+    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+    if (!_isTripTypeEnabled(tripType, enabledTripTypes)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selected trip type is coming soon.')),
+      );
+      return;
+    }
+
     ref.read(pickupLocationProvider.notifier).state = pickup.isEmpty ? null : pickup;
     ref.read(dropLocationProvider.notifier).state = drop.isEmpty ? null : drop;
 
@@ -223,6 +232,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCity = ref.watch(selectedCityProvider);
     final tripType = ref.watch(selectedTripTypeProvider);
     final dateRange = ref.watch(selectedDateRangeProvider);
+
+    final publicSettingsVal = ref.watch(publicSettingsProvider);
+    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+
+    if (!_isTripTypeEnabled(tripType, enabledTripTypes)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(selectedTripTypeProvider.notifier).state = 'Self-Drive';
+        }
+      });
+    }
 
     final bannersVal = ref.watch(bannersProvider);
     final vendorsVal = ref.watch(topVendorsProvider);
@@ -315,6 +335,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           final isSelected = isEnabled && type == tripType;
                           return Expanded(
                             child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: isEnabled
                                   ? () => ref.read(selectedTripTypeProvider.notifier).state = type
                                   : null,

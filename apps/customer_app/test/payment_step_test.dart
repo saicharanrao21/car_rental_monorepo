@@ -68,6 +68,13 @@ class MockInterceptor extends Interceptor {
         },
         statusCode: 200,
       ));
+    } else if (options.path.startsWith('/payments/')) {
+      // Return 404 for GET /payments/:bookingId to simulate no existing order in test
+      handler.reject(DioException(
+        requestOptions: options,
+        response: Response(requestOptions: options, statusCode: 404),
+        type: DioExceptionType.badResponse,
+      ));
     } else {
       handler.next(options);
     }

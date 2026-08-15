@@ -6,11 +6,9 @@ import 'package:gap/gap.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:models/models.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/booking_flow_providers.dart';
+import '../../domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
-import '../../../../core/providers/api_providers.dart';
 
 class PaymentStep extends ConsumerStatefulWidget {
   final VoidCallback onBack;
@@ -96,48 +94,20 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       _errorMessage = null;
     });
 
-    final apiClient = ref.read(apiClientProvider);
-
     try {
-      // 1. Submit cryptographic verification request to backend
-      final verifyRes = await apiClient.dio.post(
-        '/payments/verify',
-        data: {
-          'bookingId': bookingId,
-          'razorpayOrderId': orderId,
-          'razorpayPaymentId': paymentId,
-          'razorpaySignature': signature,
-        },
+      final paymentService = ref.read(paymentFlowServiceProvider);
+      final isSuccess = await paymentService.verifyPayment(
+        bookingId: bookingId,
+        orderId: orderId,
+        paymentId: paymentId,
+        signature: signature,
       );
 
-      final isSuccess = verifyRes.data['success'] == true ||
-          verifyRes.data['status'] == 'PAID';
-
-      if (isSuccess) {
-        if (context.mounted) {
-          widget.onSuccess(bookingId);
-        }
-        return;
+      if (isSuccess && mounted) {
+        widget.onSuccess(bookingId);
       }
     } catch (e) {
-      // If direct verification encountered an error, poll booking status to check if webhook confirmed it
-      try {
-        for (int i = 0; i < 3; i++) {
-          await Future.delayed(const Duration(milliseconds: 1500));
-          final res = await apiClient.dio.get('/bookings/$bookingId');
-          final status = (res.data['status'] as String).toLowerCase();
-          if (status == 'confirmed' || status == 'ongoing' || status == 'completed') {
-            if (context.mounted) {
-              widget.onSuccess(bookingId);
-            }
-            return;
-          }
-        }
-      } catch (_) {
-        // Ignore fallback polling errors
-      }
-
-      if (context.mounted) {
+      if (mounted) {
         setState(() {
           _isProcessingPayment = false;
           _errorMessage = e is DioException
@@ -154,27 +124,22 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       _errorMessage = null;
     });
 
-    final apiClient = ref.read(apiClientProvider);
     try {
-      for (int i = 0; i < 5; i++) {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        final res = await apiClient.dio.get('/bookings/$bookingId');
-        final status = (res.data['status'] as String).toLowerCase();
-        if (status == 'confirmed' || status == 'ongoing' || status == 'completed') {
-          if (context.mounted) {
-            widget.onSuccess(bookingId);
-          }
-          return;
-        }
+      final paymentService = ref.read(paymentFlowServiceProvider);
+      final isSuccess = await paymentService.pollBookingConfirmation(bookingId);
+      if (isSuccess && mounted) {
+        widget.onSuccess(bookingId);
+        return;
       }
-      if (context.mounted) {
+
+      if (mounted) {
         setState(() {
           _isProcessingPayment = false;
           _errorMessage = 'Payment not yet confirmed by gateway. Please check My Bookings.';
         });
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         setState(() {
           _isProcessingPayment = false;
           _errorMessage = 'Unable to confirm payment status. Please check My Bookings.';
@@ -193,7 +158,7 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       final session = ref.read(sessionProvider);
       final draft = ref.read(bookingDraftProvider);
 
-      // 1. Create booking (returns pending booking)
+      // 1. Create booking (returns pending booking) if not already created
       BookingModel? booking = ref.read(createBookingFlowProvider).value;
       if (booking == null) {
         booking = await ref
@@ -204,58 +169,30 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
             );
       }
 
-      // 2. Call POST /payments/create-order
-      final apiClient = ref.read(apiClientProvider);
-      final orderResponse = await apiClient.dio.post(
-        '/payments/create-order',
-        data: {'bookingId': booking.id},
-      );
-
-      final orderData = orderResponse.data;
-      final String orderId = orderData['orderId'];
-      final int amount = orderData['amount'];
-      final String currency = orderData['currency'];
-      final String keyId = orderData['keyId'];
+      // 2. Fetch existing CREATED order or create fresh order
+      final paymentService = ref.read(paymentFlowServiceProvider);
+      final order = await paymentService.getOrCreatePaymentOrder(booking.id);
 
       _currentBookingId = booking.id;
-      _currentOrderId = orderId;
+      _currentOrderId = order.razorpayOrderId;
 
-      final options = {
-        'key': keyId,
-        'amount': amount,
-        'currency': currency,
-        'name': 'Car Rental Platform',
-        'order_id': orderId,
-        'description': 'Payment for booking ${booking.id}',
-        'prefill': {
-          'contact': session.user?.phone ?? '',
-          'email': session.user?.email ?? '',
-          'name': session.user?.name ?? '',
-        },
-        'external': {
-          'wallets': ['paytm']
-        }
-      };
-
-      // Razorpay checkout is natively supported only on mobile (Android/iOS)
-      final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-      if (!isMobile) {
-        throw UnsupportedError("Card/UPI checkout isn't available on this platform yet — please use the mobile app to complete payment.");
-      }
-
-      try {
-        _razorpay.open(options);
-      } catch (e) {
+      paymentService.launchRazorpayCheckout(
+        razorpay: _razorpay,
+        order: order,
+        bookingId: booking.id,
+        contactName: session.user?.name ?? '',
+        contactPhone: session.user?.phone ?? '',
+        contactEmail: session.user?.email ?? '',
+      );
+    } catch (e) {
+      if (mounted) {
         setState(() {
           _isProcessingPayment = false;
-          _errorMessage = "Card/UPI checkout isn't available on this platform yet — please use the mobile app to complete payment.";
+          _errorMessage = e is DioException
+              ? (e.response?.data['message'] ?? e.message)
+              : e.toString();
         });
       }
-    } catch (e) {
-      setState(() {
-        _isProcessingPayment = false;
-        _errorMessage = e is DioException ? (e.response?.data['message'] ?? e.message) : e.toString();
-      });
     }
   }
 

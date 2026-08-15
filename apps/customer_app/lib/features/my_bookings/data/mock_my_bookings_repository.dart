@@ -60,4 +60,19 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
       createdAt: DateTime.now(),
     );
   }
+
+  @override
+  Future<PaymentOrderModel?> getPaymentForBooking(String bookingId) async {
+    await simulateLatency();
+    return PaymentOrderModel(
+      id: 'pay_mock_$bookingId',
+      bookingId: bookingId,
+      razorpayOrderId: 'order_mock_$bookingId',
+      amount: 5000.0,
+      amountInPaise: 500000,
+      currency: 'INR',
+      keyId: 'rzp_test_mock_key',
+      status: 'CREATED',
+    );
+  }
 }

@@ -13,6 +13,7 @@ class ApiSearchRepository implements SearchRepository {
     required String city,
     double? lat,
     double? lng,
+    String? tripType,
     String? carType,
     bool? isAC,
     double? minPrice,
@@ -47,10 +48,21 @@ class ApiSearchRepository implements SearchRepository {
       backendCarType = carType.toUpperCase();
     }
 
+    String? backendTripType;
+    if (tripType != null && tripType.isNotEmpty) {
+      final norm = tripType.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+      if (norm == 'AIRPORT' || norm == 'AIRPORT_TRANSFER') {
+        backendTripType = 'AIRPORT_TRANSFER';
+      } else {
+        backendTripType = norm;
+      }
+    }
+
     final queryParams = <String, dynamic>{
       'city': city,
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
+      if (backendTripType != null) 'tripType': backendTripType,
       if (backendCarType != null) 'carType': backendCarType,
       if (isAC != null) 'isAC': isAC,
       if (minPrice != null) 'minPrice': minPrice,

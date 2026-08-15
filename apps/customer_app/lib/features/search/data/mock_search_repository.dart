@@ -14,6 +14,7 @@ class MockSearchRepository with LatencySimulator implements SearchRepository {
     required String city,
     double? lat,
     double? lng,
+    String? tripType,
     String? carType,
     bool? isAC,
     double? minPrice,

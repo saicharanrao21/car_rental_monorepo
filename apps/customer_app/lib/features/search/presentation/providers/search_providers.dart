@@ -12,7 +12,7 @@ final searchRepositoryProvider = Provider<SearchRepository>((ref) {
 });
 
 final searchCityProvider = StateProvider.autoDispose<String>((ref) => 'Mumbai');
-final searchTripTypeProvider = StateProvider.autoDispose<String>((ref) => 'Local');
+final searchTripTypeProvider = StateProvider.autoDispose<String>((ref) => 'Self-Drive');
 final searchDatesProvider = StateProvider.autoDispose<DateTimeRange?>((ref) => null);
 
 final searchCarCategoryFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
@@ -54,6 +54,7 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
   @override
   Future<SearchResultsState> build() async {
     final city = ref.watch(searchCityProvider);
+    final tripType = ref.watch(searchTripTypeProvider);
     final carType = ref.watch(searchCarCategoryFilterProvider);
     final isAC = ref.watch(searchACFilterProvider);
     final priceRange = ref.watch(searchPriceRangeFilterProvider);
@@ -67,6 +68,7 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
       city: city,
       lat: location.latitude,
       lng: location.longitude,
+      tripType: tripType,
       carType: carType,
       isAC: isAC,
       minPrice: priceRange?.start,

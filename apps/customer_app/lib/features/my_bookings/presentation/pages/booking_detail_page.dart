@@ -5,9 +5,12 @@ import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:dio/dio.dart';
 import '../providers/my_bookings_providers.dart';
 import '../../domain/repositories/my_bookings_repository.dart';
 import '../../../booking/presentation/providers/booking_providers.dart';
+import '../../../booking/domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
 
 class BookingDetailPage extends ConsumerStatefulWidget {
@@ -20,16 +23,177 @@ class BookingDetailPage extends ConsumerStatefulWidget {
 }
 
 class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
-  // Local state to keep track of review submission
+  // Local state to keep track of review submission and payment
   bool _reviewSubmitted = false;
   double _userRating = 5.0;
   final _commentCtrl = TextEditingController();
   final _reviewFormKey = GlobalKey<FormState>();
 
+  final _razorpay = Razorpay();
+  bool _isProcessingPayment = false;
+  String? _currentBookingId;
+  String? _currentOrderId;
+
+  @override
+  void initState() {
+    super.initState();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
   @override
   void dispose() {
+    _razorpay.clear();
     _commentCtrl.dispose();
     super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    final bookingId = _currentBookingId ?? widget.bookingId;
+    final orderId = _currentOrderId ?? response.orderId;
+    final paymentId = response.paymentId;
+    final signature = response.signature;
+
+    if (orderId == null || paymentId == null || signature == null) {
+      setState(() {
+        _isProcessingPayment = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment completion data is incomplete. Please contact support.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    _verifyAndConfirmPayment(
+      bookingId: bookingId,
+      orderId: orderId,
+      paymentId: paymentId,
+      signature: signature,
+    );
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    setState(() {
+      _isProcessingPayment = false;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment failed: ${response.message} (Code: ${response.code})'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) async {
+    setState(() {
+      _isProcessingPayment = true;
+    });
+    final paymentService = ref.read(paymentFlowServiceProvider);
+    final isSuccess = await paymentService.pollBookingConfirmation(widget.bookingId);
+    if (mounted) {
+      setState(() {
+        _isProcessingPayment = false;
+      });
+      if (isSuccess) {
+        ref.invalidate(myBookingsListProvider);
+        ref.invalidate(bookingWithDetailsProvider(widget.bookingId));
+        ref.invalidate(bookingDetailProvider(widget.bookingId));
+      }
+    }
+  }
+
+  Future<void> _verifyAndConfirmPayment({
+    required String bookingId,
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    setState(() {
+      _isProcessingPayment = true;
+    });
+
+    try {
+      final paymentService = ref.read(paymentFlowServiceProvider);
+      final isSuccess = await paymentService.verifyPayment(
+        bookingId: bookingId,
+        orderId: orderId,
+        paymentId: paymentId,
+        signature: signature,
+      );
+
+      if (isSuccess && mounted) {
+        setState(() {
+          _isProcessingPayment = false;
+        });
+        ref.invalidate(myBookingsListProvider);
+        ref.invalidate(bookingWithDetailsProvider(widget.bookingId));
+        ref.invalidate(bookingDetailProvider(widget.bookingId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment verified and booking confirmed!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessingPayment = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment verification failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _startPaymentForBooking(BookingModel booking) async {
+    setState(() {
+      _isProcessingPayment = true;
+    });
+
+    try {
+      final session = ref.read(sessionProvider);
+      final paymentService = ref.read(paymentFlowServiceProvider);
+      final order = await paymentService.getOrCreatePaymentOrder(booking.id);
+
+      _currentBookingId = booking.id;
+      _currentOrderId = order.razorpayOrderId;
+
+      paymentService.launchRazorpayCheckout(
+        razorpay: _razorpay,
+        order: order,
+        bookingId: booking.id,
+        contactName: session.user?.name ?? '',
+        contactPhone: session.user?.phone ?? '',
+        contactEmail: session.user?.email ?? '',
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessingPayment = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e is DioException
+                ? (e.response?.data['message'] ?? e.message)
+                : e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showCancelBottomSheet(BuildContext context, String bookingId) {
@@ -414,14 +578,24 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                         ],
                       ),
                     ),
-                    const Gap(24),
+                    // Conditionally show Complete Payment button for PENDING bookings
+                    if (booking.status.toLowerCase() == 'pending' && !isCancelled) ...[
+                      AppButton(
+                        text: 'Complete Payment (${IndianCurrencyFormatter.format(booking.totalFare, showDecimals: false)})',
+                        isLoading: _isProcessingPayment,
+                        onPressed: _isProcessingPayment || isActionLoading
+                            ? null
+                            : () => _startPaymentForBooking(booking),
+                      ),
+                      const Gap(12),
+                    ],
 
                     // Conditionally show Cancel button
                     if (isUpcoming && !isCancelled) ...[
                       AppButton(
                         text: 'Cancel Booking',
                         backgroundColor: Colors.red,
-                        onPressed: isActionLoading
+                        onPressed: isActionLoading || _isProcessingPayment
                             ? null
                             : () => _showCancelBottomSheet(context, booking.id),
                       ),

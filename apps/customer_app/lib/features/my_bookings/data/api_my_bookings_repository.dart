@@ -100,4 +100,15 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
       return null;
     }
   }
+
+  @override
+  Future<PaymentOrderModel?> getPaymentForBooking(String bookingId) async {
+    try {
+      final response = await apiClient.dio.get('/payments/$bookingId');
+      if (response.data == null) return null;
+      return PaymentOrderModel.fromJson(Map<String, dynamic>.from(response.data));
+    } catch (_) {
+      return null;
+    }
+  }
 }

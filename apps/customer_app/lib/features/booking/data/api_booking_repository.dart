@@ -49,16 +49,20 @@ class ApiBookingRepository implements BookingRepository {
   String _mapTripTypeToBackend(String clientTripType) {
     switch (clientTripType) {
       case 'Local':
+      case 'LOCAL':
         return 'LOCAL';
       case 'Outstation':
+      case 'OUTSTATION':
         return 'OUTSTATION';
       case 'Airport':
       case 'Airport Transfer':
+      case 'AIRPORT_TRANSFER':
         return 'AIRPORT_TRANSFER';
       case 'Self-Drive':
+      case 'SELF_DRIVE':
         return 'SELF_DRIVE';
       default:
-        return 'LOCAL';
+        return 'SELF_DRIVE';
     }
   }
 
