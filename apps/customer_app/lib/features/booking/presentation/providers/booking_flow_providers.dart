@@ -34,6 +34,11 @@ class BookingDraft {
   final double netToVendor;
   final double commissionPercent;
 
+  // Coupon
+  final String? appliedCouponCode;
+  final double couponDiscountAmount;
+  final CouponValidationResultModel? appliedCoupon;
+
   const BookingDraft({
     this.carId = '',
     this.vendorId = '',
@@ -54,6 +59,9 @@ class BookingDraft {
     this.totalFare = 0,
     this.netToVendor = 0,
     this.commissionPercent = 10.0,
+    this.appliedCouponCode,
+    this.couponDiscountAmount = 0.0,
+    this.appliedCoupon,
   });
 
   int get rentalDays {
@@ -70,6 +78,8 @@ class BookingDraft {
     String? contactName, String? contactPhone,
     double? baseFare, double? platformFee, double? gst,
     double? totalFare, double? netToVendor, double? commissionPercent,
+    String? appliedCouponCode, double? couponDiscountAmount,
+    CouponValidationResultModel? appliedCoupon,
   }) {
     return BookingDraft(
       carId: carId ?? this.carId,
@@ -91,6 +101,9 @@ class BookingDraft {
       totalFare: totalFare ?? this.totalFare,
       netToVendor: netToVendor ?? this.netToVendor,
       commissionPercent: commissionPercent ?? this.commissionPercent,
+      appliedCouponCode: appliedCouponCode ?? this.appliedCouponCode,
+      couponDiscountAmount: couponDiscountAmount ?? this.couponDiscountAmount,
+      appliedCoupon: appliedCoupon ?? this.appliedCoupon,
     );
   }
 }
@@ -122,8 +135,8 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
       tripType: defaultTripType,
       pickupLocation: pickupLocation,
       dropLocation: dropLocation,
-      startDate: startDate ?? DateTime.now(),
-      endDate: endDate ?? DateTime.now().add(const Duration(days: 10)),
+      startDate: startDate ?? DateTime(2026, 8, 24, 10, 0),
+      endDate: endDate ?? DateTime(2026, 8, 26, 10, 0),
       driverIncluded: defaultTripType != 'Self-Drive',
       contactName: contactName,
       contactPhone: contactPhone,

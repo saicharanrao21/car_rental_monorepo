@@ -71,21 +71,58 @@ class ApiBookingRepository implements BookingRepository {
     final draftState = ref?.read(bookingDraftProvider);
     final distanceKm = draftState?.estimatedDistanceKm ?? 50;
 
+    final data = <String, dynamic>{
+      'carId': draft.carId,
+      'tripType': _mapTripTypeToBackend(draft.tripType),
+      'pickupLocation': draft.pickupLocation,
+      'dropLocation': draft.dropLocation,
+      'startDate': draft.startDate.toUtc().toIso8601String(),
+      'endDate': draft.endDate.toUtc().toIso8601String(),
+      'distanceKm': distanceKm,
+    };
+
+    if (draftState != null) {
+      if (draftState.appliedCouponCode != null && draftState.appliedCouponCode!.isNotEmpty) {
+        data['couponCode'] = draftState.appliedCouponCode;
+      }
+      data['driverIncluded'] = draftState.driverIncluded;
+      data['childSeat'] = draftState.childSeat;
+      data['extraLuggage'] = draftState.extraLuggage;
+    }
+
     final response = await apiClient.dio.post(
       '/bookings',
-      data: {
-        'carId': draft.carId,
-        'tripType': _mapTripTypeToBackend(draft.tripType),
-        'pickupLocation': draft.pickupLocation,
-        'dropLocation': draft.dropLocation,
-        'startDate': draft.startDate.toUtc().toIso8601String(),
-        'endDate': draft.endDate.toUtc().toIso8601String(),
-        'distanceKm': distanceKm,
-      },
+      data: data,
     );
 
     final normalized = _normalizeBookingJson(response.data);
     return BookingModel.fromJson(normalized);
+  }
+
+  @override
+  Future<CouponValidationResultModel> validateCoupon({
+    required String code,
+    String? carId,
+    double? subtotal,
+    String? city,
+    String? tripType,
+    String? carCategory,
+  }) async {
+    final data = <String, dynamic>{
+      'code': code,
+    };
+    if (carId != null) data['carId'] = carId;
+    if (subtotal != null) data['subtotal'] = subtotal;
+    if (city != null) data['city'] = city;
+    if (tripType != null) data['tripType'] = _mapTripTypeToBackend(tripType);
+    if (carCategory != null) data['carCategory'] = carCategory.toUpperCase();
+
+    final response = await apiClient.dio.post(
+      '/coupons/validate',
+      data: data,
+    );
+
+    return CouponValidationResultModel.fromJson(Map<String, dynamic>.from(response.data));
   }
 
   @override

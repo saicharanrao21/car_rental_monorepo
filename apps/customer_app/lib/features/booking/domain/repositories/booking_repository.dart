@@ -10,6 +10,15 @@ abstract class BookingRepository {
 
   Future<BookingModel> cancelBooking(String bookingId);
 
+  Future<CouponValidationResultModel> validateCoupon({
+    required String code,
+    String? carId,
+    double? subtotal,
+    String? city,
+    String? tripType,
+    String? carCategory,
+  });
+
   /// Returns best matching commission config for the given params (defaults to 10%).
   CommissionConfigModel getCommissionConfig({
     required String city,

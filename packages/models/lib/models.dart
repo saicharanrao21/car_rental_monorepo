@@ -15,3 +15,4 @@ export 'src/inspection_model.dart';
 export 'src/security_deposit_model.dart';
 export 'src/damage_claim_model.dart';
 export 'src/payment_order_model.dart';
+export 'src/coupon_model.dart';

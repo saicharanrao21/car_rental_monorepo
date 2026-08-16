@@ -28,6 +28,7 @@ import { CancellationPolicyService } from './cancellation-policy.service';
 import { redactVendor } from '../common/vendor-redactor.util';
 import { AuditLogService } from '../admin/audit-log.service';
 import { HandoverOtpService } from './handover-otp.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 @Injectable()
 export class BookingsService {
@@ -43,6 +44,7 @@ export class BookingsService {
     private readonly cancellationPolicyService: CancellationPolicyService,
     private readonly auditLogService: AuditLogService,
     private readonly handoverOtpService: HandoverOtpService,
+    private readonly couponsService: CouponsService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -164,6 +166,26 @@ export class BookingsService {
         car.monthlyDiscountPercent || 0,
       );
 
+      // Validate coupon if code provided
+      let validatedCoupon: any = null;
+      let finalTotalFare = fareDetails.total;
+      let discountAmountDecimal: Prisma.Decimal | null = null;
+
+      if (dto.couponCode) {
+        validatedCoupon = await this.couponsService.validateCoupon(customerId, {
+          code: dto.couponCode,
+          carId: dto.carId,
+          subtotal: Number(fareDetails.total),
+          city: car.vendor.city,
+          tripType: dto.tripType,
+          carCategory: car.type,
+        });
+
+        discountAmountDecimal = new Prisma.Decimal(validatedCoupon.discountAmount);
+        const netPayable = Math.max(0, Number(fareDetails.total) - validatedCoupon.discountAmount);
+        finalTotalFare = new Prisma.Decimal(netPayable);
+      }
+
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)
       const booking = await this.prisma.$transaction(
         async (tx) => {
@@ -191,6 +213,27 @@ export class BookingsService {
             );
           }
 
+          // If coupon is used, increment global usage count atomically
+          if (validatedCoupon) {
+            const couponRecord = await tx.coupon.findUnique({
+              where: { id: validatedCoupon.couponId },
+            });
+            if (!couponRecord || !couponRecord.isActive) {
+              throw new BadRequestException('Coupon is no longer available.');
+            }
+            if (
+              couponRecord.globalUsageLimit !== null &&
+              couponRecord.usageCount >= couponRecord.globalUsageLimit
+            ) {
+              throw new BadRequestException('Coupon global usage limit reached.');
+            }
+
+            await tx.coupon.update({
+              where: { id: validatedCoupon.couponId },
+              data: { usageCount: { increment: 1 } },
+            });
+          }
+
           // 5. Create booking row
           const newBooking = await tx.booking.create({
             data: {
@@ -206,8 +249,14 @@ export class BookingsService {
               baseFare: fareDetails.baseFare,
               platformFee: fareDetails.platformFee,
               gstAmount: fareDetails.gst,
-              totalFare: fareDetails.total,
+              totalFare: finalTotalFare,
               netToVendor: fareDetails.netToVendor,
+              driverIncluded: dto.driverIncluded ?? true,
+              childSeat: dto.childSeat ?? false,
+              extraLuggage: dto.extraLuggage ?? false,
+              couponId: validatedCoupon ? validatedCoupon.couponId : null,
+              couponCode: validatedCoupon ? validatedCoupon.code : null,
+              discountAmount: discountAmountDecimal,
               status: BookingStatus.PENDING,
             },
             include: {
@@ -222,6 +271,18 @@ export class BookingsService {
               },
             },
           });
+
+          // Record CouponUsage row transactionally
+          if (validatedCoupon) {
+            await tx.couponUsage.create({
+              data: {
+                couponId: validatedCoupon.couponId,
+                customerId,
+                bookingId: newBooking.id,
+                discountAmount: discountAmountDecimal!,
+              },
+            });
+          }
 
           return newBooking;
         },

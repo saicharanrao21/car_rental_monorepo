@@ -7,7 +7,7 @@ import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 import '../providers/booking_providers.dart';
 
-class FareBreakdownStep extends ConsumerWidget {
+class FareBreakdownStep extends ConsumerStatefulWidget {
   final CarModel car;
   final VendorModel vendor;
   final VoidCallback onBack;
@@ -22,7 +22,74 @@ class FareBreakdownStep extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FareBreakdownStep> createState() => _FareBreakdownStepState();
+}
+
+class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
+  final TextEditingController _couponController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _applyCoupon(double subtotal) async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repo = ref.read(bookingRepositoryProvider);
+      final draft = ref.read(bookingDraftProvider);
+
+      final result = await repo.validateCoupon(
+        code: code,
+        carId: widget.car.id,
+        subtotal: subtotal,
+        city: widget.vendor.city,
+        tripType: draft.tripType,
+        carCategory: widget.car.type,
+      );
+
+      if (result.valid) {
+        ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+              appliedCouponCode: result.code,
+              couponDiscountAmount: result.discountAmount,
+              appliedCoupon: result,
+            ));
+        _couponController.clear();
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', '');
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _removeCoupon() {
+    ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+          appliedCouponCode: '',
+          couponDiscountAmount: 0.0,
+          appliedCoupon: null,
+        ));
+    setState(() {
+      _errorMessage = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
     final repo = ref.watch(bookingRepositoryProvider);
 
@@ -30,11 +97,11 @@ class FareBreakdownStep extends ConsumerWidget {
     double discountPercent = 0.0;
     String discountLabel = '';
 
-    final weeklyPct = (car.weeklyDiscountPercent != null && car.weeklyDiscountPercent! > 0)
-        ? car.weeklyDiscountPercent!
+    final weeklyPct = (widget.car.weeklyDiscountPercent != null && widget.car.weeklyDiscountPercent! > 0)
+        ? widget.car.weeklyDiscountPercent!
         : 15.0;
-    final monthlyPct = (car.monthlyDiscountPercent != null && car.monthlyDiscountPercent! > 0)
-        ? car.monthlyDiscountPercent!
+    final monthlyPct = (widget.car.monthlyDiscountPercent != null && widget.car.monthlyDiscountPercent! > 0)
+        ? widget.car.monthlyDiscountPercent!
         : 25.0;
 
     if (rentalDays >= 30) {
@@ -45,22 +112,24 @@ class FareBreakdownStep extends ConsumerWidget {
       discountLabel = 'Weekly discount applied (${discountPercent.toInt()}%)';
     }
 
-    final originalRentalFare = car.pricePerDay * rentalDays;
+    final originalRentalFare = widget.car.pricePerDay * rentalDays;
     final discountAmount = originalRentalFare * (discountPercent / 100.0);
     final actualBasePackagePrice = originalRentalFare - discountAmount;
 
     // Compute fare on every relevant change
     final config = repo.getCommissionConfig(
-      city: vendor.city,
-      carCategory: car.type,
+      city: widget.vendor.city,
+      carCategory: widget.car.type,
       tripType: draft.tripType,
     );
     final result = FareCalculatorService.calculateFare(
       distanceKm: draft.estimatedDistanceKm.toDouble(),
       basePackagePrice: actualBasePackagePrice,
-      pricePerKm: car.pricePerKm,
+      pricePerKm: widget.car.pricePerKm,
       commissionPercent: config.percentage,
     );
+
+    final finalPayable = (result.total - draft.couponDiscountAmount).clamp(0.0, double.infinity);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -74,13 +143,98 @@ class FareBreakdownStep extends ConsumerWidget {
           _CollapsibleFareCard(
             context: context,
             draft: draft,
-            car: car,
+            car: widget.car,
             originalRentalFare: originalRentalFare,
             discountPercent: discountPercent,
             discountLabel: discountLabel,
             discountAmount: discountAmount,
             result: result,
+            finalPayable: finalPayable,
             config: config,
+          ),
+          const Gap(16),
+
+          // Coupon Section
+          AppCard(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.local_offer_outlined, size: 18, color: AppColors.primary),
+                    Gap(8),
+                    Text('Promo Code / Coupon', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+                const Gap(8),
+                if (draft.appliedCouponCode != null && draft.appliedCouponCode!.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green[300]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green[700], size: 18),
+                        const Gap(8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Code: ${draft.appliedCouponCode}',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[800], fontSize: 13),
+                              ),
+                              Text(
+                                'You save ₹${draft.couponDiscountAmount.toInt()}',
+                                style: TextStyle(color: Colors.green[700], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                          onPressed: _removeCoupon,
+                          tooltip: 'Remove Coupon',
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _couponController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            hintText: 'Enter Promo Code',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            errorText: _errorMessage,
+                          ),
+                        ),
+                      ),
+                      const Gap(8),
+                      ElevatedButton(
+                        onPressed: _isLoading ? null : () => _applyCoupon(result.total),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Apply'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
           const Gap(16),
 
@@ -112,7 +266,7 @@ class FareBreakdownStep extends ConsumerWidget {
           Row(children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: onBack,
+                onPressed: widget.onBack,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                   side: const BorderSide(color: AppColors.primary),
@@ -130,11 +284,11 @@ class FareBreakdownStep extends ConsumerWidget {
                     baseFare: result.baseFare,
                     platformFee: result.platformFee,
                     gst: result.gst,
-                    totalFare: result.total,
+                    totalFare: finalPayable,
                     netToVendor: result.netToVendor,
                     commissionPercent: config.percentage,
                   ));
-                  onNext();
+                  widget.onNext();
                 },
               ),
             ),
@@ -174,6 +328,7 @@ class _CollapsibleFareCard extends StatelessWidget {
   final String discountLabel;
   final double discountAmount;
   final FareCalculatorResult result;
+  final double finalPayable;
   final CommissionConfigModel config;
 
   const _CollapsibleFareCard({
@@ -185,12 +340,12 @@ class _CollapsibleFareCard extends StatelessWidget {
     required this.discountLabel,
     required this.discountAmount,
     required this.result,
+    required this.finalPayable,
     required this.config,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Fold Platform Fee into Trip Fare for customer display
     final tripFare = result.baseFare + result.platformFee;
 
     return AppCard(
@@ -198,10 +353,8 @@ class _CollapsibleFareCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Trip Fare (base + platform fee folded together)
           _row(context, 'Trip Fare', tripFare, bold: true),
 
-          // Sub-details for rental and distance
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 2, bottom: 4),
             child: Column(
@@ -212,7 +365,6 @@ class _CollapsibleFareCard extends StatelessWidget {
             ),
           ),
 
-          // Multi-day discount (visible by default when applicable)
           if (discountPercent > 0)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -255,16 +407,31 @@ class _CollapsibleFareCard extends StatelessWidget {
 
           const Divider(height: 20),
 
-          // 2. GST line (tax compliance)
           _row(context, 'GST (18%)', result.gst),
+
+          if (draft.couponDiscountAmount > 0) ...[
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Coupon Discount (${draft.appliedCouponCode})',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                ),
+                Text(
+                  '-${IndianCurrencyFormatter.format(draft.couponDiscountAmount, showDecimals: false)}',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                ),
+              ],
+            ),
+          ],
 
           const Divider(height: 20),
 
-          // 3. Total Payable
           _row(
             context,
             'Total Payable',
-            result.total,
+            finalPayable,
             bold: true,
             color: Theme.of(context).colorScheme.primary,
             fontSize: 18,

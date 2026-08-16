@@ -38,4 +38,17 @@ export class CreateBookingDto {
   @Min(0)
   @IsOptional()
   distanceKm?: number;
+
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
+
+  @IsOptional()
+  driverIncluded?: boolean;
+
+  @IsOptional()
+  childSeat?: boolean;
+
+  @IsOptional()
+  extraLuggage?: boolean;
 }

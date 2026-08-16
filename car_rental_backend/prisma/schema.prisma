@@ -129,6 +129,11 @@ enum DamageClaimStatus {
   SETTLED
 }
 
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
 model User {
   id               String            @id @default(cuid())
   name             String
@@ -152,6 +157,7 @@ model User {
   disputeEvidences DisputeEvidence[]
   inspections      Inspection[]
   handoverOtpsReceived HandoverOtp[]
+  couponUsages     CouponUsage[]
 
   @@index([phone])
   @@index([role])
@@ -270,6 +276,13 @@ model Booking {
   cancelledBy        String?
   disputeFlag        Boolean       @default(false)
   disputeNote        String?
+  driverIncluded     Boolean       @default(true)
+  childSeat          Boolean       @default(false)
+  extraLuggage       Boolean       @default(false)
+  couponId           String?
+  coupon             Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode         String?
+  discountAmount     Decimal?      @db.Decimal(10, 2)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   review             Review?
@@ -279,11 +292,13 @@ model Booking {
   handoverOtps       HandoverOtp[]
   securityDeposit    SecurityDeposit?
   damageClaims       DamageClaim[]
+  couponUsage        CouponUsage?
 
   @@index([customerId])
   @@index([vendorId])
   @@index([carId])
   @@index([status])
+  @@index([carId, startDate, endDate, status])
 }
 
 model Review {
@@ -399,6 +414,49 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model Coupon {
+  id                String        @id @default(cuid())
+  code              String        @unique
+  description       String?
+  discountType      DiscountType  @default(PERCENTAGE)
+  discountValue     Decimal       @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?      @db.Decimal(10, 2)
+  minBookingAmount  Decimal?      @db.Decimal(10, 2)
+  startDate         DateTime?
+  expiresAt         DateTime?
+  isActive          Boolean       @default(true)
+  globalUsageLimit  Int?
+  perCustomerLimit  Int?          @default(1)
+  firstBookingOnly  Boolean       @default(false)
+  city              String?
+  tripType          TripType?
+  carCategory       CarCategory?
+  usageCount        Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  bookings          Booking[]
+  usages            CouponUsage[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model CouponUsage {
+  id             String   @id @default(cuid())
+  couponId       String
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId      String   @unique
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  discountAmount Decimal  @db.Decimal(10, 2)
+  usedAt         DateTime @default(now())
+
+  @@index([couponId])
+  @@index([customerId])
+  @@index([bookingId])
 }
 
 model OtpRequest {

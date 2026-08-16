@@ -11,6 +11,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
 import { AuditLogService } from '../admin/audit-log.service';
 import { HandoverOtpService } from './handover-otp.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { TripType, VerificationStatus, CarCategory, FuelType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -128,6 +129,9 @@ describe('Trip-Type Platform Availability & Security Gate Tests', () => {
       log: jest.fn().mockResolvedValue(undefined),
     };
     const mockHandoverOtp = {};
+    const mockCouponsService = {
+      validateCoupon: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -142,6 +146,7 @@ describe('Trip-Type Platform Availability & Security Gate Tests', () => {
         { provide: CancellationPolicyService, useValue: mockCancellationPolicy },
         { provide: AuditLogService, useValue: mockAuditLog },
         { provide: HandoverOtpService, useValue: mockHandoverOtp },
+        { provide: CouponsService, useValue: mockCouponsService },
       ],
     }).compile();
 

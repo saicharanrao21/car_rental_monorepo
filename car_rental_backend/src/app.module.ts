@@ -23,8 +23,10 @@ import { DisputesModule } from './disputes/disputes.module';
 import { SupportedCitiesModule } from './supported-cities/supported-cities.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { DamageClaimsModule } from './damage-claims/damage-claims.module';
+import { CouponsModule } from './coupons/coupons.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
+import { ScheduleModule } from '@nestjs/schedule';
 import { validateEnv } from './common/env.validation';
 
 @Module({
@@ -33,6 +35,7 @@ import { validateEnv } from './common/env.validation';
       isGlobal: true,
       validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     RedisModule,
     AuthModule,
@@ -54,6 +57,7 @@ import { validateEnv } from './common/env.validation';
     SupportedCitiesModule,
     DepositsModule,
     DamageClaimsModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

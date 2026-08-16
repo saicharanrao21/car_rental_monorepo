@@ -75,6 +75,34 @@ class MockBookingRepositoryImpl with LatencySimulator implements BookingReposito
   }
 
   @override
+  Future<CouponValidationResultModel> validateCoupon({
+    required String code,
+    String? carId,
+    double? subtotal,
+    String? city,
+    String? tripType,
+    String? carCategory,
+  }) async {
+    await simulateLatency();
+    final upperCode = code.toUpperCase();
+    if (upperCode == 'SAVE20' || upperCode == 'PROMO20') {
+      final sub = subtotal ?? 1000;
+      final discount = sub * 0.20;
+      return CouponValidationResultModel(
+        valid: true,
+        couponId: 'mock-coupon-1',
+        code: upperCode,
+        description: '20% OFF',
+        discountType: 'PERCENTAGE',
+        discountValue: 20,
+        discountAmount: discount,
+        finalPayableAmount: max(0.0, sub - discount),
+      );
+    }
+    throw Exception('Invalid coupon code.');
+  }
+
+  @override
   CommissionConfigModel getCommissionConfig({
     required String city,
     required String carCategory,
