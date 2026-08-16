@@ -20,6 +20,8 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { InvoicesService } from '../invoices/invoices.service';
+import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class PaymentsService {
@@ -34,6 +36,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    @Optional() private readonly invoicesService?: InvoicesService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -391,6 +394,64 @@ export class PaymentsService {
       });
 
       if (b && b.status === BookingStatus.PENDING) {
+        // Process coupon redemption if couponId exists
+        if (b.couponId) {
+          const existingUsage = await tx.couponUsage.findUnique({
+            where: { bookingId: b.id },
+          });
+
+          if (!existingUsage) {
+            // Acquire pessimistic row-level lock on Coupon record to serialize concurrent payment verifications
+            await tx.$queryRaw`
+              SELECT id FROM "Coupon" WHERE id = ${b.couponId} FOR UPDATE
+            `;
+
+            const couponRecord = await tx.coupon.findUnique({
+              where: { id: b.couponId },
+            });
+
+            if (!couponRecord || !couponRecord.isActive) {
+              throw new BadRequestException('Coupon is no longer available.');
+            }
+
+            if (
+              couponRecord.globalUsageLimit !== null &&
+              couponRecord.globalUsageLimit !== undefined &&
+              couponRecord.usageCount >= couponRecord.globalUsageLimit
+            ) {
+              throw new BadRequestException('Coupon global usage limit reached.');
+            }
+
+            const perCustomerLimit = couponRecord.perCustomerLimit ?? 1;
+            const customerUsageCount = await tx.couponUsage.count({
+              where: {
+                couponId: b.couponId,
+                customerId: b.customerId,
+              },
+            });
+
+            if (customerUsageCount >= perCustomerLimit) {
+              throw new BadRequestException(
+                'You have reached the maximum redemptions for this coupon.',
+              );
+            }
+
+            await tx.coupon.update({
+              where: { id: b.couponId },
+              data: { usageCount: { increment: 1 } },
+            });
+
+            await tx.couponUsage.create({
+              data: {
+                couponId: b.couponId,
+                customerId: b.customerId,
+                bookingId: b.id,
+                discountAmount: b.discountAmount!,
+              },
+            });
+          }
+        }
+
         const confirmedBooking = await tx.booking.update({
           where: { id: b.id },
           data: { status: BookingStatus.CONFIRMED },
@@ -398,6 +459,17 @@ export class PaymentsService {
         this.logger.log(
           `Booking ${b.id} status updated to CONFIRMED via server-side payment verification`,
         );
+
+        if (this.invoicesService) {
+          try {
+            await this.invoicesService.generateInvoiceForBooking(b.id, tx);
+          } catch (invErr: any) {
+            this.logger.warn(
+              `Failed to generate invoice during payment verification: ${invErr.message}`,
+            );
+          }
+        }
+
         return confirmedBooking;
       }
       return b;
@@ -782,20 +854,16 @@ export class PaymentsService {
       try {
         const refundResponse: any = await (
           this.razorpay!.payments as any
-        ).refund(
-          payment.razorpayPaymentId,
-          {
-            amount: refundAmountInPaise,
-            notes: {
-              bookingId,
-              reason: reason || 'Booking cancelled',
-              cancellationTier: cancellationTier || 'N/A',
-            },
+        ).refund(payment.razorpayPaymentId, {
+          amount: refundAmountInPaise,
+          speed: 'normal',
+          notes: {
+            bookingId,
+            reason: reason || 'Booking cancelled',
+            cancellationTier: cancellationTier || 'N/A',
           },
-          {
-            'X-Refund-Idempotency': idempotencyKey,
-          },
-        );
+          receipt: idempotencyKey,
+        });
 
         refundId = refundResponse.id;
         if (refundResponse.status === 'pending') {
@@ -806,10 +874,42 @@ export class PaymentsService {
           initialRefundStatus = RefundStatus.PROCESSED;
         }
       } catch (err: any) {
-        this.logger.error('Razorpay refund API call failed:', err);
-        throw new BadRequestException(
-          `Failed to initiate refund with Razorpay: ${err.message || err}`,
-        );
+        const errorDesc = err?.error?.description || err?.message || String(err);
+        const isAlreadyRefunded =
+          typeof errorDesc === 'string' &&
+          errorDesc.toLowerCase().includes('already');
+
+        if (isAlreadyRefunded) {
+          this.logger.warn(
+            `Payment ${payment.razorpayPaymentId} was already refunded at Razorpay. Fetching existing refund details for idempotent recovery...`,
+          );
+          const refundsList = await (
+            this.razorpay!.payments as any
+          ).fetchMultipleRefund(payment.razorpayPaymentId);
+          if (refundsList && refundsList.items && refundsList.items.length > 0) {
+            const existingRefund = refundsList.items[0];
+            refundId = existingRefund.id;
+            initialRefundStatus =
+              existingRefund.status === 'pending'
+                ? RefundStatus.PENDING
+                : existingRefund.status === 'failed'
+                  ? RefundStatus.FAILED
+                  : RefundStatus.PROCESSED;
+            this.logger.log(
+              `Recovered existing Razorpay refund ${refundId} (status: ${initialRefundStatus}) for booking ${bookingId}`,
+            );
+          } else {
+            this.logger.error('Razorpay refund API call failed:', err);
+            throw new BadRequestException(
+              `Failed to initiate refund with Razorpay: ${errorDesc}`,
+            );
+          }
+        } else {
+          this.logger.error('Razorpay refund API call failed:', err);
+          throw new BadRequestException(
+            `Failed to initiate refund with Razorpay: ${errorDesc}`,
+          );
+        }
       }
     }
 
@@ -859,8 +959,19 @@ export class PaymentsService {
       );
     }
 
-    return this.prisma.payment.findUnique({
+    const payment = await this.prisma.payment.findUnique({
       where: { bookingId },
     });
+
+    if (!payment) {
+      return null;
+    }
+
+    return {
+      ...payment,
+      keyId: this.keyId,
+      currency: 'INR',
+      amountInPaise: Math.round(payment.amount.toNumber() * 100),
+    };
   }
 }

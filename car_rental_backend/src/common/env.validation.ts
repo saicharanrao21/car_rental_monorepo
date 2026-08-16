@@ -112,6 +112,34 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   BANK_ENCRYPTION_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  RECONCILIATION_ENABLED?: string = 'true';
+
+  @IsNumber()
+  @IsOptional()
+  RECONCILIATION_INTERVAL_MINUTES?: number = 15;
+
+  @IsNumber()
+  @IsOptional()
+  RECONCILIATION_LOOKBACK_MINUTES?: number = 30;
+
+  @IsNumber()
+  @IsOptional()
+  STALE_PAYMENT_ORDER_HOURS?: number = 24;
+
+  @IsString()
+  @IsOptional()
+  SENTRY_DSN?: string;
+
+  @IsString()
+  @IsOptional()
+  SENTRY_ENVIRONMENT?: string;
+
+  @IsString()
+  @IsOptional()
+  SENTRY_RELEASE?: string;
 }
 
 const KNOWN_PLACEHOLDER_SECRETS = new Set([

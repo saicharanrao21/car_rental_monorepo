@@ -29,6 +29,10 @@ import { redactVendor } from '../common/vendor-redactor.util';
 import { AuditLogService } from '../admin/audit-log.service';
 import { HandoverOtpService } from './handover-otp.service';
 import { CouponsService } from '../coupons/coupons.service';
+import { DepositRulesService } from '../deposits/deposit-rules.service';
+import { InvoicesService } from '../invoices/invoices.service';
+import { Optional } from '@nestjs/common';
+import { SecurityDepositStatus } from '@prisma/client';
 
 @Injectable()
 export class BookingsService {
@@ -45,6 +49,8 @@ export class BookingsService {
     private readonly auditLogService: AuditLogService,
     private readonly handoverOtpService: HandoverOtpService,
     private readonly couponsService: CouponsService,
+    @Optional() private readonly depositRulesService?: DepositRulesService,
+    @Optional() private readonly invoicesService?: InvoicesService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -166,9 +172,23 @@ export class BookingsService {
         car.monthlyDiscountPercent || 0,
       );
 
+      const deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
+      const pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
+      const totalDeliveryAddons = deliveryFee.add(pickupFee);
+
+      const baseTotalDecimal =
+        fareDetails.total instanceof Prisma.Decimal
+          ? fareDetails.total
+          : new Prisma.Decimal(Number(fareDetails.total || 0));
+
+      const baseNetToVendorDecimal =
+        fareDetails.netToVendor instanceof Prisma.Decimal
+          ? fareDetails.netToVendor
+          : new Prisma.Decimal(Number(fareDetails.netToVendor || 0));
+
       // Validate coupon if code provided
       let validatedCoupon: any = null;
-      let finalTotalFare = fareDetails.total;
+      let finalTotalFare = baseTotalDecimal.add(totalDeliveryAddons);
       let discountAmountDecimal: Prisma.Decimal | null = null;
 
       if (dto.couponCode) {
@@ -182,8 +202,17 @@ export class BookingsService {
         });
 
         discountAmountDecimal = new Prisma.Decimal(validatedCoupon.discountAmount);
-        const netPayable = Math.max(0, Number(fareDetails.total) - validatedCoupon.discountAmount);
+        const netPayable = Math.max(0, Number(fareDetails.total) - validatedCoupon.discountAmount) + totalDeliveryAddons.toNumber();
         finalTotalFare = new Prisma.Decimal(netPayable);
+      }
+
+      // Calculate authoritative dynamic security deposit requirement
+      let depositAmount = 5000;
+      if (this.depositRulesService) {
+        depositAmount = await this.depositRulesService.getDepositAmount(
+          car.type,
+          car.vendor?.city,
+        );
       }
 
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)
@@ -213,28 +242,7 @@ export class BookingsService {
             );
           }
 
-          // If coupon is used, increment global usage count atomically
-          if (validatedCoupon) {
-            const couponRecord = await tx.coupon.findUnique({
-              where: { id: validatedCoupon.couponId },
-            });
-            if (!couponRecord || !couponRecord.isActive) {
-              throw new BadRequestException('Coupon is no longer available.');
-            }
-            if (
-              couponRecord.globalUsageLimit !== null &&
-              couponRecord.usageCount >= couponRecord.globalUsageLimit
-            ) {
-              throw new BadRequestException('Coupon global usage limit reached.');
-            }
-
-            await tx.coupon.update({
-              where: { id: validatedCoupon.couponId },
-              data: { usageCount: { increment: 1 } },
-            });
-          }
-
-          // 5. Create booking row
+          // 5. Create booking row with dynamic security deposit and delivery options
           const newBooking = await tx.booking.create({
             data: {
               customerId,
@@ -250,14 +258,29 @@ export class BookingsService {
               platformFee: fareDetails.platformFee,
               gstAmount: fareDetails.gst,
               totalFare: finalTotalFare,
-              netToVendor: fareDetails.netToVendor,
+              netToVendor: baseNetToVendorDecimal.add(totalDeliveryAddons),
               driverIncluded: dto.driverIncluded ?? true,
               childSeat: dto.childSeat ?? false,
               extraLuggage: dto.extraLuggage ?? false,
+              deliveryType: dto.deliveryType ?? 'NONE',
+              deliveryAddress: dto.deliveryAddress,
+              deliveryLatitude: dto.deliveryLatitude,
+              deliveryLongitude: dto.deliveryLongitude,
+              deliveryFee,
+              pickupAddress: dto.pickupAddress,
+              pickupLatitude: dto.pickupLatitude,
+              pickupLongitude: dto.pickupLongitude,
+              pickupFee,
               couponId: validatedCoupon ? validatedCoupon.couponId : null,
               couponCode: validatedCoupon ? validatedCoupon.code : null,
               discountAmount: discountAmountDecimal,
               status: BookingStatus.PENDING,
+              securityDeposit: {
+                create: {
+                  amount: new Prisma.Decimal(depositAmount),
+                  status: SecurityDepositStatus.REQUIRED,
+                },
+              },
             },
             include: {
               car: true,
@@ -269,20 +292,9 @@ export class BookingsService {
                   email: true,
                 },
               },
+              securityDeposit: true,
             },
           });
-
-          // Record CouponUsage row transactionally
-          if (validatedCoupon) {
-            await tx.couponUsage.create({
-              data: {
-                couponId: validatedCoupon.couponId,
-                customerId,
-                bookingId: newBooking.id,
-                discountAmount: discountAmountDecimal!,
-              },
-            });
-          }
 
           return newBooking;
         },
@@ -950,6 +962,61 @@ export class BookingsService {
     });
   }
 
+  validateStatusTransition(
+    currentStatus: BookingStatus,
+    targetStatus: BookingStatus,
+  ): void {
+    if (currentStatus === targetStatus) {
+      return;
+    }
+
+    const allowedTransitions: Record<BookingStatus, BookingStatus[]> = {
+      [BookingStatus.PENDING]: [
+        BookingStatus.CONFIRMED,
+        BookingStatus.CANCELLED,
+        BookingStatus.EXPIRED,
+      ],
+      [BookingStatus.CONFIRMED]: [
+        BookingStatus.HANDOVER_READY,
+        BookingStatus.ONGOING,
+        BookingStatus.CANCELLED,
+        BookingStatus.REFUND_PENDING,
+      ],
+      [BookingStatus.HANDOVER_READY]: [
+        BookingStatus.ONGOING,
+        BookingStatus.CANCELLED,
+      ],
+      [BookingStatus.ONGOING]: [
+        BookingStatus.RETURN_PENDING,
+        BookingStatus.COMPLETED,
+      ],
+      [BookingStatus.RETURN_PENDING]: [
+        BookingStatus.COMPLETED,
+        BookingStatus.DISPUTED,
+      ],
+      [BookingStatus.REFUND_PENDING]: [
+        BookingStatus.REFUNDED,
+        BookingStatus.DISPUTED,
+      ],
+      [BookingStatus.DISPUTED]: [
+        BookingStatus.COMPLETED,
+        BookingStatus.REFUND_PENDING,
+        BookingStatus.REFUNDED,
+      ],
+      [BookingStatus.COMPLETED]: [],
+      [BookingStatus.REFUNDED]: [],
+      [BookingStatus.CANCELLED]: [],
+      [BookingStatus.EXPIRED]: [],
+    };
+
+    const validTargets = allowedTransitions[currentStatus] || [];
+    if (!validTargets.includes(targetStatus)) {
+      throw new BadRequestException(
+        `Invalid booking status transition from ${currentStatus} to ${targetStatus}.`,
+      );
+    }
+  }
+
   private getAllowedNextStates(
     current: BookingStatus,
     role: Role,
@@ -969,8 +1036,12 @@ export class BookingsService {
         case BookingStatus.PENDING:
           return [BookingStatus.CONFIRMED, BookingStatus.CANCELLED];
         case BookingStatus.CONFIRMED:
-          return [BookingStatus.ONGOING];
+          return [BookingStatus.HANDOVER_READY, BookingStatus.ONGOING, BookingStatus.CANCELLED];
+        case BookingStatus.HANDOVER_READY:
+          return [BookingStatus.ONGOING, BookingStatus.CANCELLED];
         case BookingStatus.ONGOING:
+          return [BookingStatus.RETURN_PENDING, BookingStatus.COMPLETED];
+        case BookingStatus.RETURN_PENDING:
           return [BookingStatus.COMPLETED];
         default:
           return [];

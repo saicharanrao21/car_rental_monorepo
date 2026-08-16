@@ -57,11 +57,13 @@ class _AppDateRangePickerState extends State<AppDateRangePicker> {
   }
 
   Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final pickedRange = await showDateRangePicker(
       context: context,
       initialDateRange: _selectedRange,
-      firstDate: widget.firstDate ?? DateTime.now(),
-      lastDate: widget.lastDate ?? DateTime.now().add(const Duration(days: 365)),
+      firstDate: widget.firstDate ?? today.subtract(const Duration(days: 1)),
+      lastDate: widget.lastDate ?? today.add(const Duration(days: 365)),
       locale: const Locale('en', 'IN'),
       builder: (context, child) {
         return Theme(

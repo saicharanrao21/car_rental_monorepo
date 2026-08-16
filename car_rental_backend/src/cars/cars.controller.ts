@@ -38,6 +38,14 @@ export class CarsController {
     return this.carsService.findOne(id, authUser);
   }
 
+  @Get('cars/:id/availability-calendar')
+  async getAvailabilityCalendar(
+    @Param('id') id: string,
+    @Query('month') month?: string,
+  ) {
+    return this.carsService.getAvailabilityCalendar(id, month);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   @Get('admin/cars')

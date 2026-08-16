@@ -542,4 +542,77 @@ export class CarsService {
       data: { isAvailable: false },
     });
   }
+
+  async getAvailabilityCalendar(carId: string, monthStr?: string) {
+    const car = await this.prisma.car.findUnique({
+      where: { id: carId },
+    });
+
+    if (!car) {
+      throw new NotFoundException('Car not found');
+    }
+
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth();
+
+    if (monthStr && /^\d{4}-\d{2}$/.test(monthStr)) {
+      const [y, m] = monthStr.split('-').map(Number);
+      year = y;
+      month = m - 1;
+    }
+
+    const startDate = new Date(year, month, 1, 0, 0, 0, 0);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const activeBookings = await this.prisma.booking.findMany({
+      where: {
+        carId,
+        status: { in: ['PENDING', 'CONFIRMED', 'HANDOVER_READY', 'ONGOING', 'RETURN_PENDING'] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+      },
+    });
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const calendar: Array<{ date: string; status: string }> = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayDate = new Date(year, month, day, 12, 0, 0, 0);
+      const dateIso = dayDate.toISOString().split('T')[0];
+
+      const isBlocked = car.blockedDates.some(
+        (bd) => bd.toISOString().split('T')[0] === dateIso,
+      );
+
+      if (isBlocked) {
+        calendar.push({ date: dateIso, status: 'BLOCKED' });
+        continue;
+      }
+
+      const isBooked = activeBookings.some((b) => {
+        const bStart = new Date(b.startDate);
+        const bEnd = new Date(b.endDate);
+        return dayDate >= bStart && dayDate <= bEnd;
+      });
+
+      if (isBooked) {
+        calendar.push({ date: dateIso, status: 'BOOKED' });
+      } else {
+        calendar.push({ date: dateIso, status: 'AVAILABLE' });
+      }
+    }
+
+    return {
+      carId,
+      month: `${year}-${String(month + 1).padStart(2, '0')}`,
+      calendar,
+    };
+  }
 }

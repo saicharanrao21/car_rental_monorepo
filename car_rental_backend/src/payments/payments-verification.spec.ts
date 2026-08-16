@@ -49,9 +49,19 @@ describe('PaymentsService — Phase 3A Payment Verification & Integrity Tests', 
         update: jest.fn(),
         delete: jest.fn(),
       },
+      coupon: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'coupon-1', isActive: true, usageCount: 0, globalUsageLimit: 10, perCustomerLimit: 1 }),
+        update: jest.fn().mockResolvedValue({ id: 'coupon-1', usageCount: 1 }),
+      },
+      couponUsage: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({ id: 'usage-1' }),
+      },
       $transaction: jest.fn(async (callback) => {
         return callback(mockPrisma);
       }),
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'coupon-1' }]),
     };
 
     mockConfigService = {

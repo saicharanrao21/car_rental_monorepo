@@ -8,22 +8,37 @@ import { CommonModule } from '../common/common.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { CouponsModule } from '../coupons/coupons.module';
+import { DepositsModule } from '../deposits/deposits.module';
+import { InvoicesModule } from '../invoices/invoices.module';
+
+import { TripExtensionsService } from './trip-extensions.service';
+import { TripExtensionsController } from './trip-extensions.controller';
 
 @Module({
-  imports: [CommonModule, PaymentsModule, UploadsModule, CouponsModule],
-  controllers: [BookingsController],
+  imports: [
+    CommonModule,
+    PaymentsModule,
+    UploadsModule,
+    CouponsModule,
+    DepositsModule,
+    InvoicesModule,
+  ],
+  controllers: [BookingsController, TripExtensionsController],
   providers: [
     BookingsService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,
+    TripExtensionsService,
   ],
   exports: [
     BookingsService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,
+    TripExtensionsService,
   ],
 })
 export class BookingsModule {}
+
 

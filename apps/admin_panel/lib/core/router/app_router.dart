@@ -11,6 +11,7 @@ import '../../features/bookings/presentation/pages/admin_booking_management_page
 import '../../features/fleet/presentation/pages/admin_fleet_overview_page.dart';
 import '../../features/commission/presentation/pages/commission_settings_page.dart';
 import '../../features/revenue/presentation/pages/revenue_reports_page.dart';
+import '../../features/revenue/presentation/pages/admin_invoices_page.dart';
 import '../../features/disputes/presentation/pages/admin_disputes_page.dart';
 import '../../features/audit_log/presentation/pages/admin_audit_log_page.dart';
 import '../../features/notifications/presentation/pages/push_notifications_page.dart';
@@ -84,6 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/revenue',
             builder: (context, state) => const RevenueReportsPage(),
+          ),
+          GoRoute(
+            path: '/invoices',
+            builder: (context, state) => const AdminInvoicesPage(),
           ),
           GoRoute(
             path: '/disputes',

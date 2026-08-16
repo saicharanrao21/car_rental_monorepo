@@ -23,6 +23,19 @@ class BookingDraft {
   final bool driverIncluded;
   final bool childSeat;
   final bool extraLuggage;
+  // Delivery Add-ons (Phase 4 Feature 26)
+  final bool hasDoorstepDelivery;
+  final String deliveryAddress;
+  final double deliveryFee;
+  final bool hasDoorstepPickup;
+  final String returnPickupAddress;
+  final double returnPickupFee;
+  // Additional Driver Add-on (Phase 4 Feature 29)
+  final bool hasAdditionalDriver;
+  final String additionalDriverName;
+  final String additionalDriverPhone;
+  final String additionalDriverLicence;
+  final double additionalDriverFee;
   // Contact
   final String contactName;
   final String contactPhone;
@@ -51,6 +64,17 @@ class BookingDraft {
     this.driverIncluded = true,
     this.childSeat = false,
     this.extraLuggage = false,
+    this.hasDoorstepDelivery = false,
+    this.deliveryAddress = '',
+    this.deliveryFee = 0.0,
+    this.hasDoorstepPickup = false,
+    this.returnPickupAddress = '',
+    this.returnPickupFee = 0.0,
+    this.hasAdditionalDriver = false,
+    this.additionalDriverName = '',
+    this.additionalDriverPhone = '',
+    this.additionalDriverLicence = '',
+    this.additionalDriverFee = 0.0,
     this.contactName = '',
     this.contactPhone = '',
     this.baseFare = 0,
@@ -75,6 +99,9 @@ class BookingDraft {
     DateTime? startDate, DateTime? endDate,
     int? estimatedDistanceKm,
     bool? driverIncluded, bool? childSeat, bool? extraLuggage,
+    bool? hasDoorstepDelivery, String? deliveryAddress, double? deliveryFee,
+    bool? hasDoorstepPickup, String? returnPickupAddress, double? returnPickupFee,
+    bool? hasAdditionalDriver, String? additionalDriverName, String? additionalDriverPhone, String? additionalDriverLicence, double? additionalDriverFee,
     String? contactName, String? contactPhone,
     double? baseFare, double? platformFee, double? gst,
     double? totalFare, double? netToVendor, double? commissionPercent,
@@ -93,6 +120,17 @@ class BookingDraft {
       driverIncluded: driverIncluded ?? this.driverIncluded,
       childSeat: childSeat ?? this.childSeat,
       extraLuggage: extraLuggage ?? this.extraLuggage,
+      hasDoorstepDelivery: hasDoorstepDelivery ?? this.hasDoorstepDelivery,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      deliveryFee: deliveryFee ?? this.deliveryFee,
+      hasDoorstepPickup: hasDoorstepPickup ?? this.hasDoorstepPickup,
+      returnPickupAddress: returnPickupAddress ?? this.returnPickupAddress,
+      returnPickupFee: returnPickupFee ?? this.returnPickupFee,
+      hasAdditionalDriver: hasAdditionalDriver ?? this.hasAdditionalDriver,
+      additionalDriverName: additionalDriverName ?? this.additionalDriverName,
+      additionalDriverPhone: additionalDriverPhone ?? this.additionalDriverPhone,
+      additionalDriverLicence: additionalDriverLicence ?? this.additionalDriverLicence,
+      additionalDriverFee: additionalDriverFee ?? this.additionalDriverFee,
       contactName: contactName ?? this.contactName,
       contactPhone: contactPhone ?? this.contactPhone,
       baseFare: baseFare ?? this.baseFare,

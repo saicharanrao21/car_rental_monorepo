@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/car_detail_providers.dart';
+import '../widgets/availability_calendar_widget.dart';
 import '../../../wishlist/wishlist_providers.dart';
 import '../../../home/recently_viewed_providers.dart';
 import '../../../../core/providers/api_providers.dart';
@@ -278,6 +279,13 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                               ],
                             ),
                           ),
+                          const Gap(24),
+                          const Text(
+                            'Vehicle Availability',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const Gap(12),
+                          AvailabilityCalendarWidget(carId: car.id),
                           const Gap(24),
                           const Text(
                             'Reviews',

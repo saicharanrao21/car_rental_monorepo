@@ -7,7 +7,7 @@ import {
   IsNumber,
   Min,
 } from 'class-validator';
-import { TripType } from '@prisma/client';
+import { TripType, DeliveryType } from '@prisma/client';
 
 export class CreateBookingDto {
   @IsString()
@@ -51,4 +51,42 @@ export class CreateBookingDto {
 
   @IsOptional()
   extraLuggage?: boolean;
+
+  @IsEnum(DeliveryType)
+  @IsOptional()
+  deliveryType?: DeliveryType;
+
+  @IsString()
+  @IsOptional()
+  deliveryAddress?: string;
+
+  @IsNumber()
+  @IsOptional()
+  deliveryLatitude?: number;
+
+  @IsNumber()
+  @IsOptional()
+  deliveryLongitude?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  deliveryFee?: number;
+
+  @IsString()
+  @IsOptional()
+  pickupAddress?: string;
+
+  @IsNumber()
+  @IsOptional()
+  pickupLatitude?: number;
+
+  @IsNumber()
+  @IsOptional()
+  pickupLongitude?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  pickupFee?: number;
 }

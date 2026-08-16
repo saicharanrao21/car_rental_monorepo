@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../../../core/providers/session_provider.dart';
+import 'kyc_upload_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -197,6 +198,17 @@ class ProfilePage extends ConsumerWidget {
               icon: Icons.person_outline,
               title: 'Edit Profile',
               onTap: () => _showEditProfileBottomSheet(context, ref, user.name, user.email),
+            ),
+            _menuTile(
+              context,
+              icon: Icons.badge_outlined,
+              title: 'Driving Licence (KYC)',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const KycUploadPage()),
+                );
+              },
             ),
             _menuTile(
               context,

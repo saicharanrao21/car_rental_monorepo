@@ -61,7 +61,7 @@ export class BookingLockService {
    */
   async acquireCancellationLock(
     bookingId: string,
-    ttlMs: number = 10000,
+    ttlMs: number = 20000,
   ): Promise<string> {
     const key = this.getCancellationLockKey(bookingId);
     const token = randomUUID();

@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
 import { AuditLogService } from '../admin/audit-log.service';
 import { HandoverOtpService } from './handover-otp.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { BookingStatus, PaymentStatus, Role } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 
@@ -82,6 +83,7 @@ describe('Phase 4D: Payment-Gated Booking Confirmation Security', () => {
         { provide: CancellationPolicyService, useValue: {} },
         { provide: AuditLogService, useValue: auditLogService },
         { provide: HandoverOtpService, useValue: {} },
+        { provide: CouponsService, useValue: { validateCoupon: jest.fn() } },
       ],
     }).compile();
 

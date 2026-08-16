@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CancellationPolicyService } from '../bookings/cancellation-policy.service';
 import { AuditLogService } from '../admin/audit-log.service';
 import { HandoverOtpService } from '../bookings/handover-otp.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { VerificationStatus, TripType, Prisma } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 
@@ -71,6 +72,7 @@ describe('Phase 4E: Verified Vendor Fleet Filtering', () => {
         { provide: CancellationPolicyService, useValue: {} },
         { provide: AuditLogService, useValue: {} },
         { provide: HandoverOtpService, useValue: {} },
+        { provide: CouponsService, useValue: { validateCoupon: jest.fn() } },
       ],
     }).compile();
 

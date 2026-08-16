@@ -33,10 +33,18 @@ Thumbs.db
 car_rental_backend/.git
 
 
-# Temporary / Debug Scripts (Standing Rule)
+# Temporary / Debug Scripts & Scratch (Standing Rule)
 test_*.js
 check_*.js
 *_conn.js
 override_*.js
 query_*.js
 api_test_*.js
+scratch/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.log
+coverage/
+dist/

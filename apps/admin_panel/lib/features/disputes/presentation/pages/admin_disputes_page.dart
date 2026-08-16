@@ -4,6 +4,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
+import 'package:models/models.dart';
 import '../providers/admin_disputes_providers.dart';
 
 class AdminDisputesPage extends ConsumerStatefulWidget {

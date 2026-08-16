@@ -11,6 +11,7 @@ import { FareCalculatorService } from '../common/fare-calculator.service';
 import { PaymentsService } from '../payments/payments.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
 import { AuditLogService } from '../admin/audit-log.service';
+import { CouponsService } from '../coupons/coupons.service';
 import {
   BookingStatus,
   InspectionType,
@@ -120,6 +121,7 @@ describe('Phase 4E: Vehicle Handover & Inspection Integrity', () => {
         { provide: PaymentsService, useValue: { refund: jest.fn() } },
         { provide: CancellationPolicyService, useValue: {} },
         { provide: AuditLogService, useValue: auditLogService },
+        { provide: CouponsService, useValue: { validateCoupon: jest.fn() } },
       ],
     }).compile();
 

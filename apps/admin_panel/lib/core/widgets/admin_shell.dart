@@ -21,6 +21,7 @@ class AdminShell extends ConsumerWidget {
     (label: 'Fleet', icon: Icons.directions_car_outlined, route: '/fleet'),
     (label: 'Commission', icon: Icons.percent_outlined, route: '/commission'),
     (label: 'Revenue', icon: Icons.account_balance_wallet_outlined, route: '/revenue'),
+    (label: 'Invoices', icon: Icons.receipt_long_outlined, route: '/invoices'),
     (label: 'Disputes', icon: Icons.gavel_outlined, route: '/disputes'),
     (label: 'Audit Log', icon: Icons.history_outlined, route: '/audit-log'),
     (label: 'Notifications', icon: Icons.notifications_none_outlined, route: '/notifications'),

@@ -24,6 +24,8 @@ import { SupportedCitiesModule } from './supported-cities/supported-cities.modul
 import { DepositsModule } from './deposits/deposits.module';
 import { DamageClaimsModule } from './damage-claims/damage-claims.module';
 import { CouponsModule } from './coupons/coupons.module';
+import { KycModule } from './kyc/kyc.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -58,6 +60,8 @@ import { validateEnv } from './common/env.validation';
     DepositsModule,
     DamageClaimsModule,
     CouponsModule,
+    KycModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

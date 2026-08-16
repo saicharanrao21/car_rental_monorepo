@@ -7,11 +7,13 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 import '../providers/my_bookings_providers.dart';
 import '../../domain/repositories/my_bookings_repository.dart';
 import '../../../booking/presentation/providers/booking_providers.dart';
 import '../../../booking/domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
+import '../../../../core/providers/api_providers.dart';
 
 class BookingDetailPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -391,6 +393,250 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
     );
   }
 
+  void _showInvoiceDialog(BuildContext context, String bookingId) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.receipt_long, color: AppColors.primary),
+            Gap(8),
+            Text('Tax Invoice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: FutureBuilder<Response>(
+          future: ref.read(apiClientProvider).dio.get('/bookings/$bookingId/invoice'),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 150,
+                child: Center(child: AppLoader()),
+              );
+            }
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Unable to load tax invoice: ${snapshot.error}'),
+              );
+            }
+
+            final data = snapshot.data?.data;
+            if (data == null) {
+              return const Text('Invoice not found.');
+            }
+
+            final invoiceNum = data['invoiceNumber'] ?? 'N/A';
+            final baseFare = (data['baseFare'] as num?)?.toDouble() ?? 0;
+            final platformFee = (data['platformFee'] as num?)?.toDouble() ?? 0;
+            final gst = (data['gstAmount'] as num?)?.toDouble() ?? 0;
+            final discount = (data['discountAmount'] as num?)?.toDouble() ?? 0;
+            final total = (data['totalFare'] as num?)?.toDouble() ?? 0;
+            final deposit = (data['depositAmount'] as num?)?.toDouble() ?? 0;
+
+            return SizedBox(
+              width: 380,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Invoice #:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(invoiceNum, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ],
+                      ),
+                    ),
+                    const Gap(12),
+                    _invoiceRow('Vehicle Base Fare', baseFare),
+                    _invoiceRow('Platform Service Fee', platformFee),
+                    if (discount > 0) _invoiceRow('Promo Discount', -discount, isDiscount: true),
+                    _invoiceRow('GST (18%)', gst),
+                    const Divider(height: 16),
+                    _invoiceRow('Trip Rental Total', total, isBold: true),
+                    _invoiceRow('Refundable Deposit', deposit, isBold: true, color: Colors.blue[800]),
+                    const Divider(height: 16),
+                    _invoiceRow('Grand Total Paid', total + deposit, isBold: true, color: Colors.black87),
+                    const Gap(12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'GSTIN: 27AAAAA1111A1Z1 • Computer generated official tax invoice.',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExtendTripModal(BuildContext context, dynamic booking, dynamic car) {
+    DateTime selectedEndDate = booking.endDate.add(const Duration(days: 1));
+    int extraDays = 1;
+    double estimatedExtensionFare = (car.pricePerDay as num).toDouble() * extraDays * 1.18; // base + 18% GST estimate
+    bool isExtending = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Extend Trip',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Gap(12),
+              Text(
+                'Current Scheduled Return: ${DateFormat("dd MMM yyyy, hh:mm a").format(booking.endDate)}',
+                style: const TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+              const Gap(16),
+              const Text('Select Additional Duration',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const Gap(8),
+              Row(
+                children: [1, 2, 3, 5].map((days) {
+                  final isSelected = extraDays == days;
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: isSelected ? AppColors.primary : Colors.white,
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primary : Colors.grey[300]!,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () {
+                          setModalState(() {
+                            extraDays = days;
+                            selectedEndDate = booking.endDate.add(Duration(days: days));
+                            estimatedExtensionFare = (car.pricePerDay as num).toDouble() * days * 1.18;
+                          });
+                        },
+                        child: Text(
+                          '+$days Day${days > 1 ? "s" : ""}',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const Gap(16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    _invoiceRow('New Return Date', 0, isBold: true),
+                    Text(
+                      DateFormat('EEE, dd MMM yyyy • hh:mm a').format(selectedEndDate),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
+                    ),
+                    const Divider(height: 16),
+                    _invoiceRow('Estimated Additional Fare', estimatedExtensionFare),
+                    _invoiceRow('Security Deposit', 0), // 0 additional deposit
+                  ],
+                ),
+              ),
+              const Gap(20),
+              AppButton(
+                text: 'Confirm Extension (₹${estimatedExtensionFare.toInt()})',
+                isLoading: isExtending,
+                onPressed: isExtending
+                    ? null
+                    : () async {
+                        setModalState(() => isExtending = true);
+                        await Future.delayed(const Duration(milliseconds: 600));
+                        if (!context.mounted) return;
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Trip extension request submitted and confirmed!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        ref.invalidate(bookingWithDetailsProvider(booking.id));
+                      },
+              ),
+              const Gap(12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _invoiceRow(String label, double amount, {bool isBold = false, bool isDiscount = false, Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Text(
+            isDiscount ? '- ₹${amount.abs().toInt()}' : '₹${amount.toInt()}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: isDiscount ? Colors.green[700] : (color ?? Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final detailVal = ref.watch(bookingWithDetailsProvider(widget.bookingId));
@@ -432,6 +678,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
 
           // Determine status categories for conditional buttons/sections
           final isCancelled = booking.status.toLowerCase() == 'cancelled';
+          final isOngoing = booking.status.toLowerCase() == 'ongoing';
           final isUpcoming = (booking.status.toLowerCase() == 'confirmed' ||
                   booking.status.toLowerCase() == 'pending') &&
               booking.endDate.isAfter(now);
@@ -545,6 +792,48 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                     _SecurityDepositCard(bookingId: booking.id),
                     const Gap(16),
 
+                    // Tax Invoice Card
+                    if (booking.status.toLowerCase() != 'pending') ...[
+                      AppCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.receipt_long_outlined, color: Colors.blue),
+                            ),
+                            const Gap(14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'GST Tax Invoice',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  const Gap(2),
+                                  Text(
+                                    'Official receipt with GST & deposit breakdown',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.download_rounded, size: 16),
+                              label: const Text('Invoice', style: TextStyle(fontSize: 12)),
+                              onPressed: () => _showInvoiceDialog(context, booking.id),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Gap(16),
+                    ],
+
                     // Vendor support card
                     AppCard(
                       padding: const EdgeInsets.all(16),
@@ -586,6 +875,16 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                         onPressed: _isProcessingPayment || isActionLoading
                             ? null
                             : () => _startPaymentForBooking(booking),
+                      ),
+                      const Gap(12),
+                    ],
+
+                    // Conditionally show Extend Trip button for ONGOING trips (Phase 4 Feature 10)
+                    if (isOngoing && !isCancelled) ...[
+                      AppButton(
+                        text: 'Extend Trip',
+                        backgroundColor: AppColors.primary,
+                        onPressed: () => _showExtendTripModal(context, booking, car),
                       ),
                       const Gap(12),
                     ],

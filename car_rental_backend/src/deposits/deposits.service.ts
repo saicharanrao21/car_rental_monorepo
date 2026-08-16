@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -22,6 +23,59 @@ export class DepositsService {
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
   ) {}
+
+  /**
+   * Automated worker running every hour to release security deposits for trips completed >= 24h ago with no active damage claims.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async autoReleaseEligibleDeposits() {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+      const eligibleDeposits = await this.prisma.securityDeposit.findMany({
+        where: {
+          status: SecurityDepositStatus.HELD,
+          booking: {
+            status: 'COMPLETED',
+            updatedAt: { lte: twentyFourHoursAgo },
+            damageClaims: {
+              none: {
+                status: {
+                  in: [
+                    'SUBMITTED',
+                    'UNDER_REVIEW',
+                    'APPROVED',
+                    'PARTIALLY_APPROVED',
+                  ],
+                },
+              },
+            },
+          },
+        },
+        take: 20,
+      });
+
+      for (const deposit of eligibleDeposits) {
+        try {
+          await this.releaseDeposit(
+            deposit.bookingId,
+            undefined,
+            'Automated 24-hour post-trip deposit release',
+          );
+          this.logger.log(
+            `Auto-released deposit for booking ${deposit.bookingId}`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `Auto-release failed for booking ${deposit.bookingId}: ${err.message}`,
+          );
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to query eligible auto-release deposits: ${err.message}`);
+    }
+  }
+
 
   /**
    * Retrieves security deposit record for a booking with RBAC checks.
