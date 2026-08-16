@@ -5,6 +5,7 @@ class SupportedCityModel {
   final double latitude;
   final double longitude;
   final bool isActive;
+  final List<String> enabledTripTypes;
 
   const SupportedCityModel({
     required this.id,
@@ -13,6 +14,7 @@ class SupportedCityModel {
     required this.latitude,
     required this.longitude,
     this.isActive = true,
+    this.enabledTripTypes = const [],
   });
 
   factory SupportedCityModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,10 @@ class SupportedCityModel {
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       isActive: json['isActive'] as bool? ?? true,
+      enabledTripTypes: (json['enabledTripTypes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
@@ -34,6 +40,7 @@ class SupportedCityModel {
       'latitude': latitude,
       'longitude': longitude,
       'isActive': isActive,
+      'enabledTripTypes': enabledTripTypes,
     };
   }
 
@@ -44,6 +51,7 @@ class SupportedCityModel {
     double? latitude,
     double? longitude,
     bool? isActive,
+    List<String>? enabledTripTypes,
   }) {
     return SupportedCityModel(
       id: id ?? this.id,
@@ -52,6 +60,7 @@ class SupportedCityModel {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       isActive: isActive ?? this.isActive,
+      enabledTripTypes: enabledTripTypes ?? this.enabledTripTypes,
     );
   }
 }

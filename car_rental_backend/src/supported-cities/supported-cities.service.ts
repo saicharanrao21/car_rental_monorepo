@@ -96,6 +96,7 @@ export class SupportedCitiesService {
       latitude: number;
       longitude: number;
       isActive?: boolean;
+      enabledTripTypes?: string[];
     },
     adminUserId: string,
   ) {
@@ -106,6 +107,7 @@ export class SupportedCitiesService {
         latitude: dto.latitude,
         longitude: dto.longitude,
         isActive: dto.isActive ?? true,
+        enabledTripTypes: dto.enabledTripTypes ?? [],
       },
     });
 
@@ -128,6 +130,7 @@ export class SupportedCitiesService {
       latitude?: number;
       longitude?: number;
       isActive?: boolean;
+      enabledTripTypes?: string[];
     },
     adminUserId: string,
   ) {

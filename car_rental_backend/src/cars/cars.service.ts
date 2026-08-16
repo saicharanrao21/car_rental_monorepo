@@ -139,8 +139,26 @@ export class CarsService {
       });
     }
 
+    let effectiveEnabledTripTypes = settings.enabledTripTypes;
+
+    if (query.city) {
+      const cityConfig = await this.prisma.supportedCity.findFirst({
+        where: {
+          name: { equals: query.city, mode: 'insensitive' },
+          isActive: true,
+        },
+      });
+      if (
+        cityConfig &&
+        cityConfig.enabledTripTypes &&
+        cityConfig.enabledTripTypes.length > 0
+      ) {
+        effectiveEnabledTripTypes = cityConfig.enabledTripTypes;
+      }
+    }
+
     if (query.tripType) {
-      if (!settings.enabledTripTypes.includes(query.tripType as any)) {
+      if (!effectiveEnabledTripTypes.includes(query.tripType as any)) {
         return {
           data: [],
           total: 0,

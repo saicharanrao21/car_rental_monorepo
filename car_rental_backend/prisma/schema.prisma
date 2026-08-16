@@ -342,7 +342,7 @@ model Payment {
   id                String        @id @default(cuid())
   bookingId         String        @unique
   booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  razorpayOrderId   String?
+  razorpayOrderId   String?       @unique
   razorpayPaymentId String?
   razorpayRefundId  String?       @unique
   amount            Decimal       @db.Decimal(10, 2)
@@ -353,6 +353,7 @@ model Payment {
   updatedAt         DateTime      @updatedAt
 
   @@index([razorpayRefundId])
+  @@index([razorpayOrderId])
 }
 
 model Banner {
@@ -378,13 +379,14 @@ model PlatformSettings {
 }
 
 model SupportedCity {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  state     String
-  latitude  Float
-  longitude Float
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String   @unique
+  state            String
+  latitude         Float
+  longitude        Float
+  isActive         Boolean  @default(true)
+  enabledTripTypes String[] @default([])
+  createdAt        DateTime @default(now())
 }
 
 model RefreshToken {

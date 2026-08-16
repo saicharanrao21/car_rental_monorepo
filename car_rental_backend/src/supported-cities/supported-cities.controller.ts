@@ -58,6 +58,7 @@ export class SupportedCitiesController {
       latitude: number;
       longitude: number;
       isActive?: boolean;
+      enabledTripTypes?: string[];
     },
   ) {
     return this.supportedCitiesService.create(dto, req.user.userId);
@@ -76,6 +77,7 @@ export class SupportedCitiesController {
       latitude?: number;
       longitude?: number;
       isActive?: boolean;
+      enabledTripTypes?: string[];
     },
   ) {
     return this.supportedCitiesService.update(id, dto, req.user.userId);
