@@ -11,6 +11,7 @@ import { CouponsModule } from '../coupons/coupons.module';
 import { DepositsModule } from '../deposits/deposits.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { ReferralsModule } from '../referrals/referrals.module';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
 
 import { TripExtensionsService } from './trip-extensions.service';
 import { TripExtensionsController } from './trip-extensions.controller';
@@ -24,6 +25,7 @@ import { TripExtensionsController } from './trip-extensions.controller';
     DepositsModule,
     InvoicesModule,
     ReferralsModule,
+    LoyaltyModule,
   ],
   controllers: [BookingsController, TripExtensionsController],
   providers: [

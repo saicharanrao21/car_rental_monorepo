@@ -23,6 +23,7 @@ class AdminShell extends ConsumerWidget {
     (label: 'Emergency SOS', icon: Icons.emergency_outlined, route: '/emergency-dispatch'),
     (label: 'Protection Plans', icon: Icons.shield_outlined, route: '/protection-packages'),
     (label: 'Referrals', icon: Icons.card_giftcard_outlined, route: '/referrals'),
+    (label: 'Loyalty Program', icon: Icons.stars_outlined, route: '/loyalty'),
     (label: 'Commission', icon: Icons.percent_outlined, route: '/commission'),
     (label: 'Revenue', icon: Icons.account_balance_wallet_outlined, route: '/revenue'),
     (label: 'Invoices', icon: Icons.receipt_long_outlined, route: '/invoices'),

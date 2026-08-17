@@ -21,3 +21,4 @@ export 'src/emergency_request_model.dart';
 export 'src/protection_package_model.dart';
 export 'src/wallet_model.dart';
 export 'src/referral_model.dart';
+export 'src/loyalty_model.dart';

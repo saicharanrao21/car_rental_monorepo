@@ -32,6 +32,7 @@ import { CouponsService } from '../coupons/coupons.service';
 import { DepositRulesService } from '../deposits/deposit-rules.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { ReferralsService } from '../referrals/referrals.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 
@@ -53,6 +54,7 @@ export class BookingsService {
     @Optional() private readonly depositRulesService?: DepositRulesService,
     @Optional() private readonly invoicesService?: InvoicesService,
     @Optional() private readonly referralsService?: ReferralsService,
+    @Optional() private readonly loyaltyService?: LoyaltyService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -826,6 +828,15 @@ export class BookingsService {
         .handleBookingCompleted(bookingId)
         .catch((err) =>
           this.logger.error(`Referral qualification failed for booking ${bookingId}:`, err),
+        );
+    }
+
+    // Trigger Loyalty Point Earning on Booking Completion
+    if (newStatus === BookingStatus.COMPLETED && this.loyaltyService) {
+      this.loyaltyService
+        .handleBookingCompleted(bookingId)
+        .catch((err) =>
+          this.logger.error(`Loyalty point crediting failed for booking ${bookingId}:`, err),
         );
     }
 

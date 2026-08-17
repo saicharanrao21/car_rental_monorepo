@@ -9,6 +9,7 @@ import 'kyc_upload_page.dart';
 import '../../../support/presentation/pages/support_center_page.dart';
 import '../../../wallet/presentation/pages/wallet_page.dart';
 import '../../../referral/presentation/pages/referral_page.dart';
+import '../../../loyalty/presentation/pages/loyalty_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -244,6 +245,17 @@ class ProfilePage extends ConsumerWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ReferralPage()),
+                );
+              },
+            ),
+            _menuTile(
+              context,
+              icon: Icons.stars_outlined,
+              title: 'DriveGo Rewards Club',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoyaltyPage()),
                 );
               },
             ),
