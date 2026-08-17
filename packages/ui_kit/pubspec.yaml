@@ -16,3 +16,7 @@ dependencies:
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
   gap: ^3.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

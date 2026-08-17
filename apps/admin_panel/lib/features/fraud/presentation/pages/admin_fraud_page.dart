@@ -311,7 +311,6 @@ class AdminFraudPage extends ConsumerWidget {
         bg = Colors.amber[700]!;
         break;
       case RiskLevel.low:
-      default:
         bg = Colors.green[700]!;
         break;
     }
@@ -342,7 +341,6 @@ class AdminFraudPage extends ConsumerWidget {
         color = Colors.amber[800]!;
         break;
       case RiskAction.allow:
-      default:
         color = Colors.green;
         break;
     }

@@ -33,6 +33,7 @@ import { WalletsModule } from './wallets/wallets.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { FraudModule } from './fraud/fraud.module';
+import { LocationsModule } from './locations/locations.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -76,6 +77,7 @@ import { validateEnv } from './common/env.validation';
     ReferralsModule,
     LoyaltyModule,
     FraudModule,
+    LocationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

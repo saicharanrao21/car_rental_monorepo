@@ -33,6 +33,7 @@ class AdminShell extends ConsumerWidget {
     (label: 'Notifications', icon: Icons.notifications_none_outlined, route: '/notifications'),
     (label: 'Banners', icon: Icons.view_carousel_outlined, route: '/banners'),
     (label: 'Supported Cities', icon: Icons.location_city_outlined, route: '/supported-cities'),
+    (label: 'Live Maps', icon: Icons.map_outlined, route: '/locations'),
     (label: 'Settings', icon: Icons.settings_outlined, route: '/settings'),
   ];
 
