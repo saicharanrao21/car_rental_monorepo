@@ -32,6 +32,14 @@ export interface RiskSignal {
   scoreDelta: number;
 }
 
+export interface RiskEvaluationContext {
+  actionName?: string;
+  bookingId?: string;
+  fare?: number;
+  referralCode?: string;
+  referrerId?: string;
+}
+
 export interface RiskAssessmentResult {
   userId: string;
   userName: string;
@@ -55,7 +63,7 @@ export class FraudService {
    */
   async evaluateUserRisk(
     userId: string,
-    context?: { actionName?: string; bookingId?: string; fare?: number },
+    context?: RiskEvaluationContext,
   ): Promise<RiskAssessmentResult> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -175,6 +183,50 @@ export class FraudService {
         code: 'FRESH_ACCOUNT_SPIKE',
         description: 'New account created less than 1 hour ago initiating multiple high-frequency requests',
         scoreDelta: 15,
+      });
+    }
+
+    // 8. Self-Referral Attempt: Code owned by same user, phone, or driving licence
+    let isSelfReferral = false;
+    if (context?.referrerId && context.referrerId === userId) {
+      isSelfReferral = true;
+    }
+    if (!isSelfReferral && context?.referralCode) {
+      const cleanCode = context.referralCode.trim().toUpperCase();
+      if (user.referralCode && user.referralCode.toUpperCase() === cleanCode) {
+        isSelfReferral = true;
+      } else {
+        const codeOwner = await this.prisma.user.findUnique({
+          where: { referralCode: cleanCode },
+          include: { customerKyc: true },
+        });
+        if (codeOwner) {
+          if (codeOwner.id === userId) {
+            isSelfReferral = true;
+          } else if (
+            user.phone &&
+            codeOwner.phone &&
+            user.phone.trim() === codeOwner.phone.trim()
+          ) {
+            isSelfReferral = true;
+          } else if (
+            user.customerKyc?.licenceNumber &&
+            codeOwner.customerKyc?.licenceNumber &&
+            user.customerKyc.licenceNumber.trim().toUpperCase() ===
+              codeOwner.customerKyc.licenceNumber.trim().toUpperCase()
+          ) {
+            isSelfReferral = true;
+          }
+        }
+      }
+    }
+
+    if (isSelfReferral) {
+      signals.push({
+        code: 'SELF_REFERRAL_ATTEMPT',
+        description:
+          'Detected self-referral attempt: referral code owned by the same customer, phone identity, or driving licence',
+        scoreDelta: 60,
       });
     }
 

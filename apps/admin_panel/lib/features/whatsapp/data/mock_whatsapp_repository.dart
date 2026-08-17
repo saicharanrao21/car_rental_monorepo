@@ -119,7 +119,7 @@ class MockWhatsAppRepository with LatencySimulator implements WhatsAppRepository
       templateLanguage: _messages[index].templateLanguage,
       messageType: _messages[index].messageType,
       status: WhatsAppMessageStatus.sent,
-      providerMessageId: 'wamid.mock_resend_${Date.now()}',
+      providerMessageId: 'wamid.mock_resend_${DateTime.now().millisecondsSinceEpoch}',
       idempotencyKey: _messages[index].idempotencyKey,
       variables: _messages[index].variables,
       sentAt: DateTime.now(),

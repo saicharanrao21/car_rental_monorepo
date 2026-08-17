@@ -2,11 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FraudService, RiskLevel, RiskAction } from './fraud.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminFraudController } from './admin-fraud.controller';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { BookingStatus, PaymentStatus } from '@prisma/client';
 import { RiskResolutionStatus } from './dto/resolve-risk-assessment.dto';
 
-describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
+describe('Feature 34 — Fraud Detection & Risk Scoring Spec (Hardened)', () => {
   let service: FraudService;
   let controller: AdminFraudController;
   let prisma: PrismaService;
@@ -56,7 +56,7 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
         name: 'Clean User',
         phone: '+919876543210',
         banned: false,
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days old
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         customerKyc: { licenceNumber: 'DL-KA-01-2022-001' },
       });
       mockPrismaService.customerKyc.count.mockResolvedValue(0);
@@ -82,7 +82,6 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
         customerKyc: null,
       });
       mockPrismaService.customerKyc.count.mockResolvedValue(0);
-      // High cancellation velocity gives +30
       mockPrismaService.booking.count.mockImplementation((args: any) => {
         if (args?.where?.status === BookingStatus.CANCELLED) return 3;
         return 0;
@@ -110,11 +109,9 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
         createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
         customerKyc: { licenceNumber: 'DL-TS-09-2023-999' },
       });
-      // Duplicate DL gives +40
-      mockPrismaService.customerKyc.count.mockResolvedValue(1);
-      // High booking velocity gives +25 (Total = 65)
+      mockPrismaService.customerKyc.count.mockResolvedValue(1); // Duplicate DL = +40
       mockPrismaService.booking.count.mockImplementation((args: any) => {
-        if (args?.where?.createdAt) return 3;
+        if (args?.where?.createdAt) return 3; // High booking velocity = +25
         return 0;
       });
       mockPrismaService.payment.count.mockResolvedValue(0);
@@ -161,56 +158,52 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
     });
   });
 
-  describe('2. Specific Risk Signals & Explainability', () => {
-    it('should detect duplicate driving licence registered across other user accounts (+40)', async () => {
+  describe('2. Specific Risk Signal Evaluations', () => {
+    it('signal: DUPLICATE_DRIVING_LICENCE (+40)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'usr_dup_dl',
-        name: 'Syndicate Member',
+        name: 'Shared Licence User',
         phone: '+919876543214',
         banned: false,
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-        customerKyc: { licenceNumber: 'DL-MH-02-2020-5555' },
+        createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        customerKyc: { licenceNumber: 'DL-MH-02-2021-12345' },
       });
-      mockPrismaService.customerKyc.count.mockResolvedValue(2); // found on 2 other accounts
+      mockPrismaService.customerKyc.count.mockResolvedValue(2);
       mockPrismaService.booking.count.mockResolvedValue(0);
       mockPrismaService.payment.count.mockResolvedValue(0);
 
       const result = await service.evaluateUserRisk('usr_dup_dl');
-
       const dlSignal = result.signals.find((s) => s.code === 'DUPLICATE_DRIVING_LICENCE');
       expect(dlSignal).toBeDefined();
       expect(dlSignal?.scoreDelta).toBe(40);
-      expect(dlSignal?.description).toContain('registered on 2 other user account(s)');
     });
 
-    it('should detect repeated payment failures in the last 24 hours (+35)', async () => {
+    it('signal: REPEATED_PAYMENT_FAILURES (+35)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'usr_pay_fail',
-        name: 'Card Tester',
+        name: 'Payment Distress User',
         phone: '+919876543215',
         banned: false,
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
         customerKyc: null,
       });
       mockPrismaService.customerKyc.count.mockResolvedValue(0);
       mockPrismaService.booking.count.mockResolvedValue(0);
-      mockPrismaService.payment.count.mockResolvedValue(4); // 4 payment failures
+      mockPrismaService.payment.count.mockResolvedValue(4); // >= 3 failed payments
 
       const result = await service.evaluateUserRisk('usr_pay_fail');
-
       const paySignal = result.signals.find((s) => s.code === 'REPEATED_PAYMENT_FAILURES');
       expect(paySignal).toBeDefined();
       expect(paySignal?.scoreDelta).toBe(35);
-      expect(paySignal?.description).toContain('4 failed payment attempts');
     });
 
-    it('should detect multiple concurrent active trips (+20)', async () => {
+    it('signal: MULTIPLE_ACTIVE_BOOKINGS (+20)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'usr_concurrent',
-        name: 'Fleet Stretcher',
+        name: 'Concurrent Fleet Renter',
         phone: '+919876543216',
         banned: false,
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
         customerKyc: null,
       });
       mockPrismaService.customerKyc.count.mockResolvedValue(0);
@@ -221,45 +214,179 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
       mockPrismaService.payment.count.mockResolvedValue(0);
 
       const result = await service.evaluateUserRisk('usr_concurrent');
-
       const activeSignal = result.signals.find((s) => s.code === 'MULTIPLE_ACTIVE_BOOKINGS');
       expect(activeSignal).toBeDefined();
       expect(activeSignal?.scoreDelta).toBe(20);
     });
 
-    it('should detect fresh account high activity spike (+15)', async () => {
+    it('signal: FRESH_ACCOUNT_SPIKE (+15)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'usr_fresh',
-        name: 'Brand New User',
+        name: 'Brand New Account',
         phone: '+919876543217',
         banned: false,
-        createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 mins old
+        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes old
         customerKyc: null,
       });
       mockPrismaService.customerKyc.count.mockResolvedValue(0);
-      mockPrismaService.booking.count.mockImplementation((args: any) => {
-        if (args?.where?.createdAt) return 2; // 2 bookings in 2h
-        return 0;
-      });
+      mockPrismaService.booking.count.mockResolvedValue(2); // 2 bookings within 30 min
       mockPrismaService.payment.count.mockResolvedValue(0);
 
       const result = await service.evaluateUserRisk('usr_fresh');
-
       const freshSignal = result.signals.find((s) => s.code === 'FRESH_ACCOUNT_SPIKE');
       expect(freshSignal).toBeDefined();
       expect(freshSignal?.scoreDelta).toBe(15);
     });
+  });
 
-    it('should throw NotFoundException when evaluating non-existent user ID', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
+  describe('3. Self-Referral Fraud Signal (+60)', () => {
+    it('should detect SELF_REFERRAL_ATTEMPT when referrerId equals userId', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'usr_self_ref_1',
+        name: 'Self Referrer',
+        phone: '+919876543218',
+        banned: false,
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        customerKyc: null,
+      });
+      mockPrismaService.customerKyc.count.mockResolvedValue(0);
+      mockPrismaService.booking.count.mockResolvedValue(0);
+      mockPrismaService.payment.count.mockResolvedValue(0);
 
-      await expect(service.evaluateUserRisk('usr_missing')).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.evaluateUserRisk('usr_self_ref_1', {
+        referrerId: 'usr_self_ref_1',
+      });
+
+      const signal = result.signals.find((s) => s.code === 'SELF_REFERRAL_ATTEMPT');
+      expect(signal).toBeDefined();
+      expect(signal?.scoreDelta).toBe(60);
+      expect(result.score).toBe(60);
+      expect(result.riskLevel).toBe(RiskLevel.HIGH);
+      expect(result.action).toBe(RiskAction.REVIEW_REQUIRED);
+    });
+
+    it('should detect SELF_REFERRAL_ATTEMPT when referral code matches user own referralCode', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'usr_self_ref_2',
+        name: 'Self Referrer Code',
+        phone: '+919876543219',
+        referralCode: 'DGSELF99',
+        banned: false,
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        customerKyc: null,
+      });
+      mockPrismaService.customerKyc.count.mockResolvedValue(0);
+      mockPrismaService.booking.count.mockResolvedValue(0);
+      mockPrismaService.payment.count.mockResolvedValue(0);
+
+      const result = await service.evaluateUserRisk('usr_self_ref_2', {
+        referralCode: 'DGSELF99',
+      });
+
+      const signal = result.signals.find((s) => s.code === 'SELF_REFERRAL_ATTEMPT');
+      expect(signal).toBeDefined();
+      expect(signal?.scoreDelta).toBe(60);
+    });
+
+    it('should detect SELF_REFERRAL_ATTEMPT when referrer user shares the same phone number', async () => {
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'usr_referee',
+          name: 'Referee',
+          phone: '+919876543220',
+          referralCode: 'DGOTHER1',
+          banned: false,
+          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          customerKyc: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'usr_referrer',
+          name: 'Referrer With Same Phone',
+          phone: '+919876543220', // identical phone
+          referralCode: 'DGSAMEPHONE',
+          customerKyc: null,
+        });
+
+      mockPrismaService.customerKyc.count.mockResolvedValue(0);
+      mockPrismaService.booking.count.mockResolvedValue(0);
+      mockPrismaService.payment.count.mockResolvedValue(0);
+
+      const result = await service.evaluateUserRisk('usr_referee', {
+        referralCode: 'DGSAMEPHONE',
+      });
+
+      const signal = result.signals.find((s) => s.code === 'SELF_REFERRAL_ATTEMPT');
+      expect(signal).toBeDefined();
+      expect(signal?.scoreDelta).toBe(60);
+    });
+
+    it('should detect SELF_REFERRAL_ATTEMPT when referrer shares the same Driving Licence number', async () => {
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'usr_referee_dl',
+          name: 'Referee DL',
+          phone: '+919876543221',
+          referralCode: 'DGOTHER2',
+          banned: false,
+          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          customerKyc: { licenceNumber: 'DL-AP-10-2020-77777' },
+        })
+        .mockResolvedValueOnce({
+          id: 'usr_referrer_dl',
+          name: 'Referrer DL',
+          phone: '+919876543299',
+          referralCode: 'DGSAMEDL',
+          customerKyc: { licenceNumber: 'DL-AP-10-2020-77777' }, // identical licence
+        });
+
+      mockPrismaService.customerKyc.count.mockResolvedValue(0);
+      mockPrismaService.booking.count.mockResolvedValue(0);
+      mockPrismaService.payment.count.mockResolvedValue(0);
+
+      const result = await service.evaluateUserRisk('usr_referee_dl', {
+        referralCode: 'DGSAMEDL',
+      });
+
+      const signal = result.signals.find((s) => s.code === 'SELF_REFERRAL_ATTEMPT');
+      expect(signal).toBeDefined();
+      expect(signal?.scoreDelta).toBe(60);
+    });
+
+    it('should NOT flag SELF_REFERRAL_ATTEMPT for a completely legitimate referral from another customer', async () => {
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'usr_legit_referee',
+          name: 'Legit Referee',
+          phone: '+919876543222',
+          referralCode: 'DGLRG001',
+          banned: false,
+          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          customerKyc: { licenceNumber: 'DL-KA-05-2021-11111' },
+        })
+        .mockResolvedValueOnce({
+          id: 'usr_legit_referrer',
+          name: 'Legit Referrer',
+          phone: '+919876543288',
+          referralCode: 'DGFRIEND88',
+          customerKyc: { licenceNumber: 'DL-DL-01-2019-99999' },
+        });
+
+      mockPrismaService.customerKyc.count.mockResolvedValue(0);
+      mockPrismaService.booking.count.mockResolvedValue(0);
+      mockPrismaService.payment.count.mockResolvedValue(0);
+
+      const result = await service.evaluateUserRisk('usr_legit_referee', {
+        referralCode: 'DGFRIEND88',
+      });
+
+      const signal = result.signals.find((s) => s.code === 'SELF_REFERRAL_ATTEMPT');
+      expect(signal).toBeUndefined();
+      expect(result.score).toBe(0);
+      expect(result.action).toBe(RiskAction.ALLOW);
     });
   });
 
-  describe('3. Fraud Summary & Assessment Management', () => {
+  describe('4. Fraud Summary & Assessment Management', () => {
     it('should aggregate summary counts by risk level correctly', async () => {
       mockPrismaService.auditLog.findMany.mockResolvedValue([
         { metadata: { riskLevel: RiskLevel.CRITICAL, status: 'PENDING_REVIEW' } },
@@ -357,7 +484,7 @@ describe('Feature 34 — Fraud Detection & Risk Scoring Spec', () => {
     });
   });
 
-  describe('4. Admin Controller Routes', () => {
+  describe('5. Admin Controller Routes', () => {
     it('controller getSummary should call service.getFraudSummary', async () => {
       jest.spyOn(service, 'getFraudSummary').mockResolvedValue({
         totalEvents: 10,

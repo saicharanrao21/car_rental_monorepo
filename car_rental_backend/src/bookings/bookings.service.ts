@@ -33,6 +33,7 @@ import { DepositRulesService } from '../deposits/deposit-rules.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { FraudService, RiskAction } from '../fraud/fraud.service';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 
@@ -55,6 +56,7 @@ export class BookingsService {
     @Optional() private readonly invoicesService?: InvoicesService,
     @Optional() private readonly referralsService?: ReferralsService,
     @Optional() private readonly loyaltyService?: LoyaltyService,
+    @Optional() private readonly fraudService?: FraudService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -245,6 +247,31 @@ export class BookingsService {
           car.type,
           car.vendor?.city,
         );
+      }
+
+      // Synchronous Risk & Fraud Enforcement Gate
+      if (this.fraudService) {
+        const riskAssessment = await this.fraudService.evaluateUserRisk(
+          customerId,
+          {
+            actionName: 'CREATE_BOOKING',
+            fare: finalTotalFare.toNumber(),
+            referralCode: dto.couponCode,
+          },
+        );
+
+        if (riskAssessment.action === RiskAction.BLOCK) {
+          this.logger.warn(
+            `[FRAUD_BLOCK] Customer ${customerId} blocked from booking car ${dto.carId}. Score: ${riskAssessment.score}, Level: ${riskAssessment.riskLevel}, Signals: [${riskAssessment.signals.map((s) => s.code).join(', ')}]`,
+          );
+          throw new ForbiddenException(
+            'Booking request could not be processed due to security verification policy.',
+          );
+        } else if (riskAssessment.action === RiskAction.REVIEW_REQUIRED) {
+          this.logger.log(
+            `[FRAUD_REVIEW_REQUIRED] Customer ${customerId} flagged with high risk score ${riskAssessment.score}. Signals: [${riskAssessment.signals.map((s) => s.code).join(', ')}]`,
+          );
+        }
       }
 
       // 2. Perform transactional double-booking check and creation (with 15s timeout to support slow pg_bouncer pools)
