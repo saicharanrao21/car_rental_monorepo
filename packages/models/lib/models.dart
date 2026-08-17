@@ -25,3 +25,4 @@ export 'src/loyalty_model.dart';
 export 'src/analytics_model.dart';
 export 'src/fraud_model.dart';
 export 'src/location_model.dart';
+export 'src/whatsapp_model.dart';

@@ -34,6 +34,7 @@ import { ReferralsModule } from './referrals/referrals.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { FraudModule } from './fraud/fraud.module';
 import { LocationsModule } from './locations/locations.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -78,6 +79,7 @@ import { validateEnv } from './common/env.validation';
     LoyaltyModule,
     FraudModule,
     LocationsModule,
+    WhatsAppModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1174,3 +1174,51 @@ model LoyaltyTransaction {
   @@index([accountId])
   @@index([createdAt])
 }
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum WhatsAppMessageType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_SUCCESSFUL
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  HANDOVER_READY
+  TRIP_REMINDER
+  EMERGENCY_ALERT
+  MARKETING_PROMO
+}
+
+model WhatsAppMessage {
+  id                String                @id @default(cuid())
+  userId            String?
+  bookingId         String?
+  phoneNumber       String
+  templateName      String
+  templateLanguage  String                @default("en_US")
+  messageType       WhatsAppMessageType
+  status            WhatsAppMessageStatus @default(QUEUED)
+  providerMessageId String?               @unique
+  idempotencyKey    String                @unique
+  variables         Json?
+  failureCode       String?
+  failureReason     String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([phoneNumber])
+  @@index([userId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([messageType])
+}
