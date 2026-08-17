@@ -23,6 +23,7 @@ import '../../features/emergency/presentation/pages/admin_emergency_dispatch_pag
 import '../../features/protection/presentation/pages/admin_protection_packages_page.dart';
 import '../../features/referral/presentation/pages/admin_referral_campaigns_page.dart';
 import '../../features/loyalty/presentation/pages/admin_loyalty_page.dart';
+import '../../features/fraud/presentation/pages/admin_fraud_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -134,6 +135,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/loyalty',
             builder: (context, state) => const AdminLoyaltyManagementPage(),
+          ),
+          GoRoute(
+            path: '/fraud',
+            builder: (context, state) => const AdminFraudPage(),
           ),
           GoRoute(
             path: '/settings',

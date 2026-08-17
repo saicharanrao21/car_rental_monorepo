@@ -32,6 +32,7 @@ import { ProtectionPackagesModule } from './protection/protection-packages.modul
 import { WalletsModule } from './wallets/wallets.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { FraudModule } from './fraud/fraud.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -74,6 +75,7 @@ import { validateEnv } from './common/env.validation';
     WalletsModule,
     ReferralsModule,
     LoyaltyModule,
+    FraudModule,
   ],
   controllers: [AppController],
   providers: [AppService],
