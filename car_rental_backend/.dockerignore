@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+node_modules
+dist
+db_data
+pg_logfile.log
+dump.rdb
+uploads-storage
+npm-debug.log

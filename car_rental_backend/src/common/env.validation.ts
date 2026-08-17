@@ -315,6 +315,18 @@ export function validateEnv(
     }
   }
 
+  // Non-production safety guards: Never allow live credentials in staging/development/test
+  if (!isProduction) {
+    if (
+      validatedConfig.RAZORPAY_KEY_ID &&
+      validatedConfig.RAZORPAY_KEY_ID.startsWith('rzp_live_')
+    ) {
+      validationErrors.push(
+        'SECURITY ERROR: Live Razorpay key (rzp_live_...) is strictly forbidden in non-production environments.',
+      );
+    }
+  }
+
   if (validationErrors.length > 0) {
     throw new Error(
       `\n=========================================================\n[CONFIG VALIDATION FAILED] Startup aborted due to configuration errors:\n` +

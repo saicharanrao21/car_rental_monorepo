@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  staging-backend:
+    build:
+      context: ./car_rental_backend
+      dockerfile: Dockerfile
+    container_name: drivego_staging_backend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: staging
+      PORT: 3000
+      DATABASE_URL: postgresql://staging_user:${STAGING_DB_PASSWORD:-staging_secret_pw}@staging-postgres:5432/drivego_staging?schema=public
+      REDIS_URL: redis://staging-redis:6379
+      CORS_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:8085,https://staging-admin.drivego.in
+      JWT_ACCESS_SECRET: ${STAGING_JWT_ACCESS_SECRET:-staging_access_secret_min_32_characters_12345}
+      JWT_REFRESH_SECRET: ${STAGING_JWT_REFRESH_SECRET:-staging_refresh_secret_min_32_characters_12345}
+      BANK_ENCRYPTION_KEY: ${STAGING_BANK_KEY:-staging_bank_encryption_key_32_bytes_hex_1234567890abcdef}
+      SMS_PROVIDER: mock
+      RAZORPAY_USE_MOCK: 'true'
+      R2_USE_MOCK: 'true'
+    depends_on:
+      staging-postgres:
+        condition: service_healthy
+      staging-redis:
+        condition: service_healthy
+
+  staging-postgres:
+    image: postgres:16-alpine
+    container_name: drivego_staging_postgres
+    restart: unless-stopped
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: staging_user
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:-staging_secret_pw}
+      POSTGRES_DB: drivego_staging
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U staging_user -d drivego_staging']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  staging-redis:
+    image: redis:7-alpine
+    container_name: drivego_staging_redis
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    volumes:
+      - staging_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  staging_postgres_data:
+    driver: local
+  staging_redis_data:
+    driver: local

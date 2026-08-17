@@ -21,8 +21,16 @@
 node_modules/
 **/node_modules/
 .env
+.env.*
+!.env.example
 *.env
 db_secrets*.txt
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+key.properties
 
 # IDE & OS
 *.iml

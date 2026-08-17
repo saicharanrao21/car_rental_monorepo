@@ -187,4 +187,16 @@ describe('Environment Configuration Validation (Phase 1, 2A & 2B)', () => {
       /BANK_ENCRYPTION_KEY is mandatory in production/,
     );
   });
+
+  it('should fail startup in staging/dev if RAZORPAY_KEY_ID is a live key (rzp_live_...)', () => {
+    const badStagingConfig = {
+      ...validDevConfig,
+      NODE_ENV: 'staging',
+      RAZORPAY_KEY_ID: 'rzp_live_accidental_live_key_in_staging',
+    };
+
+    expect(() => validateEnv(badStagingConfig)).toThrow(
+      /Live Razorpay key .* is strictly forbidden in non-production environments/,
+    );
+  });
 });
