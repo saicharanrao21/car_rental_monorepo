@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:models/models.dart';
 
-class RevenueSummary {
-  final double grossBookingValue;
-  final double platformRevenue;
-  final double vendorPayouts;
-  final double gstCollected;
-
-  const RevenueSummary({
-    required this.grossBookingValue,
-    required this.platformRevenue,
-    required this.vendorPayouts,
-    required this.gstCollected,
-  });
-}
+typedef RevenueSummary = RevenueSummaryModel;
 
 abstract class RevenueRepository {
-  Future<RevenueSummary> getSummary(DateTimeRange range);
-  Future<List<double>> getRevenueOverTime(DateTimeRange range);
+  Future<RevenueSummaryModel> getSummary(DateTimeRange range, {String? city});
+  Future<List<double>> getRevenueOverTime(DateTimeRange range, {String? city});
   Future<Map<String, double>> getBookingsByCity(DateTimeRange range);
   Future<Map<String, int>> getBookingsByTripType(DateTimeRange range);
   Future<List<VendorModel>> getTopVendorsByRevenue({int limit = 10});
+  Future<BookingLifecycleStatsModel> getBookingLifecycleStats(DateTimeRange range, {String? city});
+  Future<FleetUtilizationModel> getFleetUtilizationStats({String? city});
+  Future<CustomerGrowthModel> getCustomerGrowthStats(DateTimeRange range);
+  Future<AddonAdoptionModel> getAddonAdoptionStats(DateTimeRange range, {String? city});
+  Future<String> exportRevenueCsv(DateTimeRange range, {String? city, String? status});
 }

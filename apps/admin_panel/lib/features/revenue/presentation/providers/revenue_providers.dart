@@ -18,18 +18,22 @@ final revenueDateRangeProvider = StateProvider<DateTimeRange>((ref) {
   return DateTimeRange(start: startOfMonth, end: endOfToday);
 });
 
+final revenueCityFilterProvider = StateProvider<String?>((ref) => null);
+
 // Summary provider
-final revenueSummaryProvider = FutureProvider<RevenueSummary>((ref) async {
+final revenueSummaryProvider = FutureProvider<RevenueSummaryModel>((ref) async {
   final repo = ref.watch(revenueRepositoryProvider);
   final range = ref.watch(revenueDateRangeProvider);
-  return repo.getSummary(range);
+  final city = ref.watch(revenueCityFilterProvider);
+  return repo.getSummary(range, city: city);
 });
 
 // Time series provider
 final revenueOverTimeProvider = FutureProvider<List<double>>((ref) async {
   final repo = ref.watch(revenueRepositoryProvider);
   final range = ref.watch(revenueDateRangeProvider);
-  return repo.getRevenueOverTime(range);
+  final city = ref.watch(revenueCityFilterProvider);
+  return repo.getRevenueOverTime(range, city: city);
 });
 
 // City breakdown provider
@@ -51,4 +55,34 @@ final topVendorsByRevenueProvider = FutureProvider<List<VendorModel>>((ref) asyn
   final repo = ref.watch(revenueRepositoryProvider);
   ref.watch(revenueDateRangeProvider);
   return repo.getTopVendorsByRevenue(limit: 10);
+});
+
+// Booking lifecycle stats provider
+final bookingLifecycleStatsProvider = FutureProvider<BookingLifecycleStatsModel>((ref) async {
+  final repo = ref.watch(revenueRepositoryProvider);
+  final range = ref.watch(revenueDateRangeProvider);
+  final city = ref.watch(revenueCityFilterProvider);
+  return repo.getBookingLifecycleStats(range, city: city);
+});
+
+// Fleet utilization provider
+final fleetUtilizationProvider = FutureProvider<FleetUtilizationModel>((ref) async {
+  final repo = ref.watch(revenueRepositoryProvider);
+  final city = ref.watch(revenueCityFilterProvider);
+  return repo.getFleetUtilizationStats(city: city);
+});
+
+// Customer growth provider
+final customerGrowthStatsProvider = FutureProvider<CustomerGrowthModel>((ref) async {
+  final repo = ref.watch(revenueRepositoryProvider);
+  final range = ref.watch(revenueDateRangeProvider);
+  return repo.getCustomerGrowthStats(range);
+});
+
+// Addon adoption provider
+final addonAdoptionStatsProvider = FutureProvider<AddonAdoptionModel>((ref) async {
+  final repo = ref.watch(revenueRepositoryProvider);
+  final range = ref.watch(revenueDateRangeProvider);
+  final city = ref.watch(revenueCityFilterProvider);
+  return repo.getAddonAdoptionStats(range, city: city);
 });

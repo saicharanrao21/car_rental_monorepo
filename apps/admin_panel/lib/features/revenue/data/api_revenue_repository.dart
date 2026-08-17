@@ -13,32 +13,36 @@ class ApiRevenueRepository implements RevenueRepository {
   }
 
   @override
-  Future<RevenueSummary> getSummary(DateTimeRange range) async {
+  Future<RevenueSummaryModel> getSummary(DateTimeRange range, {String? city}) async {
+    final queryParams = {
+      'startDate': _formatDate(range.start),
+      'endDate': _formatDate(range.end),
+    };
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+
     final response = await _apiClient.dio.get(
       '/admin/revenue/summary',
-      queryParameters: {
-        'startDate': _formatDate(range.start),
-        'endDate': _formatDate(range.end),
-      },
+      queryParameters: queryParams,
     );
 
-    final data = response.data;
-    return RevenueSummary(
-      grossBookingValue: (data['grossBookingValue'] ?? 0).toDouble(),
-      platformRevenue: (data['platformRevenue'] ?? 0).toDouble(),
-      vendorPayouts: (data['vendorPayouts'] ?? 0).toDouble(),
-      gstCollected: (data['gstCollected'] ?? 0).toDouble(),
-    );
+    return RevenueSummaryModel.fromJson(response.data);
   }
 
   @override
-  Future<List<double>> getRevenueOverTime(DateTimeRange range) async {
+  Future<List<double>> getRevenueOverTime(DateTimeRange range, {String? city}) async {
+    final queryParams = {
+      'startDate': _formatDate(range.start),
+      'endDate': _formatDate(range.end),
+    };
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+
     final response = await _apiClient.dio.get(
       '/admin/revenue/over-time',
-      queryParameters: {
-        'startDate': _formatDate(range.start),
-        'endDate': _formatDate(range.end),
-      },
+      queryParameters: queryParams,
     );
 
     final data = response.data as List;
@@ -103,5 +107,90 @@ class ApiRevenueRepository implements RevenueRepository {
         verificationStatus: 'VERIFIED',
       );
     }).toList();
+  }
+
+  @override
+  Future<BookingLifecycleStatsModel> getBookingLifecycleStats(DateTimeRange range, {String? city}) async {
+    final queryParams = {
+      'startDate': _formatDate(range.start),
+      'endDate': _formatDate(range.end),
+    };
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+
+    final response = await _apiClient.dio.get(
+      '/admin/revenue/booking-stats',
+      queryParameters: queryParams,
+    );
+
+    return BookingLifecycleStatsModel.fromJson(response.data);
+  }
+
+  @override
+  Future<FleetUtilizationModel> getFleetUtilizationStats({String? city}) async {
+    final queryParams = <String, dynamic>{};
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+
+    final response = await _apiClient.dio.get(
+      '/admin/revenue/fleet-stats',
+      queryParameters: queryParams,
+    );
+
+    return FleetUtilizationModel.fromJson(response.data);
+  }
+
+  @override
+  Future<CustomerGrowthModel> getCustomerGrowthStats(DateTimeRange range) async {
+    final response = await _apiClient.dio.get(
+      '/admin/revenue/customer-stats',
+      queryParameters: {
+        'startDate': _formatDate(range.start),
+        'endDate': _formatDate(range.end),
+      },
+    );
+
+    return CustomerGrowthModel.fromJson(response.data);
+  }
+
+  @override
+  Future<AddonAdoptionModel> getAddonAdoptionStats(DateTimeRange range, {String? city}) async {
+    final queryParams = {
+      'startDate': _formatDate(range.start),
+      'endDate': _formatDate(range.end),
+    };
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+
+    final response = await _apiClient.dio.get(
+      '/admin/revenue/addon-stats',
+      queryParameters: queryParams,
+    );
+
+    return AddonAdoptionModel.fromJson(response.data);
+  }
+
+  @override
+  Future<String> exportRevenueCsv(DateTimeRange range, {String? city, String? status}) async {
+    final queryParams = {
+      'startDate': _formatDate(range.start),
+      'endDate': _formatDate(range.end),
+    };
+    if (city != null && city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final response = await _apiClient.dio.get(
+      '/admin/revenue/export/csv',
+      queryParameters: queryParams,
+    );
+
+    return response.data.toString();
   }
 }
