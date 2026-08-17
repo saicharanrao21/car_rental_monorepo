@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
-import 'package:models/models.dart';
 import '../providers/registration_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 

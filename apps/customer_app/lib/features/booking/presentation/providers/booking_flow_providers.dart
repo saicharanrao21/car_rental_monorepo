@@ -47,6 +47,11 @@ class BookingDraft {
   final double netToVendor;
   final double commissionPercent;
 
+  // Protection Package Add-on (Feature 17)
+  final String? selectedProtectionPackageId;
+  final ProtectionPackageModel? selectedProtectionPackage;
+  final double protectionFee;
+
   // Coupon
   final String? appliedCouponCode;
   final double couponDiscountAmount;
@@ -75,6 +80,9 @@ class BookingDraft {
     this.additionalDriverPhone = '',
     this.additionalDriverLicence = '',
     this.additionalDriverFee = 0.0,
+    this.selectedProtectionPackageId,
+    this.selectedProtectionPackage,
+    this.protectionFee = 0.0,
     this.contactName = '',
     this.contactPhone = '',
     this.baseFare = 0,
@@ -102,6 +110,7 @@ class BookingDraft {
     bool? hasDoorstepDelivery, String? deliveryAddress, double? deliveryFee,
     bool? hasDoorstepPickup, String? returnPickupAddress, double? returnPickupFee,
     bool? hasAdditionalDriver, String? additionalDriverName, String? additionalDriverPhone, String? additionalDriverLicence, double? additionalDriverFee,
+    String? selectedProtectionPackageId, ProtectionPackageModel? selectedProtectionPackage, double? protectionFee,
     String? contactName, String? contactPhone,
     double? baseFare, double? platformFee, double? gst,
     double? totalFare, double? netToVendor, double? commissionPercent,
@@ -131,6 +140,9 @@ class BookingDraft {
       additionalDriverPhone: additionalDriverPhone ?? this.additionalDriverPhone,
       additionalDriverLicence: additionalDriverLicence ?? this.additionalDriverLicence,
       additionalDriverFee: additionalDriverFee ?? this.additionalDriverFee,
+      selectedProtectionPackageId: selectedProtectionPackageId ?? this.selectedProtectionPackageId,
+      selectedProtectionPackage: selectedProtectionPackage ?? this.selectedProtectionPackage,
+      protectionFee: protectionFee ?? this.protectionFee,
       contactName: contactName ?? this.contactName,
       contactPhone: contactPhone ?? this.contactPhone,
       baseFare: baseFare ?? this.baseFare,

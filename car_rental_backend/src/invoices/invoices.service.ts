@@ -66,6 +66,7 @@ export class InvoicesService {
           vendorId: booking.vendorId,
           baseFare: booking.baseFare,
           platformFee: booking.platformFee,
+          protectionFee: booking.protectionFee || new Prisma.Decimal(0),
           gstRate: new Prisma.Decimal(18.0),
           gstAmount: booking.gstAmount,
           discountAmount: discountAmt,

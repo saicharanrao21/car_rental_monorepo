@@ -27,6 +27,18 @@ final bookingDamageClaimsProvider = FutureProvider.family.autoDispose<List<Damag
   return repo.getDamageClaims(bookingId);
 });
 
+final vendorBookingEmergencyProvider =
+    FutureProvider.family.autoDispose<EmergencyRequestModel?, String>((ref, bookingId) async {
+  final apiClient = ref.watch(apiClientProvider);
+  try {
+    final response = await apiClient.dio.get('/emergency/requests/booking/$bookingId');
+    if (response.data == null) return null;
+    return EmergencyRequestModel.fromJson(response.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+});
+
 class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>> {
   @override
   FutureOr<List<BookingModel>> build() async {

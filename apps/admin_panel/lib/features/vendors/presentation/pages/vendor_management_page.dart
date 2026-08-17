@@ -6,8 +6,8 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
 import '../providers/admin_vendor_providers.dart';
-import '../../fleet/presentation/providers/admin_fleet_providers.dart';
-import '../../customers/presentation/providers/admin_customer_providers.dart';
+import '../../../fleet/presentation/providers/admin_fleet_providers.dart';
+import '../../../customers/presentation/providers/admin_customer_providers.dart';
 
 class VendorManagementPage extends ConsumerStatefulWidget {
   const VendorManagementPage({super.key});

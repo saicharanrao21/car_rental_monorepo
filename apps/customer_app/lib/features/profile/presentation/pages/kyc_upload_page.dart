@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../../../core/providers/api_providers.dart';
 

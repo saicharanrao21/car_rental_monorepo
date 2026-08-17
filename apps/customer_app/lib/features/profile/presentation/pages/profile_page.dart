@@ -6,6 +6,9 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../../../core/providers/session_provider.dart';
 import 'kyc_upload_page.dart';
+import '../../../support/presentation/pages/support_center_page.dart';
+import '../../../wallet/presentation/pages/wallet_page.dart';
+import '../../../referral/presentation/pages/referral_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -227,10 +230,20 @@ class ProfilePage extends ConsumerWidget {
               icon: Icons.account_balance_wallet_outlined,
               title: 'Wallet & Credits',
               onTap: () {
-                _navigateToSubpage(
+                Navigator.push(
                   context,
-                  title: 'Wallet & Credits',
-                  child: const _WalletSection(),
+                  MaterialPageRoute(builder: (context) => const WalletPage()),
+                );
+              },
+            ),
+            _menuTile(
+              context,
+              icon: Icons.card_giftcard_outlined,
+              title: 'Refer & Earn (₹250)',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ReferralPage()),
                 );
               },
             ),
@@ -247,10 +260,9 @@ class ProfilePage extends ConsumerWidget {
               icon: Icons.help_outline,
               title: 'Help & Support',
               onTap: () {
-                _navigateToSubpage(
+                Navigator.push(
                   context,
-                  title: 'Help & Support',
-                  child: const _HelpSupportSection(),
+                  MaterialPageRoute(builder: (context) => const SupportCenterPage()),
                 );
               },
             ),
@@ -351,97 +363,6 @@ class _SavedAddressesSection extends StatelessWidget {
                       Text(details, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Wallet Section ───────────────────────────────────────────────────────────
-class _WalletSection extends StatelessWidget {
-  const _WalletSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Gap(24),
-          const Icon(
-            Icons.account_balance_wallet,
-            size: 80,
-            color: AppColors.primary,
-          ),
-          const Gap(24),
-          Text(
-            'Wallet Balance',
-            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-          const Gap(8),
-          Text(
-            '₹0',
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const Gap(32),
-          Text(
-            'Add money, view transaction history and more features are coming soon.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Help & Support FAQ Section ───────────────────────────────────────────────
-class _HelpSupportSection extends StatelessWidget {
-  const _HelpSupportSection();
-
-  @override
-  Widget build(BuildContext context) {
-    const faqs = [
-      ('How do I cancel my booking?', 'You can cancel any upcoming booking directly from the My Bookings list. Simply tap on the booking card, click "Cancel Booking", select your reason, and confirm.'),
-      ('Are there any cancellation charges?', 'Cancellations made more than 24 hours before the trip start time are completely free. Inside 24 hours, a standard platform processing fee may apply.'),
-      ('How is the fare calculated?', 'Fares include trip rate per day, distance packages, and GST. Tolls, parking, and fuel are to be settled directly as per trip type rules.'),
-      ('How do I contact the vendor?', 'Once your booking is confirmed, the vendor will contact you directly to coordinate car dropoff and key handover. Support contact options are also visible on the booking details page.'),
-      ('What documents do I need to present?', 'You must present a valid original Driving License (DL) and an Aadhaar/Govt ID card matching the booking name to the vendor during delivery.'),
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: faqs.length,
-      itemBuilder: (context, index) {
-        final (q, a) = faqs[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: AppCard(
-            padding: EdgeInsets.zero,
-            child: ExpansionTile(
-              title: Text(
-                q,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              childrenPadding: const EdgeInsets.all(16),
-              expandedAlignment: Alignment.topLeft,
-              expandedCrossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  a,
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface, height: 1.4),
                 ),
               ],
             ),

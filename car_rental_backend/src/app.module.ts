@@ -26,6 +26,11 @@ import { DamageClaimsModule } from './damage-claims/damage-claims.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { KycModule } from './kyc/kyc.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { SupportTicketsModule } from './support/support-tickets.module';
+import { EmergencyAssistanceModule } from './emergency/emergency-assistance.module';
+import { ProtectionPackagesModule } from './protection/protection-packages.module';
+import { WalletsModule } from './wallets/wallets.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -62,6 +67,11 @@ import { validateEnv } from './common/env.validation';
     CouponsModule,
     KycModule,
     InvoicesModule,
+    SupportTicketsModule,
+    EmergencyAssistanceModule,
+    ProtectionPackagesModule,
+    WalletsModule,
+    ReferralsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

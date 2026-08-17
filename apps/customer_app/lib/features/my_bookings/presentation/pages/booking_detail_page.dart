@@ -14,6 +14,10 @@ import '../../../booking/presentation/providers/booking_providers.dart';
 import '../../../booking/domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
 import '../../../../core/providers/api_providers.dart';
+import '../../../emergency/presentation/providers/emergency_providers.dart';
+import '../../../emergency/presentation/widgets/emergency_bottom_sheet.dart';
+import '../../../emergency/presentation/widgets/emergency_status_card.dart';
+import '../../../support/presentation/pages/create_ticket_page.dart';
 
 class BookingDetailPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -685,6 +689,8 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
           final isCompleted = booking.status.toLowerCase() == 'completed' ||
               (booking.status.toLowerCase() == 'confirmed' && booking.endDate.isBefore(now));
 
+          final emergencyAsync = ref.watch(activeBookingEmergencyProvider(booking.id));
+
           return Stack(
             children: [
               SingleChildScrollView(
@@ -692,6 +698,19 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Emergency Incident Status Card if active
+                    emergencyAsync.when(
+                      data: (emergency) {
+                        if (emergency == null) return const SizedBox.shrink();
+                        return EmergencyStatusCard(
+                          emergency: emergency,
+                          onRefresh: () => ref.invalidate(activeBookingEmergencyProvider(booking.id)),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
                     // Car info header card
                     AppCard(
                       padding: const EdgeInsets.all(16),
@@ -867,6 +886,60 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                         ],
                       ),
                     ),
+                    // Conditionally show Emergency SOS button for ONGOING or UPCOMING active bookings
+                    if ((isOngoing || isUpcoming) && !isCancelled) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.emergency_outlined, color: Colors.red),
+                        label: const Text(
+                          'Emergency Assistance (SOS)',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          final dispatched = await EmergencyBottomSheet.show(
+                            context,
+                            bookingId: booking.id,
+                            carDetails: '${car.make} ${car.model} (${car.registrationNumber})',
+                          );
+                          if (dispatched == true) {
+                            ref.invalidate(activeBookingEmergencyProvider(booking.id));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('🚨 Emergency SOS dispatched! Support team is responding.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      const Gap(12),
+                    ],
+
+                    // Support Ticket Action
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.support_agent_outlined),
+                      label: const Text('Need Help? Raise Support Ticket'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreateTicketPage(initialBookingId: booking.id),
+                          ),
+                        );
+                      },
+                    ),
+                    const Gap(16),
+
                     // Conditionally show Complete Payment button for PENDING bookings
                     if (booking.status.toLowerCase() == 'pending' && !isCancelled) ...[
                       AppButton(

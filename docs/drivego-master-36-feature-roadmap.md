@@ -1,6 +1,6 @@
 # DRIVEGO MASTER 36-FEATURE EXECUTION ROADMAP
-**Platform:** DriveGo Full-Stack Rental Platform  
-**Target:** 36 Mandatory Product Features + Multi-City Expansion  
+**Platform:** DriveGo Full-Stack Rental Platform
+**Target:** 36 Mandatory Product Features + Multi-City Expansion
 **Date:** August 16, 2026
 
 ---

@@ -16,3 +16,8 @@ export 'src/security_deposit_model.dart';
 export 'src/damage_claim_model.dart';
 export 'src/payment_order_model.dart';
 export 'src/coupon_model.dart';
+export 'src/support_ticket_model.dart';
+export 'src/emergency_request_model.dart';
+export 'src/protection_package_model.dart';
+export 'src/wallet_model.dart';
+export 'src/referral_model.dart';

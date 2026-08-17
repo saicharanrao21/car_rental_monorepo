@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import 'package:models/models.dart';
 import '../providers/admin_customer_providers.dart';
 
 class CustomerManagementPage extends ConsumerStatefulWidget {

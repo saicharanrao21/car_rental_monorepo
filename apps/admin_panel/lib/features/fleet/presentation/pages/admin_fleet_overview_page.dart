@@ -6,7 +6,7 @@ import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../providers/admin_fleet_providers.dart';
-import '../../vendors/presentation/providers/admin_vendor_providers.dart';
+import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
 
 class AdminFleetOverviewPage extends ConsumerStatefulWidget {
   const AdminFleetOverviewPage({super.key});

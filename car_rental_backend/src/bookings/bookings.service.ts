@@ -31,6 +31,7 @@ import { HandoverOtpService } from './handover-otp.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { DepositRulesService } from '../deposits/deposit-rules.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 
@@ -51,6 +52,7 @@ export class BookingsService {
     private readonly couponsService: CouponsService,
     @Optional() private readonly depositRulesService?: DepositRulesService,
     @Optional() private readonly invoicesService?: InvoicesService,
+    @Optional() private readonly referralsService?: ReferralsService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -204,6 +206,34 @@ export class BookingsService {
         discountAmountDecimal = new Prisma.Decimal(validatedCoupon.discountAmount);
         const netPayable = Math.max(0, Number(fareDetails.total) - validatedCoupon.discountAmount) + totalDeliveryAddons.toNumber();
         finalTotalFare = new Prisma.Decimal(netPayable);
+      } else if (this.referralsService) {
+        // Check Referee First-Booking Referral Benefit
+        const eligibility = await this.referralsService.getRefereeEligibility(customerId);
+        if (eligibility.eligible && Number(fareDetails.total) >= eligibility.minBookingAmount) {
+          discountAmountDecimal = new Prisma.Decimal(eligibility.discountAmount);
+          const netPayable = Math.max(0, Number(fareDetails.total) - eligibility.discountAmount) + totalDeliveryAddons.toNumber();
+          finalTotalFare = new Prisma.Decimal(netPayable);
+        }
+      }
+
+      // Resolve Protection Package if selected
+      let protectionPackage: any = null;
+      let protectionFeeDecimal = new Prisma.Decimal(0);
+      let protectionDeductibleDecimal: Prisma.Decimal | null = null;
+      let protectionCode: string | null = null;
+
+      if (dto.protectionPackageId) {
+        protectionPackage = await this.prisma.protectionPackage.findUnique({
+          where: { id: dto.protectionPackageId },
+        });
+        if (protectionPackage && protectionPackage.isActive) {
+          if (!protectionPackage.city || protectionPackage.city === car.vendor.city) {
+            protectionFeeDecimal = protectionPackage.dailyRate.mul(durationDays);
+            protectionDeductibleDecimal = protectionPackage.deductibleAmount;
+            protectionCode = protectionPackage.code;
+            finalTotalFare = finalTotalFare.add(protectionFeeDecimal);
+          }
+        }
       }
 
       // Calculate authoritative dynamic security deposit requirement
@@ -271,6 +301,10 @@ export class BookingsService {
               pickupLatitude: dto.pickupLatitude,
               pickupLongitude: dto.pickupLongitude,
               pickupFee,
+              protectionPackageId: protectionPackage ? protectionPackage.id : null,
+              protectionCode,
+              protectionFee: protectionFeeDecimal,
+              protectionDeductible: protectionDeductibleDecimal,
               couponId: validatedCoupon ? validatedCoupon.couponId : null,
               couponCode: validatedCoupon ? validatedCoupon.code : null,
               discountAmount: discountAmountDecimal,
@@ -785,6 +819,15 @@ export class BookingsService {
       .catch((err) =>
         this.logger.error('Failed to notify customer of status update', err),
       );
+
+    // Trigger Referral Qualification Trigger on Booking Completion
+    if (newStatus === BookingStatus.COMPLETED && this.referralsService) {
+      this.referralsService
+        .handleBookingCompleted(bookingId)
+        .catch((err) =>
+          this.logger.error(`Referral qualification failed for booking ${bookingId}:`, err),
+        );
+    }
 
     return updatedBooking;
   }

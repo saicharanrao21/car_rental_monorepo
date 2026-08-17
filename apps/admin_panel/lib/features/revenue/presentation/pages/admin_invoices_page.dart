@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/providers/admin_session_provider.dart';
 import '../../../../core/providers/api_providers.dart';
 
 final adminInvoicesSearchQueryProvider = StateProvider<String>((ref) => '');

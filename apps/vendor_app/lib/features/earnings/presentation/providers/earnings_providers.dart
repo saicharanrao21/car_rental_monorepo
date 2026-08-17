@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:core/core.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../domain/repositories/earnings_repository.dart';

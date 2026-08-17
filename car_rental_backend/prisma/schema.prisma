@@ -161,6 +161,123 @@ enum DiscountType {
   FIXED
 }
 
+enum TicketCategory {
+  BOOKING
+  PAYMENT
+  REFUND
+  SECURITY_DEPOSIT
+  VEHICLE
+  PICKUP_DELIVERY
+  KYC_LICENCE
+  TRIP_EXTENSION
+  DAMAGE_DISPUTE
+  EMERGENCY
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  WAITING_FOR_VENDOR
+  RESOLVED
+  CLOSED
+}
+
+enum IncidentType {
+  ACCIDENT
+  BREAKDOWN
+  FLAT_TYRE
+  BATTERY
+  LOCKOUT
+  FUEL_EMERGENCY
+  ENGINE_ISSUE
+  TOWING_REQUIRED
+  MEDICAL_EMERGENCY
+  OTHER
+}
+
+enum EmergencyStatus {
+  REQUESTED
+  ACKNOWLEDGED
+  ASSIGNED
+  PROVIDER_EN_ROUTE
+  CUSTOMER_CONTACTED
+  ON_SITE
+  RESOLVED
+  CANCELLED
+}
+
+enum ProtectionPlanCode {
+  BASIC
+  STANDARD
+  PREMIUM
+  ZERO_DEP
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+enum WalletBucketType {
+  REAL_MONEY
+  PROMOTIONAL
+  REFUND_CREDIT
+}
+
+enum LedgerEntryType {
+  CUSTOMER_DEPOSIT
+  CHECKOUT_DEBIT
+  BOOKING_REFUND
+  REFERRAL_REWARD
+  LOYALTY_CONVERSION
+  ADMIN_ADJUSTMENT
+  CANCELLATION_CREDIT
+  EXPIRATION
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum ReferralStatus {
+  INVITED
+  REGISTERED
+  QUALIFIED
+  REWARDED
+  CANCELLED
+  EXPIRED
+  FRAUD_BLOCKED
+}
+
+enum LoyaltyTierCode {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum LoyaltyTransactionType {
+  TRIP_COMPLETION_EARNED
+  PROMOTION_BONUS
+  REDEMPTION_TO_WALLET
+  TIER_UPGRADE_BONUS
+  ADMIN_ADJUSTMENT
+  CANCELLATION_REVERSAL
+  POINTS_EXPIRY
+}
+
 model User {
   id               String            @id @default(cuid())
   name             String
@@ -170,6 +287,7 @@ model User {
   passwordHash     String?
   profilePhotoUrl  String?
   banned           Boolean           @default(false)
+  referralCode     String?           @unique
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   fcmToken         String?
@@ -187,6 +305,14 @@ model User {
   couponUsages     CouponUsage[]
   customerKyc      CustomerKyc?
   invoices         Invoice[]
+  supportTicketsCreated SupportTicket[] @relation("CustomerTickets")
+  supportTicketsAssigned SupportTicket[] @relation("AssignedTickets")
+  ticketMessages   TicketMessage[]
+  emergencyRequests EmergencyRequest[]
+  wallet           Wallet?
+  referralsSent    ReferralAttribution[] @relation("ReferrerAttributions")
+  referralReceived ReferralAttribution?  @relation("RefereeAttribution")
+  loyaltyAccount   LoyaltyAccount?
 
   @@index([phone])
   @@index([role])
@@ -223,6 +349,7 @@ model Vendor {
   payouts            Payout[]
   damageClaims       DamageClaim[]
   invoices           Invoice[]
+  emergencyRequests  EmergencyRequest[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -273,6 +400,7 @@ model Car {
   bookings               Booking[]
   wishlists              Wishlist[]
   recentlyViewed         RecentlyViewed[]
+  emergencyRequests      EmergencyRequest[]
 
   @@index([vendorId])
   @@index([type])
@@ -322,6 +450,12 @@ model Booking {
   pickupLatitude     Float?
   pickupLongitude    Float?
   pickupFee          Decimal           @default(0) @db.Decimal(10, 2)
+  protectionPackageId String?
+  protectionPackage  ProtectionPackage? @relation(fields: [protectionPackageId], references: [id], onDelete: SetNull)
+  protectionCode     String?
+  protectionFee      Decimal           @default(0) @db.Decimal(10, 2)
+  protectionDeductible Decimal?        @db.Decimal(10, 2)
+  walletDeduction    Decimal           @default(0) @db.Decimal(10, 2)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   review             Review?
@@ -336,6 +470,8 @@ model Booking {
   creditNotes        CreditNote[]
   extensions         TripExtension[]
   additionalDrivers  AdditionalDriver[]
+  supportTickets     SupportTicket[]
+  emergencyRequests  EmergencyRequest[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -717,6 +853,7 @@ model Invoice {
   vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   baseFare       Decimal      @db.Decimal(10, 2)
   platformFee    Decimal      @db.Decimal(10, 2)
+  protectionFee  Decimal      @default(0) @db.Decimal(10, 2)
   gstRate        Decimal      @default(18.00) @db.Decimal(5, 2)
   gstAmount      Decimal      @db.Decimal(10, 2)
   discountAmount Decimal      @default(0) @db.Decimal(10, 2)
@@ -795,4 +932,245 @@ model AdditionalDriver {
   @@index([bookingId])
   @@index([licenceNumber])
   @@index([kycStatus])
+}
+
+model SupportTicket {
+  id               String          @id @default(cuid())
+  ticketNumber     String          @unique
+  customerId       String
+  customer         User            @relation("CustomerTickets", fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId        String?
+  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  category         TicketCategory
+  priority         TicketPriority  @default(NORMAL)
+  subject          String
+  description      String
+  status           TicketStatus    @default(OPEN)
+  assignedToUserId String?
+  assignedToUser   User?           @relation("AssignedTickets", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  messages         TicketMessage[]
+
+  @@index([customerId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([assignedToUserId])
+}
+
+model TicketMessage {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderRole  Role
+  message     String
+  attachments String[]
+  isInternal  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId])
+  @@index([senderId])
+}
+
+model EmergencyRequest {
+  id                   String          @id @default(cuid())
+  requestNumber        String          @unique
+  customerId           String
+  customer             User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId            String
+  booking              Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  carId                String
+  car                  Car             @relation(fields: [carId], references: [id], onDelete: Cascade)
+  vendorId             String
+  vendor               Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  city                 String
+  incidentType         IncidentType
+  urgency              TicketPriority  @default(URGENT)
+  status               EmergencyStatus @default(REQUESTED)
+  customerNotes        String?
+  latitude             Float?
+  longitude            Float?
+  locationAddress      String?
+  assignedProviderName String?
+  assignedProviderPhone String?
+  contactNotes         String?
+  resolutionNotes      String?
+  estimatedEtaMinutes  Int?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  resolvedAt           DateTime?
+
+  @@index([customerId])
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([city])
+  @@index([status])
+  @@index([incidentType])
+}
+
+model ProtectionPackage {
+  id                String             @id @default(cuid())
+  name              String
+  code              ProtectionPlanCode
+  description       String
+  dailyRate         Decimal            @db.Decimal(10, 2)
+  coverageSummary   String[]
+  deductibleAmount  Decimal            @db.Decimal(10, 2)
+  maxCoverageAmount Decimal            @db.Decimal(10, 2)
+  exclusions        String[]
+  termsUrl          String?
+  city              String?
+  isActive          Boolean            @default(true)
+  displayOrder      Int                @default(0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  bookings          Booking[]
+
+  @@unique([code, city])
+  @@index([city])
+  @@index([isActive])
+}
+
+model Wallet {
+  id               String               @id @default(cuid())
+  userId           String               @unique
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency         String               @default("INR")
+  availableBalance Decimal              @default(0) @db.Decimal(10, 2)
+  lockedBalance    Decimal              @default(0) @db.Decimal(10, 2)
+  realBalance      Decimal              @default(0) @db.Decimal(10, 2)
+  promoBalance     Decimal              @default(0) @db.Decimal(10, 2)
+  status           WalletStatus         @default(ACTIVE)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  ledgerEntries    WalletLedgerEntry[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model WalletLedgerEntry {
+  id             String           @id @default(cuid())
+  walletId       String
+  wallet         Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type           LedgerEntryType
+  direction      LedgerDirection
+  bucket         WalletBucketType
+  amount         Decimal          @db.Decimal(10, 2)
+  balanceBefore  Decimal          @db.Decimal(10, 2)
+  balanceAfter   Decimal          @db.Decimal(10, 2)
+  referenceType  String           // "BOOKING", "PAYMENT", "REFERRAL", "LOYALTY", "ADMIN", etc.
+  referenceId    String?          // Entity CUID
+  idempotencyKey String           @unique
+  description    String
+  expiresAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+
+  @@index([walletId])
+  @@index([referenceType, referenceId])
+  @@index([bucket])
+  @@index([createdAt])
+}
+
+model ReferralCampaign {
+  id                    String        @id @default(cuid())
+  name                  String
+  code                  String        @unique
+  referrerRewardAmount  Decimal       @db.Decimal(10, 2)
+  refereeRewardAmount   Decimal       @db.Decimal(10, 2)
+  minBookingAmount      Decimal       @default(1000) @db.Decimal(10, 2)
+  city                  String?
+  startDate             DateTime?
+  endDate               DateTime?
+  isActive              Boolean       @default(true)
+  maxReferralsPerUser   Int           @default(20)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  attributions          ReferralAttribution[]
+
+  @@index([code])
+  @@index([city])
+  @@index([isActive])
+}
+
+model ReferralAttribution {
+  id                     String            @id @default(cuid())
+  referrerId             String
+  referrer               User              @relation("ReferrerAttributions", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId              String            @unique
+  referee                User              @relation("RefereeAttribution", fields: [refereeId], references: [id], onDelete: Cascade)
+  campaignId             String?
+  campaign               ReferralCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  referralCodeUsed       String
+  status                 ReferralStatus    @default(REGISTERED)
+  qualifyingBookingId    String?
+  referrerRewardAmount   Decimal           @default(0) @db.Decimal(10, 2)
+  refereeRewardAmount    Decimal           @default(0) @db.Decimal(10, 2)
+  referrerLedgerEntryId  String?
+  refereeLedgerEntryId   String?
+  fraudFlags             String[]          @default([])
+  createdAt              DateTime          @default(now())
+  qualifiedAt            DateTime?
+  rewardedAt             DateTime?
+
+  @@index([referrerId])
+  @@index([refereeId])
+  @@index([referralCodeUsed])
+  @@index([status])
+}
+
+model LoyaltyTier {
+  id                    String          @id @default(cuid())
+  code                  LoyaltyTierCode @unique
+  name                  String
+  minPointsRequired     Int             @default(0)
+  pointsMultiplier      Decimal         @default(1.00) @db.Decimal(3, 2)
+  cashbackPercent       Decimal         @default(1.00) @db.Decimal(5, 2)
+  prioritySupport       Boolean         @default(false)
+  freeCancellationCount Int             @default(0)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  accounts              LoyaltyAccount[]
+}
+
+model LoyaltyAccount {
+  id               String               @id @default(cuid())
+  userId           String               @unique
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tierId           String
+  tier             LoyaltyTier          @relation(fields: [tierId], references: [id])
+  pointsBalance    Int                  @default(0)
+  lifetimePoints   Int                  @default(0)
+  tierExpiresAt    DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  transactions     LoyaltyTransaction[]
+
+  @@index([userId])
+  @@index([tierId])
+}
+
+model LoyaltyTransaction {
+  id             String                 @id @default(cuid())
+  accountId      String
+  account        LoyaltyAccount         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type           LoyaltyTransactionType
+  points         Int
+  balanceBefore  Int
+  balanceAfter   Int
+  referenceType  String
+  referenceId    String?
+  idempotencyKey String                 @unique
+  description    String
+  createdAt      DateTime               @default(now())
+
+  @@index([accountId])
+  @@index([createdAt])
 }

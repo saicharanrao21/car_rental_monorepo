@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../providers/admin_booking_providers.dart';
-import '../../vendors/presentation/providers/admin_vendor_providers.dart';
+import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
 
 class AdminBookingManagementPage extends ConsumerStatefulWidget {
   const AdminBookingManagementPage({super.key});

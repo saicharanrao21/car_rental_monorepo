@@ -9,11 +9,8 @@ import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../providers/profile_providers.dart';
-import '../../domain/repositories/vendor_profile_repository.dart';
 import '../../domain/document_expiry_utils.dart';
-import '../../domain/vendor_document_model.dart';
 import '../providers/documents_provider.dart';
-import '../../../fleet/presentation/providers/fleet_providers.dart';
 
 class VendorProfilePage extends ConsumerStatefulWidget {
   const VendorProfilePage({super.key});

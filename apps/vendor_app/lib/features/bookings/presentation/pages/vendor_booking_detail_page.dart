@@ -183,6 +183,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     final endStr = formatter.format(booking.endDate);
 
     final statusLower = booking.status.toLowerCase();
+    final emergencyAsync = ref.watch(vendorBookingEmergencyProvider(widget.bookingId));
 
     return Scaffold(
       appBar: AppBar(
@@ -195,6 +196,80 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Roadside Incident Alert Banner if reported
+                emergencyAsync.when(
+                  data: (emergency) {
+                    if (emergency == null) return const SizedBox.shrink();
+                    final isResolved = emergency.status == EmergencyStatus.RESOLVED;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isResolved
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: isResolved ? Colors.green : Colors.red),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isResolved ? Icons.check_circle : Icons.emergency,
+                                color: isResolved ? Colors.green : Colors.red,
+                              ),
+                              const Gap(8),
+                              Expanded(
+                                child: Text(
+                                  'ROADSIDE ASSISTANCE: ${emergency.incidentType.label}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isResolved
+                                        ? Colors.green.shade800
+                                        : Colors.red.shade900,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isResolved ? Colors.green : Colors.red,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  emergency.status.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (emergency.customerNotes != null) ...[
+                            const Gap(6),
+                            Text('Customer Notes: ${emergency.customerNotes}',
+                                style: const TextStyle(fontSize: 12)),
+                          ],
+                          if (emergency.locationAddress != null) ...[
+                            const Gap(4),
+                            Text('Location: ${emergency.locationAddress}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.black54)),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+
                 // Status Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

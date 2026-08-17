@@ -5,6 +5,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
+import '../../domain/dispute_model.dart';
 import '../providers/admin_disputes_providers.dart';
 
 class AdminDisputesPage extends ConsumerStatefulWidget {
@@ -198,6 +199,8 @@ class _AdminDisputesPageState extends ConsumerState<AdminDisputesPage> {
                   ],
                 ),
               ),
+            ),
+            const Gap(16),
             // Table List
             Expanded(
               child: _activeSection == 0
@@ -241,7 +244,7 @@ class _AdminDisputesPageState extends ConsumerState<AdminDisputesPage> {
                 DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
               ],
-              rows: disputes.map((d) {
+              rows: disputes.whereType<DisputeModel>().map((d) {
                 final isCustomer = d.raisedByRole.toUpperCase() == 'CUSTOMER';
                 final reasonTruncated = d.reason.length > 38 ? '${d.reason.substring(0, 38)}...' : d.reason;
 

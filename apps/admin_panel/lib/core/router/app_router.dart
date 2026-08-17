@@ -18,6 +18,10 @@ import '../../features/notifications/presentation/pages/push_notifications_page.
 import '../../features/banners/presentation/pages/banners_promotions_page.dart';
 import '../../features/supported_cities/presentation/pages/supported_cities_page.dart';
 import '../../features/settings/presentation/pages/platform_settings_page.dart';
+import '../../features/support/presentation/pages/admin_support_tickets_page.dart';
+import '../../features/emergency/presentation/pages/admin_emergency_dispatch_page.dart';
+import '../../features/protection/presentation/pages/admin_protection_packages_page.dart';
+import '../../features/referral/presentation/pages/admin_referral_campaigns_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -109,6 +113,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/supported-cities',
             builder: (context, state) => const SupportedCitiesPage(),
+          ),
+          GoRoute(
+            path: '/support-tickets',
+            builder: (context, state) => const AdminSupportTicketsPage(),
+          ),
+          GoRoute(
+            path: '/emergency-dispatch',
+            builder: (context, state) => const AdminEmergencyDispatchPage(),
+          ),
+          GoRoute(
+            path: '/protection-packages',
+            builder: (context, state) => const AdminProtectionPackagesPage(),
+          ),
+          GoRoute(
+            path: '/referrals',
+            builder: (context, state) => const AdminReferralCampaignsPage(),
           ),
           GoRoute(
             path: '/settings',

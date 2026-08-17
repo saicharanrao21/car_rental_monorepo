@@ -88,6 +88,19 @@ class ApiBookingRepository implements BookingRepository {
       data['driverIncluded'] = draftState.driverIncluded;
       data['childSeat'] = draftState.childSeat;
       data['extraLuggage'] = draftState.extraLuggage;
+      if (draftState.hasDoorstepDelivery) {
+        data['deliveryType'] = 'DOORSTEP_DELIVERY';
+        data['deliveryAddress'] = draftState.deliveryAddress;
+        data['deliveryFee'] = draftState.deliveryFee;
+      }
+      if (draftState.hasDoorstepPickup) {
+        data['pickupAddress'] = draftState.returnPickupAddress;
+        data['pickupFee'] = draftState.returnPickupFee;
+      }
+      if (draftState.selectedProtectionPackageId != null &&
+          draftState.selectedProtectionPackageId!.isNotEmpty) {
+        data['protectionPackageId'] = draftState.selectedProtectionPackageId;
+      }
     }
 
     final response = await apiClient.dio.post(

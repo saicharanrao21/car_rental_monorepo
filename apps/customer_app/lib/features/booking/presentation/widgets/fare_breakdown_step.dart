@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 import '../providers/booking_providers.dart';
+import '../../../referral/presentation/providers/referral_providers.dart';
 
 class FareBreakdownStep extends ConsumerStatefulWidget {
   final CarModel car;
@@ -129,7 +130,8 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
       commissionPercent: config.percentage,
     );
 
-    final finalPayable = (result.total - draft.couponDiscountAmount).clamp(0.0, double.infinity);
+    final totalAddons = draft.protectionFee + draft.deliveryFee + draft.returnPickupFee + draft.additionalDriverFee;
+    final finalPayable = (result.total + totalAddons - draft.couponDiscountAmount).clamp(0.0, double.infinity);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -236,7 +238,66 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
               ],
             ),
           ),
-          const Gap(16),
+          const Gap(12),
+
+          // Referral Reward Eligibility Banner
+          ref.watch(refereeEligibilityProvider).when(
+                data: (eligibility) {
+                  final isEligible = eligibility['eligible'] == true;
+                  final discount = (eligibility['discountAmount'] as num?)?.toDouble() ?? 250.0;
+                  final minBooking = (eligibility['minBookingAmount'] as num?)?.toDouble() ?? 1000.0;
+
+                  if (!isEligible) return const SizedBox.shrink();
+
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E5F5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFCE93D8)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.card_giftcard, color: Color(0xFF8E24AA), size: 22),
+                        const Gap(10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Referral Reward (₹${discount.toInt()} Off)',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF6A1B9A),
+                                ),
+                              ),
+                              Text(
+                                '₹${discount.toInt()} off on your first qualifying booking (min. ₹${minBooking.toInt()})',
+                                style: const TextStyle(fontSize: 11, color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8E24AA),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'APPLIED',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
 
           // Add-ons summary
           if (draft.driverIncluded || draft.childSeat || draft.extraLuggage)
@@ -408,6 +469,26 @@ class _CollapsibleFareCard extends StatelessWidget {
           const Divider(height: 20),
 
           _row(context, 'GST (18%)', result.gst),
+
+          if (draft.protectionFee > 0) ...[
+            const Divider(height: 16),
+            _row(context, 'Protection Package', draft.protectionFee),
+          ],
+
+          if (draft.deliveryFee > 0) ...[
+            const Divider(height: 16),
+            _row(context, 'Doorstep Delivery', draft.deliveryFee),
+          ],
+
+          if (draft.returnPickupFee > 0) ...[
+            const Divider(height: 16),
+            _row(context, 'Doorstep Pickup', draft.returnPickupFee),
+          ],
+
+          if (draft.additionalDriverFee > 0) ...[
+            const Divider(height: 16),
+            _row(context, 'Additional Driver Add-on', draft.additionalDriverFee),
+          ],
 
           if (draft.couponDiscountAmount > 0) ...[
             const Divider(height: 20),

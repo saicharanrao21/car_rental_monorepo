@@ -141,6 +141,9 @@ export class FinancialReconciliationService {
     // Rule 4: Financial State Inconsistencies
     await this.reconcileFinancialInconsistencies(report);
 
+    // Rule 5: Wallet Ledger Integrity
+    await this.reconcileAllWallets();
+
     this.logger.log(
       `[RECONCILIATION_COMPLETED] Financial reconciliation completed. Summary: Candidates=${report.candidatesFound}, Processed=${report.processed}, Healed=${report.healed}, Skipped=${report.skipped}, Errors=${report.errors}`,
     );
@@ -847,5 +850,78 @@ export class FinancialReconciliationService {
     } catch (err) {
       this.logger.warn('Failed to record reconciliation audit log:', err);
     }
+  }
+
+  /**
+   * RULE 5 — WALLET LEDGER INTEGRITY RECONCILIATION
+   * Compares cached Wallet balances against authoritative ledger aggregates.
+   * If any mismatch is found, freezes the wallet, logs an audit log, and alerts APM.
+   */
+  async reconcileAllWallets(): Promise<{ totalChecked: number; discrepanciesFound: number }> {
+    const wallets = await this.prisma.wallet.findMany();
+    let discrepanciesFound = 0;
+
+    for (const wallet of wallets) {
+      const aggregate = await this.prisma.walletLedgerEntry.groupBy({
+        by: ['direction'],
+        where: { walletId: wallet.id },
+        _sum: { amount: true },
+      });
+
+      let totalCredits = new Decimal(0);
+      let totalDebits = new Decimal(0);
+
+      for (const row of aggregate) {
+        if (row.direction === 'CREDIT') {
+          totalCredits = row._sum.amount ? new Decimal(row._sum.amount) : new Decimal(0);
+        } else if (row.direction === 'DEBIT') {
+          totalDebits = row._sum.amount ? new Decimal(row._sum.amount) : new Decimal(0);
+        }
+      }
+
+      const calculatedBalance = totalCredits.sub(totalDebits);
+      const isMatched = wallet.availableBalance.equals(calculatedBalance);
+      const isBucketSumMatched = wallet.realBalance.add(wallet.promoBalance).equals(wallet.availableBalance);
+
+      if (!isMatched || !isBucketSumMatched) {
+        discrepanciesFound++;
+        this.logger.error(
+          `CRITICAL WALLET RECONCILIATION MISMATCH: Wallet ${wallet.id} (User: ${wallet.userId}) Cached: ₹${wallet.availableBalance}, Computed: ₹${calculatedBalance}, Real: ₹${wallet.realBalance}, Promo: ₹${wallet.promoBalance}`,
+        );
+
+        await this.prisma.wallet.update({
+          where: { id: wallet.id },
+          data: { status: 'FROZEN' },
+        });
+
+        await this.recordReconciliationAuditLog({
+          action: 'WALLET_RECONCILIATION_DISCREPANCY_FROZEN',
+          targetType: 'Wallet',
+          targetId: wallet.id,
+          metadata: {
+            cachedAvailable: wallet.availableBalance.toString(),
+            computedAvailable: calculatedBalance.toString(),
+            realBalance: wallet.realBalance.toString(),
+            promoBalance: wallet.promoBalance.toString(),
+          },
+        });
+
+        if (this.apmMonitoringService) {
+          this.apmMonitoringService.captureFinancialInconsistency(
+            'WALLET_LEDGER_MISMATCH',
+            {
+              severity: 'fatal',
+              extra: {
+                walletId: wallet.id,
+                cached: wallet.availableBalance.toString(),
+                computed: calculatedBalance.toString(),
+              },
+            },
+          );
+        }
+      }
+    }
+
+    return { totalChecked: wallets.length, discrepanciesFound };
   }
 }

@@ -89,4 +89,8 @@ export class CreateBookingDto {
   @Min(0)
   @IsOptional()
   pickupFee?: number;
+
+  @IsString()
+  @IsOptional()
+  protectionPackageId?: string;
 }
