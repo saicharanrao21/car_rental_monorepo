@@ -8,10 +8,11 @@ final adminEmergencyRequestsProvider =
     FutureProvider.family.autoDispose<List<EmergencyRequestModel>, String?>((ref, statusFilter) async {
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get(
-    '/emergency/requests',
+    '/admin/emergency/requests',
     queryParameters: statusFilter != null && statusFilter != 'ALL' ? {'status': statusFilter} : null,
   );
-  final list = response.data as List<dynamic>;
+  final raw = response.data;
+  final List list = raw is Map ? (raw['requests'] as List? ?? []) : (raw is List ? raw : []);
   return list.map((e) => EmergencyRequestModel.fromJson(e as Map<String, dynamic>)).toList();
 });
 
@@ -328,32 +329,20 @@ class _DispatchActionDialogState extends ConsumerState<_DispatchActionDialog> {
     try {
       final apiClient = ref.read(apiClientProvider);
 
-      // If assigning provider
-      if (_providerNameCtrl.text.trim().isNotEmpty) {
-        await apiClient.dio.patch(
-          '/emergency/requests/${widget.request.id}/dispatch',
-          data: {
-            'providerName': _providerNameCtrl.text.trim(),
-            'providerPhone': _providerPhoneCtrl.text.trim().isNotEmpty
-                ? _providerPhoneCtrl.text.trim()
-                : null,
-            'etaMinutes': int.tryParse(_etaCtrl.text.trim()),
-          },
-        );
-      }
-
-      // Update Status if changed
-      if (_status != widget.request.status) {
-        await apiClient.dio.patch(
-          '/emergency/requests/${widget.request.id}/status',
-          data: {
-            'status': _status.name,
-            'resolutionNotes': _resolutionNotesCtrl.text.trim().isNotEmpty
-                ? _resolutionNotesCtrl.text.trim()
-                : null,
-          },
-        );
-      }
+      await apiClient.dio.patch(
+        '/admin/emergency/requests/${widget.request.id}/status',
+        data: {
+          'status': _status.name,
+          if (_providerNameCtrl.text.trim().isNotEmpty)
+            'assignedProviderName': _providerNameCtrl.text.trim(),
+          if (_providerPhoneCtrl.text.trim().isNotEmpty)
+            'assignedProviderPhone': _providerPhoneCtrl.text.trim(),
+          if (int.tryParse(_etaCtrl.text.trim()) != null)
+            'estimatedEtaMinutes': int.parse(_etaCtrl.text.trim()),
+          if (_resolutionNotesCtrl.text.trim().isNotEmpty)
+            'resolutionNotes': _resolutionNotesCtrl.text.trim(),
+        },
+      );
 
       widget.onUpdated();
       if (mounted) Navigator.pop(context);
