@@ -38,7 +38,11 @@ class VendorModel with _$VendorModel {
     json['businessName'] ??= json['displayName'] ?? 'Partner';
     json['ownerName'] ??= json['displayName'] ?? 'Partner';
     json['city'] ??= '';
+    json['phone'] ??= '';
     json['verificationStatus'] ??= 'verified';
+    json['rating'] = (json['rating'] as num?)?.toDouble() ?? 0.0;
+    json['totalTrips'] = (json['totalTrips'] as num?)?.toInt() ?? 0;
+    json['isSponsored'] = json['isSponsored'] ?? false;
     return _$VendorModelFromJson(json);
   }
 }
