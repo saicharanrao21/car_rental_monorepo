@@ -108,11 +108,19 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       }
     } catch (e) {
       if (mounted) {
+        String msg = 'Payment verification failed: $e';
+        if (e is DioException) {
+          final resData = e.response?.data;
+          if (resData is Map && resData['message'] != null) {
+            final m = resData['message'];
+            msg = m is List ? m.join(', ') : m.toString();
+          } else {
+            msg = e.message ?? 'Payment verification failed.';
+          }
+        }
         setState(() {
           _isProcessingPayment = false;
-          _errorMessage = e is DioException
-              ? (e.response?.data['message'] ?? 'Payment verification failed.')
-              : 'Payment verification failed: $e';
+          _errorMessage = msg;
         });
       }
     }
@@ -186,11 +194,19 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
       );
     } catch (e) {
       if (mounted) {
+        String msg = e.toString();
+        if (e is DioException) {
+          final resData = e.response?.data;
+          if (resData is Map && resData['message'] != null) {
+            final m = resData['message'];
+            msg = m is List ? m.join(', ') : m.toString();
+          } else {
+            msg = e.message ?? 'Payment initiation failed.';
+          }
+        }
         setState(() {
           _isProcessingPayment = false;
-          _errorMessage = e is DioException
-              ? (e.response?.data['message'] ?? e.message)
-              : e.toString();
+          _errorMessage = msg;
         });
       }
     }

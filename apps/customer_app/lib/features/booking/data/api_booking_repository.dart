@@ -74,8 +74,9 @@ class ApiBookingRepository implements BookingRepository {
     final data = <String, dynamic>{
       'carId': draft.carId,
       'tripType': _mapTripTypeToBackend(draft.tripType),
-      'pickupLocation': draft.pickupLocation,
-      'dropLocation': draft.dropLocation,
+      'pickupLocation': draft.pickupLocation.isEmpty ? 'Mumbai' : draft.pickupLocation,
+      if (draft.dropLocation != null && draft.dropLocation!.isNotEmpty)
+        'dropLocation': draft.dropLocation,
       'startDate': draft.startDate.toUtc().toIso8601String(),
       'endDate': draft.endDate.toUtc().toIso8601String(),
       'distanceKm': distanceKm,
@@ -85,9 +86,6 @@ class ApiBookingRepository implements BookingRepository {
       if (draftState.appliedCouponCode != null && draftState.appliedCouponCode!.isNotEmpty) {
         data['couponCode'] = draftState.appliedCouponCode;
       }
-      data['driverIncluded'] = draftState.driverIncluded;
-      data['childSeat'] = draftState.childSeat;
-      data['extraLuggage'] = draftState.extraLuggage;
       if (draftState.hasDoorstepDelivery) {
         data['deliveryType'] = 'DOORSTEP_DELIVERY';
         data['deliveryAddress'] = draftState.deliveryAddress;

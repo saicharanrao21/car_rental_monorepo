@@ -190,11 +190,19 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
         setState(() {
           _isProcessingPayment = false;
         });
+        String msg = e.toString();
+        if (e is DioException) {
+          final resData = e.response?.data;
+          if (resData is Map && resData['message'] != null) {
+            final m = resData['message'];
+            msg = m is List ? m.join(', ') : m.toString();
+          } else {
+            msg = e.message ?? 'Payment initiation failed.';
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e is DioException
-                ? (e.response?.data['message'] ?? e.message)
-                : e.toString()),
+            content: Text(msg),
             backgroundColor: Colors.red,
           ),
         );

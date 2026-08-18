@@ -241,6 +241,8 @@ class CreateBookingFlowNotifier extends AutoDisposeAsyncNotifier<BookingModel?> 
     try {
       final repo = ref.read(bookingRepositoryProvider);
       final now = DateTime.now();
+      final defaultStart = draft.startDate ?? now.add(const Duration(days: 6));
+      final defaultEnd = draft.endDate ?? now.add(const Duration(days: 8));
       final bookingDraft = BookingModel(
         id: 'draft',
         customerId: customerId,
@@ -249,8 +251,8 @@ class CreateBookingFlowNotifier extends AutoDisposeAsyncNotifier<BookingModel?> 
         tripType: draft.tripType,
         pickupLocation: draft.pickupLocation.isEmpty ? 'TBD' : draft.pickupLocation,
         dropLocation: draft.dropLocation.isEmpty ? null : draft.dropLocation,
-        startDate: draft.startDate ?? now,
-        endDate: draft.endDate ?? now.add(const Duration(days: 1)),
+        startDate: defaultStart.isBefore(now) ? now.add(const Duration(days: 6)) : defaultStart,
+        endDate: defaultEnd.isBefore(now) ? now.add(const Duration(days: 8)) : defaultEnd,
         totalFare: draft.totalFare,
         platformFee: draft.platformFee,
         gstAmount: draft.gst,
