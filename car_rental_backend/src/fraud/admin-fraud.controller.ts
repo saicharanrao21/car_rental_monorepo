@@ -45,8 +45,9 @@ export class AdminFraudController {
     @Param('id') assessmentId: string,
     @Body() dto: ResolveRiskAssessmentDto,
   ) {
+    const userId = req.user.id || req.user.userId;
     return this.fraudService.resolveRiskAssessment(
-      req.user.id,
+      userId,
       assessmentId,
       dto,
     );

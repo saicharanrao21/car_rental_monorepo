@@ -51,6 +51,7 @@ export class AdminLoyaltyController {
 
   @Post('adjust')
   async adjustPoints(@Req() req: any, @Body() dto: AdminAdjustLoyaltyDto) {
-    return this.loyaltyService.adminAdjustPoints(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.loyaltyService.adminAdjustPoints(userId, dto);
   }
 }

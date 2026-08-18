@@ -29,7 +29,8 @@ export class WalletsController {
    */
   @Get()
   async getMyWallet(@Req() req: any) {
-    return this.walletsService.getWalletByUserId(req.user.id);
+    const userId = req.user.id || req.user.userId;
+    return this.walletsService.getWalletByUserId(userId);
   }
 
   /**
@@ -41,7 +42,8 @@ export class WalletsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    return this.walletsService.getWalletTransactions(req.user.id, page, limit);
+    const userId = req.user.id || req.user.userId;
+    return this.walletsService.getWalletTransactions(userId, page, limit);
   }
 
   /**
@@ -52,7 +54,8 @@ export class WalletsController {
     @Req() req: any,
     @Body() dto: CreateDepositOrderDto,
   ) {
-    return this.walletsService.createDepositOrder(req.user.id, dto.amount);
+    const userId = req.user.id || req.user.userId;
+    return this.walletsService.createDepositOrder(userId, dto.amount);
   }
 
   /**
@@ -63,7 +66,8 @@ export class WalletsController {
     @Req() req: any,
     @Body() dto: VerifyDepositDto,
   ) {
-    return this.walletsService.verifyDepositPayment(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.walletsService.verifyDepositPayment(userId, dto);
   }
 
   /**
@@ -75,7 +79,8 @@ export class WalletsController {
     @Req() req: any,
     @Body() dto: AdminAdjustWalletDto,
   ) {
-    return this.walletsService.adminAdjustWallet(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.walletsService.adminAdjustWallet(userId, dto);
   }
 
   /**

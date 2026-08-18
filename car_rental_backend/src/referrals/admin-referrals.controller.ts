@@ -38,7 +38,8 @@ export class AdminReferralsController {
     @Req() req: any,
     @Body() dto: CreateReferralCampaignDto,
   ) {
-    return this.referralsService.createAdminCampaign(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.createAdminCampaign(userId, dto);
   }
 
   /**
@@ -50,7 +51,8 @@ export class AdminReferralsController {
     @Param('id') id: string,
     @Body() dto: UpdateReferralCampaignDto,
   ) {
-    return this.referralsService.updateAdminCampaign(req.user.id, id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.updateAdminCampaign(userId, id, dto);
   }
 
   /**
@@ -61,6 +63,7 @@ export class AdminReferralsController {
     @Req() req: any,
     @Param('id') id: string,
   ) {
-    return this.referralsService.toggleAdminCampaign(req.user.id, id);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.toggleAdminCampaign(userId, id);
   }
 }

@@ -19,7 +19,8 @@ export class LoyaltyController {
 
   @Get('account')
   async getMyLoyaltyAccount(@Req() req: any) {
-    return this.loyaltyService.getLoyaltyAccount(req.user.id);
+    const userId = req.user.id || req.user.userId;
+    return this.loyaltyService.getLoyaltyAccount(userId);
   }
 
   @Get('transactions')
@@ -28,9 +29,10 @@ export class LoyaltyController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const userId = req.user.id || req.user.userId;
     const p = page ? Math.max(1, parseInt(page, 10)) : 1;
     const l = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 20;
-    return this.loyaltyService.getLoyaltyTransactions(req.user.id, p, l);
+    return this.loyaltyService.getLoyaltyTransactions(userId, p, l);
   }
 
   @Get('tiers')
@@ -40,6 +42,7 @@ export class LoyaltyController {
 
   @Post('redeem-to-wallet')
   async redeemPoints(@Req() req: any, @Body() dto: RedeemPointsDto) {
-    return this.loyaltyService.redeemPointsToWallet(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.loyaltyService.redeemPointsToWallet(userId, dto);
   }
 }

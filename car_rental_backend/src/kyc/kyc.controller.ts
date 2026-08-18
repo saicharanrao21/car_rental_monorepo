@@ -24,13 +24,15 @@ export class KycController {
   @Post('kyc/submit')
   @Roles(Role.CUSTOMER)
   async submitKyc(@Request() req: any, @Body() dto: SubmitKycDto) {
-    return this.kycService.submitKyc(req.user.userId, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.kycService.submitKyc(userId, dto);
   }
 
   @Get('kyc/status')
   @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
   async getKycStatus(@Request() req: any) {
-    return this.kycService.getKycStatus(req.user.userId);
+    const userId = req.user.id || req.user.userId;
+    return this.kycService.getKycStatus(userId);
   }
 
   @Get('admin/kyc/pending')
@@ -46,6 +48,7 @@ export class KycController {
     @Param('id') kycId: string,
     @Body() dto: ReviewKycDto,
   ) {
-    return this.kycService.reviewKyc(req.user.userId, kycId, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.kycService.reviewKyc(userId, kycId, dto);
   }
 }

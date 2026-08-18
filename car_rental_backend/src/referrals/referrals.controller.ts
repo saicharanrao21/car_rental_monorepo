@@ -21,7 +21,8 @@ export class ReferralsController {
    */
   @Get('my-code')
   async getMyReferralCode(@Req() req: any) {
-    return this.referralsService.getOrCreateUserReferralCode(req.user.id);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.getOrCreateUserReferralCode(userId);
   }
 
   /**
@@ -29,7 +30,8 @@ export class ReferralsController {
    */
   @Get('history')
   async getMyReferralHistory(@Req() req: any) {
-    return this.referralsService.getReferralHistory(req.user.id);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.getReferralHistory(userId);
   }
 
   /**
@@ -37,7 +39,8 @@ export class ReferralsController {
    */
   @Get('eligibility')
   async getRefereeEligibility(@Req() req: any) {
-    return this.referralsService.getRefereeEligibility(req.user.id);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.getRefereeEligibility(userId);
   }
 
   /**
@@ -48,6 +51,7 @@ export class ReferralsController {
     @Req() req: any,
     @Body() dto: ApplyReferralCodeDto,
   ) {
-    return this.referralsService.applyReferralCode(req.user.id, dto);
+    const userId = req.user.id || req.user.userId;
+    return this.referralsService.applyReferralCode(userId, dto);
   }
 }

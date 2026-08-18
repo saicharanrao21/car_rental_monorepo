@@ -151,8 +151,9 @@ export class InvoicesService {
 
     const isAdmin = requestingUser.role === Role.ADMIN;
     const isSupport = requestingUser.role === Role.SUPPORT_AGENT;
-    const isCustomer = invoice.customerId === requestingUser.userId;
-    const isVendor = invoice.vendorId === requestingUser.userId;
+    const reqUserId = requestingUser.userId || (requestingUser as any).id;
+    const isCustomer = invoice.customerId === reqUserId;
+    const isVendor = invoice.vendorId === reqUserId;
 
     if (!isAdmin && !isSupport && !isCustomer && !isVendor) {
       throw new ForbiddenException(
