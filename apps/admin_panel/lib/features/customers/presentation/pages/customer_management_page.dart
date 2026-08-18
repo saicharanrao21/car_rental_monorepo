@@ -151,7 +151,6 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
                         ],
                         rows: customers.map((c) {
                           final city = _deriveCustomerCity(c.id);
-                          final totalBookings = 0;
 
                           return DataRow(
                             cells: [
@@ -183,7 +182,7 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
                               ),
                               DataCell(Text(c.phone)),
                               DataCell(Text(city)),
-                              DataCell(Text('$totalBookings')),
+                              const DataCell(Text('0')),
                               const DataCell(Text('15 Jan 2026')), // Hardcoded mock join date
                               DataCell(
                                 Container(

@@ -139,8 +139,8 @@ class _AdminEmergencyDispatchPageState extends ConsumerState<AdminEmergencyDispa
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: isPending
-                                      ? Colors.red.withOpacity(0.12)
-                                      : Colors.blue.withOpacity(0.1),
+                                      ? Colors.red.withValues(alpha: 0.12)
+                                      : Colors.blue.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -277,7 +277,7 @@ class _AdminEmergencyDispatchPageState extends ConsumerState<AdminEmergencyDispa
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(status.label,
@@ -388,7 +388,7 @@ class _DispatchActionDialogState extends ConsumerState<_DispatchActionDialog> {
               const Divider(height: 24),
 
               DropdownButtonFormField<EmergencyStatus>(
-                value: _status,
+                initialValue: _status,
                 decoration: const InputDecoration(
                   labelText: 'Dispatch Status',
                   border: OutlineInputBorder(),

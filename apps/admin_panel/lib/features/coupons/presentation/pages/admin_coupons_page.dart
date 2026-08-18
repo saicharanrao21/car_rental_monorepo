@@ -345,7 +345,7 @@ class _CouponFormModalState extends State<_CouponFormModal> {
               ),
               const Gap(12),
               DropdownButtonFormField<String>(
-                value: _discountType,
+                initialValue: _discountType,
                 decoration: const InputDecoration(labelText: 'Discount Type', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'PERCENTAGE', child: Text('Percentage (%)')),

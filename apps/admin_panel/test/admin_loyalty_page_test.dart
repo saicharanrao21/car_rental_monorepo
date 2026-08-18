@@ -47,13 +47,13 @@ class MockAdminLoyaltyRepository implements AdminLoyaltyRepository {
 
 void main() {
   testWidgets('AdminLoyaltyManagementPage renders summary cards and member accounts table', (tester) async {
-    final mockSummary = LoyaltySummaryModel(
+    const mockSummary = LoyaltySummaryModel(
       totalAccounts: 120,
       totalLifetimePoints: 85000,
       totalAvailablePoints: 30000,
       totalPointsRedeemed: 55000,
       outstandingLiabilityInr: 15000,
-      tierBreakdown: const [
+      tierBreakdown: [
         LoyaltyTierBreakdownItem(code: LoyaltyTierCode.bronze, name: 'Bronze', minPoints: 0, multiplier: 1.0, accountCount: 80),
         LoyaltyTierBreakdownItem(code: LoyaltyTierCode.silver, name: 'Silver', minPoints: 500, multiplier: 1.25, accountCount: 25),
         LoyaltyTierBreakdownItem(code: LoyaltyTierCode.gold, name: 'Gold', minPoints: 2000, multiplier: 1.5, accountCount: 12),

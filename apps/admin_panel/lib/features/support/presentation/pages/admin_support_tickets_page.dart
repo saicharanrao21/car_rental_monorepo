@@ -9,10 +9,11 @@ final adminSupportTicketsProvider =
     FutureProvider.family.autoDispose<List<SupportTicketModel>, String?>((ref, statusFilter) async {
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get(
-    '/support/tickets',
+    '/admin/support/tickets',
     queryParameters: statusFilter != null && statusFilter != 'ALL' ? {'status': statusFilter} : null,
   );
-  final list = response.data as List<dynamic>;
+  final raw = response.data;
+  final List list = raw is Map ? (raw['tickets'] as List? ?? []) : (raw is List ? raw : []);
   return list.map((e) => SupportTicketModel.fromJson(e as Map<String, dynamic>)).toList();
 });
 
@@ -122,7 +123,7 @@ class _AdminSupportTicketsPageState extends ConsumerState<AdminSupportTicketsPag
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           leading: CircleAvatar(
-                            backgroundColor: _getPriorityColor(t.priority).withOpacity(0.15),
+                            backgroundColor: _getPriorityColor(t.priority).withValues(alpha: 0.15),
                             child: Icon(Icons.confirmation_number_outlined,
                                 color: _getPriorityColor(t.priority), size: 20),
                           ),
@@ -229,7 +230,7 @@ class _AdminSupportTicketsPageState extends ConsumerState<AdminSupportTicketsPag
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(status.label,
@@ -242,7 +243,7 @@ class _AdminSupportTicketsPageState extends ConsumerState<AdminSupportTicketsPag
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(priority.name,
@@ -307,7 +308,7 @@ class _TicketDetailDialogState extends ConsumerState<_TicketDetailDialog> {
     try {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.dio.patch(
-        '/support/tickets/${widget.ticketId}/status',
+        '/admin/support/tickets/${widget.ticketId}/status',
         data: {'status': newStatus.name},
       );
       widget.onUpdated();
