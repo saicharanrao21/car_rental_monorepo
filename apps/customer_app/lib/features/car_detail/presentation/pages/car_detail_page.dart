@@ -5,9 +5,10 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/car_detail_providers.dart';
-import '../widgets/availability_calendar_widget.dart';
 import '../../../wishlist/wishlist_providers.dart';
 import '../../../home/recently_viewed_providers.dart';
+import '../../../home/home_providers.dart';
+import '../../../search/presentation/providers/search_providers.dart';
 import '../../../../core/providers/api_providers.dart';
 
 class CarDetailPage extends ConsumerStatefulWidget {
@@ -43,6 +44,8 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
     final detailVal = ref.watch(carDetailDataProvider(widget.carId));
     final wishlistedIds = ref.watch(wishlistIdsProvider);
     final isWishlisted = wishlistedIds.contains(widget.carId);
+    final dates = ref.watch(searchDatesProvider) ?? ref.watch(selectedDateRangeProvider);
+    final tripType = ref.watch(searchTripTypeProvider) ?? ref.watch(selectedTripTypeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -280,12 +283,86 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                             ),
                           ),
                           const Gap(24),
-                          const Text(
-                            'Vehicle Availability',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const Gap(12),
-                          AvailabilityCalendarWidget(carId: car.id),
+                          if (dates != null)
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                                  ),
+                                  const Gap(12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Available for your selected trip',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                        const Gap(2),
+                                        Text(
+                                          '${dates.start.toDDMMYYYY()} → ${dates.end.toDDMMYYYY()} • $tripType',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: cs.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined, color: AppColors.primary, size: 20),
+                                  const Gap(12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Select dates to check availability',
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(
+                                          'Choose dates from Search to confirm pricing & availability',
+                                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => context.push('/search'),
+                                    child: const Text('Search'),
+                                  ),
+                                ],
+                              ),
+                            ),
                           const Gap(24),
                           const Text(
                             'Reviews',
@@ -483,10 +560,14 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                                   );
                                 },
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      'Est. Fare (50km)',
-                                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                                    Flexible(
+                                      child: Text(
+                                        'Est. Fare (50km)',
+                                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                     const Gap(4),
                                     Icon(Icons.info_outline, size: 14, color: cs.primary),

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import '../domain/repositories/auth_repository.dart';

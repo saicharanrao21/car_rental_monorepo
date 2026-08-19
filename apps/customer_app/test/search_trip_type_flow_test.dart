@@ -17,6 +17,8 @@ class MockSearchRepo implements SearchRepository {
     double? lat,
     double? lng,
     String? tripType,
+    DateTime? startDate,
+    DateTime? endDate,
     String? carType,
     bool? isAC,
     double? minPrice,
@@ -69,9 +71,9 @@ void main() {
     ),
   ];
 
-  group('Unified Search With Trip Selection Flow Tests (Phase 10.3)', () {
+  group('Date-First Car Availability & Trip Search Flow Tests (Phase 10.4)', () {
     testWidgets(
-        'Scenario 1: Navbar search with no tripType shows Choose Trip Type, selecting Self-Drive renders Self-Drive cars',
+        'Scenario 1: Navbar search with no tripType shows Choose Trip Type -> Trip Details Form -> Available Cars',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -109,15 +111,24 @@ void main() {
       await tester.tap(find.text('Self-Drive Cars'));
       await tester.pumpAndSettle();
 
-      // 3. Verify Self-Drive results UI
+      // 3. Trip Search Details Form is displayed
+      expect(find.text('Trip Details — Self-Drive'), findsOneWidget);
+      expect(find.text('Search Available Cars'), findsOneWidget);
+
+      // 4. Submit Trip Details Form
+      await tester.tap(find.text('Search Available Cars'));
+      await tester.pumpAndSettle();
+
+      // 5. Verify Self-Drive available results UI & compact summary bar
       expect(container.read(searchTripTypeProvider), 'Self-Drive');
       expect(container.read(selectedTripTypeProvider), 'Self-Drive');
+      expect(find.text('Change Search'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
-      expect(find.text('Toyota Innova'), findsNothing); // Outstation-only car is filtered out
+      expect(find.text('Toyota Innova'), findsNothing);
     });
 
     testWidgets(
-        'Scenario 2: Navbar search with no tripType shows Choose Trip Type, selecting Outstation renders Outstation cars',
+        'Scenario 2: Navbar search with no tripType shows Choose Trip Type -> Outstation Details Form -> Outstation Cars',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -150,6 +161,14 @@ void main() {
       await tester.tap(find.text('Outstation Travel'));
       await tester.pumpAndSettle();
 
+      // Outstation details form is displayed
+      expect(find.text('Trip Details — Outstation'), findsOneWidget);
+      expect(find.text('Destination City / Address'), findsOneWidget);
+
+      // Submit Outstation form
+      await tester.tap(find.text('Search Available Cars'));
+      await tester.pumpAndSettle();
+
       // Verify Outstation results UI
       expect(container.read(searchTripTypeProvider), 'Outstation');
       expect(container.read(selectedTripTypeProvider), 'Outstation');
@@ -158,7 +177,7 @@ void main() {
     });
 
     testWidgets(
-        'Scenario 3 & 5: Homepage search with Self-Drive skips decision screen, directly renders Self-Drive cars with no duplicate prompt',
+        'Scenario 3: Homepage search with Self-Drive & dates directly renders available cars without duplicate prompt',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -176,9 +195,9 @@ void main() {
             home: SearchResultsPage(
               city: 'Mumbai',
               tripType: 'Self-Drive',
-              start: '',
-              end: '',
-              pickup: '',
+              start: '2026-08-24T10:00:00.000Z',
+              end: '2026-08-26T10:00:00.000Z',
+              pickup: 'Bandra',
               drop: '',
               category: '',
             ),
@@ -187,18 +206,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Decision screen is SKIPPED
+      // Decision screen & details form are SKIPPED
       expect(find.text('Choose Trip Type'), findsNothing);
+      expect(find.text('Search Available Cars'), findsNothing);
 
-      // Directly renders Self-Drive car listings
+      // Directly renders Search Summary Bar and available cars
       expect(container.read(searchTripTypeProvider), 'Self-Drive');
-      expect(container.read(selectedTripTypeProvider), 'Self-Drive');
+      expect(find.text('Change Search'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('Toyota Innova'), findsNothing);
     });
 
     testWidgets(
-        'Scenario 4: Homepage search with Outstation skips decision screen, directly renders Outstation cars',
+        'Scenario 4: Homepage search with Outstation & dates directly renders Outstation cars',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -216,10 +236,10 @@ void main() {
             home: SearchResultsPage(
               city: 'Mumbai',
               tripType: 'Outstation',
-              start: '',
-              end: '',
-              pickup: '',
-              drop: '',
+              start: '2026-08-24T10:00:00.000Z',
+              end: '2026-08-26T10:00:00.000Z',
+              pickup: 'Mumbai',
+              drop: 'Pune',
               category: '',
             ),
           ),
@@ -230,13 +250,12 @@ void main() {
       // Directly renders Outstation car listings
       expect(find.text('Choose Trip Type'), findsNothing);
       expect(container.read(searchTripTypeProvider), 'Outstation');
-      expect(container.read(selectedTripTypeProvider), 'Outstation');
       expect(find.text('Toyota Innova'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsNothing);
     });
 
     testWidgets(
-        'Scenario 6: Switching trip type via filter bar bottom sheet updates state and refetches results cleanly',
+        'Scenario 5: Change Search button re-opens Trip Details Form and updates results upon submitting',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -254,8 +273,8 @@ void main() {
             home: SearchResultsPage(
               city: 'Mumbai',
               tripType: 'Self-Drive',
-              start: '',
-              end: '',
+              start: '2026-08-24T10:00:00.000Z',
+              end: '2026-08-26T10:00:00.000Z',
               pickup: '',
               drop: '',
               category: '',
@@ -266,19 +285,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hyundai Creta'), findsOneWidget);
+      expect(find.text('Change Search'), findsOneWidget);
 
-      // Tap trip type filter chip
-      await tester.tap(find.text('Self-Drive'));
+      // Tap Change Search
+      await tester.tap(find.text('Change Search'));
       await tester.pumpAndSettle();
 
-      // In bottom sheet, select Outstation
+      // Form is displayed
+      expect(find.text('Trip Details — Self-Drive'), findsOneWidget);
+      expect(find.text('Search Available Cars'), findsOneWidget);
+
+      // Change trip type via button
+      await tester.tap(find.text('Change'));
+      await tester.pumpAndSettle();
+
       expect(find.text('Select Trip Type'), findsOneWidget);
       await tester.tap(find.text('Outstation'));
       await tester.pumpAndSettle();
 
-      // State is updated to Outstation
+      // Submit modified form
+      await tester.tap(find.text('Search Available Cars'));
+      await tester.pumpAndSettle();
+
+      // Results update to Outstation
       expect(container.read(searchTripTypeProvider), 'Outstation');
-      expect(container.read(selectedTripTypeProvider), 'Outstation');
       expect(find.text('Toyota Innova'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsNothing);
     });

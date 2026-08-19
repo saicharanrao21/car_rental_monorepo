@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'api_providers.dart';
 
@@ -93,7 +92,7 @@ class SessionNotifier extends Notifier<AuthState> {
           fcmToken = await messaging.getToken();
           debugPrint('REAL_FCM_TOKEN_FROM_SDK: $fcmToken');
         }
-      } catch (e, st) {
+      } catch (e) {
         debugPrint('FCM_GET_TOKEN_ERROR: $e');
         return;
       }

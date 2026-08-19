@@ -121,7 +121,7 @@ void main() {
     final mockApiClient = ApiClient(tokenStorage: MockTokenStorage(), dio: mockDio);
 
     // 2. Setup mock Session State
-    final mockUser = UserModel(
+    const mockUser = UserModel(
       id: 'cust_123',
       name: 'John Doe',
       phone: '9876543210',

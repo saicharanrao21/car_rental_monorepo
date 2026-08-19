@@ -14,6 +14,8 @@ final searchRepositoryProvider = Provider<SearchRepository>((ref) {
 final searchCityProvider = StateProvider.autoDispose<String>((ref) => 'Mumbai');
 final searchTripTypeProvider = StateProvider.autoDispose<String?>((ref) => null);
 final searchDatesProvider = StateProvider.autoDispose<DateTimeRange?>((ref) => null);
+final searchPickupLocationProvider = StateProvider.autoDispose<String?>((ref) => null);
+final searchDropLocationProvider = StateProvider.autoDispose<String?>((ref) => null);
 
 final searchCarCategoryFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
 final searchACFilterProvider = StateProvider.autoDispose<bool?>((ref) => null);
@@ -55,6 +57,7 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
   Future<SearchResultsState> build() async {
     final city = ref.watch(searchCityProvider);
     final tripType = ref.watch(searchTripTypeProvider);
+    final dates = ref.watch(searchDatesProvider);
     final carType = ref.watch(searchCarCategoryFilterProvider);
     final isAC = ref.watch(searchACFilterProvider);
     final priceRange = ref.watch(searchPriceRangeFilterProvider);
@@ -77,6 +80,8 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
       lat: location.latitude,
       lng: location.longitude,
       tripType: tripType,
+      startDate: dates?.start,
+      endDate: dates?.end,
       carType: carType,
       isAC: isAC,
       minPrice: priceRange?.start,

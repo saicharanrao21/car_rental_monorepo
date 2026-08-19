@@ -76,8 +76,8 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
               final session = ref.read(sessionProvider);
               final dateRange = ref.read(selectedDateRangeProvider);
               final searchDates = ref.read(searchDatesProvider);
-              final pickup = ref.read(pickupLocationProvider);
-              final drop = ref.read(dropLocationProvider);
+              final pickup = ref.read(pickupLocationProvider) ?? ref.read(searchPickupLocationProvider);
+              final drop = ref.read(dropLocationProvider) ?? ref.read(searchDropLocationProvider);
 
               ref.read(bookingDraftProvider.notifier).init(
                     car: detail.car,

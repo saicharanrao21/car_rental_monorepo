@@ -1,6 +1,7 @@
 import {
   IsBoolean,
   IsEnum,
+  IsISO8601,
   IsNumber,
   IsOptional,
   IsString,
@@ -68,4 +69,12 @@ export class CarsQueryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(SortByOption)
   sortBy?: SortByOption = SortByOption.RECOMMENDED;
+
+  @IsOptional()
+  @IsISO8601()
+  startDate?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  endDate?: string;
 }

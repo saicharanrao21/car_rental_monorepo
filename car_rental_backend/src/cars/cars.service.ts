@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerificationStatus, Role, Prisma, TripType } from '@prisma/client';
+import { VerificationStatus, Role, Prisma, TripType, BookingStatus } from '@prisma/client';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
@@ -169,6 +169,55 @@ export class CarsService {
       where.availableTripTypes = { has: query.tripType };
     }
 
+    let reqStart: Date | undefined;
+    let reqEnd: Date | undefined;
+
+    if (query.startDate || query.endDate) {
+      if (!query.startDate || !query.endDate) {
+        throw new BadRequestException(
+          'Both startDate and endDate must be provided for date-based availability search.',
+        );
+      }
+
+      reqStart = new Date(query.startDate);
+      reqEnd = new Date(query.endDate);
+
+      if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime())) {
+        throw new BadRequestException(
+          'Invalid date format for startDate or endDate.',
+        );
+      }
+
+      if (reqStart >= reqEnd) {
+        throw new BadRequestException('startDate must be before endDate.');
+      }
+    }
+
+    if (reqStart && reqEnd) {
+      const overlappingBookings = await this.prisma.booking.findMany({
+        where: {
+          status: {
+            in: [
+              BookingStatus.PENDING,
+              BookingStatus.CONFIRMED,
+              BookingStatus.HANDOVER_READY,
+              BookingStatus.ONGOING,
+              BookingStatus.RETURN_PENDING,
+            ],
+          },
+          startDate: { lt: reqEnd },
+          endDate: { gt: reqStart },
+        },
+        select: { carId: true },
+        distinct: ['carId'],
+      });
+
+      const bookedCarIds = overlappingBookings.map((b) => b.carId);
+      if (bookedCarIds.length > 0) {
+        where.id = { notIn: bookedCarIds };
+      }
+    }
+
     const allCars = await this.prisma.car.findMany({
       where,
       include: {
@@ -193,10 +242,24 @@ export class CarsService {
       },
     });
 
+    let availableCars = allCars;
+    if (reqStart && reqEnd) {
+      availableCars = allCars.filter((car) => {
+        if (!car.blockedDates || car.blockedDates.length === 0) {
+          return true;
+        }
+        const isBlocked = car.blockedDates.some((bd: Date) => {
+          const bTime = new Date(bd).getTime();
+          return bTime >= reqStart!.getTime() && bTime <= reqEnd!.getTime();
+        });
+        return !isBlocked;
+      });
+    }
+
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
     const now = new Date();
 
-    const processedCars = allCars.map((car) => {
+    const processedCars = availableCars.map((car) => {
       let rawDistance: number | null = null;
       let distanceKm: number | null = null;
 

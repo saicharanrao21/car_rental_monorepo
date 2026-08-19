@@ -34,11 +34,22 @@ class SearchResultsPage extends ConsumerStatefulWidget {
 
 class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
   final _scrollController = ScrollController();
+  final _pickupController = TextEditingController();
+  final _dropController = TextEditingController();
+  bool _isEditingTripDetails = false;
+  DateTimeRange? _formDateRange;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+
+    if (widget.pickup.isNotEmpty) {
+      _pickupController.text = widget.pickup;
+    }
+    if (widget.drop.isNotEmpty) {
+      _dropController.text = widget.drop;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.city.isNotEmpty) {
@@ -51,12 +62,33 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       if (widget.category.isNotEmpty) {
         ref.read(searchCarCategoryFilterProvider.notifier).state = widget.category;
       }
+      if (widget.pickup.isNotEmpty) {
+        ref.read(searchPickupLocationProvider.notifier).state = widget.pickup;
+        ref.read(pickupLocationProvider.notifier).state = widget.pickup;
+      }
+      if (widget.drop.isNotEmpty) {
+        ref.read(searchDropLocationProvider.notifier).state = widget.drop;
+        ref.read(dropLocationProvider.notifier).state = widget.drop;
+      }
       if (widget.start.isNotEmpty && widget.end.isNotEmpty) {
         try {
           final startDt = DateTime.parse(widget.start);
           final endDt = DateTime.parse(widget.end);
-          ref.read(searchDatesProvider.notifier).state = DateTimeRange(start: startDt, end: endDt);
+          final range = DateTimeRange(start: startDt, end: endDt);
+          ref.read(searchDatesProvider.notifier).state = range;
+          ref.read(selectedDateRangeProvider.notifier).state = range;
+          setState(() {
+            _formDateRange = range;
+          });
         } catch (_) {}
+      } else {
+        final existingDates = ref.read(selectedDateRangeProvider) ?? ref.read(searchDatesProvider);
+        if (existingDates != null) {
+          ref.read(searchDatesProvider.notifier).state = existingDates;
+          setState(() {
+            _formDateRange = existingDates;
+          });
+        }
       }
     });
   }
@@ -64,6 +96,8 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _pickupController.dispose();
+    _dropController.dispose();
     super.dispose();
   }
 
@@ -94,6 +128,49 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       default:
         return Icons.directions_car_outlined;
     }
+  }
+
+  void _showCitySelector() {
+    final selectedCity = ref.read(searchCityProvider);
+    final supportedCitiesVal = ref.read(supportedCitiesProvider);
+
+    AppBottomSheet.show(
+      context,
+      title: 'Select City',
+      child: supportedCitiesVal.when(
+        data: (cities) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: cities.map((city) {
+            final isSelected = city.name.toLowerCase() == selectedCity.toLowerCase();
+            return ListTile(
+              title: Text(city.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+              trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+              onTap: () {
+                ref.read(searchCityProvider.notifier).state = city.name;
+                ref.read(selectedCityProvider.notifier).state = city.name;
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ),
+        loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+        error: (_, __) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Hyderabad', 'Pune'].map((cityName) {
+            final isSelected = cityName.toLowerCase() == selectedCity.toLowerCase();
+            return ListTile(
+              title: Text(cityName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+              trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+              onTap: () {
+                ref.read(searchCityProvider.notifier).state = cityName;
+                ref.read(selectedCityProvider.notifier).state = cityName;
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   void _showTripTypeBottomSheet(BuildContext context, WidgetRef ref) {
@@ -501,11 +578,250 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     );
   }
 
+  void _submitTripSearchForm(String tripType) {
+    final now = DateTime.now();
+    final defaultRange = _formDateRange ??
+        DateTimeRange(
+          start: DateTime(now.year, now.month, now.day).add(const Duration(days: 5, hours: 10)),
+          end: DateTime(now.year, now.month, now.day).add(const Duration(days: 7, hours: 10)),
+        );
+
+    final pickup = _pickupController.text.trim();
+    final drop = _dropController.text.trim();
+
+    ref.read(searchDatesProvider.notifier).state = defaultRange;
+    ref.read(selectedDateRangeProvider.notifier).state = defaultRange;
+
+    ref.read(searchPickupLocationProvider.notifier).state = pickup.isEmpty ? null : pickup;
+    ref.read(pickupLocationProvider.notifier).state = pickup.isEmpty ? null : pickup;
+
+    ref.read(searchDropLocationProvider.notifier).state = drop.isEmpty ? null : drop;
+    ref.read(dropLocationProvider.notifier).state = drop.isEmpty ? null : drop;
+
+    setState(() {
+      _isEditingTripDetails = false;
+      _formDateRange = defaultRange;
+    });
+  }
+
+  Widget _buildTripSearchDetailsForm(BuildContext context, WidgetRef ref, String tripType) {
+    final cs = Theme.of(context).colorScheme;
+    final city = ref.watch(searchCityProvider);
+    final now = DateTime.now();
+    final defaultStart = DateTime(now.year, now.month, now.day).add(const Duration(days: 5, hours: 10));
+    final defaultEnd = DateTime(now.year, now.month, now.day).add(const Duration(days: 7, hours: 10));
+    final currentRange = _formDateRange ?? ref.watch(searchDatesProvider) ?? DateTimeRange(start: defaultStart, end: defaultEnd);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(_getTripTypeIcon(tripType), color: cs.primary, size: 24),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Trip Details — $tripType',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const Gap(2),
+                          Text(
+                            'Enter your schedule to find available cars',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _showTripTypeBottomSheet(context, ref),
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 32),
+
+                // City Selector
+                GestureDetector(
+                  onTap: _showCitySelector,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.location_city, color: AppColors.primary, size: 20),
+                            const Gap(12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Service City', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                                Text(city, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.keyboard_arrow_down, color: AppColors.primary),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(16),
+
+                // Pickup location
+                AppTextField(
+                  label: tripType == 'Airport Transfer' ? 'Airport / Terminal' : 'Pickup Location / Locality',
+                  hint: tripType == 'Airport Transfer' ? 'e.g. Terminal 2, CSIA' : 'Enter pickup area in $city',
+                  controller: _pickupController,
+                  prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                ),
+                const Gap(16),
+
+                // Drop location for Outstation / Airport
+                if (tripType == 'Outstation' || tripType == 'Airport Transfer') ...[
+                  AppTextField(
+                    label: tripType == 'Outstation' ? 'Destination City / Address' : 'Drop-off Address',
+                    hint: tripType == 'Outstation' ? 'e.g. Pune / Lonavala' : 'Enter drop destination',
+                    controller: _dropController,
+                    prefixIcon: const Icon(Icons.flag_outlined, color: AppColors.primary),
+                  ),
+                  const Gap(16),
+                ],
+
+                // Dates & Schedule
+                AppDateRangePicker(
+                  label: 'Rental Schedule',
+                  hint: 'Select pickup and return dates',
+                  initialDateRange: currentRange,
+                  onDateRangeSelected: (range) {
+                    setState(() {
+                      _formDateRange = range;
+                    });
+                  },
+                ),
+                const Gap(24),
+
+                AppButton(
+                  text: 'Search Available Cars',
+                  onPressed: () => _submitTripSearchForm(tripType),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchSummaryBar(BuildContext context, WidgetRef ref, String city, String tripType, DateTimeRange? dates) {
+    final cs = Theme.of(context).colorScheme;
+    final pickup = ref.watch(searchPickupLocationProvider) ?? ref.watch(pickupLocationProvider);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_getTripTypeIcon(tripType), color: AppColors.primary, size: 20),
+          ),
+          const Gap(12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        pickup != null && pickup.isNotEmpty ? '$pickup, $city' : city,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Gap(6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        tripType,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(2),
+                Text(
+                  dates != null
+                      ? '${dates.start.toDDMMYYYY()} → ${dates.end.toDDMMYYYY()}'
+                      : 'Flexible dates',
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _isEditingTripDetails = true;
+                _formDateRange = dates;
+              });
+            },
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Change Search', style: TextStyle(fontSize: 11)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tripType = ref.watch(searchTripTypeProvider);
     final city = ref.watch(searchCityProvider);
+    final dates = ref.watch(searchDatesProvider);
 
+    // 1. If no trip type selected, show Trip Type Decision View
     if (tripType == null || tripType.isEmpty) {
       return Scaffold(
         appBar: AppBar(
@@ -515,20 +831,38 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       );
     }
 
+    // 2. If editing trip details or dates not yet set, show Trip Search Details Form
+    if (_isEditingTripDetails || dates == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Trip Details'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (dates != null && _isEditingTripDetails) {
+                setState(() {
+                  _isEditingTripDetails = false;
+                });
+              } else {
+                ref.read(searchTripTypeProvider.notifier).state = null;
+              }
+            },
+          ),
+        ),
+        body: _buildTripSearchDetailsForm(context, ref, tripType),
+      );
+    }
+
+    // 3. Show filtered search results
     final resultsVal = ref.watch(searchResultsProvider);
-    final dates = ref.watch(searchDatesProvider);
     final sortBy = ref.watch(sortByProvider);
     final wishlistedIds = ref.watch(wishlistIdsProvider);
 
     final titleText = resultsVal.when(
-      data: (state) => '${state.items.length} cars in $city',
-      loading: () => 'Searching in $city',
+      data: (state) => '${state.items.length} available in $city',
+      loading: () => 'Finding available cars...',
       error: (_, __) => 'Error in $city',
     );
-
-    final subtitleText = dates != null
-        ? '${dates.start.toDDMMYYYY()} - ${dates.end.toDDMMYYYY()} • $tripType'
-        : 'Flexible dates • $tripType';
 
     return Scaffold(
       appBar: AppBar(
@@ -544,7 +878,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
               ),
             ),
             Text(
-              subtitleText,
+              '${dates.start.toDDMMYYYY()} → ${dates.end.toDDMMYYYY()} • $tripType',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
@@ -556,6 +890,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildSearchSummaryBar(context, ref, city, tripType, dates),
           _buildFilterBar(context, ref, tripType),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
@@ -583,14 +918,13 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
                 if (state.items.isEmpty) {
                   return EmptyStateWidget(
                     icon: Icons.search_off,
-                    title: 'No Cars Found',
-                    subtitle: 'Try adjusting your filters or location search.',
-                    actionText: 'Reset Filters',
+                    title: 'No Available Cars',
+                    subtitle: 'No vehicles are available for the selected dates and filters. Try adjusting your trip dates or filters.',
+                    actionText: 'Change Trip Dates',
                     onActionPressed: () {
-                      ref.read(searchCarCategoryFilterProvider.notifier).state = null;
-                      ref.read(searchACFilterProvider.notifier).state = null;
-                      ref.read(searchPriceRangeFilterProvider.notifier).state = null;
-                      ref.read(searchRatingFilterProvider.notifier).state = null;
+                      setState(() {
+                        _isEditingTripDetails = true;
+                      });
                     },
                   );
                 }

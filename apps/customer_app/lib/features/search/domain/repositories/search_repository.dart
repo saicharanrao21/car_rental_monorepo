@@ -6,6 +6,8 @@ abstract class SearchRepository {
     double? lat,
     double? lng,
     String? tripType,
+    DateTime? startDate,
+    DateTime? endDate,
     String? carType,
     bool? isAC,
     double? minPrice,
