@@ -53,9 +53,20 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
         title: const Text('My Bookings'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Theme.of(context).colorScheme.primary,
-          unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
-          indicatorColor: Theme.of(context).colorScheme.primary,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.2,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.normal,
+          ),
+          indicatorColor: Colors.white,
+          indicatorWeight: 3.0,
+          indicatorSize: TabBarIndicatorSize.tab,
           tabs: const [
             Tab(text: 'Upcoming'),
             Tab(text: 'Ongoing'),
