@@ -12,7 +12,7 @@ final searchRepositoryProvider = Provider<SearchRepository>((ref) {
 });
 
 final searchCityProvider = StateProvider.autoDispose<String>((ref) => 'Mumbai');
-final searchTripTypeProvider = StateProvider.autoDispose<String>((ref) => 'Self-Drive');
+final searchTripTypeProvider = StateProvider.autoDispose<String?>((ref) => null);
 final searchDatesProvider = StateProvider.autoDispose<DateTimeRange?>((ref) => null);
 
 final searchCarCategoryFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
@@ -61,6 +61,14 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
     final minRating = ref.watch(searchRatingFilterProvider);
     final sortBy = ref.watch(sortByProvider);
     final location = ref.watch(userLocationProvider);
+
+    if (tripType == null || tripType.isEmpty) {
+      return SearchResultsState(
+        items: [],
+        hasMore: false,
+        isLoadingMore: false,
+      );
+    }
 
     final repo = ref.watch(searchRepositoryProvider);
 

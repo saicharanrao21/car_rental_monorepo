@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/search_providers.dart';
 import '../../../wishlist/wishlist_providers.dart';
+import '../../../home/home_providers.dart';
 
 class SearchResultsPage extends ConsumerStatefulWidget {
   final String city;
@@ -45,6 +46,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       }
       if (widget.tripType.isNotEmpty) {
         ref.read(searchTripTypeProvider.notifier).state = widget.tripType;
+        ref.read(selectedTripTypeProvider.notifier).state = widget.tripType;
       }
       if (widget.category.isNotEmpty) {
         ref.read(searchCarCategoryFilterProvider.notifier).state = widget.category;
@@ -69,6 +71,70 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(searchResultsProvider.notifier).loadMore();
     }
+  }
+
+  bool _isTripTypeEnabled(String type, List<String> enabledTypes) {
+    final norm = type.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    if (norm == 'AIRPORT' || norm == 'AIRPORT_TRANSFER') {
+      return enabledTypes.contains('AIRPORT_TRANSFER');
+    }
+    return enabledTypes.contains(norm);
+  }
+
+  IconData _getTripTypeIcon(String type) {
+    switch (type) {
+      case 'Self-Drive':
+        return Icons.directions_car_outlined;
+      case 'Outstation':
+        return Icons.alt_route_outlined;
+      case 'Local':
+        return Icons.location_city_outlined;
+      case 'Airport Transfer':
+        return Icons.flight_takeoff_outlined;
+      default:
+        return Icons.directions_car_outlined;
+    }
+  }
+
+  void _showTripTypeBottomSheet(BuildContext context, WidgetRef ref) {
+    final currentTripType = ref.read(searchTripTypeProvider);
+    final publicSettingsVal = ref.read(publicSettingsProvider);
+    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+
+    AppBottomSheet.show(
+      context,
+      title: 'Select Trip Type',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...AppConstants.tripTypes.map((type) {
+            final isEnabled = _isTripTypeEnabled(type, enabledTripTypes);
+            final isSelected = type == currentTripType;
+            return ListTile(
+              enabled: isEnabled,
+              leading: Icon(_getTripTypeIcon(type), color: isEnabled ? AppColors.primary : Colors.grey),
+              title: Text(
+                type,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isEnabled ? null : Colors.grey,
+                ),
+              ),
+              subtitle: !isEnabled ? const Text('Coming soon', style: TextStyle(fontSize: 11)) : null,
+              trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+              onTap: isEnabled
+                  ? () {
+                      ref.read(searchTripTypeProvider.notifier).state = type;
+                      ref.read(selectedTripTypeProvider.notifier).state = type;
+                      ref.read(searchCarCategoryFilterProvider.notifier).state = null;
+                      Navigator.pop(context);
+                    }
+                  : null,
+            );
+          }),
+        ],
+      ),
+    );
   }
 
   void _showCarTypeBottomSheet(BuildContext context, WidgetRef ref) {
@@ -150,9 +216,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
                     divisions: 40,
                     activeColor: AppColors.primary,
                     onChanged: (values) {
-                      setModalState(() {
-                        // updates internal state range variable
-                      });
+                      setModalState(() {});
                       ref.read(searchPriceRangeFilterProvider.notifier).state = values;
                     },
                   ),
@@ -208,7 +272,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     );
   }
 
-  Widget _buildFilterBar(BuildContext context, WidgetRef ref) {
+  Widget _buildFilterBar(BuildContext context, WidgetRef ref, String currentTripType) {
     final selectedCarCategory = ref.watch(searchCarCategoryFilterProvider);
     final isAC = ref.watch(searchACFilterProvider);
     final priceRange = ref.watch(searchPriceRangeFilterProvider);
@@ -219,6 +283,13 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
+          FilterChip(
+            avatar: const Icon(Icons.swap_horiz, size: 16),
+            label: Text(currentTripType),
+            selected: true,
+            onSelected: (_) => _showTripTypeBottomSheet(context, ref),
+          ),
+          const Gap(8),
           FilterChip(
             label: Text(selectedCarCategory ?? 'Car Type'),
             selected: selectedCarCategory != null,
@@ -251,11 +322,200 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     );
   }
 
+  Widget _buildTripTypeSelectionView(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final publicSettingsVal = ref.watch(publicSettingsProvider);
+    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
+
+    final tripOptions = [
+      (
+        type: 'Self-Drive',
+        title: 'Self-Drive Cars',
+        subtitle: 'Drive yourself with flexible daily & mileage packages',
+        icon: Icons.directions_car_outlined,
+        badge: 'Popular',
+      ),
+      (
+        type: 'Outstation',
+        title: 'Outstation Travel',
+        subtitle: 'Comfortable long distance rides across cities',
+        icon: Icons.alt_route_outlined,
+        badge: 'Intercity',
+      ),
+      (
+        type: 'Local',
+        title: 'Local City Rentals',
+        subtitle: 'Hourly and daily rentals within city limits',
+        icon: Icons.location_city_outlined,
+        badge: null,
+      ),
+      (
+        type: 'Airport Transfer',
+        title: 'Airport Transfer',
+        subtitle: 'Reliable pickup & drop to and from airports',
+        icon: Icons.flight_takeoff_outlined,
+        badge: null,
+      ),
+    ];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Select your trip type to find the best available cars',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+          const Gap(16),
+          ...tripOptions.map((opt) {
+            final isEnabled = _isTripTypeEnabled(opt.type, enabledTripTypes);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: isEnabled
+                    ? () {
+                        ref.read(searchTripTypeProvider.notifier).state = opt.type;
+                        ref.read(selectedTripTypeProvider.notifier).state = opt.type;
+                      }
+                    : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${opt.type} is coming soon.')),
+                        );
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isEnabled ? cs.outline.withValues(alpha: 0.5) : cs.outline.withValues(alpha: 0.2),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.shadow.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isEnabled
+                              ? cs.primaryContainer.withValues(alpha: 0.7)
+                              : cs.surfaceContainerHighest,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          opt.icon,
+                          color: isEnabled ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          size: 28,
+                        ),
+                      ),
+                      const Gap(16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    opt.title,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isEnabled ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (opt.badge != null && isEnabled) ...[
+                                  const Gap(8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      opt.badge!,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: cs.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (!isEnabled) ...[
+                                  const Gap(8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'Coming Soon',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const Gap(4),
+                            Text(
+                              opt.subtitle,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: isEnabled ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final resultsVal = ref.watch(searchResultsProvider);
-    final city = ref.watch(searchCityProvider);
     final tripType = ref.watch(searchTripTypeProvider);
+    final city = ref.watch(searchCityProvider);
+
+    if (tripType == null || tripType.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Choose Trip Type'),
+        ),
+        body: _buildTripTypeSelectionView(context, ref),
+      );
+    }
+
+    final resultsVal = ref.watch(searchResultsProvider);
     final dates = ref.watch(searchDatesProvider);
     final sortBy = ref.watch(sortByProvider);
     final wishlistedIds = ref.watch(wishlistIdsProvider);
@@ -296,7 +556,7 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildFilterBar(context, ref),
+          _buildFilterBar(context, ref, tripType),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
             child: AppDropdown<String>(
