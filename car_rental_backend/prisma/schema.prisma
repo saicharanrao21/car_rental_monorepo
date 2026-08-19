@@ -401,6 +401,7 @@ model Car {
   wishlists              Wishlist[]
   recentlyViewed         RecentlyViewed[]
   emergencyRequests      EmergencyRequest[]
+  mileagePackages        MileagePackage[]
 
   @@index([vendorId])
   @@index([type])
@@ -456,6 +457,15 @@ model Booking {
   protectionFee      Decimal           @default(0) @db.Decimal(10, 2)
   protectionDeductible Decimal?        @db.Decimal(10, 2)
   walletDeduction    Decimal           @default(0) @db.Decimal(10, 2)
+  // Mileage Package Pricing Snapshot
+  mileagePackageId       String?
+  mileagePackage         MileagePackage?   @relation(fields: [mileagePackageId], references: [id], onDelete: SetNull)
+  mileagePackageName     String?
+  includedKmPerDay       Int?
+  includedKmTotal        Int?
+  packageBasePricePerDay Decimal?          @db.Decimal(10, 2)
+  extraKmRate            Decimal?          @db.Decimal(10, 2)
+  pricingBasis           String            @default("LEGACY_DAILY")
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   review             Review?
@@ -477,7 +487,29 @@ model Booking {
   @@index([vendorId])
   @@index([carId])
   @@index([status])
+  @@index([createdAt])
+  @@index([mileagePackageId])
   @@index([carId, startDate, endDate, status])
+}
+
+model MileagePackage {
+  id               String    @id @default(cuid())
+  carId            String
+  car              Car       @relation(fields: [carId], references: [id], onDelete: Cascade)
+  tripType         TripType
+  name             String
+  includedKmPerDay Int?      // null = Unlimited
+  basePricePerDay  Decimal   @db.Decimal(10, 2)
+  extraKmRate      Decimal   @default(0) @db.Decimal(10, 2)
+  isDefault        Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  bookings         Booking[]
+
+  @@index([carId])
+  @@index([tripType])
+  @@index([isActive])
 }
 
 model Review {

@@ -11,4 +11,6 @@ abstract class AdminFleetRepository {
   Future<CarModel> getCarDetail(String carId);
 
   Future<void> deactivateCarListing(String carId);
+
+  Future<void> toggleMileagePackageActive(String carId, String packageId, bool isActive);
 }

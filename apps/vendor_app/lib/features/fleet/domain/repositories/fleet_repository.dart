@@ -12,4 +12,8 @@ abstract class FleetRepository {
     required String fileUrl,
     DateTime? expiresAt,
   });
+  Future<List<MileagePackageModel>> getMileagePackages(String carId);
+  Future<MileagePackageModel> createMileagePackage(String carId, MileagePackageModel package);
+  Future<MileagePackageModel> updateMileagePackage(String carId, MileagePackageModel package);
+  Future<void> deleteMileagePackage(String carId, String packageId);
 }

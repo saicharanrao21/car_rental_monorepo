@@ -120,4 +120,34 @@ class ApiFleetRepository implements FleetRepository {
       },
     );
   }
+
+  @override
+  Future<List<MileagePackageModel>> getMileagePackages(String carId) async {
+    final response = await apiClient.dio.get('/vendors/me/cars/$carId/mileage-packages');
+    final List<dynamic> list = response.data is List ? response.data : [];
+    return list.map((e) => MileagePackageModel.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  @override
+  Future<MileagePackageModel> createMileagePackage(String carId, MileagePackageModel package) async {
+    final response = await apiClient.dio.post(
+      '/vendors/me/cars/$carId/mileage-packages',
+      data: package.toJson(),
+    );
+    return MileagePackageModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
+  Future<MileagePackageModel> updateMileagePackage(String carId, MileagePackageModel package) async {
+    final response = await apiClient.dio.patch(
+      '/vendors/me/cars/$carId/mileage-packages/${package.id}',
+      data: package.toJson(),
+    );
+    return MileagePackageModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
+  Future<void> deleteMileagePackage(String carId, String packageId) async {
+    await apiClient.dio.delete('/vendors/me/cars/$carId/mileage-packages/$packageId');
+  }
 }

@@ -93,4 +93,8 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   protectionPackageId?: string;
+
+  @IsString()
+  @IsOptional()
+  mileagePackageId?: string;
 }

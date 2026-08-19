@@ -99,6 +99,10 @@ class ApiBookingRepository implements BookingRepository {
           draftState.selectedProtectionPackageId!.isNotEmpty) {
         data['protectionPackageId'] = draftState.selectedProtectionPackageId;
       }
+      if (draftState.selectedMileagePackageId != null &&
+          draftState.selectedMileagePackageId!.isNotEmpty) {
+        data['mileagePackageId'] = draftState.selectedMileagePackageId;
+      }
     }
 
     final response = await apiClient.dio.post(

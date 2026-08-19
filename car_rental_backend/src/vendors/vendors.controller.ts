@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -16,7 +17,7 @@ import { CarsService } from '../cars/cars.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role, TripType } from '@prisma/client';
 import { VendorsQueryDto } from './dto/vendors-query.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
@@ -25,6 +26,8 @@ import { CreateCarDto } from '../cars/dto/create-car.dto';
 import { UpdateCarDto } from '../cars/dto/update-car.dto';
 import { UpdateAvailabilityDto } from '../cars/dto/update-availability.dto';
 import { UpdateBlockedDatesDto } from '../cars/dto/update-blocked-dates.dto';
+import { CreateMileagePackageDto } from '../cars/dto/create-mileage-package.dto';
+import { UpdateMileagePackageDto } from '../cars/dto/update-mileage-package.dto';
 import { JwtService } from '@nestjs/jwt';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
@@ -145,6 +148,66 @@ export class VendorsController {
       id,
       req.user.userId,
       dto.blockedDates,
+    );
+  }
+
+  // --- Vendor Mileage Packages Management ---
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Get('me/cars/:carId/mileage-packages')
+  async getMyCarMileagePackages(
+    @Param('carId') carId: string,
+    @Query('tripType') tripType?: TripType,
+  ) {
+    return this.carsService.getCarMileagePackages(carId, tripType, false);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Post('me/cars/:carId/mileage-packages')
+  @HttpCode(HttpStatus.CREATED)
+  async createMileagePackage(
+    @Param('carId') carId: string,
+    @Req() req: any,
+    @Body() dto: CreateMileagePackageDto,
+  ) {
+    return this.carsService.createCarMileagePackage(
+      req.user.userId,
+      carId,
+      dto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Patch('me/cars/:carId/mileage-packages/:packageId')
+  async updateMileagePackage(
+    @Param('carId') carId: string,
+    @Param('packageId') packageId: string,
+    @Req() req: any,
+    @Body() dto: UpdateMileagePackageDto,
+  ) {
+    return this.carsService.updateCarMileagePackage(
+      req.user.userId,
+      carId,
+      packageId,
+      dto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @Delete('me/cars/:carId/mileage-packages/:packageId')
+  async deleteMileagePackage(
+    @Param('carId') carId: string,
+    @Param('packageId') packageId: string,
+    @Req() req: any,
+  ) {
+    return this.carsService.deleteCarMileagePackage(
+      req.user.userId,
+      carId,
+      packageId,
     );
   }
 

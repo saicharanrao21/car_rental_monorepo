@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerificationStatus, Role } from '@prisma/client';
+import { VerificationStatus, Role, Prisma, TripType } from '@prisma/client';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
@@ -186,6 +186,10 @@ export class CarsService {
             boostExpiresAt: true,
           },
         },
+        mileagePackages: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { basePricePerDay: 'asc' }],
+        },
       },
     });
 
@@ -318,6 +322,10 @@ export class CarsService {
             verificationStatus: true,
           },
         },
+        mileagePackages: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { basePricePerDay: 'asc' }],
+        },
       },
     });
 
@@ -354,7 +362,227 @@ export class CarsService {
 
     return this.prisma.car.findMany({
       where: { vendorId: vendor.id },
+      include: {
+        mileagePackages: {
+          orderBy: [{ tripType: 'asc' }, { isDefault: 'desc' }, { basePricePerDay: 'asc' }],
+        },
+      },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getCarMileagePackages(
+    carId: string,
+    tripType?: TripType,
+    activeOnly: boolean = true,
+  ) {
+    const car = await this.prisma.car.findUnique({
+      where: { id: carId },
+    });
+    if (!car) {
+      throw new NotFoundException('Car not found');
+    }
+
+    return this.prisma.mileagePackage.findMany({
+      where: {
+        carId,
+        ...(tripType ? { tripType } : {}),
+        ...(activeOnly ? { isActive: true } : {}),
+      },
+      orderBy: [{ isDefault: 'desc' }, { basePricePerDay: 'asc' }],
+    });
+  }
+
+  async createCarMileagePackage(
+    userId: string,
+    carId: string,
+    dto: any,
+  ) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const car = await this.prisma.car.findUnique({
+      where: { id: carId },
+    });
+    if (!car) {
+      throw new NotFoundException('Car not found');
+    }
+
+    if (car.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not have permission to manage this car.');
+    }
+
+    if (Number(dto.basePricePerDay) <= 0) {
+      throw new BadRequestException('Base price per day must be greater than 0.');
+    }
+    if (dto.extraKmRate !== undefined && Number(dto.extraKmRate) < 0) {
+      throw new BadRequestException('Extra km rate cannot be negative.');
+    }
+
+    const isUnlimited = dto.isUnlimited === true || dto.includedKmPerDay === null;
+    let includedKm = isUnlimited ? null : Number(dto.includedKmPerDay);
+    if (!isUnlimited && (!includedKm || includedKm <= 0)) {
+      throw new BadRequestException('Included km per day must be at least 1, or mark as unlimited.');
+    }
+
+    if (!car.availableTripTypes.includes(dto.tripType)) {
+      throw new BadRequestException(
+        `Car does not support trip type ${dto.tripType}. Supported types: ${car.availableTripTypes.join(', ')}`,
+      );
+    }
+
+    if (dto.isDefault) {
+      await this.prisma.mileagePackage.updateMany({
+        where: { carId, tripType: dto.tripType, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    return this.prisma.mileagePackage.create({
+      data: {
+        carId,
+        tripType: dto.tripType,
+        name: dto.name ? dto.name.trim() : `${includedKm ? includedKm + ' km/day' : 'Unlimited'}`,
+        includedKmPerDay: includedKm,
+        basePricePerDay: new Prisma.Decimal(dto.basePricePerDay),
+        extraKmRate: new Prisma.Decimal(dto.extraKmRate || 0),
+        isDefault: dto.isDefault ?? false,
+        isActive: dto.isActive ?? true,
+      },
+    });
+  }
+
+  async updateCarMileagePackage(
+    userId: string,
+    carId: string,
+    packageId: string,
+    dto: any,
+  ) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const pkg = await this.prisma.mileagePackage.findUnique({
+      where: { id: packageId },
+      include: { car: true },
+    });
+    if (!pkg || pkg.carId !== carId) {
+      throw new NotFoundException('Mileage package not found for this car.');
+    }
+
+    if (pkg.car.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not have permission to manage this car.');
+    }
+
+    if (dto.basePricePerDay !== undefined && Number(dto.basePricePerDay) <= 0) {
+      throw new BadRequestException('Base price per day must be greater than 0.');
+    }
+    if (dto.extraKmRate !== undefined && Number(dto.extraKmRate) < 0) {
+      throw new BadRequestException('Extra km rate cannot be negative.');
+    }
+
+    const tripType = dto.tripType || pkg.tripType;
+
+    if (dto.isDefault) {
+      await this.prisma.mileagePackage.updateMany({
+        where: { carId, tripType, isDefault: true, id: { not: packageId } },
+        data: { isDefault: false },
+      });
+    }
+
+    let includedKm = pkg.includedKmPerDay;
+    if (dto.isUnlimited === true) {
+      includedKm = null;
+    } else if (dto.includedKmPerDay !== undefined) {
+      if (dto.includedKmPerDay !== null && Number(dto.includedKmPerDay) <= 0) {
+        throw new BadRequestException('Included km per day must be at least 1.');
+      }
+      includedKm = dto.includedKmPerDay !== null ? Number(dto.includedKmPerDay) : null;
+    }
+
+    return this.prisma.mileagePackage.update({
+      where: { id: packageId },
+      data: {
+        ...(dto.tripType ? { tripType: dto.tripType } : {}),
+        ...(dto.name ? { name: dto.name.trim() } : {}),
+        ...(dto.basePricePerDay !== undefined
+          ? { basePricePerDay: new Prisma.Decimal(dto.basePricePerDay) }
+          : {}),
+        ...(dto.extraKmRate !== undefined
+          ? { extraKmRate: new Prisma.Decimal(dto.extraKmRate) }
+          : {}),
+        ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        includedKmPerDay: includedKm,
+      },
+    });
+  }
+
+  async deleteCarMileagePackage(
+    userId: string,
+    carId: string,
+    packageId: string,
+  ) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const pkg = await this.prisma.mileagePackage.findUnique({
+      where: { id: packageId },
+      include: { car: true },
+    });
+    if (!pkg || pkg.carId !== carId) {
+      throw new NotFoundException('Mileage package not found for this car.');
+    }
+
+    if (pkg.car.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not have permission to manage this car.');
+    }
+
+    const bookingCount = await this.prisma.booking.count({
+      where: { mileagePackageId: packageId },
+    });
+
+    if (bookingCount > 0) {
+      await this.prisma.mileagePackage.update({
+        where: { id: packageId },
+        data: { isActive: false, isDefault: false },
+      });
+      return { message: 'Package deactivated because it is referenced in existing bookings.' };
+    }
+
+    await this.prisma.mileagePackage.delete({
+      where: { id: packageId },
+    });
+    return { message: 'Mileage package deleted successfully.' };
+  }
+
+  async adminToggleMileagePackageActive(
+    carId: string,
+    packageId: string,
+    isActive?: boolean,
+  ) {
+    const pkg = await this.prisma.mileagePackage.findUnique({
+      where: { id: packageId },
+    });
+    if (!pkg || pkg.carId !== carId) {
+      throw new NotFoundException('Mileage package not found.');
+    }
+
+    const newActiveState = isActive !== undefined ? isActive : !pkg.isActive;
+    return this.prisma.mileagePackage.update({
+      where: { id: packageId },
+      data: { isActive: newActiveState },
     });
   }
 

@@ -56,6 +56,10 @@ class CarModel with _$CarModel {
     if (json['vendor'] != null && (json['isSponsored'] == null || json['isSponsored'] == false)) {
       json['isSponsored'] = json['vendor']['isSponsored'] ?? false;
     }
+    if (json['mileagePackages'] != null) {
+      json['vendor'] ??= <String, dynamic>{};
+      json['vendor']['mileagePackages'] = json['mileagePackages'];
+    }
     return _$CarModelFromJson(json);
   }
 }
@@ -67,4 +71,13 @@ extension CarModelDiscountX on CarModel {
   double? get monthlyDiscountPercent => (vendor != null && vendor!['monthlyDiscountPercent'] != null)
       ? (vendor!['monthlyDiscountPercent'] as num).toDouble()
       : 20.0;
+}
+
+extension CarModelMileagePackagesX on CarModel {
+  List<dynamic> get rawMileagePackages {
+    if (vendor != null && vendor!['mileagePackages'] != null) {
+      return vendor!['mileagePackages'] as List;
+    }
+    return [];
+  }
 }

@@ -32,6 +32,29 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
     _distanceCtrl =
         TextEditingController(text: draft.estimatedDistanceKm.toString());
     _distanceCtrl.addListener(_syncDistance);
+
+    // If mileage packages exist and none is selected, auto-select default or first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final currentDraft = ref.read(bookingDraftProvider);
+        if (currentDraft.selectedMileagePackageId == null &&
+            widget.car.rawMileagePackages.isNotEmpty) {
+          final packages = widget.car.rawMileagePackages
+              .map((p) => MileagePackageModel.fromJson(
+                  Map<String, dynamic>.from(p as Map)))
+              .where((p) => p.isActive && p.tripType == currentDraft.tripType)
+              .toList();
+          if (packages.isNotEmpty) {
+            final defaultPkg = packages.firstWhere((p) => p.isDefault,
+                orElse: () => packages.first);
+            ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                  selectedMileagePackageId: defaultPkg.id,
+                  selectedMileagePackage: defaultPkg,
+                ));
+          }
+        }
+      }
+    });
   }
 
   void _syncDistance() {
@@ -79,12 +102,24 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
     }
   }
 
+  List<MileagePackageModel> _getApplicablePackages(String tripType) {
+    if (widget.car.rawMileagePackages.isEmpty) return [];
+    return widget.car.rawMileagePackages
+        .map((p) =>
+            MileagePackageModel.fromJson(Map<String, dynamic>.from(p as Map)))
+        .where((p) => p.isActive && p.tripType == tripType)
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
     final car = widget.car;
     final vendor = widget.vendor;
     final cs = Theme.of(context).colorScheme;
+
+    final applicablePackages = _getApplicablePackages(draft.tripType);
+    final hasPackages = applicablePackages.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -289,40 +324,196 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
           ),
           const Gap(16),
 
-          // ── Estimated Distance (Context-Aware) ───────────────────────
-          if (draft.tripType != 'Airport' &&
-              draft.tripType != 'Airport Transfer') ...[
+          // ── Configurable Mileage Packages Selection ─────────────────
+          if (hasPackages) ...[
             const Text(
-              'Estimated Distance (km)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              'Choose your mileage package',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const Gap(4),
             Text(
-              draft.tripType == 'Self-Drive'
-                  ? 'Used to compute estimated kilometer allowance and pricing.'
-                  : 'Used to calculate your outstation / local fare based on distance.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              'Select the mileage allowance that matches your expected journey for ${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
+            const Gap(12),
+            ...applicablePackages.map((pkg) {
+              final isSelected = draft.selectedMileagePackageId == pkg.id;
+              final totalKm = pkg.totalIncludedKm(draft.rentalDays);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () {
+                    ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                          selectedMileagePackageId: pkg.id,
+                          selectedMileagePackage: pkg,
+                        ));
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.05)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primary
+                            : Colors.grey.shade300,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.grey.shade400,
+                          size: 20,
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    pkg.name,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  if (pkg.isDefault) ...[
+                                    const Gap(8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                            color: Colors.green.shade300),
+                                      ),
+                                      child: Text(
+                                        'Popular',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const Gap(4),
+                              Text(
+                                pkg.isUnlimited
+                                    ? 'Unlimited km allowance • No per-km restriction'
+                                    : 'Total included: $totalKm km (${pkg.includedKmPerDay} km/day)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Gap(4),
+                              Text(
+                                pkg.isUnlimited
+                                    ? 'No extra km charges'
+                                    : 'Extra km: ₹${pkg.extraKmRate.toInt()}/km beyond $totalKm km',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '₹${pkg.basePricePerDay.toInt()}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            const Text(
+                              '/day',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
             const Gap(8),
-            AppTextField(
-              label: '',
-              hint: 'e.g. 50',
-              controller: _distanceCtrl,
-              keyboardType: TextInputType.number,
-              prefixIcon:
-                  const Icon(Icons.route_outlined, color: AppColors.primary),
-            ),
-            const Gap(4),
-            Text(
-              'Current: ${draft.estimatedDistanceKm} km',
-              style: const TextStyle(fontSize: 12, color: AppColors.primary),
-            ),
-            const Gap(16),
+          ] else ...[
+            // ── Legacy Distance Fallback (Only when car has no packages) ──
+            if (draft.tripType != 'Airport' &&
+                draft.tripType != 'Airport Transfer') ...[
+              const Text(
+                'Estimated Distance (km)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const Gap(4),
+              Text(
+                draft.tripType == 'Self-Drive'
+                    ? 'Used to compute estimated kilometer allowance and pricing.'
+                    : 'Used to calculate your outstation / local fare based on distance.',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const Gap(8),
+              AppTextField(
+                label: '',
+                hint: 'e.g. 50',
+                controller: _distanceCtrl,
+                keyboardType: TextInputType.number,
+                prefixIcon:
+                    const Icon(Icons.route_outlined, color: AppColors.primary),
+              ),
+              const Gap(4),
+              Text(
+                'Current: ${draft.estimatedDistanceKm} km',
+                style: const TextStyle(fontSize: 12, color: AppColors.primary),
+              ),
+              const Gap(16),
+            ],
           ],
 
           AppButton(
             text: 'Next: Add-ons',
-            onPressed: widget.onNext,
+            onPressed: () {
+              if (hasPackages && draft.selectedMileagePackageId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select a mileage package to continue.'),
+                  ),
+                );
+                return;
+              }
+              widget.onNext();
+            },
           ),
         ],
       ),

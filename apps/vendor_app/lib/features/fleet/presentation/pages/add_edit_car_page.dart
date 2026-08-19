@@ -42,6 +42,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   String? _insurancePath;
   DateTime? _rcBookExpiry;
   DateTime? _insuranceExpiry;
+  List<MileagePackageModel> _mileagePackages = [];
 
   // Year list: last 15 years
   late List<int> _years;
@@ -88,7 +89,6 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       if (car.id.isNotEmpty) {
         _makeCtrl.text = car.make;
         _modelCtrl.text = car.model;
-        // Since registration number wasn't in CarModel, let's prefill with a simulated reg number or blank
         _regNumCtrl.text = 'MH 12 AB ${1000 + car.id.hashCode % 9000}';
         _seatingCtrl.text = car.seating.toString();
         _priceKmCtrl.text = car.pricePerKm.toStringAsFixed(0);
@@ -101,6 +101,13 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
         _isAC = car.isAC;
         _selectedTripTypes = List.from(car.availableTripTypes);
         _photos = List.from(car.photos);
+
+        if (car.rawMileagePackages.isNotEmpty) {
+          _mileagePackages = car.rawMileagePackages
+              .map((p) => MileagePackageModel.fromJson(
+                  Map<String, dynamic>.from(p as Map)))
+              .toList();
+        }
       }
     } else {
       // Defaults for add car
@@ -252,6 +259,146 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     );
   }
 
+  void _showAddEditPackageDialog({MileagePackageModel? existing, int? index}) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '100 km/day');
+    final kmCtrl = TextEditingController(text: existing?.includedKmPerDay?.toString() ?? '100');
+    final priceCtrl = TextEditingController(text: existing?.basePricePerDay.toInt().toString() ?? '2500');
+    final extraRateCtrl = TextEditingController(text: existing?.extraKmRate.toInt().toString() ?? '12');
+    bool isUnlimited = existing?.isUnlimited ?? false;
+    bool isDefault = existing?.isDefault ?? false;
+    bool isActive = existing?.isActive ?? true;
+    String selectedTripType = existing?.tripType ?? (_selectedTripTypes.isNotEmpty ? _selectedTripTypes.first : 'Self-Drive');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(existing == null ? 'Add Mileage Package' : 'Edit Mileage Package'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedTripType,
+                  decoration: const InputDecoration(labelText: 'Trip Type'),
+                  items: _selectedTripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedTripType = val);
+                  },
+                ),
+                const Gap(12),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Package Name', hintText: 'e.g. 100 km/day'),
+                ),
+                const Gap(12),
+                SwitchListTile(
+                  title: const Text('Unlimited Kilometers'),
+                  subtitle: const Text('No per-day km limit or extra-km charges'),
+                  value: isUnlimited,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setDialogState(() => isUnlimited = val),
+                ),
+                if (!isUnlimited) ...[
+                  const Gap(8),
+                  TextField(
+                    controller: kmCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Included KM per Day', hintText: 'e.g. 100'),
+                  ),
+                ],
+                const Gap(12),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Daily Base Rate (₹/day)', hintText: 'e.g. 2500'),
+                ),
+                if (!isUnlimited) ...[
+                  const Gap(12),
+                  TextField(
+                    controller: extraRateCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Extra KM Rate (₹/km)', hintText: 'e.g. 12'),
+                  ),
+                ],
+                const Gap(12),
+                SwitchListTile(
+                  title: const Text('Default Plan (Popular)'),
+                  value: isDefault,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setDialogState(() => isDefault = val),
+                ),
+                SwitchListTile(
+                  title: const Text('Active for Bookings'),
+                  value: isActive,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setDialogState(() => isActive = val),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final basePrice = double.tryParse(priceCtrl.text.trim()) ?? 0;
+                if (basePrice <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid base price per day.')),
+                  );
+                  return;
+                }
+                final includedKm = isUnlimited ? null : int.tryParse(kmCtrl.text.trim());
+                if (!isUnlimited && (includedKm == null || includedKm <= 0)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter valid included KM per day.')),
+                  );
+                  return;
+                }
+
+                final newPkg = MileagePackageModel(
+                  id: existing?.id ?? 'temp_pkg_${DateTime.now().millisecondsSinceEpoch}',
+                  carId: widget.carId ?? '',
+                  tripType: selectedTripType,
+                  name: nameCtrl.text.trim().isEmpty
+                      ? (isUnlimited ? 'Unlimited' : '$includedKm km/day')
+                      : nameCtrl.text.trim(),
+                  includedKmPerDay: includedKm,
+                  basePricePerDay: basePrice,
+                  extraKmRate: isUnlimited ? 0.0 : (double.tryParse(extraRateCtrl.text.trim()) ?? 0.0),
+                  isDefault: isDefault,
+                  isActive: isActive,
+                );
+
+                setState(() {
+                  if (isDefault) {
+                    for (int i = 0; i < _mileagePackages.length; i++) {
+                      if (_mileagePackages[i].tripType == selectedTripType) {
+                        _mileagePackages[i] = _mileagePackages[i].copyWith(isDefault: false);
+                      }
+                    }
+                  }
+                  if (index != null && index >= 0 && index < _mileagePackages.length) {
+                    _mileagePackages[index] = newPkg;
+                  } else {
+                    _mileagePackages.add(newPkg);
+                  }
+                });
+
+                Navigator.pop(ctx);
+              },
+              child: const Text('Save Package'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _saveCar() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -299,8 +446,20 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     }
 
     if (success) {
-      // Upload car-specific documents (RC Book / Insurance) with carId if selected
       final repo = ref.read(fleetRepositoryProvider);
+
+      // Sync mileage packages if any configured
+      for (final pkg in _mileagePackages) {
+        try {
+          if (pkg.id.startsWith('temp_pkg_')) {
+            await repo.createMileagePackage(car.id, pkg);
+          } else {
+            await repo.updateMileagePackage(car.id, pkg);
+          }
+        } catch (_) {}
+      }
+
+      // Upload car-specific documents (RC Book / Insurance) with carId if selected
       if (_rcBookPath != null) {
         try {
           await repo.uploadCarDocument(carId: car.id, type: 'RC_BOOK', fileUrl: _rcBookPath!, expiresAt: _rcBookExpiry);
@@ -590,7 +749,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
               const Gap(24),
 
               // Pricing section
-              const SectionHeader(title: 'Pricing Rates (INR)'),
+              const SectionHeader(title: 'Base Pricing Rates (INR)'),
               const Gap(12),
               Row(
                 children: [
@@ -625,6 +784,136 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                   ),
                 ],
               ),
+              const Gap(24),
+
+              // Configurable Mileage Packages Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SectionHeader(title: 'Mileage Packages'),
+                  TextButton.icon(
+                    onPressed: () => _showAddEditPackageDialog(),
+                    icon: const Icon(Icons.add_circle_outline, size: 18),
+                    label: const Text('Add Package'),
+                  ),
+                ],
+              ),
+              const Gap(4),
+              Text(
+                'Configure mileage tiers (e.g. 100 km/day, Unlimited) per trip type for customer selection.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const Gap(12),
+              if (_mileagePackages.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No mileage packages configured yet.\nTap "+ Add Package" above to create daily km allowance packages.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  ),
+                )
+              else
+                ..._mileagePackages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final pkg = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: AppCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14.0),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                pkg.isUnlimited ? Icons.all_inclusive : Icons.speed,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                            const Gap(12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        pkg.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const Gap(8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          pkg.tripType,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      if (pkg.isDefault) ...[
+                                        const Gap(6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.green.shade300),
+                                          ),
+                                          child: Text(
+                                            'Default',
+                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const Gap(4),
+                                  Text(
+                                    pkg.isUnlimited
+                                        ? '₹${pkg.basePricePerDay.toInt()}/day • Unlimited km'
+                                        : '₹${pkg.basePricePerDay.toInt()}/day • ${pkg.includedKmPerDay} km/day • Extra: ₹${pkg.extraKmRate.toInt()}/km',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.blueGrey),
+                              onPressed: () => _showAddEditPackageDialog(existing: pkg, index: index),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                              onPressed: () {
+                                setState(() {
+                                  _mileagePackages.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
               const Gap(24),
 
               // Available Trip Types Chip selection

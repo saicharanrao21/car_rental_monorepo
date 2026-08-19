@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Body,
   Param,
   Query,
   UseGuards,
@@ -11,7 +12,7 @@ import { CarsService } from './cars.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role, TripType } from '@prisma/client';
 import { CarsQueryDto } from './dto/cars-query.dto';
 import { AdminCarsQueryDto } from './dto/admin-cars-query.dto';
 import { JwtService } from '@nestjs/jwt';
@@ -46,6 +47,14 @@ export class CarsController {
     return this.carsService.getAvailabilityCalendar(id, month);
   }
 
+  @Get('cars/:id/mileage-packages')
+  async getCarMileagePackages(
+    @Param('id') id: string,
+    @Query('tripType') tripType?: TripType,
+  ) {
+    return this.carsService.getCarMileagePackages(id, tripType, true);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   @Get('admin/cars')
@@ -58,6 +67,17 @@ export class CarsController {
   @Patch('admin/cars/:id/deactivate')
   async adminDeactivate(@Param('id') id: string) {
     return this.carsService.adminDeactivate(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('admin/cars/:carId/mileage-packages/:packageId/toggle-active')
+  async adminToggleMileagePackageActive(
+    @Param('carId') carId: string,
+    @Param('packageId') packageId: string,
+    @Body('isActive') isActive?: boolean,
+  ) {
+    return this.carsService.adminToggleMileagePackageActive(carId, packageId, isActive);
   }
 
   // --- Helper Methods ---

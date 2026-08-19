@@ -55,4 +55,12 @@ class ApiAdminFleetRepository implements AdminFleetRepository {
   Future<void> deactivateCarListing(String carId) async {
     await apiClient.dio.patch('/admin/cars/$carId/deactivate');
   }
+
+  @override
+  Future<void> toggleMileagePackageActive(String carId, String packageId, bool isActive) async {
+    await apiClient.dio.patch(
+      '/admin/cars/$carId/mileage-packages/$packageId/toggle-active',
+      data: {'isActive': isActive},
+    );
+  }
 }

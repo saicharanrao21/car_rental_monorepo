@@ -152,26 +152,72 @@ export class BookingsService {
         1,
         Math.ceil(durationMs / (1000 * 60 * 60 * 24)),
       );
-      let basePackagePrice = new Prisma.Decimal(0);
 
-      if (
-        dto.tripType === TripType.LOCAL ||
-        dto.tripType === TripType.AIRPORT_TRANSFER
-      ) {
-        const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
-        basePackagePrice = car.pricePerHour.mul(durationHours);
+      let mileagePackage: any = null;
+      let basePackagePrice = new Prisma.Decimal(0);
+      let pricingBasis = 'LEGACY_DAILY';
+      let includedKmTotal: number | null = null;
+      let extraKmRateDecimal: Prisma.Decimal | null = null;
+
+      if (dto.mileagePackageId) {
+        mileagePackage = await this.prisma.mileagePackage.findUnique({
+          where: { id: dto.mileagePackageId },
+        });
+
+        if (!mileagePackage) {
+          throw new NotFoundException('Selected mileage package not found.');
+        }
+
+        if (mileagePackage.carId !== dto.carId) {
+          throw new BadRequestException(
+            'Mileage package does not belong to the selected car.',
+          );
+        }
+
+        if (!mileagePackage.isActive) {
+          throw new BadRequestException(
+            'Selected mileage package is no longer active.',
+          );
+        }
+
+        if (mileagePackage.tripType !== dto.tripType) {
+          throw new BadRequestException(
+            `Mileage package is for ${mileagePackage.tripType} but booking is for ${dto.tripType}.`,
+          );
+        }
+
+        basePackagePrice = mileagePackage.basePricePerDay.mul(durationDays);
+        extraKmRateDecimal = mileagePackage.extraKmRate;
+        pricingBasis = 'PACKAGE_TIER';
+        includedKmTotal = mileagePackage.includedKmPerDay
+          ? mileagePackage.includedKmPerDay * durationDays
+          : null;
       } else {
-        basePackagePrice = car.pricePerDay.mul(durationDays);
+        if (
+          dto.tripType === TripType.LOCAL ||
+          dto.tripType === TripType.AIRPORT_TRANSFER
+        ) {
+          const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
+          basePackagePrice = car.pricePerHour.mul(durationHours);
+          pricingBasis = 'LEGACY_HOURLY';
+        } else {
+          basePackagePrice = car.pricePerDay.mul(durationDays);
+          pricingBasis = 'LEGACY_DAILY';
+        }
       }
 
-      const distance = dto.distanceKm
+      const distance = (dto.distanceKm && !dto.mileagePackageId)
         ? new Prisma.Decimal(dto.distanceKm)
         : new Prisma.Decimal(0);
+
+      const pricePerKmForFare = dto.mileagePackageId
+        ? new Prisma.Decimal(0)
+        : car.pricePerKm;
 
       const fareDetails = this.fareCalculator.calculateFare(
         distance,
         basePackagePrice,
-        car.pricePerKm,
+        pricePerKmForFare,
         commissionPercent,
         durationDays,
         car.weeklyDiscountPercent || 0,
@@ -337,6 +383,13 @@ export class BookingsService {
               couponId: validatedCoupon ? validatedCoupon.couponId : null,
               couponCode: validatedCoupon ? validatedCoupon.code : null,
               discountAmount: discountAmountDecimal,
+              mileagePackageId: mileagePackage ? mileagePackage.id : null,
+              mileagePackageName: mileagePackage ? mileagePackage.name : null,
+              includedKmPerDay: mileagePackage ? mileagePackage.includedKmPerDay : null,
+              includedKmTotal,
+              packageBasePricePerDay: mileagePackage ? mileagePackage.basePricePerDay : null,
+              extraKmRate: extraKmRateDecimal,
+              pricingBasis,
               status: BookingStatus.PENDING,
               securityDeposit: {
                 create: {

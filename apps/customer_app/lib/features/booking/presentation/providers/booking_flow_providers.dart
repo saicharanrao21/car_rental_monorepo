@@ -52,6 +52,10 @@ class BookingDraft {
   final ProtectionPackageModel? selectedProtectionPackage;
   final double protectionFee;
 
+  // Configurable Mileage Package (Phase 10)
+  final String? selectedMileagePackageId;
+  final MileagePackageModel? selectedMileagePackage;
+
   // Coupon
   final String? appliedCouponCode;
   final double couponDiscountAmount;
@@ -83,6 +87,8 @@ class BookingDraft {
     this.selectedProtectionPackageId,
     this.selectedProtectionPackage,
     this.protectionFee = 0.0,
+    this.selectedMileagePackageId,
+    this.selectedMileagePackage,
     this.contactName = '',
     this.contactPhone = '',
     this.baseFare = 0,
@@ -127,6 +133,8 @@ class BookingDraft {
     String? selectedProtectionPackageId,
     ProtectionPackageModel? selectedProtectionPackage,
     double? protectionFee,
+    String? selectedMileagePackageId,
+    MileagePackageModel? selectedMileagePackage,
     String? contactName,
     String? contactPhone,
     double? baseFare,
@@ -169,6 +177,10 @@ class BookingDraft {
       selectedProtectionPackage:
           selectedProtectionPackage ?? this.selectedProtectionPackage,
       protectionFee: protectionFee ?? this.protectionFee,
+      selectedMileagePackageId:
+          selectedMileagePackageId ?? this.selectedMileagePackageId,
+      selectedMileagePackage:
+          selectedMileagePackage ?? this.selectedMileagePackage,
       contactName: contactName ?? this.contactName,
       contactPhone: contactPhone ?? this.contactPhone,
       baseFare: baseFare ?? this.baseFare,
@@ -201,6 +213,19 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
     String contactName = '',
     String contactPhone = '',
   }) {
+    MileagePackageModel? defaultPackage;
+    if (car.rawMileagePackages.isNotEmpty) {
+      final packages = car.rawMileagePackages
+          .map((p) =>
+              MileagePackageModel.fromJson(Map<String, dynamic>.from(p as Map)))
+          .where((p) => p.isActive && p.tripType == tripType)
+          .toList();
+      if (packages.isNotEmpty) {
+        defaultPackage =
+            packages.firstWhere((p) => p.isDefault, orElse: () => packages.first);
+      }
+    }
+
     state = BookingDraft(
       carId: car.id,
       vendorId: vendorId,
@@ -210,6 +235,8 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
       startDate: startDate ?? DateTime(2026, 8, 24, 10, 0),
       endDate: endDate ?? DateTime(2026, 8, 26, 10, 0),
       driverIncluded: tripType != 'Self-Drive',
+      selectedMileagePackageId: defaultPackage?.id,
+      selectedMileagePackage: defaultPackage,
       contactName: contactName,
       contactPhone: contactPhone,
     );
@@ -230,10 +257,18 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
       carCategory: car.type,
       tripType: state.tripType,
     );
+
+    final isPackageTier = state.selectedMileagePackage != null;
+    final basePackagePrice = isPackageTier
+        ? state.selectedMileagePackage!.basePricePerDay * state.rentalDays
+        : car.pricePerDay * state.rentalDays;
+    final distanceKm = isPackageTier ? 0.0 : state.estimatedDistanceKm.toDouble();
+    final pricePerKm = isPackageTier ? 0.0 : car.pricePerKm;
+
     final result = FareCalculatorService.calculateFare(
-      distanceKm: state.estimatedDistanceKm.toDouble(),
-      basePackagePrice: car.pricePerDay * state.rentalDays,
-      pricePerKm: car.pricePerKm,
+      distanceKm: distanceKm,
+      basePackagePrice: basePackagePrice,
+      pricePerKm: pricePerKm,
       commissionPercent: config.percentage,
     );
     state = state.copyWith(

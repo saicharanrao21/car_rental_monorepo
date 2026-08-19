@@ -61,4 +61,9 @@ class MockAdminFleetRepository implements AdminFleetRepository {
       MockData.cars[idx] = old.copyWith(isAvailable: false);
     }
   }
+
+  @override
+  Future<void> toggleMileagePackageActive(String carId, String packageId, bool isActive) async {
+    await _delay();
+  }
 }
