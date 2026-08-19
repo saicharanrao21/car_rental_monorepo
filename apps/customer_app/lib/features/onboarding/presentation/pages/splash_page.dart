@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core/core.dart';
 import '../../../../core/providers/session_provider.dart';
+import '../providers/onboarding_providers.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -15,18 +16,34 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAppStartup();
+    });
   }
 
-  Future<void> _startTimer() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+  Future<void> _checkAppStartup() async {
+    final minBrandDuration = Future.delayed(const Duration(milliseconds: 800));
+
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    final onboardingNotifier = ref.read(onboardingProvider.notifier);
+
+    await Future.wait([
+      minBrandDuration,
+      sessionNotifier.checkSession(),
+      onboardingNotifier.checkOnboardingStatus(),
+    ]);
+
     if (!mounted) return;
 
-    final session = ref.read(sessionProvider);
-    if (session.isAuthenticated) {
+    final onboardingState = ref.read(onboardingProvider);
+    final sessionState = ref.read(sessionProvider);
+
+    if (!onboardingState.hasCompletedOnboarding) {
+      context.go('/onboarding');
+    } else if (sessionState.isAuthenticated) {
       context.go('/home');
     } else {
-      context.go('/onboarding');
+      context.go('/auth/phone');
     }
   }
 

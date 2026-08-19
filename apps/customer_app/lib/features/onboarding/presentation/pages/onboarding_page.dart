@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import '../providers/onboarding_providers.dart';
 
 class OnboardingSlide {
   final IconData icon;
@@ -16,14 +18,14 @@ class OnboardingSlide {
   });
 }
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   int _currentIndex = 0;
   late final PageController _pageController;
 
@@ -31,17 +33,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingSlide(
       icon: Icons.search_outlined,
       title: 'Find Your Perfect Car',
-      description: 'Choose from our curated fleet of high-quality premium cars available in your city.',
+      description:
+          'Choose from our curated fleet of high-quality premium cars available in your city.',
     ),
     OnboardingSlide(
       icon: Icons.speed,
       title: 'Book Instantly',
-      description: 'Experience seamless bookings with zero paperwork, transparent pricing, and instant confirmation.',
+      description:
+          'Experience seamless bookings with zero paperwork, transparent pricing, and instant confirmation.',
     ),
     OnboardingSlide(
       icon: Icons.verified_user_outlined,
       title: 'Trusted Partners',
-      description: 'Rent with peace of mind from our fully verified local vendors ensuring top safety standards.',
+      description:
+          'Rent with peace of mind from our fully verified local vendors ensuring top safety standards.',
     ),
   ];
 
@@ -57,13 +62,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     if (_currentIndex < _slides.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } else {
+      await ref.read(onboardingProvider.notifier).completeOnboarding();
+      if (mounted) {
+        context.go('/auth/phone');
+      }
+    }
+  }
+
+  Future<void> _onSkip() async {
+    await ref.read(onboardingProvider.notifier).completeOnboarding();
+    if (mounted) {
       context.go('/auth/phone');
     }
   }
@@ -77,7 +92,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         actions: [
           if (_currentIndex < _slides.length - 1)
             TextButton(
-              onPressed: () => context.go('/auth/phone'),
+              onPressed: _onSkip,
               child: const Text(
                 'Skip',
                 style: TextStyle(

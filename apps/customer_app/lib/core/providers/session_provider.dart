@@ -8,24 +8,32 @@ import 'api_providers.dart';
 class AuthState {
   final UserModel? user;
   final bool isAuthenticated;
+  final bool isInitialized;
 
-  const AuthState({this.user, this.isAuthenticated = false});
+  const AuthState({
+    this.user,
+    this.isAuthenticated = false,
+    this.isInitialized = false,
+  });
 
-  factory AuthState.unauthenticated() => const AuthState();
-  factory AuthState.authenticated(UserModel user) => AuthState(user: user, isAuthenticated: true);
+  factory AuthState.initial() => const AuthState(isInitialized: false);
+  factory AuthState.unauthenticated() =>
+      const AuthState(isInitialized: true, isAuthenticated: false);
+  factory AuthState.authenticated(UserModel user) =>
+      AuthState(user: user, isAuthenticated: true, isInitialized: true);
 }
 
 class SessionNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
-    Future.microtask(() => checkSession());
-    return AuthState.unauthenticated();
+    return AuthState.initial();
   }
 
   Future<void> checkSession() async {
     final tokenStorage = ref.read(tokenStorageProvider);
     final accessToken = await tokenStorage.getAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
+      state = AuthState.unauthenticated();
       return;
     }
 
@@ -33,7 +41,8 @@ class SessionNotifier extends Notifier<AuthState> {
     try {
       final response = await apiClient.dio.get('/auth/me');
       final userJson = Map<String, dynamic>.from(response.data);
-      if (userJson['profilePhotoUrl'] != null && userJson['profilePhoto'] == null) {
+      if (userJson['profilePhotoUrl'] != null &&
+          userJson['profilePhoto'] == null) {
         userJson['profilePhoto'] = userJson['profilePhotoUrl'];
       }
       final user = UserModel.fromJson(userJson);

@@ -20,6 +20,8 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/wishlist/presentation/pages/wishlist_page.dart';
 
+import '../../features/onboarding/presentation/providers/onboarding_providers.dart';
+
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 class RouterNotifier extends ChangeNotifier {
@@ -27,6 +29,9 @@ class RouterNotifier extends ChangeNotifier {
 
   RouterNotifier(this._ref) {
     _ref.listen(sessionProvider, (_, __) {
+      notifyListeners();
+    });
+    _ref.listen(onboardingProvider, (_, __) {
       notifyListeners();
     });
   }
@@ -180,15 +185,38 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final isAuthenticated = ref.read(sessionProvider).isAuthenticated;
-      final isLoggingIn = state.matchedLocation.startsWith('/auth') ||
-          state.matchedLocation == '/splash' ||
-          state.matchedLocation == '/onboarding';
+      final session = ref.read(sessionProvider);
+      final onboarding = ref.read(onboardingProvider);
 
-      if (isAuthenticated) {
-        if (isLoggingIn) return '/home';
+      final isSplash = state.matchedLocation == '/splash';
+      final isOnboarding = state.matchedLocation == '/onboarding';
+      final isAuth = state.matchedLocation.startsWith('/auth');
+
+      // Allow splash to perform initialization without interference
+      if (isSplash) return null;
+
+      if (session.isAuthenticated) {
+        // Authenticated users should not be on onboarding or auth
+        if (isOnboarding || isAuth) {
+          return '/home';
+        }
       } else {
-        if (!isLoggingIn) return '/splash';
+        // Unauthenticated users
+        if (!onboarding.hasCompletedOnboarding) {
+          // If onboarding is not completed, prevent accessing protected app routes
+          if (!isOnboarding && !isAuth) {
+            return '/onboarding';
+          }
+        } else {
+          // If onboarding is completed, prevent accessing onboarding page
+          if (isOnboarding) {
+            return '/auth/phone';
+          }
+          // Prevent accessing protected app routes without login
+          if (!isAuth) {
+            return '/auth/phone';
+          }
+        }
       }
       return null;
     },
