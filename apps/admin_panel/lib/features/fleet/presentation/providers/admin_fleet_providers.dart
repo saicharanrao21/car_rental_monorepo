@@ -54,6 +54,17 @@ class AdminFleetController extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, stack);
     }
   }
+
+  Future<void> toggleMileagePackageActive(String carId, String packageId, bool isActive) async {
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(adminFleetRepositoryProvider).toggleMileagePackageActive(carId, packageId, isActive);
+      _ref.invalidate(carDetailProvider(carId));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
 }
 
 final adminFleetControllerProvider = StateNotifierProvider<AdminFleetController, AsyncValue<void>>((ref) {

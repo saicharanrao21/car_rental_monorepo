@@ -55,4 +55,27 @@ class MockFleetRepository with LatencySimulator implements FleetRepository {
   }) async {
     await simulateLatency();
   }
+
+  @override
+  Future<List<MileagePackageModel>> getMileagePackages(String carId) async {
+    await simulateLatency();
+    return [];
+  }
+
+  @override
+  Future<MileagePackageModel> createMileagePackage(String carId, MileagePackageModel package) async {
+    await simulateLatency();
+    return package;
+  }
+
+  @override
+  Future<MileagePackageModel> updateMileagePackage(String carId, MileagePackageModel package) async {
+    await simulateLatency();
+    return package;
+  }
+
+  @override
+  Future<void> deleteMileagePackage(String carId, String packageId) async {
+    await simulateLatency();
+  }
 }

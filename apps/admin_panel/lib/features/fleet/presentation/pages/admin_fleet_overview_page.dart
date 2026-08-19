@@ -483,11 +483,104 @@ class _CarDetailPanel extends ConsumerWidget {
                     const Divider(height: 32),
 
                     // Pricing Specifications
-                    const SectionHeader(title: 'Pricing Details'),
+                    const SectionHeader(title: 'Base Pricing Details'),
                     const Gap(12),
                     _DetailRow(label: 'Price per Day', value: '₹${car.pricePerDay.toStringAsFixed(2)}'),
                     _DetailRow(label: 'Price per Hour', value: '₹${car.pricePerHour.toStringAsFixed(2)}'),
                     _DetailRow(label: 'Price per Excess Km', value: '₹${car.pricePerKm.toStringAsFixed(2)}'),
+                    const Divider(height: 32),
+
+                    // Mileage Packages Section
+                    const SectionHeader(title: 'Configured Mileage Packages'),
+                    const Gap(12),
+                    if (car.rawMileagePackages.isEmpty)
+                      Text(
+                        'No mileage packages configured. (Using legacy pricing rates)',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                      )
+                    else
+                      ...car.rawMileagePackages.map((rawPkg) {
+                        final pkg = MileagePackageModel.fromJson(Map<String, dynamic>.from(rawPkg as Map));
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: pkg.isActive ? Colors.grey[50] : Colors.red.shade50.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: pkg.isActive ? Colors.grey.shade300 : Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                pkg.isUnlimited ? Icons.all_inclusive : Icons.speed,
+                                color: pkg.isActive ? AppColors.primary : Colors.grey,
+                                size: 20,
+                              ),
+                              const Gap(10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          pkg.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: pkg.isActive ? Colors.black87 : Colors.grey[700],
+                                          ),
+                                        ),
+                                        const Gap(6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[200],
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            pkg.tripType,
+                                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        if (pkg.isDefault) ...[
+                                          const Gap(4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green[100],
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              'Default',
+                                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const Gap(2),
+                                    Text(
+                                      pkg.isUnlimited
+                                          ? '₹${pkg.basePricePerDay.toInt()}/day • Unlimited km'
+                                          : '₹${pkg.basePricePerDay.toInt()}/day • ${pkg.includedKmPerDay} km/day • Extra: ₹${pkg.extraKmRate.toInt()}/km',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: pkg.isActive,
+                                activeColor: AppColors.primary,
+                                onChanged: (val) {
+                                  ref.read(adminFleetControllerProvider.notifier)
+                                      .toggleMileagePackageActive(car.id, pkg.id, val);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     const Divider(height: 32),
 
                     // Blocked Dates Details (if any)

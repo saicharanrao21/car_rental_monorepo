@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:models/models.dart';
 
 void main() {
-  group('MileagePackageModel Tests', () => {
+  group('MileagePackageModel Tests', () {
     test('MileagePackageModel.fromJson parses standard package payload correctly', () {
       final json = {
         'id': 'pkg_123',
@@ -31,7 +31,7 @@ void main() {
       expect(model.isDefault, true);
       expect(model.isActive, true);
       expect(model.totalIncludedKm(3), 300);
-    }),
+    });
 
     test('MileagePackageModel handles Unlimited package correctly', () {
       final json = {
@@ -53,7 +53,7 @@ void main() {
       expect(model.includedKmPerDay, isNull);
       expect(model.isUnlimited, true);
       expect(model.totalIncludedKm(5), isNull);
-    }),
+    });
 
     test('MileagePackageModel.toJson produces valid backend format', () {
       const model = MileagePackageModel(
@@ -75,7 +75,7 @@ void main() {
       expect(json['basePricePerDay'], 3200.0);
       expect(json['extraKmRate'], 10.0);
       expect(json['isDefault'], true);
-    }),
+    });
 
     test('CarModel parses embedded mileagePackages payload safely', () {
       final carJson = {
@@ -88,13 +88,14 @@ void main() {
         'fuelType': 'Diesel',
         'seating': 4,
         'isAC': true,
-        'photos': [],
         'pricePerKm': 18.0,
         'pricePerDay': 3500.0,
         'pricePerHour': 250.0,
+        'photos': [],
+        'availableTripTypes': ['SELF_DRIVE'],
         'mileagePackages': [
           {
-            'id': 'pkg_1',
+            'id': 'pkg_thar_1',
             'carId': 'car_123',
             'tripType': 'SELF_DRIVE',
             'name': '100 km/day',
@@ -114,6 +115,6 @@ void main() {
       expect(package.name, '100 km/day');
       expect(package.tripType, 'Self-Drive');
       expect(package.includedKmPerDay, 100);
-    }),
+    });
   });
 }
