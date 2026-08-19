@@ -102,19 +102,41 @@ class BookingDraft {
   }
 
   BookingDraft copyWith({
-    String? carId, String? vendorId, String? tripType,
-    String? pickupLocation, String? dropLocation,
-    DateTime? startDate, DateTime? endDate,
+    String? carId,
+    String? vendorId,
+    String? tripType,
+    String? pickupLocation,
+    String? dropLocation,
+    DateTime? startDate,
+    DateTime? endDate,
     int? estimatedDistanceKm,
-    bool? driverIncluded, bool? childSeat, bool? extraLuggage,
-    bool? hasDoorstepDelivery, String? deliveryAddress, double? deliveryFee,
-    bool? hasDoorstepPickup, String? returnPickupAddress, double? returnPickupFee,
-    bool? hasAdditionalDriver, String? additionalDriverName, String? additionalDriverPhone, String? additionalDriverLicence, double? additionalDriverFee,
-    String? selectedProtectionPackageId, ProtectionPackageModel? selectedProtectionPackage, double? protectionFee,
-    String? contactName, String? contactPhone,
-    double? baseFare, double? platformFee, double? gst,
-    double? totalFare, double? netToVendor, double? commissionPercent,
-    String? appliedCouponCode, double? couponDiscountAmount,
+    bool? driverIncluded,
+    bool? childSeat,
+    bool? extraLuggage,
+    bool? hasDoorstepDelivery,
+    String? deliveryAddress,
+    double? deliveryFee,
+    bool? hasDoorstepPickup,
+    String? returnPickupAddress,
+    double? returnPickupFee,
+    bool? hasAdditionalDriver,
+    String? additionalDriverName,
+    String? additionalDriverPhone,
+    String? additionalDriverLicence,
+    double? additionalDriverFee,
+    String? selectedProtectionPackageId,
+    ProtectionPackageModel? selectedProtectionPackage,
+    double? protectionFee,
+    String? contactName,
+    String? contactPhone,
+    double? baseFare,
+    double? platformFee,
+    double? gst,
+    double? totalFare,
+    double? netToVendor,
+    double? commissionPercent,
+    String? appliedCouponCode,
+    double? couponDiscountAmount,
     CouponValidationResultModel? appliedCoupon,
   }) {
     return BookingDraft(
@@ -137,11 +159,15 @@ class BookingDraft {
       returnPickupFee: returnPickupFee ?? this.returnPickupFee,
       hasAdditionalDriver: hasAdditionalDriver ?? this.hasAdditionalDriver,
       additionalDriverName: additionalDriverName ?? this.additionalDriverName,
-      additionalDriverPhone: additionalDriverPhone ?? this.additionalDriverPhone,
-      additionalDriverLicence: additionalDriverLicence ?? this.additionalDriverLicence,
+      additionalDriverPhone:
+          additionalDriverPhone ?? this.additionalDriverPhone,
+      additionalDriverLicence:
+          additionalDriverLicence ?? this.additionalDriverLicence,
       additionalDriverFee: additionalDriverFee ?? this.additionalDriverFee,
-      selectedProtectionPackageId: selectedProtectionPackageId ?? this.selectedProtectionPackageId,
-      selectedProtectionPackage: selectedProtectionPackage ?? this.selectedProtectionPackage,
+      selectedProtectionPackageId:
+          selectedProtectionPackageId ?? this.selectedProtectionPackageId,
+      selectedProtectionPackage:
+          selectedProtectionPackage ?? this.selectedProtectionPackage,
       protectionFee: protectionFee ?? this.protectionFee,
       contactName: contactName ?? this.contactName,
       contactPhone: contactPhone ?? this.contactPhone,
@@ -175,25 +201,23 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
     String contactName = '',
     String contactPhone = '',
   }) {
-    final defaultTripType = car.availableTripTypes.contains(tripType)
-        ? tripType
-        : (car.availableTripTypes.isNotEmpty ? car.availableTripTypes.first : 'Local');
-
     state = BookingDraft(
       carId: car.id,
       vendorId: vendorId,
-      tripType: defaultTripType,
+      tripType: tripType,
       pickupLocation: pickupLocation,
       dropLocation: dropLocation,
       startDate: startDate ?? DateTime(2026, 8, 24, 10, 0),
       endDate: endDate ?? DateTime(2026, 8, 26, 10, 0),
-      driverIncluded: defaultTripType != 'Self-Drive',
+      driverIncluded: tripType != 'Self-Drive',
       contactName: contactName,
       contactPhone: contactPhone,
     );
   }
 
-  void update(BookingDraft Function(BookingDraft) fn) { state = fn(state); }
+  void update(BookingDraft Function(BookingDraft) fn) {
+    state = fn(state);
+  }
 
   /// Compute and store fare components using FareCalculatorService.
   void computeFare({
@@ -229,7 +253,8 @@ final bookingDraftProvider =
 
 // ── Submit booking ────────────────────────────────────────────────────────────
 
-class CreateBookingFlowNotifier extends AutoDisposeAsyncNotifier<BookingModel?> {
+class CreateBookingFlowNotifier
+    extends AutoDisposeAsyncNotifier<BookingModel?> {
   @override
   Future<BookingModel?> build() async => null;
 
@@ -249,10 +274,15 @@ class CreateBookingFlowNotifier extends AutoDisposeAsyncNotifier<BookingModel?> 
         vendorId: draft.vendorId,
         carId: draft.carId,
         tripType: draft.tripType,
-        pickupLocation: draft.pickupLocation.isEmpty ? 'TBD' : draft.pickupLocation,
+        pickupLocation:
+            draft.pickupLocation.isEmpty ? 'TBD' : draft.pickupLocation,
         dropLocation: draft.dropLocation.isEmpty ? null : draft.dropLocation,
-        startDate: defaultStart.isBefore(now) ? now.add(const Duration(days: 6)) : defaultStart,
-        endDate: defaultEnd.isBefore(now) ? now.add(const Duration(days: 8)) : defaultEnd,
+        startDate: defaultStart.isBefore(now)
+            ? now.add(const Duration(days: 6))
+            : defaultStart,
+        endDate: defaultEnd.isBefore(now)
+            ? now.add(const Duration(days: 8))
+            : defaultEnd,
         totalFare: draft.totalFare,
         platformFee: draft.platformFee,
         gstAmount: draft.gst,

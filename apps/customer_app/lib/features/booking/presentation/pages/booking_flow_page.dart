@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
@@ -39,6 +40,7 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
   Widget build(BuildContext context) {
     final step = ref.watch(currentStepProvider);
     final detailVal = ref.watch(carDetailDataProvider(widget.carId));
+    final tripType = ref.watch(selectedTripTypeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -57,28 +59,37 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
           onRetry: () => ref.invalidate(carDetailDataProvider(widget.carId)),
         ),
         data: (detail) {
-          // Initialise draft once
+          // Defensive Check: If this car does not support the selected trip type,
+          // do NOT silently mutate trip type or proceed with an invalid draft.
+          final isCompatible = detail.car.availableTripTypes.contains(tripType);
+          if (!isCompatible) {
+            return _IncompatibleTripTypeView(
+              car: detail.car,
+              requestedTripType: tripType,
+            );
+          }
+
+          // Initialise draft once for compatible vehicle
           if (!_initialized) {
             _initialized = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               final session = ref.read(sessionProvider);
-              final tripType = ref.read(selectedTripTypeProvider);
               final dateRange = ref.read(selectedDateRangeProvider);
               final searchDates = ref.read(searchDatesProvider);
               final pickup = ref.read(pickupLocationProvider);
               final drop = ref.read(dropLocationProvider);
 
               ref.read(bookingDraftProvider.notifier).init(
-                car: detail.car,
-                vendorId: detail.vendor.id,
-                tripType: tripType,
-                pickupLocation: pickup ?? '',
-                dropLocation: drop ?? '',
-                startDate: dateRange?.start ?? searchDates?.start,
-                endDate: dateRange?.end ?? searchDates?.end,
-                contactName: session.user?.name ?? '',
-                contactPhone: session.user?.phone ?? '',
-              );
+                    car: detail.car,
+                    vendorId: detail.vendor.id,
+                    tripType: tripType,
+                    pickupLocation: pickup ?? '',
+                    dropLocation: drop ?? '',
+                    startDate: dateRange?.start ?? searchDates?.start,
+                    endDate: dateRange?.end ?? searchDates?.end,
+                    contactName: session.user?.name ?? '',
+                    contactPhone: session.user?.phone ?? '',
+                  );
             });
           }
 
@@ -144,6 +155,91 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
   }
 }
 
+class _IncompatibleTripTypeView extends ConsumerWidget {
+  final CarModel car;
+  final String requestedTripType;
+
+  const _IncompatibleTripTypeView({
+    required this.car,
+    required this.requestedTripType,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final selectedCity = ref.read(selectedCityProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                size: 48,
+                color: Colors.amber,
+              ),
+            ),
+            const Gap(24),
+            Text(
+              'Trip Type Not Supported',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const Gap(12),
+            Text(
+              '${car.make} ${car.model} (${car.year}) is not eligible for $requestedTripType bookings. '
+              'This car only supports: ${car.availableTripTypes.join(', ')}.',
+              style: TextStyle(
+                fontSize: 14,
+                color: cs.onSurfaceVariant,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const Gap(32),
+            AppButton(
+              text: 'Browse $requestedTripType Cars',
+              onPressed: () {
+                context.push(
+                  '/search?city=${Uri.encodeComponent(selectedCity)}'
+                  '&tripType=${Uri.encodeComponent(requestedTripType)}'
+                  '&start='
+                  '&end='
+                  '&pickup='
+                  '&drop=',
+                );
+              },
+            ),
+            const Gap(12),
+            OutlinedButton(
+              onPressed: () => context.pop(),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StepIndicator extends StatelessWidget {
   final int current;
   final int total;
@@ -161,73 +257,34 @@ class _StepIndicator extends StatelessWidget {
         children: [
           Row(
             children: List.generate(total, (i) {
-              final isDone = i < current;
-              final isActive = i == current;
+              final isPassed = i < current;
+              final isCurrent = i == current;
               return Expanded(
-                child: Row(
-                  children: [
-                    _Dot(isDone: isDone, isActive: isActive, index: i),
-                    if (i < total - 1)
-                      Expanded(
-                        child: Container(
-                          height: 2,
-                          color: isDone ? cs.primary : cs.outlineVariant,
-                        ),
-                      ),
-                  ],
+                child: Container(
+                  height: 4,
+                  margin: EdgeInsets.only(right: i < total - 1 ? 4 : 0),
+                  decoration: BoxDecoration(
+                    color: isPassed
+                        ? AppColors.primary
+                        : isCurrent
+                            ? AppColors.accent
+                            : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               );
             }),
           ),
-          const Gap(6),
+          const Gap(8),
           Text(
-            'Step ${current + 1} of $total — ${_stepTitles[current]}',
+            'Step ${current + 1} of $total: ${_stepTitles[current]}',
             style: TextStyle(
-                fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool isDone;
-  final bool isActive;
-  final int index;
-
-  const _Dot({required this.isDone, required this.isActive, required this.index});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: isActive ? 28 : 22,
-      height: isActive ? 28 : 22,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isDone
-            ? cs.primary
-            : isActive
-                ? cs.primary
-                : cs.surfaceContainerHighest,
-        border: isActive ? Border.all(color: cs.primary, width: 2) : null,
-        boxShadow: isActive
-            ? [BoxShadow(color: cs.primary.withValues(alpha: 0.3), blurRadius: 8)]
-            : null,
-      ),
-      child: Center(
-        child: isDone
-            ? Icon(Icons.check, color: cs.onPrimary, size: 14)
-            : Text(
-                '${index + 1}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isActive ? cs.onPrimary : cs.onSurfaceVariant,
-                ),
-              ),
       ),
     );
   }
