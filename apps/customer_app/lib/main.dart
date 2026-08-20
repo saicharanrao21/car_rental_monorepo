@@ -20,6 +20,7 @@ class CustomerApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      scrollBehavior: const AppScrollBehavior(),
       debugShowCheckedModeBanner: false,
     );
   }

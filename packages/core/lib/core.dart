@@ -9,3 +9,4 @@ export 'src/formatter_utils.dart';
 export 'src/app_strings.dart';
 export 'src/token_storage.dart';
 export 'src/api_client.dart';
+export 'src/app_scroll_behavior.dart';
