@@ -5,6 +5,11 @@ import 'package:models/models.dart';
 import 'package:customer_app/features/search/presentation/pages/search_results_page.dart';
 import 'package:customer_app/features/search/presentation/providers/search_providers.dart';
 import 'package:customer_app/features/search/domain/repositories/search_repository.dart';
+import 'package:customer_app/features/search/presentation/widgets/search_car_card.dart';
+import 'package:customer_app/features/search/presentation/widgets/search_summary_card.dart';
+import 'package:customer_app/features/search/presentation/widgets/search_filter_bar_widget.dart';
+import 'package:customer_app/features/search/presentation/widgets/choose_trip_type_view.dart';
+import 'package:customer_app/features/search/presentation/widgets/search_trip_details_form.dart';
 import 'package:customer_app/features/home/home_providers.dart';
 
 class MockSearchRepo implements SearchRepository {
@@ -28,6 +33,12 @@ class MockSearchRepo implements SearchRepository {
   }) async {
     return cars.where((c) {
       if (tripType != null && !c.availableTripTypes.contains(tripType)) {
+        return false;
+      }
+      if (carType != null && c.type != carType) {
+        return false;
+      }
+      if (isAC != null && c.isAC != isAC) {
         return false;
       }
       return true;
@@ -71,11 +82,11 @@ void main() {
     ),
   ];
 
-  group('Date-First Car Availability & Trip Search Flow Tests (Phase 10.4)', () {
+  group('Date-First Car Availability & Trip Search Flow Tests (Phase 13)', () {
     testWidgets(
         'Scenario 1: Navbar search with no tripType shows Choose Trip Type -> Trip Details Form -> Available Cars',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 800));
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -103,6 +114,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Initial State: Trip Type decision view is displayed
+      expect(find.byType(ChooseTripTypeView), findsOneWidget);
       expect(find.text('Choose Trip Type'), findsOneWidget);
       expect(find.text('Self-Drive Cars'), findsOneWidget);
       expect(find.text('Outstation Travel'), findsOneWidget);
@@ -112,6 +124,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 3. Trip Search Details Form is displayed
+      expect(find.byType(SearchTripDetailsForm), findsOneWidget);
       expect(find.text('Trip Details — Self-Drive'), findsOneWidget);
       expect(find.text('Search Available Cars'), findsOneWidget);
 
@@ -122,6 +135,9 @@ void main() {
       // 5. Verify Self-Drive available results UI & compact summary bar
       expect(container.read(searchTripTypeProvider), 'Self-Drive');
       expect(container.read(selectedTripTypeProvider), 'Self-Drive');
+      expect(find.byType(SearchSummaryCard), findsOneWidget);
+      expect(find.byType(SearchFilterBarWidget), findsOneWidget);
+      expect(find.byType(SearchCarCard), findsOneWidget);
       expect(find.text('Change Search'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('Toyota Innova'), findsNothing);
@@ -130,7 +146,7 @@ void main() {
     testWidgets(
         'Scenario 2: Navbar search with no tripType shows Choose Trip Type -> Outstation Details Form -> Outstation Cars',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 800));
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -162,6 +178,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Outstation details form is displayed
+      expect(find.byType(SearchTripDetailsForm), findsOneWidget);
       expect(find.text('Trip Details — Outstation'), findsOneWidget);
       expect(find.text('Destination City / Address'), findsOneWidget);
 
@@ -179,7 +196,7 @@ void main() {
     testWidgets(
         'Scenario 3: Homepage search with Self-Drive & dates directly renders available cars without duplicate prompt',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 800));
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -207,11 +224,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Decision screen & details form are SKIPPED
-      expect(find.text('Choose Trip Type'), findsNothing);
-      expect(find.text('Search Available Cars'), findsNothing);
+      expect(find.byType(ChooseTripTypeView), findsNothing);
+      expect(find.byType(SearchTripDetailsForm), findsNothing);
 
       // Directly renders Search Summary Bar and available cars
       expect(container.read(searchTripTypeProvider), 'Self-Drive');
+      expect(find.byType(SearchSummaryCard), findsOneWidget);
       expect(find.text('Change Search'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('Toyota Innova'), findsNothing);
@@ -220,7 +238,7 @@ void main() {
     testWidgets(
         'Scenario 4: Homepage search with Outstation & dates directly renders Outstation cars',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 800));
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -248,7 +266,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Directly renders Outstation car listings
-      expect(find.text('Choose Trip Type'), findsNothing);
+      expect(find.byType(ChooseTripTypeView), findsNothing);
       expect(container.read(searchTripTypeProvider), 'Outstation');
       expect(find.text('Toyota Innova'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsNothing);
@@ -257,7 +275,7 @@ void main() {
     testWidgets(
         'Scenario 5: Change Search button re-opens Trip Details Form and updates results upon submitting',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 800));
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -292,6 +310,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Form is displayed
+      expect(find.byType(SearchTripDetailsForm), findsOneWidget);
       expect(find.text('Trip Details — Self-Drive'), findsOneWidget);
       expect(find.text('Search Available Cars'), findsOneWidget);
 
@@ -311,6 +330,95 @@ void main() {
       expect(container.read(searchTripTypeProvider), 'Outstation');
       expect(find.text('Toyota Innova'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsNothing);
+    });
+
+    testWidgets(
+        'Scenario 6: Filter bar interaction updates provider state and shows clear button',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(MockSearchRepo(sampleCars)),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: SearchResultsPage(
+              city: 'Mumbai',
+              tripType: 'Self-Drive',
+              start: '2026-08-24T10:00:00.000Z',
+              end: '2026-08-26T10:00:00.000Z',
+              pickup: 'Bandra',
+              drop: '',
+              category: '',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Clear (1)'), findsNothing);
+
+      // Tap AC / Non-AC toggle
+      final acFinder = find.text('AC / Non-AC');
+      await tester.ensureVisible(acFinder);
+      await tester.tap(acFinder);
+      await tester.pumpAndSettle();
+
+      expect(container.read(searchACFilterProvider), isTrue);
+      expect(find.text('Clear (1)'), findsOneWidget);
+
+      // Tap Clear
+      final clearFinder = find.text('Clear (1)');
+      await tester.ensureVisible(clearFinder);
+      await tester.tap(clearFinder);
+      await tester.pumpAndSettle();
+
+      expect(container.read(searchACFilterProvider), isNull);
+      expect(find.text('Clear (1)'), findsNothing);
+    });
+
+    testWidgets(
+        'Scenario 7: SearchCarCard renders vehicle specs, pricing, and View Details button',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(MockSearchRepo(sampleCars)),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: SearchResultsPage(
+              city: 'Mumbai',
+              tripType: 'Self-Drive',
+              start: '2026-08-24T10:00:00.000Z',
+              end: '2026-08-26T10:00:00.000Z',
+              pickup: 'Bandra',
+              drop: '',
+              category: '',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchCarCard), findsOneWidget);
+      expect(find.text('Hyundai Creta'), findsOneWidget);
+      expect(find.text('5 Seats'), findsOneWidget);
+      expect(find.text('Petrol'), findsOneWidget);
+      expect(find.text('AC'), findsOneWidget);
+      expect(find.text('View Details'), findsOneWidget);
     });
   });
 }
