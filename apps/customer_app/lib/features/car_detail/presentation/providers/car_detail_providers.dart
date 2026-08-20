@@ -35,7 +35,7 @@ final carDetailDataProvider = FutureProvider.family.autoDispose<CarDetailData, S
       businessName: 'Verified Partner',
       ownerName: 'Verified Partner',
       phone: '+91 9876543210',
-      email: 'vendor@driveease.com',
+      email: 'vendor@drivego.in',
       city: 'Mumbai',
       rating: 4.8,
       totalTrips: 120,

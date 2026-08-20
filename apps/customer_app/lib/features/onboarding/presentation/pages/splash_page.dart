@@ -69,7 +69,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'DriveEase',
+              'DriveGo',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 32,

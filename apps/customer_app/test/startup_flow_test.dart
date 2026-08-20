@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -94,7 +95,7 @@ void main() {
       );
 
       // Initially on Splash
-      expect(find.text('DriveEase'), findsOneWidget);
+      expect(find.text('DriveGo'), findsOneWidget);
 
       // Wait for splash timer and initialization to complete
       await tester.pumpAndSettle(const Duration(seconds: 2));
@@ -246,6 +247,94 @@ void main() {
       // Verify onboarding state remains true independently of auth logout
       expect(onboardingNotifier.state.hasCompletedOnboarding, isTrue);
       expect(await storage.isOnboardingCompleted(), isTrue);
+    });
+
+    testWidgets('11. Splash screen holds initial frame without premature redirect during unresolved startup', (tester) async {
+      final storage = InMemoryOnboardingStorage(initialCompleted: false);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            onboardingStorageProvider.overrideWithValue(storage),
+            sessionProvider.overrideWith(() => FakeSessionNotifier(AuthState.unauthenticated())),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+
+      // Initial pump without settling duration
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Should be stably showing Splash
+      expect(find.text('DriveGo'), findsOneWidget);
+      expect(find.byType(OnboardingPage), findsNothing);
+      expect(find.byType(PhoneEntryPage), findsNothing);
+      expect(find.byType(HomePage), findsNothing);
+
+      // Finish startup
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(find.byType(OnboardingPage), findsOneWidget);
+    });
+
+    testWidgets('12. Full Lifecycle: Complete onboarding -> Login -> Logout -> App Restart routes to Login', (tester) async {
+      final storage = InMemoryOnboardingStorage(initialCompleted: false);
+      const testUser = UserModel(
+        id: 'usr_lifecycle_123',
+        phone: '+919876543210',
+        name: 'Lifecycle User',
+        role: 'customer',
+      );
+
+      // Phase 1: First launch -> Onboarding
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            onboardingStorageProvider.overrideWithValue(storage),
+            sessionProvider.overrideWith(() => FakeSessionNotifier(AuthState.unauthenticated())),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(find.byType(OnboardingPage), findsOneWidget);
+
+      // Complete onboarding via Skip
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(await storage.isOnboardingCompleted(), isTrue);
+
+      // Phase 2: App restart with authenticated session -> Home
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            onboardingStorageProvider.overrideWithValue(storage),
+            sessionProvider.overrideWith(() => FakeSessionNotifier(AuthState.authenticated(testUser))),
+            homeRepositoryProvider.overrideWithValue(MockHomeRepository()),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(find.byType(HomePage), findsOneWidget);
+
+      // Phase 3: App restart after logout (unauthenticated + completed onboarding) -> Login
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            onboardingStorageProvider.overrideWithValue(storage),
+            sessionProvider.overrideWith(() => FakeSessionNotifier(AuthState.unauthenticated())),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      // Must land on PhoneEntryPage (Login), NEVER OnboardingPage
+      expect(find.byType(OnboardingPage), findsNothing);
+      expect(find.byType(PhoneEntryPage), findsOneWidget);
     });
   });
 }
