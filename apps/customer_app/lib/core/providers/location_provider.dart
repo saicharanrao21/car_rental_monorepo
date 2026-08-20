@@ -3,17 +3,49 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+enum LocationDetectionStatus {
+  idle,
+  loading,
+  success,
+  serviceDisabled,
+  permissionDenied,
+  permanentlyDenied,
+  error,
+}
+
+class CurrentLocationResult {
+  final LocationDetectionStatus status;
+  final double? latitude;
+  final double? longitude;
+  final String? message;
+  final String? resolvedCity;
+  final String? resolvedLocality;
+
+  const CurrentLocationResult({
+    required this.status,
+    this.latitude,
+    this.longitude,
+    this.message,
+    this.resolvedCity,
+    this.resolvedLocality,
+  });
+}
+
 class UserLocationState {
   final double? latitude;
   final double? longitude;
   final bool isPermissionGranted;
   final bool isRequestedThisSession;
+  final LocationDetectionStatus detectionStatus;
+  final String? lastError;
 
   const UserLocationState({
     this.latitude,
     this.longitude,
     this.isPermissionGranted = false,
     this.isRequestedThisSession = true,
+    this.detectionStatus = LocationDetectionStatus.idle,
+    this.lastError,
   });
 
   UserLocationState copyWith({
@@ -21,12 +53,16 @@ class UserLocationState {
     double? longitude,
     bool? isPermissionGranted,
     bool? isRequestedThisSession,
+    LocationDetectionStatus? detectionStatus,
+    String? lastError,
   }) {
     return UserLocationState(
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       isPermissionGranted: isPermissionGranted ?? this.isPermissionGranted,
       isRequestedThisSession: isRequestedThisSession ?? this.isRequestedThisSession,
+      detectionStatus: detectionStatus ?? this.detectionStatus,
+      lastError: lastError,
     );
   }
 }
@@ -44,6 +80,88 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
     'Chennai': [13.0827, 80.2707],
     'Kolkata': [22.5726, 88.3639],
   };
+
+  /// Explicitly detects current location with full state feedback
+  Future<CurrentLocationResult> detectCurrentLocation() async {
+    state = state.copyWith(detectionStatus: LocationDetectionStatus.loading, lastError: null);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        state = state.copyWith(
+          detectionStatus: LocationDetectionStatus.serviceDisabled,
+          lastError: 'Location services are disabled on your device.',
+        );
+        return const CurrentLocationResult(
+          status: LocationDetectionStatus.serviceDisabled,
+          message: 'Location services are turned off. Please enable GPS in settings.',
+        );
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          state = state.copyWith(
+            detectionStatus: LocationDetectionStatus.permissionDenied,
+            lastError: 'Location permission was denied.',
+          );
+          return const CurrentLocationResult(
+            status: LocationDetectionStatus.permissionDenied,
+            message: 'Location permission is required to detect your location.',
+          );
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        state = state.copyWith(
+          detectionStatus: LocationDetectionStatus.permanentlyDenied,
+          lastError: 'Location permission is permanently denied.',
+        );
+        return const CurrentLocationResult(
+          status: LocationDetectionStatus.permanentlyDenied,
+          message: 'Location access is blocked in app settings. Please enable it in system settings.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+
+      final nearestCity = _findNearestCity(position.latitude, position.longitude);
+
+      state = state.copyWith(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        isPermissionGranted: true,
+        detectionStatus: LocationDetectionStatus.success,
+      );
+
+      return CurrentLocationResult(
+        status: LocationDetectionStatus.success,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        resolvedCity: nearestCity,
+        resolvedLocality: '$nearestCity Central',
+      );
+    } catch (e) {
+      debugPrint('Error detecting location: $e');
+      state = state.copyWith(
+        detectionStatus: LocationDetectionStatus.error,
+        lastError: e.toString(),
+      );
+      return const CurrentLocationResult(
+        status: LocationDetectionStatus.error,
+        message: 'Could not retrieve your location. Please select manually.',
+      );
+    }
+  }
+
+  Future<bool> openAppSettings() => Geolocator.openAppSettings();
+  Future<bool> openLocationSettings() => Geolocator.openLocationSettings();
 
   Future<void> requestLocationPermission(
     BuildContext context, {
@@ -109,6 +227,7 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
           latitude: position.latitude,
           longitude: position.longitude,
           isPermissionGranted: true,
+          detectionStatus: LocationDetectionStatus.success,
         );
 
         if (onLocationResolved != null) {
@@ -119,7 +238,6 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         }
       }
     } catch (e) {
-      // Fallback cleanly on error or timeout
       debugPrint('Geolocator error: $e');
     }
   }

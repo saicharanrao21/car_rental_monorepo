@@ -7,6 +7,7 @@ import 'package:gap/gap.dart';
 import '../providers/search_providers.dart';
 import '../../../wishlist/wishlist_providers.dart';
 import '../../../home/home_providers.dart';
+import '../../../location/presentation/widgets/location_selection_sheet.dart';
 
 class SearchResultsPage extends ConsumerStatefulWidget {
   final String city;
@@ -691,21 +692,70 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
                 const Gap(16),
 
                 // Pickup location
-                AppTextField(
-                  label: tripType == 'Airport Transfer' ? 'Airport / Terminal' : 'Pickup Location / Locality',
-                  hint: tripType == 'Airport Transfer' ? 'e.g. Terminal 2, CSIA' : 'Enter pickup area in $city',
-                  controller: _pickupController,
-                  prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                GestureDetector(
+                  onTap: () {
+                    LocationSelectionSheet.show(
+                      context: context,
+                      title: tripType == 'Airport Transfer'
+                          ? 'Select Airport / Terminal'
+                          : 'Select Pickup Location',
+                      initialValue: _pickupController.text,
+                      city: city,
+                      onLocationSelected: (loc, {lat, lng}) {
+                        setState(() {
+                          _pickupController.text = loc;
+                        });
+                      },
+                    );
+                  },
+                  child: AbsorbPointer(
+                    child: AppTextField(
+                      label: tripType == 'Airport Transfer'
+                          ? 'Airport / Terminal'
+                          : 'Pickup Location / Locality',
+                      hint: tripType == 'Airport Transfer'
+                          ? 'e.g. Terminal 2, CSIA'
+                          : 'Enter pickup area in $city',
+                      controller: _pickupController,
+                      prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                      suffixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                    ),
+                  ),
                 ),
                 const Gap(16),
 
                 // Drop location for Outstation / Airport
                 if (tripType == 'Outstation' || tripType == 'Airport Transfer') ...[
-                  AppTextField(
-                    label: tripType == 'Outstation' ? 'Destination City / Address' : 'Drop-off Address',
-                    hint: tripType == 'Outstation' ? 'e.g. Pune / Lonavala' : 'Enter drop destination',
-                    controller: _dropController,
-                    prefixIcon: const Icon(Icons.flag_outlined, color: AppColors.primary),
+                  GestureDetector(
+                    onTap: () {
+                      LocationSelectionSheet.show(
+                        context: context,
+                        title: tripType == 'Outstation'
+                            ? 'Select Destination City / Address'
+                            : 'Select Drop-off Address',
+                        initialValue: _dropController.text,
+                        city: city,
+                        isDropLocation: true,
+                        onLocationSelected: (loc, {lat, lng}) {
+                          setState(() {
+                            _dropController.text = loc;
+                          });
+                        },
+                      );
+                    },
+                    child: AbsorbPointer(
+                      child: AppTextField(
+                        label: tripType == 'Outstation'
+                            ? 'Destination City / Address'
+                            : 'Drop-off Address',
+                        hint: tripType == 'Outstation'
+                            ? 'e.g. Pune / Lonavala'
+                            : 'Enter drop destination',
+                        controller: _dropController,
+                        prefixIcon: const Icon(Icons.flag_outlined, color: AppColors.primary),
+                        suffixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                      ),
+                    ),
                   ),
                   const Gap(16),
                 ],

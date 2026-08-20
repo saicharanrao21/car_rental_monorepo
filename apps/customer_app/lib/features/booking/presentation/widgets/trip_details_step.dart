@@ -4,6 +4,7 @@ import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import '../../../location/presentation/widgets/location_selection_sheet.dart';
 import '../providers/booking_flow_providers.dart';
 
 class TripDetailsStep extends ConsumerStatefulWidget {
@@ -259,20 +260,53 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Divider(height: 20),
-                _infoTile(
-                  Icons.location_on_outlined,
-                  'Pickup',
-                  draft.pickupLocation.isEmpty
-                      ? 'Not specified'
-                      : draft.pickupLocation,
+                InkWell(
+                  onTap: () {
+                    LocationSelectionSheet.show(
+                      context: context,
+                      title: 'Update Pickup Location',
+                      initialValue: draft.pickupLocation,
+                      city: widget.vendor.city,
+                      onLocationSelected: (loc, {lat, lng}) {
+                        ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                              pickupLocation: loc,
+                            ));
+                      },
+                    );
+                  },
+                  child: _infoTile(
+                    Icons.location_on_outlined,
+                    'Pickup',
+                    draft.pickupLocation.isEmpty
+                        ? 'Not specified (Tap to select)'
+                        : '${draft.pickupLocation} (Tap to change)',
+                  ),
                 ),
                 if (draft.tripType != 'Local')
-                  _infoTile(
-                    Icons.flag_outlined,
-                    draft.tripType == 'Outstation' ? 'Destination' : 'Drop',
-                    draft.dropLocation.isEmpty
-                        ? 'Not specified'
-                        : draft.dropLocation,
+                  InkWell(
+                    onTap: () {
+                      LocationSelectionSheet.show(
+                        context: context,
+                        title: draft.tripType == 'Outstation'
+                            ? 'Update Destination'
+                            : 'Update Drop Location',
+                        initialValue: draft.dropLocation,
+                        city: widget.vendor.city,
+                        isDropLocation: true,
+                        onLocationSelected: (loc, {lat, lng}) {
+                          ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                                dropLocation: loc,
+                              ));
+                        },
+                      );
+                    },
+                    child: _infoTile(
+                      Icons.flag_outlined,
+                      draft.tripType == 'Outstation' ? 'Destination' : 'Drop',
+                      draft.dropLocation.isEmpty
+                          ? 'Not specified (Tap to select)'
+                          : '${draft.dropLocation} (Tap to change)',
+                    ),
                   ),
                 InkWell(
                   onTap: () async {
