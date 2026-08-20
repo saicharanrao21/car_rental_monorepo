@@ -1,17 +1,17 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
-import 'package:models/models.dart';
 import 'package:gap/gap.dart';
 import '../../home_providers.dart';
-import '../../recently_viewed_providers.dart';
-import '../../../wishlist/wishlist_providers.dart';
 import '../../../../core/providers/location_provider.dart';
-import '../../../../core/providers/locality_provider.dart';
+import '../widgets/home_header_widget.dart';
+import '../widgets/home_trip_type_selector_widget.dart';
+import '../widgets/home_trip_config_card.dart';
+import '../widgets/home_quick_categories_widget.dart';
+import '../widgets/home_banners_carousel_widget.dart';
+import '../widgets/home_recently_viewed_widget.dart';
+import '../widgets/home_top_vendors_widget.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -21,85 +21,100 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  final _pickupController = TextEditingController();
-  final _dropController = TextEditingController();
-  final _localityController = TextEditingController();
-  Timer? _debounceTimer;
-  String _localitySearchText = '';
-  bool _showLocalitySuggestions = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pickupController.text = ref.read(pickupLocationProvider) ?? '';
-      _dropController.text = ref.read(dropLocationProvider) ?? '';
-      _localityController.text = ref.read(selectedLocalityProvider) ?? '';
+      _initLocationAndPermissions();
+    });
+  }
 
-      // Trigger location permission rationale dialog on first load post-login
+  void _initLocationAndPermissions() {
+    final locationState = ref.read(userLocationProvider);
+    if (!locationState.isRequestedThisSession) {
       ref.read(userLocationProvider.notifier).requestLocationPermission(
         context,
+        onCityAutoSelected: (nearestCity) {
+          if (mounted) {
+            final currentSelected = ref.read(selectedCityProvider);
+            if (currentSelected != nearestCity) {
+              _showCityChangePrompt(nearestCity);
+            }
+          }
+        },
         onLocationResolved: (lat, lng) async {
+          if (!mounted) return;
           try {
-            final nearestCity = await ref.read(homeRepositoryProvider).getNearestCity(lat, lng);
-            final distanceMeters = Geolocator.distanceBetween(
-              lat,
-              lng,
-              nearestCity.latitude,
-              nearestCity.longitude,
-            );
-            final distanceKm = distanceMeters / 1000.0;
-            if (!mounted) return;
-
-            if (distanceKm <= 50.0) {
-              ref.read(selectedCityProvider.notifier).state = nearestCity.name;
-            } else {
-              _showOutOfAreaSheet(context, nearestCity, distanceKm);
+            final repo = ref.read(homeRepositoryProvider);
+            final nearest = await repo.getNearestCity(lat, lng);
+            if (mounted) {
+              final currentSelected = ref.read(selectedCityProvider);
+              if (currentSelected != nearest.name) {
+                _showCityChangePrompt(nearest.name);
+              }
             }
           } catch (e) {
-            debugPrint('Error resolving location/nearest city: $e');
+            debugPrint('Failed to fetch nearest city: $e');
           }
         },
       );
-    });
+    }
   }
 
-  @override
-  void dispose() {
-    _pickupController.dispose();
-    _dropController.dispose();
-    _localityController.dispose();
-    _debounceTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onLocalityChanged(String text) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      setState(() {
-        _localitySearchText = text;
-        _showLocalitySuggestions = text.trim().isNotEmpty;
-      });
-    });
+  void _showCityChangePrompt(String detectedCity) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.my_location, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Location Detected', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text('It looks like you are near $detectedCity. Would you like to switch your city to $detectedCity?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep Current'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              ref.read(selectedCityProvider.notifier).state = detectedCity;
+              Navigator.pop(ctx);
+            },
+            child: const Text('Switch City'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCitySelector() {
-    final selectedCity = ref.read(selectedCityProvider);
-    AppBottomSheet.show(
-      context,
-      title: 'Select City',
-      child: _SearchableCitySelector(
-        selectedCity: selectedCity,
-        onSelectCity: (city) {
-          ref.read(selectedCityProvider.notifier).state = city;
-          ref.read(selectedLocalityProvider.notifier).state = null;
-          _localityController.clear();
-          setState(() {
-            _localitySearchText = '';
-            _showLocalitySuggestions = false;
-          });
-          Navigator.pop(context);
-        },
+    final currentCity = ref.read(selectedCityProvider);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: _SearchableCitySelector(
+          selectedCity: currentCity,
+          onSelectCity: (city) {
+            ref.read(selectedCityProvider.notifier).state = city;
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
@@ -112,109 +127,33 @@ class _HomePageState extends ConsumerState<HomePage> {
     return enabledTypes.contains(norm);
   }
 
-  void _showOutOfAreaSheet(BuildContext context, SupportedCityModel nearestCity, double distanceKm) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.location_off_outlined, size: 48, color: Colors.orange),
-              const Gap(16),
-              const Text(
-                "We're not in your area yet",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const Gap(8),
-              Text(
-                "Our nearest service area is ${nearestCity.name}, ${distanceKm.toStringAsFixed(0)}km away.",
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                textAlign: TextAlign.center,
-              ),
-              const Gap(24),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  ref.read(selectedCityProvider.notifier).state = nearestCity.name;
-                  Navigator.pop(ctx);
-                },
-                child: Text('Browse ${nearestCity.name} anyway'),
-              ),
-              const Gap(12),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Thank you! We'll notify you when DriveGo launches in your area."),
-                    ),
-                  );
-                },
-                child: const Text('Notify me when available in my area'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Hatchback':
-        return Icons.directions_car_outlined;
-      case 'Sedan':
-        return Icons.local_taxi_outlined;
-      case 'SUV':
-        return Icons.departure_board_outlined;
-      case 'Luxury':
-        return Icons.auto_awesome_outlined;
-      case 'Tempo Traveller':
-        return Icons.airport_shuttle_outlined;
-      case 'Mini Bus':
-        return Icons.directions_bus_outlined;
-      default:
-        return Icons.directions_car_outlined;
-    }
-  }
-
   void _searchCars() {
     final city = ref.read(selectedCityProvider);
     final tripType = ref.read(selectedTripTypeProvider);
-    final dateRange = ref.read(selectedDateRangeProvider);
-    final pickup = _pickupController.text.trim();
-    final drop = _dropController.text.trim();
+    var dateRange = ref.read(selectedDateRangeProvider);
+    final pickup = ref.read(pickupLocationProvider) ?? '';
+    final drop = ref.read(dropLocationProvider) ?? '';
 
     final publicSettingsVal = ref.read(publicSettingsProvider);
     final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
     if (!_isTripTypeEnabled(tripType, enabledTripTypes)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected trip type is coming soon.')),
+        const SnackBar(content: Text('Selected trip type is coming soon in your city.')),
       );
       return;
     }
 
-    ref.read(pickupLocationProvider.notifier).state = pickup.isEmpty ? null : pickup;
-    ref.read(dropLocationProvider.notifier).state = drop.isEmpty ? null : drop;
+    // If date range is not selected yet, assign a sensible default (tomorrow + 2 days)
+    if (dateRange == null) {
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+      final end = start.add(const Duration(days: 2));
+      dateRange = DateTimeRange(start: start, end: end);
+      ref.read(selectedDateRangeProvider.notifier).state = dateRange;
+    }
 
-    final startStr = dateRange?.start.toIso8601String() ?? '';
-    final endStr = dateRange?.end.toIso8601String() ?? '';
+    final startStr = dateRange.start.toIso8601String();
+    final endStr = dateRange.end.toIso8601String();
 
     context.push(
       '/search?city=${Uri.encodeComponent(city)}'
@@ -222,542 +161,54 @@ class _HomePageState extends ConsumerState<HomePage> {
       '&start=${Uri.encodeComponent(startStr)}'
       '&end=${Uri.encodeComponent(endStr)}'
       '&pickup=${Uri.encodeComponent(pickup)}'
-      '&drop=${Uri.encodeComponent(drop)}'
+      '&drop=${Uri.encodeComponent(drop)}',
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final selectedCity = ref.watch(selectedCityProvider);
-    final tripType = ref.watch(selectedTripTypeProvider);
-    final dateRange = ref.watch(selectedDateRangeProvider);
-
-    final publicSettingsVal = ref.watch(publicSettingsProvider);
-    final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
-
-    if (!_isTripTypeEnabled(tripType, enabledTripTypes)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ref.read(selectedTripTypeProvider.notifier).state = 'Self-Drive';
-        }
-      });
-    }
-
-    final bannersVal = ref.watch(bannersProvider);
-    final vendorsVal = ref.watch(topVendorsProvider);
-    final recentlyViewedVal = ref.watch(recentlyViewedCarsProvider);
-    final wishlistedIds = ref.watch(wishlistIdsProvider);
-
-    final localityQuery = LocalityQuery(city: selectedCity, search: _localitySearchText);
-    final localitySuggestionsVal = ref.watch(localitySuggestionsProvider(localityQuery));
-
     return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          onTap: _showCitySelector,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your City',
-                    style: TextStyle(fontSize: 12, color: cs.onPrimary.withValues(alpha: 0.7)),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        selectedCity,
-                        style: TextStyle(
-                          color: cs.onPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Gap(4),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        color: cs.onPrimary,
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.favorite_border),
-            tooltip: 'Saved Cars',
-            onPressed: () => context.push('/wishlist'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_outlined),
-            tooltip: 'Notifications',
-            onPressed: () => context.push('/notifications'),
-          ),
-        ],
+      appBar: HomeHeaderWidget(
+        onCityTap: _showCitySelector,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(bannersProvider);
           ref.invalidate(topVendorsProvider);
           ref.invalidate(availableCarsProvider);
-          ref.invalidate(recentlyViewedCarsProvider);
         },
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AppCard(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: AppConstants.tripTypes.map((type) {
-                          final publicSettingsVal = ref.watch(publicSettingsProvider);
-                          final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
-                          final isEnabled = _isTripTypeEnabled(type, enabledTripTypes);
-                          final isSelected = isEnabled && type == tripType;
-                          return Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: isEnabled
-                                  ? () => ref.read(selectedTripTypeProvider.notifier).state = type
-                                  : null,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? cs.primary : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      type,
-                                      style: TextStyle(
-                                        color: isEnabled
-                                            ? (isSelected ? cs.onPrimary : cs.onSurface)
-                                            : cs.onSurface.withValues(alpha: 0.38),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    if (!isEnabled) ...[
-                                      const Gap(2),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: Colors.amber[800],
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text(
-                                          'Coming Soon',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 7,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const Gap(20),
-                    // Locality Autocomplete Input
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppTextField(
-                          label: 'Locality / Area (Optional)',
-                          hint: 'Search area in $selectedCity (e.g. Bandra)',
-                          controller: _localityController,
-                          prefixIcon: const Icon(Icons.my_location, color: AppColors.primary),
-                          onChanged: _onLocalityChanged,
-                        ),
-                        if (_showLocalitySuggestions)
-                          localitySuggestionsVal.when(
-                            data: (suggestions) {
-                              if (suggestions.isEmpty) return const SizedBox.shrink();
-                              return ConstrainedBox(
-                                constraints: const BoxConstraints(maxHeight: 150),
-                                child: Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  decoration: BoxDecoration(
-                                    color: cs.surface,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: cs.outline),
-                                    boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.08), blurRadius: 4)],
-                                  ),
-                                  child: ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: suggestions.length,
-                                    itemBuilder: (context, idx) {
-                                      final item = suggestions[idx];
-                                      return ListTile(
-                                        dense: true,
-                                        title: Text(item, style: const TextStyle(fontSize: 13)),
-                                        onTap: () {
-                                          _localityController.text = item;
-                                          ref.read(selectedLocalityProvider.notifier).state = item;
-                                          setState(() {
-                                            _showLocalitySuggestions = false;
-                                          });
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                            loading: () => const LinearProgressIndicator(minHeight: 2),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                      ],
-                    ),
-                    const Gap(16),
-                    AppDateRangePicker(
-                      label: 'Rental Duration',
-                      hint: 'Select pick-up and drop-off dates',
-                      initialDateRange: dateRange,
-                      onDateRangeSelected: (range) {
-                        ref.read(selectedDateRangeProvider.notifier).state = range;
-                      },
-                    ),
-                    const Gap(16),
-                    AppTextField(
-                      label: 'Pickup Location',
-                      hint: 'Enter pickup address or point',
-                      controller: _pickupController,
-                      prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
-                    ),
-                    if (tripType != 'Local') ...[
-                      const Gap(16),
-                      AppTextField(
-                        label: 'Drop Location',
-                        hint: 'Enter drop-off address',
-                        controller: _dropController,
-                        prefixIcon: const Icon(Icons.location_off_outlined, color: AppColors.primary),
-                      ),
-                    ],
-                    const Gap(24),
-                    AppButton(
-                      text: 'Search Cars',
-                      onPressed: _searchCars,
-                    ),
-                  ],
-                ),
-              ),
+              // 1. Trip Type Pill Selector
+              const HomeTripTypeSelectorWidget(),
+              const Gap(14),
 
-              bannersVal.when(
-                data: (banners) {
-                  if (banners.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SectionHeader(title: 'Exclusive Offers'),
-                      const Gap(12),
-                      SizedBox(
-                        height: 140,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: banners.length,
-                          itemBuilder: (context, index) {
-                            final banner = banners[index];
-                            return Container(
-                              width: 280,
-                              margin: const EdgeInsets.only(right: 12),
-                              child: AppCard(
-                                padding: EdgeInsets.zero,
-                                margin: EdgeInsets.zero,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.network(
-                                      banner.imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        color: AppColors.primary.withValues(alpha: 0.1),
-                                        child: const Icon(Icons.image, color: AppColors.primary),
-                                      ),
-                                    ),
-                                    Container(
-                                      decoration: const BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Colors.transparent,
-                                            Color(0x99000000), // intentional dark scrim for image overlay
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const Positioned(
-                                      bottom: 12,
-                                      left: 12,
-                                      right: 12,
-                                      child: Text(
-                                        '',
-                                        style: TextStyle(
-                                          color: Colors.white, // on dark image scrim — intentional
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 12,
-                                      left: 12,
-                                      right: 12,
-                                      child: Text(
-                                        banner.title,
-                                        style: const TextStyle(
-                                          color: Colors.white, // on dark image scrim — intentional
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const Gap(24),
-                    ],
-                  );
-                },
-                loading: () => const Column(
-                  children: [
-                    SectionHeader(title: 'Exclusive Offers'),
-                    Gap(12),
-                    SizedBox(height: 140, child: AppLoader()),
-                    Gap(24),
-                  ],
-                ),
-                error: (err, stack) => const SizedBox.shrink(),
-              ),
-
-              // Recently Viewed Section
-              recentlyViewedVal.when(
-                data: (recentCars) {
-                  if (recentCars.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SectionHeader(title: 'Recently Viewed'),
-                      const Gap(12),
-                      SizedBox(
-                        height: AppSpacing.carCardHorizontalHeight,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: recentCars.length,
-                          itemBuilder: (context, index) {
-                            final car = recentCars[index];
-                            final isWishlisted = wishlistedIds.contains(car.id);
-                            return Container(
-                              width: 280,
-                              margin: const EdgeInsets.only(right: 12),
-                              child: CarCard(
-                                car: car,
-                                isWishlisted: isWishlisted,
-                                onWishlistToggle: () {
-                                  ref.read(wishlistIdsProvider.notifier).toggle(car.id);
-                                },
-                                onTap: () => context.push('/car/${car.id}'),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const Gap(AppSpacing.sectionGap),
-                    ],
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-
-              const SectionHeader(title: 'Popular Car Types'),
-              const Gap(12),
-              SizedBox(
-                height: 90,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: AppConstants.carCategories.length,
-                  itemBuilder: (context, index) {
-                    final category = AppConstants.carCategories[index];
-                    final icon = _getCategoryIcon(category);
-                    return Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      width: 100,
-                      child: AppCard(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                        margin: EdgeInsets.zero,
-                        onTap: () {
-                          context.push('/search?city=${Uri.encodeComponent(selectedCity)}&category=${Uri.encodeComponent(category)}');
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(icon, color: AppColors.primary, size: 28),
-                            const Gap(8),
-                            Text(
-                              category,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              // 2. Main Hero Trip Configuration Card
+              HomeTripConfigCard(
+                onSearchPressed: _searchCars,
               ),
               const Gap(24),
 
-              vendorsVal.when(
-                data: (vendors) {
-                  if (vendors.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SectionHeader(title: 'Top Rated Vendors in $selectedCity'),
-                      const Gap(12),
-                      SizedBox(
-                        height: 120,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: vendors.length,
-                          itemBuilder: (context, index) {
-                            return _VendorCard(vendor: vendors[index]);
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
-                loading: () => Column(
-                  children: [
-                    SectionHeader(title: 'Top Rated Vendors in $selectedCity'),
-                    const Gap(12),
-                    const SizedBox(height: 120, child: AppLoader()),
-                  ],
-                ),
-                error: (err, stack) => const SizedBox.shrink(),
-              ),
+              // 3. Quick Popular Categories
+              const HomeQuickCategoriesWidget(),
+              const Gap(24),
+
+              // 4. Exclusive Offers & Banners Carousel
+              const HomeBannersCarouselWidget(),
+              const Gap(24),
+
+              // 5. Recently Viewed Cars (if available)
+              const HomeRecentlyViewedWidget(),
+              const Gap(24),
+
+              // 6. Top Rated Fleet Partners
+              const HomeTopVendorsWidget(),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VendorCard extends StatelessWidget {
-  final VendorModel vendor;
-
-  const _VendorCard({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    final displayName = vendor.displayName ?? vendor.businessName;
-
-    return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 12),
-      child: AppCard(
-        padding: const EdgeInsets.all(12),
-        margin: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    displayName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (vendor.verificationStatus == 'verified') ...[
-                  const Gap(4),
-                  const Icon(
-                    Icons.verified,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
-                ],
-              ],
-            ),
-            const Gap(4),
-            Text(
-              vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Gap(8),
-            Row(
-              children: [
-                StarRating(
-                  rating: vendor.rating,
-                ),
-                const Gap(6),
-                Text(
-                  vendor.rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const Gap(4),
-            Text(
-              '${vendor.totalTrips} Trips',
-              style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
         ),
       ),
     );
