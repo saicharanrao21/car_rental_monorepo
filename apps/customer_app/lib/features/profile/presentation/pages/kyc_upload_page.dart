@@ -80,8 +80,25 @@ class _KycUploadPageState extends ConsumerState<KycUploadPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Driving Licence (KYC)')),
       body: kycAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Failed to load KYC status: $err')),
+        loading: () => const Center(child: AppLoader()),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const Gap(12),
+                Text('Failed to load KYC status: $err', textAlign: TextAlign.center),
+                const Gap(16),
+                FilledButton.tonal(
+                  onPressed: () => ref.invalidate(kycStatusProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
         data: (data) {
           final status = data['status'] as String? ?? 'NONE';
           final kyc = data['kyc'] as Map<String, dynamic>?;

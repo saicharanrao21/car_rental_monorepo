@@ -17,8 +17,15 @@ import '../../features/booking/presentation/pages/booking_confirmation_page.dart
 import '../../features/my_bookings/presentation/pages/booking_detail_page.dart';
 import '../../features/my_bookings/presentation/pages/my_bookings_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/profile/presentation/pages/kyc_upload_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/wishlist/presentation/pages/wishlist_page.dart';
+import '../../features/wallet/presentation/pages/wallet_page.dart';
+import '../../features/referral/presentation/pages/referral_page.dart';
+import '../../features/loyalty/presentation/pages/loyalty_page.dart';
+import '../../features/support/presentation/pages/support_center_page.dart';
+import '../../features/support/presentation/pages/create_ticket_page.dart';
+import '../../features/support/presentation/pages/ticket_detail_page.dart';
 
 import '../../features/onboarding/presentation/providers/onboarding_providers.dart';
 
@@ -182,6 +189,44 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/wishlist',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const WishlistPage(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const WalletPage(),
+      ),
+      GoRoute(
+        path: '/referral',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ReferralPage(),
+      ),
+      GoRoute(
+        path: '/loyalty',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const LoyaltyPage(),
+      ),
+      GoRoute(
+        path: '/kyc',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const KycUploadPage(),
+      ),
+      GoRoute(
+        path: '/support',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const SupportCenterPage(),
+      ),
+      GoRoute(
+        path: '/support/create',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CreateTicketPage(),
+      ),
+      GoRoute(
+        path: '/support/tickets/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return TicketDetailPage(ticketId: id);
+        },
       ),
     ],
     redirect: (context, state) {
