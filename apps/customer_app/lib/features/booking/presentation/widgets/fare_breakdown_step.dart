@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 import '../providers/booking_providers.dart';
 import '../../../referral/presentation/providers/referral_providers.dart';
+import 'booking_review_summary_card.dart';
+import 'booking_price_breakdown_card.dart';
 
 class FareBreakdownStep extends ConsumerStatefulWidget {
   final CarModel car;
@@ -69,7 +70,10 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', '');
+        _errorMessage = e
+            .toString()
+            .replaceAll('Exception: ', '')
+            .replaceAll('DioException: ', '');
       });
     } finally {
       setState(() {
@@ -93,15 +97,18 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
     final repo = ref.watch(bookingRepositoryProvider);
+    final cs = Theme.of(context).colorScheme;
 
     final rentalDays = draft.rentalDays;
     double discountPercent = 0.0;
     String discountLabel = '';
 
-    final weeklyPct = (widget.car.weeklyDiscountPercent != null && widget.car.weeklyDiscountPercent! > 0)
+    final weeklyPct = (widget.car.weeklyDiscountPercent != null &&
+            widget.car.weeklyDiscountPercent! > 0)
         ? widget.car.weeklyDiscountPercent!
         : 15.0;
-    final monthlyPct = (widget.car.monthlyDiscountPercent != null && widget.car.monthlyDiscountPercent! > 0)
+    final monthlyPct = (widget.car.monthlyDiscountPercent != null &&
+            widget.car.monthlyDiscountPercent! > 0)
         ? widget.car.monthlyDiscountPercent!
         : 25.0;
 
@@ -113,7 +120,10 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
       discountLabel = 'Weekly discount applied (${discountPercent.toInt()}%)';
     }
 
-    final originalRentalFare = widget.car.pricePerDay * rentalDays;
+    final isPackageTier = draft.selectedMileagePackage != null;
+    final originalRentalFare = isPackageTier
+        ? draft.selectedMileagePackage!.basePricePerDay * rentalDays
+        : widget.car.pricePerDay * rentalDays;
     final discountAmount = originalRentalFare * (discountPercent / 100.0);
     final actualBasePackagePrice = originalRentalFare - discountAmount;
 
@@ -123,64 +133,106 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
       carCategory: widget.car.type,
       tripType: draft.tripType,
     );
+    final distanceKm = isPackageTier ? 0.0 : draft.estimatedDistanceKm.toDouble();
+    final pricePerKm = isPackageTier ? 0.0 : widget.car.pricePerKm;
+
     final result = FareCalculatorService.calculateFare(
-      distanceKm: draft.estimatedDistanceKm.toDouble(),
+      distanceKm: distanceKm,
       basePackagePrice: actualBasePackagePrice,
-      pricePerKm: widget.car.pricePerKm,
+      pricePerKm: pricePerKm,
       commissionPercent: config.percentage,
     );
 
-    final totalAddons = draft.protectionFee + draft.deliveryFee + draft.returnPickupFee + draft.additionalDriverFee;
-    final finalPayable = (result.total + totalAddons - draft.couponDiscountAmount).clamp(0.0, double.infinity);
+    final totalAddons = draft.protectionFee +
+        draft.deliveryFee +
+        draft.returnPickupFee +
+        draft.additionalDriverFee;
+    final finalPayable = (result.total +
+            totalAddons -
+            draft.couponDiscountAmount)
+        .clamp(0.0, double.infinity);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Your fare is calculated based on distance, duration, and applicable platform commission.',
-              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          const Gap(16),
-
-          _CollapsibleFareCard(
-            context: context,
-            draft: draft,
-            car: widget.car,
-            originalRentalFare: originalRentalFare,
-            discountPercent: discountPercent,
-            discountLabel: discountLabel,
-            discountAmount: discountAmount,
-            result: result,
-            finalPayable: finalPayable,
-            config: config,
+          Text(
+            'Review your complete booking summary, apply coupons, and inspect the price breakdown.',
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurfaceVariant,
+              height: 1.4,
+            ),
           ),
-          const Gap(16),
+          const Gap(14),
 
-          // Coupon Section
-          AppCard(
-            padding: const EdgeInsets.all(12),
+          // ── Booking Review Summary Card ───────────────────────────
+          BookingReviewSummaryCard(
+            car: widget.car,
+            vendor: widget.vendor,
+          ),
+          const Gap(14),
+
+          // ── Coupon / Promo Code Card ──────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.local_offer_outlined, size: 18, color: AppColors.primary),
-                    Gap(8),
-                    Text('Promo Code / Coupon', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.local_offer_outlined,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const Gap(8),
+                    Text(
+                      'Promo Code / Coupon',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: cs.onSurface,
+                      ),
+                    ),
                   ],
                 ),
-                const Gap(8),
-                if (draft.appliedCouponCode != null && draft.appliedCouponCode!.isNotEmpty)
+                const Gap(10),
+                if (draft.appliedCouponCode != null &&
+                    draft.appliedCouponCode!.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green[300]!),
+                      color: Colors.green.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green[700], size: 18),
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 18,
+                        ),
                         const Gap(8),
                         Expanded(
                           child: Column(
@@ -188,19 +240,30 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                             children: [
                               Text(
                                 'Code: ${draft.appliedCouponCode}',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[800], fontSize: 13),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.green,
+                                  fontSize: 13,
+                                ),
                               ),
                               Text(
                                 'You save ₹${draft.couponDiscountAmount.toInt()}',
-                                style: TextStyle(color: Colors.green[700], fontSize: 12),
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                          icon: const Icon(Icons.close,
+                              size: 18, color: Colors.red),
                           onPressed: _removeCoupon,
                           tooltip: 'Remove Coupon',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
@@ -212,54 +275,94 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                         child: TextField(
                           controller: _couponController,
                           textCapitalization: TextCapitalization.characters,
+                          style: TextStyle(fontSize: 13, color: cs.onSurface),
                           decoration: InputDecoration(
-                            hintText: 'Enter Promo Code',
+                            hintText: 'Enter promo code',
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: cs.outlineVariant.withValues(alpha: 0.4),
+                              ),
+                            ),
                             errorText: _errorMessage,
                           ),
                         ),
                       ),
                       const Gap(8),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : () => _applyCoupon(result.total),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      SizedBox(
+                        height: 40,
+                        child: ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => _applyCoupon(result.total),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Apply',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
-                        child: _isLoading
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Text('Apply'),
                       ),
                     ],
                   ),
               ],
             ),
           ),
-          const Gap(12),
+          const Gap(14),
 
-          // Referral Reward Eligibility Banner
+          // ── Referral Reward Eligibility Banner ────────────────────
           ref.watch(refereeEligibilityProvider).when(
                 data: (eligibility) {
                   final isEligible = eligibility['eligible'] == true;
-                  final discount = (eligibility['discountAmount'] as num?)?.toDouble() ?? 250.0;
-                  final minBooking = (eligibility['minBookingAmount'] as num?)?.toDouble() ?? 1000.0;
+                  final discount =
+                      (eligibility['discountAmount'] as num?)?.toDouble() ??
+                          250.0;
+                  final minBooking =
+                      (eligibility['minBookingAmount'] as num?)?.toDouble() ??
+                          1000.0;
 
                   if (!isEligible) return const SizedBox.shrink();
 
                   return Container(
                     padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 12),
+                    margin: const EdgeInsets.only(bottom: 14),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF3E5F5),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFCE93D8)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.card_giftcard, color: Color(0xFF8E24AA), size: 22),
+                        const Icon(
+                          Icons.card_giftcard,
+                          color: Color(0xFF8E24AA),
+                          size: 22,
+                        ),
                         const Gap(10),
                         Expanded(
                           child: Column(
@@ -268,27 +371,35 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                               Text(
                                 'Referral Reward (₹${discount.toInt()} Off)',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                   color: Color(0xFF6A1B9A),
                                 ),
                               ),
                               Text(
-                                '₹${discount.toInt()} off on your first qualifying booking (min. ₹${minBooking.toInt()})',
-                                style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                '₹${discount.toInt()} discount on qualifying bookings (min. ₹${minBooking.toInt()})',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black87,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFF8E24AA),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'APPLIED',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -299,294 +410,47 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                 error: (_, __) => const SizedBox.shrink(),
               ),
 
-          // Add-ons summary
-          if (draft.driverIncluded || draft.childSeat || draft.extraLuggage)
-            _addOnsSummary(draft),
+          // ── Price Breakdown Card ───────────────────────────────────
+          BookingPriceBreakdownCard(
+            car: widget.car,
+            vendor: widget.vendor,
+            originalRentalFare: originalRentalFare,
+            discountPercent: discountPercent,
+            discountLabel: discountLabel,
+            discountAmount: discountAmount,
+            result: result,
+            finalPayable: finalPayable,
+            config: config,
+          ),
+          const Gap(14),
 
-          const Gap(8),
+          // ── Transparent Pricing Assurance ──────────────────────────
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.green[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green[200]!),
+              color: Colors.green.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
             ),
-            child: const Row(children: [
-              Icon(Icons.verified_outlined, color: Colors.green, size: 16),
-              Gap(8),
-              Expanded(
-                child: Text(
-                  'No hidden charges. Price locked at confirmation.',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
-            ]),
-          ),
-          const Gap(24),
-
-          Row(children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: widget.onBack,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  side: const BorderSide(color: AppColors.primary),
-                ),
-                child: const Text('Back', style: TextStyle(color: AppColors.primary)),
-              ),
-            ),
-            const Gap(12),
-            Expanded(
-              child: AppButton(
-                text: 'Next: Contact',
-                onPressed: () {
-                  // Persist fare onto draft before moving forward
-                  ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
-                    baseFare: result.baseFare,
-                    platformFee: result.platformFee,
-                    gst: result.gst,
-                    totalFare: finalPayable,
-                    netToVendor: result.netToVendor,
-                    commissionPercent: config.percentage,
-                  ));
-                  widget.onNext();
-                },
-              ),
-            ),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _addOnsSummary(BookingDraft draft) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: AppCard(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Add-ons Requested',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const Gap(8),
-              if (draft.driverIncluded)
-                const _AddOnChip(Icons.person, 'Driver Included'),
-              if (draft.childSeat) const _AddOnChip(Icons.child_care, 'Child Seat'),
-              if (draft.extraLuggage)
-                const _AddOnChip(Icons.luggage_outlined, 'Extra Luggage'),
-            ],
-          ),
-        ),
-      );
-}
-
-class _CollapsibleFareCard extends StatelessWidget {
-  final BuildContext context;
-  final BookingDraft draft;
-  final CarModel car;
-  final double originalRentalFare;
-  final double discountPercent;
-  final String discountLabel;
-  final double discountAmount;
-  final FareCalculatorResult result;
-  final double finalPayable;
-  final CommissionConfigModel config;
-
-  const _CollapsibleFareCard({
-    required this.context,
-    required this.draft,
-    required this.car,
-    required this.originalRentalFare,
-    required this.discountPercent,
-    required this.discountLabel,
-    required this.discountAmount,
-    required this.result,
-    required this.finalPayable,
-    required this.config,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tripFare = result.baseFare + result.platformFee;
-
-    return AppCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _row(context, 'Trip Fare', tripFare, bold: true),
-
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 2, bottom: 4),
-            child: Column(
+            child: const Row(
               children: [
-                _subRow(context, 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)', originalRentalFare),
-                _subRow(context, 'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)', car.pricePerKm * draft.estimatedDistanceKm),
-              ],
-            ),
-          ),
-
-          if (discountPercent > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.green[200]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.local_offer, size: 12, color: Colors.green[700]),
-                        const Gap(4),
-                        Text(
-                          discountLabel,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[800],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '-${IndianCurrencyFormatter.format(discountAmount, showDecimals: false)}',
+                Icon(Icons.verified_outlined, color: Colors.green, size: 18),
+                Gap(8),
+                Expanded(
+                  child: Text(
+                    'Transparent pricing with zero hidden charges. Fare locked at booking confirmation.',
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green[700],
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.green,
                     ),
                   ),
-                ],
-              ),
-            ),
-
-          const Divider(height: 20),
-
-          _row(context, 'GST (18%)', result.gst),
-
-          if (draft.protectionFee > 0) ...[
-            const Divider(height: 16),
-            _row(context, 'Protection Package', draft.protectionFee),
-          ],
-
-          if (draft.deliveryFee > 0) ...[
-            const Divider(height: 16),
-            _row(context, 'Doorstep Delivery', draft.deliveryFee),
-          ],
-
-          if (draft.returnPickupFee > 0) ...[
-            const Divider(height: 16),
-            _row(context, 'Doorstep Pickup', draft.returnPickupFee),
-          ],
-
-          if (draft.additionalDriverFee > 0) ...[
-            const Divider(height: 16),
-            _row(context, 'Additional Driver Add-on', draft.additionalDriverFee),
-          ],
-
-          if (draft.couponDiscountAmount > 0) ...[
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Coupon Discount (${draft.appliedCouponCode})',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700]),
-                ),
-                Text(
-                  '-${IndianCurrencyFormatter.format(draft.couponDiscountAmount, showDecimals: false)}',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700]),
                 ),
               ],
             ),
-          ],
-
-          const Divider(height: 20),
-
-          _row(
-            context,
-            'Total Payable',
-            finalPayable,
-            bold: true,
-            color: Theme.of(context).colorScheme.primary,
-            fontSize: 18,
           ),
         ],
       ),
     );
   }
-
-  Widget _row(BuildContext context, String label, double amount, {bool bold = false, Color? color, double fontSize = 13}) {
-    final defaultColor = Theme.of(context).colorScheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                color: color ?? defaultColor,
-              ),
-            ),
-          ),
-          Text(
-            IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-              color: color ?? defaultColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _subRow(BuildContext context, String label, double amount, {Color? color}) {
-    final defaultColor = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 12, color: color ?? defaultColor),
-            ),
-          ),
-          Text(
-            IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(fontSize: 12, color: color ?? defaultColor),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddOnChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _AddOnChip(this.icon, this.label);
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const Gap(6),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ]),
-      );
 }

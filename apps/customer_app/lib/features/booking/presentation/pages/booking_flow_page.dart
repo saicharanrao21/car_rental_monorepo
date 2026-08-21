@@ -6,10 +6,14 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
+import '../providers/booking_providers.dart';
 import '../../../car_detail/presentation/providers/car_detail_providers.dart';
 import '../../../home/home_providers.dart';
 import '../../../search/presentation/providers/search_providers.dart';
 import '../../../../core/providers/session_provider.dart';
+import '../widgets/booking_progress_indicator.dart';
+import '../widgets/booking_sticky_bottom_bar.dart';
+import '../widgets/booking_price_breakdown_card.dart';
 import '../widgets/trip_details_step.dart';
 import '../widgets/addons_step.dart';
 import '../widgets/fare_breakdown_step.dart';
@@ -18,9 +22,9 @@ import '../widgets/payment_step.dart';
 
 const _stepTitles = [
   'Trip Details',
-  'Add-ons',
-  'Fare Breakdown',
+  'Plan & Add-ons',
   'Contact Info',
+  'Review & Fare',
   'Payment',
 ];
 
@@ -35,22 +39,28 @@ class BookingFlowPage extends ConsumerStatefulWidget {
 
 class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
   bool _initialized = false;
+  final _contactFormKey = GlobalKey<FormState>();
+  final _paymentKey = GlobalKey<PaymentStepState>();
 
   @override
   Widget build(BuildContext context) {
     final step = ref.watch(currentStepProvider);
     final detailVal = ref.watch(carDetailDataProvider(widget.carId));
     final tripType = ref.watch(selectedTripTypeProvider);
+    final draft = ref.watch(bookingDraftProvider);
+    final repo = ref.watch(bookingRepositoryProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Book — ${_stepTitles[step]}'),
-        leading: step == 0
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => _prev(ref),
-              ),
+        title: Text(
+          'Book — ${_stepTitles[step]}',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => _prev(ref),
+        ),
+        elevation: 0,
       ),
       body: detailVal.when(
         loading: () => const AppLoader(),
@@ -76,8 +86,10 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
               final session = ref.read(sessionProvider);
               final dateRange = ref.read(selectedDateRangeProvider);
               final searchDates = ref.read(searchDatesProvider);
-              final pickup = ref.read(pickupLocationProvider) ?? ref.read(searchPickupLocationProvider);
-              final drop = ref.read(dropLocationProvider) ?? ref.read(searchDropLocationProvider);
+              final pickup = ref.read(pickupLocationProvider) ??
+                  ref.read(searchPickupLocationProvider);
+              final drop = ref.read(dropLocationProvider) ??
+                  ref.read(searchDropLocationProvider);
 
               ref.read(bookingDraftProvider.notifier).init(
                     car: detail.car,
@@ -93,12 +105,72 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
             });
           }
 
+          // Compute live fare snapshot for sticky bottom bar & review
+          final rentalDays = draft.rentalDays;
+          double discountPercent = 0.0;
+          String discountLabel = '';
+          final weeklyPct = (detail.car.weeklyDiscountPercent != null &&
+                  detail.car.weeklyDiscountPercent! > 0)
+              ? detail.car.weeklyDiscountPercent!
+              : 15.0;
+          final monthlyPct = (detail.car.monthlyDiscountPercent != null &&
+                  detail.car.monthlyDiscountPercent! > 0)
+              ? detail.car.monthlyDiscountPercent!
+              : 25.0;
+
+          if (rentalDays >= 30) {
+            discountPercent = monthlyPct;
+            discountLabel = 'Monthly discount (${discountPercent.toInt()}%)';
+          } else if (rentalDays >= 7) {
+            discountPercent = weeklyPct;
+            discountLabel = 'Weekly discount (${discountPercent.toInt()}%)';
+          }
+
+          final isPackageTier = draft.selectedMileagePackage != null;
+          final originalRentalFare = isPackageTier
+              ? draft.selectedMileagePackage!.basePricePerDay * rentalDays
+              : detail.car.pricePerDay * rentalDays;
+          final discountAmount = originalRentalFare * (discountPercent / 100.0);
+          final actualBasePackagePrice = originalRentalFare - discountAmount;
+
+          final config = repo.getCommissionConfig(
+            city: detail.vendor.city,
+            carCategory: detail.car.type,
+            tripType: draft.tripType,
+          );
+          final distanceKm =
+              isPackageTier ? 0.0 : draft.estimatedDistanceKm.toDouble();
+          final pricePerKm = isPackageTier ? 0.0 : detail.car.pricePerKm;
+
+          final fareResult = FareCalculatorService.calculateFare(
+            distanceKm: distanceKm,
+            basePackagePrice: actualBasePackagePrice,
+            pricePerKm: pricePerKm,
+            commissionPercent: config.percentage,
+          );
+
+          final totalAddons = draft.protectionFee +
+              draft.deliveryFee +
+              draft.returnPickupFee +
+              draft.additionalDriverFee;
+          final calculatedTotal = (fareResult.total +
+                  totalAddons -
+                  draft.couponDiscountAmount)
+              .clamp(0.0, double.infinity);
+
+          final primaryButtonText = _getPrimaryButtonText(step, calculatedTotal);
+          final isPaymentLoading =
+              ref.watch(createBookingFlowProvider).isLoading;
+
           return Column(
             children: [
-              // ── Step Indicator ────────────────────────────────────────
-              _StepIndicator(current: step, total: _stepTitles.length),
+              // ── Progress Indicator ──────────────────────────────────
+              BookingProgressIndicator(
+                currentStep: step,
+                stepTitles: _stepTitles,
+              ),
 
-              // ── Step Content ──────────────────────────────────────────
+              // ── Step Content ────────────────────────────────────────
               Expanded(
                 child: IndexedStack(
                   index: step,
@@ -109,6 +181,13 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                       onNext: () => _next(ref),
                     ),
                     AddonsStep(
+                      car: detail.car,
+                      vendor: detail.vendor,
+                      onBack: () => _prev(ref),
+                      onNext: () => _next(ref),
+                    ),
+                    ContactConfirmStep(
+                      formKey: _contactFormKey,
                       onBack: () => _prev(ref),
                       onNext: () => _next(ref),
                     ),
@@ -118,11 +197,8 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                       onBack: () => _prev(ref),
                       onNext: () => _next(ref),
                     ),
-                    ContactConfirmStep(
-                      onBack: () => _prev(ref),
-                      onNext: () => _next(ref),
-                    ),
                     PaymentStep(
+                      key: _paymentKey,
                       onBack: () => _prev(ref),
                       onSuccess: (bookingId) {
                         context.go('/booking/confirmation/$bookingId');
@@ -131,11 +207,103 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                   ],
                 ),
               ),
+
+              // ── Sticky Bottom Action Bar ────────────────────────────
+              BookingStickyBottomBar(
+                totalAmount: calculatedTotal,
+                primaryButtonText: primaryButtonText,
+                isLoading: isPaymentLoading,
+                showBackButton: step > 0,
+                onBackPressed: () => _prev(ref),
+                onBreakdownPressed: () {
+                  AppBottomSheet.show(
+                    context,
+                    title: 'Fare Breakdown',
+                    child: BookingPriceBreakdownCard(
+                      car: detail.car,
+                      vendor: detail.vendor,
+                      originalRentalFare: originalRentalFare,
+                      discountPercent: discountPercent,
+                      discountLabel: discountLabel,
+                      discountAmount: discountAmount,
+                      result: fareResult,
+                      finalPayable: calculatedTotal,
+                      config: config,
+                    ),
+                  );
+                },
+                onPrimaryPressed: () => _handlePrimaryAction(
+                  ref,
+                  step: step,
+                  fareResult: fareResult,
+                  calculatedTotal: calculatedTotal,
+                  config: config,
+                  car: detail.car,
+                ),
+              ),
             ],
           );
         },
       ),
     );
+  }
+
+  String _getPrimaryButtonText(int step, double total) {
+    switch (step) {
+      case 0:
+        return 'Next: Add-ons';
+      case 1:
+        return 'Next: Contact';
+      case 2:
+        return 'Review Booking →';
+      case 3:
+        return 'Proceed to Pay →';
+      case 4:
+      default:
+        return 'Pay ${IndianCurrencyFormatter.format(total, showDecimals: false)}';
+    }
+  }
+
+  void _handlePrimaryAction(
+    WidgetRef ref, {
+    required int step,
+    required FareCalculatorResult fareResult,
+    required double calculatedTotal,
+    required CommissionConfigModel config,
+    required CarModel car,
+  }) {
+    if (step == 0) {
+      final draft = ref.read(bookingDraftProvider);
+      final hasPackages = car.rawMileagePackages.isNotEmpty;
+      if (hasPackages && draft.selectedMileagePackageId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a mileage package to continue.'),
+          ),
+        );
+        return;
+      }
+      _next(ref);
+    } else if (step == 1) {
+      _next(ref);
+    } else if (step == 2) {
+      if (_contactFormKey.currentState?.validate() ?? true) {
+        _next(ref);
+      }
+    } else if (step == 3) {
+      // Persist finalized fare breakdown onto draft before proceeding to payment
+      ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+            baseFare: fareResult.baseFare,
+            platformFee: fareResult.platformFee,
+            gst: fareResult.gst,
+            totalFare: calculatedTotal,
+            netToVendor: fareResult.netToVendor,
+            commissionPercent: config.percentage,
+          ));
+      _next(ref);
+    } else if (step == 4) {
+      _paymentKey.currentState?.startPaymentFlow();
+    }
   }
 
   void _next(WidgetRef ref) {
@@ -235,56 +403,6 @@ class _IncompatibleTripTypeView extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StepIndicator extends StatelessWidget {
-  final int current;
-  final int total;
-
-  const _StepIndicator({required this.current, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      color: cs.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: List.generate(total, (i) {
-              final isPassed = i < current;
-              final isCurrent = i == current;
-              return Expanded(
-                child: Container(
-                  height: 4,
-                  margin: EdgeInsets.only(right: i < total - 1 ? 4 : 0),
-                  decoration: BoxDecoration(
-                    color: isPassed
-                        ? AppColors.primary
-                        : isCurrent
-                            ? AppColors.accent
-                            : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const Gap(8),
-          Text(
-            'Step ${current + 1} of $total: ${_stepTitles[current]}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }

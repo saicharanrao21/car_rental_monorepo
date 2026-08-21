@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -9,30 +8,29 @@ import 'package:models/models.dart';
 import '../providers/booking_flow_providers.dart';
 import '../../domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
+import 'booking_payment_method_selector.dart';
 
 class PaymentStep extends ConsumerStatefulWidget {
   final VoidCallback onBack;
   final void Function(String bookingId) onSuccess;
 
-  const PaymentStep({super.key, required this.onBack, required this.onSuccess});
+  const PaymentStep({
+    super.key,
+    required this.onBack,
+    required this.onSuccess,
+  });
 
   @override
-  ConsumerState<PaymentStep> createState() => _PaymentStepState();
+  ConsumerState<PaymentStep> createState() => PaymentStepState();
 }
 
-class _PaymentStepState extends ConsumerState<PaymentStep> {
-  int _selectedMethod = 0; // UI-only selection
+class PaymentStepState extends ConsumerState<PaymentStep> {
+  int _selectedMethod = 0;
   final _razorpay = Razorpay();
   bool _isProcessingPayment = false;
   String? _errorMessage;
   String? _currentBookingId;
   String? _currentOrderId;
-
-  final _methods = const [
-    (Icons.currency_rupee, 'UPI / QR Code', 'GPay, PhonePe, BHIM'),
-    (Icons.credit_card, 'Debit / Credit Card', 'Visa, Mastercard, RuPay'),
-    (Icons.account_balance, 'Net Banking', 'All major banks supported'),
-  ];
 
   @override
   void initState() {
@@ -156,7 +154,7 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
     }
   }
 
-  void _startPaymentFlow() async {
+  void startPaymentFlow() async {
     setState(() {
       _isProcessingPayment = true;
       _errorMessage = null;
@@ -168,14 +166,12 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
 
       // 1. Create booking (returns pending booking) if not already created
       BookingModel? booking = ref.read(createBookingFlowProvider).value;
-      if (booking == null) {
-        booking = await ref
-            .read(createBookingFlowProvider.notifier)
-            .submit(
-              customerId: session.user?.id ?? 'guest',
-              draft: draft,
-            );
-      }
+      booking ??= await ref
+          .read(createBookingFlowProvider.notifier)
+          .submit(
+            customerId: session.user?.id ?? 'guest',
+            draft: draft,
+          );
 
       // 2. Fetch existing CREATED order or create fresh order
       final paymentService = ref.read(paymentFlowServiceProvider);
@@ -217,172 +213,288 @@ class _PaymentStepState extends ConsumerState<PaymentStep> {
     final draft = ref.watch(bookingDraftProvider);
     final createState = ref.watch(createBookingFlowProvider);
     final isSubmitLoading = createState.isLoading;
-    final isLoading = isSubmitLoading || _isProcessingPayment;
+    final isProcessing = isSubmitLoading || _isProcessingPayment;
+    final cs = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Real Razorpay payment banner ─────────────────────────────
+          // ── Real Razorpay payment banner ─────────────────────────
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              color: AppColors.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.18),
+              ),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
-                Gap(8),
-                Expanded(
-                  child: Text(
-                    'Secure checkout powered by Razorpay. '
-                    'You will be redirected to the secure portal to complete your payment.',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.shield_outlined,
+                    color: AppColors.primary,
+                    size: 20,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const Gap(20),
-
-          // ── Payment methods (disabled radio) ─────────────────────────
-          const Text('Select Payment Method',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const Gap(12),
-
-          ..._methods.asMap().entries.map((e) {
-            final idx = e.key;
-            final (icon, title, subtitle) = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                padding: const EdgeInsets.all(12),
-                child: InkWell(
-                  onTap: () => setState(() => _selectedMethod = idx),
-                  child: Row(
+                const Gap(12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _selectedMethod == idx ? AppColors.primary : Colors.grey,
-                            width: 2,
+                      Row(
+                        children: [
+                          Text(
+                            'Secure checkout powered by Razorpay',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
                           ),
-                        ),
-                        child: _selectedMethod == idx
-                            ? Center(
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              Icon(icon, color: AppColors.primary, size: 22),
-                              const Gap(10),
-                              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ]),
-                            const Gap(4),
-                            Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          if (isProcessing) ...[
+                            const Gap(8),
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: AppColors.primary,
+                              ),
+                            ),
                           ],
+                        ],
+                      ),
+                      const Gap(2),
+                      Text(
+                        '256-bit encrypted gateway. Your transaction and payment details are safe and tokenized.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                          height: 1.3,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          }),
-          const Gap(8),
-
-          // ── Order summary ─────────────────────────────────────────────
-          // Fold Platform Fee into Trip Fare for customer-facing display
-          AppCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Trip Fare', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  IndianCurrencyFormatter.format(draft.baseFare + draft.platformFee, showDecimals: false),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ]),
-              const Gap(4),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('GST (18%)'),
-                Text(IndianCurrencyFormatter.format(draft.gst, showDecimals: false)),
-              ]),
-              const Divider(height: 20),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(
-                  IndianCurrencyFormatter.format(draft.totalFare, showDecimals: false),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
-                ),
-              ]),
-            ]),
+              ],
+            ),
           ),
-          const Gap(8),
+          const Gap(16),
 
-          // ── Error banner ──────────────────────────────────────────────
+          // ── Payment Methods Selector ──────────────────────────────
+          BookingPaymentMethodSelector(
+            selectedMethod: _selectedMethod,
+            onMethodSelected: (idx) => setState(() => _selectedMethod = idx),
+          ),
+          const Gap(16),
+
+          // ── Order Summary Card ────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Order Summary',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const Gap(12),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.25),
+                ),
+                const Gap(10),
+                _summaryRow(
+                  'Base Trip Fare',
+                  IndianCurrencyFormatter.format(
+                    draft.baseFare + draft.platformFee,
+                    showDecimals: false,
+                  ),
+                  cs,
+                ),
+                const Gap(6),
+                _summaryRow(
+                  'GST (18%)',
+                  IndianCurrencyFormatter.format(
+                    draft.gst,
+                    showDecimals: false,
+                  ),
+                  cs,
+                ),
+                if (draft.protectionFee > 0) ...[
+                  const Gap(6),
+                  _summaryRow(
+                    'Protection Fee',
+                    IndianCurrencyFormatter.format(
+                      draft.protectionFee,
+                      showDecimals: false,
+                    ),
+                    cs,
+                  ),
+                ],
+                if (draft.deliveryFee > 0) ...[
+                  const Gap(6),
+                  _summaryRow(
+                    'Delivery Fee',
+                    IndianCurrencyFormatter.format(
+                      draft.deliveryFee,
+                      showDecimals: false,
+                    ),
+                    cs,
+                  ),
+                ],
+                if (draft.couponDiscountAmount > 0) ...[
+                  const Gap(6),
+                  _summaryRow(
+                    'Coupon Savings',
+                    '-${IndianCurrencyFormatter.format(draft.couponDiscountAmount, showDecimals: false)}',
+                    cs,
+                    valueColor: Colors.green,
+                  ),
+                ],
+                const Gap(10),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.35),
+                ),
+                const Gap(10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total Amount Payable',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    Text(
+                      IndianCurrencyFormatter.format(
+                        draft.totalFare,
+                        showDecimals: false,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Gap(14),
+
+          // ── Error Banner ──────────────────────────────────────────
           if (_errorMessage != null)
             Container(
-              padding: const EdgeInsets.all(10),
-              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
-                color: Colors.red[50], borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red[200]!),
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                'Error: $_errorMessage',
-                style: const TextStyle(fontSize: 12, color: Colors.red),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, size: 18, color: Colors.red),
+                  const Gap(8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          const Gap(8),
 
-          Row(children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: isLoading ? null : widget.onBack,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  side: const BorderSide(color: AppColors.primary),
+          // Action button for standalone invocation & test integration
+          SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: isProcessing ? null : startPaymentFlow,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('Back', style: TextStyle(color: AppColors.primary)),
               ),
+              child: isProcessing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Pay ${IndianCurrencyFormatter.format(draft.totalFare, showDecimals: false)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
             ),
-            const Gap(12),
-            Expanded(
-              child: AppButton(
-                text: isLoading
-                    ? 'Processing…'
-                    : 'Pay ${IndianCurrencyFormatter.format(draft.totalFare, showDecimals: false)}',
-                isLoading: isLoading,
-                onPressed: isLoading
-                    ? null
-                    : _startPaymentFlow,
-              ),
-            ),
-          ]),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, ColorScheme cs,
+      {Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? cs.onSurface,
+          ),
+        ),
+      ],
     );
   }
 }

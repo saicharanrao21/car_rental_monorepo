@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
@@ -65,8 +66,6 @@ class ApiSearchRepository implements SearchRepository {
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
       if (backendTripType != null) 'tripType': backendTripType,
-      if (startDate != null) 'startDate': startDate.toIso8601String(),
-      if (endDate != null) 'endDate': endDate.toIso8601String(),
       if (backendCarType != null) 'carType': backendCarType,
       if (isAC != null) 'isAC': isAC,
       if (minPrice != null) 'minPrice': minPrice,
@@ -78,12 +77,22 @@ class ApiSearchRepository implements SearchRepository {
     };
 
     debugPrint('[API Search] GET /cars params: $queryParams');
-    final response = await apiClient.dio.get(
-      '/cars',
-      queryParameters: queryParams,
-    );
+    try {
+      final response = await apiClient.dio.get(
+        '/cars',
+        queryParameters: queryParams,
+      );
 
-    final data = response.data['data'] as List<dynamic>;
-    return data.map((json) => CarModel.fromJson(Map<String, dynamic>.from(json))).toList();
+      final data = response.data['data'] as List<dynamic>;
+      return data.map((json) => CarModel.fromJson(Map<String, dynamic>.from(json))).toList();
+    } on DioException catch (e, st) {
+      debugPrint('[API Search] FAILED with DioException: status=${e.response?.statusCode}, data=${e.response?.data}');
+      debugPrint('[API Search] StackTrace: $st');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('[API Search] FAILED with error: $e');
+      debugPrint('[API Search] StackTrace: $st');
+      rethrow;
+    }
   }
 }

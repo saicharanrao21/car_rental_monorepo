@@ -17,40 +17,42 @@ class ErrorStateWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 72,
-              color: Colors.redAccent,
-            ),
-            const Gap(16),
-            const Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 72,
+                color: Colors.redAccent,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const Gap(8),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+              const Gap(16),
+              const Text(
+                'Something went wrong',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const Gap(24),
-            AppButton(
-              text: 'Retry',
-              onPressed: onRetry,
-              isFullWidth: false,
-            ),
-          ],
+              const Gap(8),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(24),
+              AppButton(
+                text: 'Retry',
+                onPressed: onRetry,
+                isFullWidth: false,
+              ),
+            ],
+          ),
         ),
       ),
     );
