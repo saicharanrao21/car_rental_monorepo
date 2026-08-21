@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import '../providers/my_bookings_providers.dart';
+import '../widgets/booking_list_item_card.dart';
+import '../widgets/active_trip_hero_card.dart';
 
 class MyBookingsPage extends ConsumerStatefulWidget {
   const MyBookingsPage({super.key});
@@ -21,7 +23,7 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
     // 4 Tabs: Upcoming, Ongoing, Completed, Cancelled
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
+      if (ref.read(myBookingsTabProvider) != _tabController.index) {
         ref.read(myBookingsTabProvider.notifier).state = _tabController.index;
       }
     });
@@ -38,21 +40,63 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
     super.dispose();
   }
 
+  (String, String, IconData) _getEmptyStateContent(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return (
+          'No Upcoming Trips',
+          'You don\'t have any scheduled trips. Explore cars and plan your next journey.',
+          Icons.calendar_month_outlined,
+        );
+      case 1:
+        return (
+          'No Active Trips',
+          'You don\'t have any trip currently active or ready for handover.',
+          Icons.directions_car_outlined,
+        );
+      case 2:
+        return (
+          'No Completed Trips',
+          'Trips you complete will appear here along with invoices and ratings.',
+          Icons.task_alt_outlined,
+        );
+      case 3:
+        return (
+          'No Cancelled Bookings',
+          'No bookings have been cancelled or refunded.',
+          Icons.cancel_outlined,
+        );
+      default:
+        return (
+          'No Bookings',
+          'You haven\'t made any bookings yet.',
+          Icons.directions_car_outlined,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Keep tab controller synchronized with Riverpod state
     ref.listen<int>(myBookingsTabProvider, (_, nextIndex) {
       if (_tabController.index != nextIndex) {
         _tabController.animateTo(nextIndex);
       }
     });
 
+    final currentTab = ref.watch(myBookingsTabProvider);
     final bookingsVal = ref.watch(myBookingsListProvider);
+    final activeTrip = ref.watch(activeOngoingTripProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Bookings'),
+        title: const Text(
+          'My Bookings',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.2),
+        ),
         bottom: TabBar(
           controller: _tabController,
+          onTap: (index) => ref.read(myBookingsTabProvider.notifier).state = index,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
           labelStyle: const TextStyle(
@@ -86,6 +130,8 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
           onRetry: () => ref.read(myBookingsListProvider.notifier).refresh(),
         ),
         data: (bookings) {
+          final (emptyTitle, emptyDesc, emptyIcon) = _getEmptyStateContent(currentTab);
+
           if (bookings.isEmpty) {
             return Center(
               child: SingleChildScrollView(
@@ -100,25 +146,25 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.directions_car_outlined,
-                        size: 64,
+                        emptyIcon,
+                        size: 56,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const Gap(24),
-                    const Text(
-                      'No Bookings Yet',
-                      style: TextStyle(
+                    const Gap(20),
+                    Text(
+                      emptyTitle,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Gap(8),
                     Text(
-                      'Explore our wide selection of cars and book your perfect trip today.',
+                      emptyDesc,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -126,11 +172,8 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
                     SizedBox(
                       width: 200,
                       child: AppButton(
-                        text: 'Browse Cars',
-                        onPressed: () {
-                          // Navigate to /home
-                          context.go('/home');
-                        },
+                        text: 'Explore Cars',
+                        onPressed: () => context.go('/home'),
                       ),
                     ),
                   ],
@@ -139,26 +182,28 @@ class _MyBookingsPageState extends ConsumerState<MyBookingsPage> with SingleTick
             );
           }
 
+          final showActiveHero = currentTab == 1 && activeTrip != null;
+
           return RefreshIndicator(
             onRefresh: () => ref.read(myBookingsListProvider.notifier).refresh(),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: bookings.length,
+              itemCount: bookings.length + (showActiveHero ? 1 : 0),
               itemBuilder: (context, index) {
-                final booking = bookings[index];
+                // If on Ongoing tab and activeTrip is present, show ActiveTripHeroCard as first item
+                if (showActiveHero) {
+                  if (index == 0) {
+                    return ActiveTripHeroCard(
+                      item: activeTrip,
+                      onRefresh: () => ref.read(myBookingsListProvider.notifier).refresh(),
+                    );
+                  }
+                  final item = bookings[index - 1];
+                  return BookingListItemCard(item: item);
+                }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: BookingCard(
-                    booking: booking,
-                    carMake: 'Trip',
-                    carModel: booking.tripType,
-                    partnerName: 'Booking #${booking.id.length > 8 ? booking.id.substring(0, 8) : booking.id}',
-                    onTap: () {
-                      context.push('/bookings/${booking.id}');
-                    },
-                  ),
-                );
+                final item = bookings[index];
+                return BookingListItemCard(item: item);
               },
             ),
           );

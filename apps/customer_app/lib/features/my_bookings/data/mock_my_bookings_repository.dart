@@ -10,12 +10,66 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
   MockMyBookingsRepositoryImpl(this._bookingRepo);
 
   @override
-  Future<List<BookingModel>> getBookingsForUser(String userId, {String? statusFilter}) async {
+  Future<List<CustomerBookingItem>> getEnrichedBookingsForUser(String userId, {String? statusFilter}) async {
     final bookings = await _bookingRepo.getBookingsForCustomer(userId);
-    if (statusFilter != null) {
-      return bookings.where((b) => b.status.toLowerCase() == statusFilter.toLowerCase()).toList();
-    }
-    return bookings;
+    final filtered = statusFilter != null
+        ? bookings.where((b) => b.status.toLowerCase() == statusFilter.toLowerCase()).toList()
+        : bookings;
+
+    return filtered.map((b) {
+      final mockCar = MockData.cars.firstWhere(
+        (c) => c.id == b.carId,
+        orElse: () => MockData.cars.first,
+      );
+      final mockVendor = MockData.vendors.firstWhere(
+        (v) => v.id == b.vendorId,
+        orElse: () => MockData.vendors.first,
+      );
+      return CustomerBookingItem(
+        booking: b,
+        car: mockCar,
+        vendor: mockVendor,
+        mileagePackageName: 'Standard 150 km/day',
+        includedKmPerDay: 150,
+        includedKmTotal: 300,
+        extraKmRate: 12.0,
+        protectionCode: 'STANDARD',
+        protectionFee: 299.0,
+        paymentStatus: 'PAID',
+      );
+    }).toList();
+  }
+
+  @override
+  Future<List<BookingModel>> getBookingsForUser(String userId, {String? statusFilter}) async {
+    final items = await getEnrichedBookingsForUser(userId, statusFilter: statusFilter);
+    return items.map((e) => e.booking).toList();
+  }
+
+  @override
+  Future<CustomerBookingItem?> getEnrichedBookingById(String bookingId) async {
+    final booking = await _bookingRepo.getBookingById(bookingId);
+    if (booking == null) return null;
+    final mockCar = MockData.cars.firstWhere(
+      (c) => c.id == booking.carId,
+      orElse: () => MockData.cars.first,
+    );
+    final mockVendor = MockData.vendors.firstWhere(
+      (v) => v.id == booking.vendorId,
+      orElse: () => MockData.vendors.first,
+    );
+    return CustomerBookingItem(
+      booking: booking,
+      car: mockCar,
+      vendor: mockVendor,
+      mileagePackageName: 'Standard 150 km/day',
+      includedKmPerDay: 150,
+      includedKmTotal: 300,
+      extraKmRate: 12.0,
+      protectionCode: 'STANDARD',
+      protectionFee: 299.0,
+      paymentStatus: 'PAID',
+    );
   }
 
   @override
@@ -39,6 +93,26 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
   @override
   Future<void> cancelBooking(String bookingId, String reason) async {
     await _bookingRepo.cancelBooking(bookingId);
+  }
+
+  @override
+  Future<TripExtensionQuoteModel> getTripExtensionQuote(String bookingId, String requestedEndDate) async {
+    return TripExtensionQuoteModel(
+      bookingId: bookingId,
+      currentEndDate: DateTime.now().add(const Duration(days: 2)),
+      requestedEndDate: DateTime.tryParse(requestedEndDate) ?? DateTime.now().add(const Duration(days: 3)),
+      additionalHours: 24,
+      additionalDays: 1,
+      additionalBaseFare: 2000.0,
+      gstAmount: 360.0,
+      totalAdditionalFare: 2360.0,
+      isAvailable: true,
+    );
+  }
+
+  @override
+  Future<void> requestTripExtension(String bookingId, String requestedEndDate) async {
+    await simulateLatency();
   }
 
   @override
@@ -74,5 +148,30 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
       keyId: 'rzp_test_mock_key',
       status: 'CREATED',
     );
+  }
+
+  @override
+  Future<List<InspectionModel>> getInspections(String bookingId) async {
+    await simulateLatency();
+    return [
+      InspectionModel(
+        id: 'insp_pre_$bookingId',
+        bookingId: bookingId,
+        type: 'PRE_TRIP',
+        performedById: 'vendor_1',
+        odometer: 14250.0,
+        fuelPercent: 95,
+        conditionNotes: 'Clean vehicle inside and outside. No prior scratches.',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+      ),
+    ];
+  }
+
+  @override
+  Future<bool> sendHandoverOtp(String bookingId, String otpType) async {
+    await simulateLatency();
+    return true;
   }
 }

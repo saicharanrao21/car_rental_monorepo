@@ -143,7 +143,8 @@ class _CreateTicketPageState extends ConsumerState<CreateTicketPage> {
                             value: null,
                             child: Text('None / General Inquiry'),
                           ),
-                          ...bookings.map((b) {
+                          ...bookings.map((item) {
+                            final b = item.booking;
                             return DropdownMenuItem(
                               value: b.id,
                               child: Text('Booking #${b.id.length > 8 ? b.id.substring(0, 8) : b.id} - ${b.status.toUpperCase()}'),

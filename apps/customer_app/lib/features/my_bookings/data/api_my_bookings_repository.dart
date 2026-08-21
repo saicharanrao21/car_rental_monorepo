@@ -43,13 +43,65 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
     return copy;
   }
 
+  CustomerBookingItem _parseCustomerBookingItem(Map<String, dynamic> rawJson) {
+    final normalized = _normalizeBookingJson(rawJson);
+    final booking = BookingModel.fromJson(normalized);
+
+    CarModel? car;
+    if (rawJson['car'] is Map<String, dynamic>) {
+      try {
+        final carJson = Map<String, dynamic>.from(rawJson['car']);
+        // Normalize car pricePerDay & specs
+        carJson['pricePerDay'] = double.tryParse(carJson['pricePerDay']?.toString() ?? '') ?? 0.0;
+        carJson['depositAmount'] = double.tryParse(carJson['depositAmount']?.toString() ?? '') ?? 0.0;
+        car = CarModel.fromJson(carJson);
+      } catch (_) {}
+    }
+
+    VendorModel? vendor;
+    if (rawJson['vendor'] is Map<String, dynamic>) {
+      try {
+        final vendorJson = Map<String, dynamic>.from(rawJson['vendor']);
+        vendorJson['rating'] = double.tryParse(vendorJson['rating']?.toString() ?? '') ?? 0.0;
+        vendor = VendorModel.fromJson(vendorJson);
+      } catch (_) {}
+    }
+
+    return CustomerBookingItem(
+      booking: booking,
+      car: car,
+      vendor: vendor,
+      mileagePackageName: rawJson['mileagePackageName'] as String?,
+      includedKmPerDay: (rawJson['includedKmPerDay'] as num?)?.toInt(),
+      includedKmTotal: (rawJson['includedKmTotal'] as num?)?.toInt(),
+      extraKmRate: double.tryParse(rawJson['extraKmRate']?.toString() ?? ''),
+      protectionCode: rawJson['protectionCode'] as String?,
+      protectionFee: double.tryParse(rawJson['protectionFee']?.toString() ?? ''),
+      protectionDeductible: double.tryParse(rawJson['protectionDeductible']?.toString() ?? ''),
+      deliveryType: rawJson['deliveryType'] as String?,
+      deliveryAddress: rawJson['deliveryAddress'] as String?,
+      deliveryFee: double.tryParse(rawJson['deliveryFee']?.toString() ?? ''),
+      pickupAddress: rawJson['pickupAddress'] as String?,
+      pickupFee: double.tryParse(rawJson['pickupFee']?.toString() ?? ''),
+      cancellationReason: rawJson['cancellationReason'] as String?,
+      cancellationFee: double.tryParse(rawJson['cancellationFee']?.toString() ?? ''),
+      refundAmount: double.tryParse(rawJson['refundAmount']?.toString() ?? ''),
+      cancelledAt: rawJson['cancelledAt'] != null ? DateTime.tryParse(rawJson['cancelledAt'].toString()) : null,
+      cancelledBy: rawJson['cancelledBy'] as String?,
+      paymentStatus: rawJson['payment'] is Map ? rawJson['payment']['status']?.toString() : null,
+      razorpayOrderId: rawJson['payment'] is Map ? rawJson['payment']['razorpayOrderId']?.toString() : null,
+      razorpayPaymentId: rawJson['payment'] is Map ? rawJson['payment']['razorpayPaymentId']?.toString() : null,
+      razorpayRefundId: rawJson['payment'] is Map ? rawJson['payment']['razorpayRefundId']?.toString() : null,
+    );
+  }
+
   String? _mapStatusToBackend(String? clientStatus) {
     if (clientStatus == null) return null;
     return clientStatus.toUpperCase();
   }
 
   @override
-  Future<List<BookingModel>> getBookingsForUser(String userId, {String? statusFilter}) async {
+  Future<List<CustomerBookingItem>> getEnrichedBookingsForUser(String userId, {String? statusFilter}) async {
     final backendStatus = _mapStatusToBackend(statusFilter);
     final response = await apiClient.dio.get(
       '/bookings/me',
@@ -58,10 +110,24 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
       },
     );
     final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
-    return data.map((json) {
-      final normalized = _normalizeBookingJson(Map<String, dynamic>.from(json));
-      return BookingModel.fromJson(normalized);
-    }).toList();
+    return data.map((json) => _parseCustomerBookingItem(Map<String, dynamic>.from(json))).toList();
+  }
+
+  @override
+  Future<List<BookingModel>> getBookingsForUser(String userId, {String? statusFilter}) async {
+    final items = await getEnrichedBookingsForUser(userId, statusFilter: statusFilter);
+    return items.map((e) => e.booking).toList();
+  }
+
+  @override
+  Future<CustomerBookingItem?> getEnrichedBookingById(String bookingId) async {
+    try {
+      final response = await apiClient.dio.get('/bookings/$bookingId');
+      if (response.data == null) return null;
+      return _parseCustomerBookingItem(Map<String, dynamic>.from(response.data));
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -75,6 +141,23 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
     await apiClient.dio.post(
       '/bookings/$bookingId/cancel',
       data: {'reason': reason},
+    );
+  }
+
+  @override
+  Future<TripExtensionQuoteModel> getTripExtensionQuote(String bookingId, String requestedEndDate) async {
+    final response = await apiClient.dio.post(
+      '/bookings/$bookingId/extensions/quote',
+      data: {'requestedEndDate': requestedEndDate},
+    );
+    return TripExtensionQuoteModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
+  Future<void> requestTripExtension(String bookingId, String requestedEndDate) async {
+    await apiClient.dio.post(
+      '/bookings/$bookingId/extensions',
+      data: {'requestedEndDate': requestedEndDate},
     );
   }
 
@@ -109,6 +192,30 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
       return PaymentOrderModel.fromJson(Map<String, dynamic>.from(response.data));
     } catch (_) {
       return null;
+    }
+  }
+
+  @override
+  Future<List<InspectionModel>> getInspections(String bookingId) async {
+    try {
+      final response = await apiClient.dio.get('/bookings/$bookingId/inspections');
+      final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+      return data.map((item) => InspectionModel.fromJson(Map<String, dynamic>.from(item))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> sendHandoverOtp(String bookingId, String otpType) async {
+    try {
+      final response = await apiClient.dio.post(
+        '/bookings/$bookingId/handover-otp/send',
+        data: {'otpType': otpType},
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
     }
   }
 }
