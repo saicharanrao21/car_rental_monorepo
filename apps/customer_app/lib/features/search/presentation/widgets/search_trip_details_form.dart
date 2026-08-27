@@ -62,25 +62,30 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
       context,
       title: 'Select City',
       child: supportedCitiesVal.when(
-        data: (cities) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: cities.map((city) {
-            final isSelected = city.name.toLowerCase() == selectedCity.toLowerCase();
-            return ListTile(
-              title: Text(city.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-              trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
-              onTap: () {
-                ref.read(searchCityProvider.notifier).state = city.name;
-                ref.read(selectedCityProvider.notifier).state = city.name;
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        ),
+        data: (cities) {
+          final cityList = cities.isNotEmpty
+              ? cities.map((c) => c.name).toList()
+              : AppConstants.indianCities;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: cityList.map((cityName) {
+              final isSelected = cityName.toLowerCase() == selectedCity.toLowerCase();
+              return ListTile(
+                title: Text(cityName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                onTap: () {
+                  ref.read(searchCityProvider.notifier).state = cityName;
+                  ref.read(selectedCityProvider.notifier).state = cityName;
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
+          );
+        },
         loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
         error: (_, __) => Column(
           mainAxisSize: MainAxisSize.min,
-          children: ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Hyderabad', 'Pune'].map((cityName) {
+          children: AppConstants.indianCities.map((cityName) {
             final isSelected = cityName.toLowerCase() == selectedCity.toLowerCase();
             return ListTile(
               title: Text(cityName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),

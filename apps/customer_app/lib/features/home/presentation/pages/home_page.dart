@@ -248,7 +248,9 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
   Widget build(BuildContext context) {
     final supportedCitiesVal = ref.watch(supportedCitiesProvider);
     final allCityNames = supportedCitiesVal.maybeWhen(
-      data: (cities) => cities.map((c) => c.name).toList(),
+      data: (cities) => cities.isNotEmpty
+          ? cities.map((c) => c.name).toList()
+          : AppConstants.indianCities,
       orElse: () => AppConstants.indianCities,
     );
 

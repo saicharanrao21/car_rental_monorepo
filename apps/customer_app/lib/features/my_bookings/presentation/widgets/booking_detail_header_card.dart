@@ -139,12 +139,16 @@ class BookingDetailHeaderCard extends StatelessWidget {
                 ],
               ),
               if (vendor != null)
-                Text(
-                  'Host: ${vendor.businessName}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                Flexible(
+                  child: Text(
+                    'Host: ${vendor.businessName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
             ],

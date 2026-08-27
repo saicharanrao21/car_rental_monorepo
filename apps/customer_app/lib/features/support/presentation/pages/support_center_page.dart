@@ -104,7 +104,7 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.headset_mic, color: AppColors.primary, size: 28),
@@ -160,7 +160,7 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
                     leading: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
+                        color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -270,7 +270,7 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: Colors.grey.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(ticket.category.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
@@ -300,28 +300,28 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
     Color fg;
     switch (status) {
       case TicketStatus.OPEN:
-        bg = Colors.blue.withOpacity(0.12);
+        bg = Colors.blue.withValues(alpha: 0.12);
         fg = Colors.blue;
         break;
       case TicketStatus.ASSIGNED:
       case TicketStatus.IN_PROGRESS:
-        bg = Colors.orange.withOpacity(0.12);
+        bg = Colors.orange.withValues(alpha: 0.12);
         fg = Colors.orange;
         break;
       case TicketStatus.WAITING_FOR_CUSTOMER:
-        bg = Colors.purple.withOpacity(0.12);
+        bg = Colors.purple.withValues(alpha: 0.12);
         fg = Colors.purple;
         break;
       case TicketStatus.WAITING_FOR_VENDOR:
-        bg = Colors.amber.withOpacity(0.12);
+        bg = Colors.amber.withValues(alpha: 0.12);
         fg = Colors.amber.shade900;
         break;
       case TicketStatus.RESOLVED:
-        bg = Colors.green.withOpacity(0.12);
+        bg = Colors.green.withValues(alpha: 0.12);
         fg = Colors.green;
         break;
       case TicketStatus.CLOSED:
-        bg = Colors.grey.withOpacity(0.12);
+        bg = Colors.grey.withValues(alpha: 0.12);
         fg = Colors.grey.shade700;
         break;
     }

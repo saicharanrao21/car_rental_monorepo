@@ -172,7 +172,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(ticket.status.label, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),

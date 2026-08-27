@@ -11,7 +11,7 @@ import 'package:customer_app/features/my_bookings/presentation/widgets/booking_r
 import 'package:customer_app/features/my_bookings/presentation/widgets/active_trip_hero_card.dart';
 
 void main() {
-  final sampleCar = CarModel(
+  const sampleCar = CarModel(
     id: 'car_creta',
     vendorId: 'vendor_apex',
     make: 'Hyundai',
@@ -30,7 +30,7 @@ void main() {
     availableTripTypes: ['Self-Drive', 'Outstation'],
   );
 
-  final sampleVendor = const VendorModel(
+  const sampleVendor = VendorModel(
     id: 'vendor_apex',
     businessName: 'Apex Luxury Rentals',
     ownerName: 'Rajesh Kumar',

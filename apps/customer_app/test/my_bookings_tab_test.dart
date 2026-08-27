@@ -31,7 +31,7 @@ class MockBookingsNotifier extends MyBookingsListNotifier {
 }
 
 void main() {
-  final sampleCar = CarModel(
+  const sampleCar = CarModel(
     id: 'car_1',
     vendorId: 'vendor_1',
     make: 'Maruti Suzuki',
@@ -50,7 +50,7 @@ void main() {
     availableTripTypes: ['Self-Drive', 'Outstation', 'Local'],
   );
 
-  final sampleVendor = const VendorModel(
+  const sampleVendor = VendorModel(
     id: 'vendor_1',
     businessName: 'Apex Luxury Rentals',
     ownerName: 'Rajesh Kumar',

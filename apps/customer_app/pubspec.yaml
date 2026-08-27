@@ -19,6 +19,7 @@ dependencies:
     path: ../../packages/mock_data
   ui_kit:
     path: ../../packages/ui_kit
+  cached_network_image: ^3.3.1
   gap: ^3.0.1
   google_fonts: ^8.1.0
   razorpay_flutter: ^1.4.5

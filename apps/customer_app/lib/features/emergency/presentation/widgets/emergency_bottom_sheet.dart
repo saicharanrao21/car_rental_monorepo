@@ -111,7 +111,7 @@ class _EmergencyBottomSheetState extends ConsumerState<EmergencyBottomSheet> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.12),
+                    color: Colors.red.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.emergency_outlined, color: Colors.red, size: 28),
@@ -140,7 +140,7 @@ class _EmergencyBottomSheetState extends ConsumerState<EmergencyBottomSheet> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -165,7 +165,7 @@ class _EmergencyBottomSheetState extends ConsumerState<EmergencyBottomSheet> {
             const Gap(8),
 
             DropdownButtonFormField<IncidentType>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.warning_amber_rounded, color: Colors.red),
