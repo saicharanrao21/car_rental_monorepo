@@ -9,11 +9,13 @@ import '../../../support/presentation/pages/create_ticket_page.dart';
 class BookingDetailHostCard extends StatelessWidget {
   final VendorModel? vendor;
   final String bookingId;
+  final bool isConfirmed;
 
   const BookingDetailHostCard({
     super.key,
     required this.vendor,
     required this.bookingId,
+    this.isConfirmed = false,
   });
 
   @override
@@ -108,57 +110,81 @@ class BookingDetailHostCard extends StatelessWidget {
           const Gap(14),
           const Divider(height: 1),
           const Gap(10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.phone_outlined, size: 15),
-                  label: const Text('Contact Host', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          if (isConfirmed)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.phone_outlined, size: 15),
+                    label: const Text('Contact Host', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      if (vendor!.phone.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: vendor!.phone));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Host Contact: ${vendor!.phone} (Copied to clipboard)'),
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Contact number is not available for this fleet host.'),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
                   ),
-                  onPressed: () {
-                    if (vendor!.phone.isNotEmpty) {
-                      Clipboard.setData(ClipboardData(text: vendor!.phone));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Host Contact: ${vendor!.phone} (Copied to clipboard)'),
-                          duration: const Duration(seconds: 4),
+                ),
+                const Gap(10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.support_agent_outlined, size: 15),
+                    label: const Text('Help & Support', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateTicketPage(initialBookingId: bookingId),
                         ),
                       );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Contact number is not available for this fleet host.'),
-                          duration: Duration(seconds: 3),
+                    },
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.support_agent_outlined, size: 15),
+                    label: const Text('Help & Support', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateTicketPage(initialBookingId: bookingId),
                         ),
                       );
-                    }
-                  },
-                ),
-              ),
-              const Gap(10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.support_agent_outlined, size: 15),
-                  label: const Text('Help & Support', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    },
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CreateTicketPage(initialBookingId: bookingId),
-                      ),
-                    );
-                  },
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

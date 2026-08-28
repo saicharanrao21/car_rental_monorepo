@@ -21,7 +21,7 @@ class BookingConfirmationPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Booking Confirmed',
+          'Booking Request Placed',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         automaticallyImplyLeading: false,
@@ -88,7 +88,6 @@ class BookingConfirmationPage extends ConsumerWidget {
 
           final booking = details.booking;
           final car = details.car;
-          final vendor = details.vendor;
 
           return SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
@@ -113,7 +112,7 @@ class BookingConfirmationPage extends ConsumerWidget {
                 ),
                 const Gap(16),
                 Text(
-                  'Booking Confirmed!',
+                  'Payment Successful!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 22,
@@ -123,7 +122,7 @@ class BookingConfirmationPage extends ConsumerWidget {
                 ),
                 const Gap(4),
                 Text(
-                  'Booking ID: ${booking.id}',
+                  'Booking Request #${booking.id}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
@@ -133,14 +132,14 @@ class BookingConfirmationPage extends ConsumerWidget {
                 ),
                 const Gap(20),
 
-                // ── Vendor Coordination Card ─────────────────────────
+                // ── Owner Review Status Card ─────────────────────────
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
+                    color: Colors.amber.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                      color: Colors.amber.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -148,12 +147,12 @@ class BookingConfirmationPage extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
+                          color: Colors.amber.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.phone_in_talk_outlined,
-                          color: AppColors.primary,
+                          Icons.hourglass_top_rounded,
+                          color: Colors.amber,
                           size: 20,
                         ),
                       ),
@@ -163,7 +162,7 @@ class BookingConfirmationPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Handover Coordination',
+                              'Awaiting Owner Confirmation',
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
@@ -172,7 +171,7 @@ class BookingConfirmationPage extends ConsumerWidget {
                             ),
                             const Gap(2),
                             Text(
-                              '${vendor.businessName} will contact you shortly to coordinate vehicle handover & delivery.',
+                              'Your payment has been received. The vehicle owner is reviewing your booking request. You will be notified as soon as it is confirmed.',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: cs.onSurfaceVariant,

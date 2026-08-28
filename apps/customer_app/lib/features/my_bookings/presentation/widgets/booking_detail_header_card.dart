@@ -141,7 +141,11 @@ class BookingDetailHeaderCard extends StatelessWidget {
               if (vendor != null)
                 Flexible(
                   child: Text(
-                    'Host: ${vendor.businessName}',
+                    booking.status.toLowerCase() == 'confirmed' ||
+                            booking.status.toLowerCase() == 'ongoing' ||
+                            booking.status.toLowerCase() == 'completed'
+                        ? 'Host: ${vendor.businessName}'
+                        : vendor.businessName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

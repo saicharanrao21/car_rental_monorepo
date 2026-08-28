@@ -281,10 +281,10 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                     StatusBadge(status: booking.status),
                   ],
                 ),
-                const Divider(height: 32),
-
-                // Active Handover Workflow Card (Pickup / Return)
-                if (statusLower == 'confirmed')
+                // Active Handover Workflow Card (Pending / Pickup / Return)
+                if (statusLower == 'pending')
+                  _buildPendingDecisionCard(booking.id)
+                else if (statusLower == 'confirmed')
                   _buildPickupWorkflowCard(preTrip)
                 else if (statusLower == 'ongoing')
                   _buildReturnWorkflowCard(preTrip, postTrip),
@@ -1013,5 +1013,162 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
       case DamageClaimStatus.SETTLED:
         return ('SETTLED', Colors.purple.withValues(alpha: 0.15), Colors.purple[900]!);
     }
+  }
+
+  void _showRejectBottomSheet(String bookingId) {
+    String selectedReason = 'Vehicle undergoing maintenance';
+    final reasons = [
+      'Vehicle undergoing maintenance',
+      'Vehicle not returned on time by previous renter',
+      'Pricing error or incorrect rates',
+      'Driver unavailable',
+      'Other',
+    ];
+
+    AppBottomSheet.show(
+      context,
+      title: 'Reject Booking Request',
+      child: StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Please select a reason for rejecting this booking request. A 100% refund will be automatically processed for the customer.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const Gap(16),
+              AppDropdown<String>(
+                label: 'Reason',
+                value: selectedReason,
+                items: reasons.map((r) {
+                  return DropdownMenuItem<String>(
+                    value: r,
+                    child: Text(r),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setSheetState(() {
+                      selectedReason = val;
+                    });
+                  }
+                },
+              ),
+              const Gap(24),
+              AppButton(
+                text: 'Reject Booking',
+                backgroundColor: Colors.red[700],
+                onPressed: () async {
+                  Navigator.pop(sheetCtx); // Close bottom sheet
+                  setState(() => _isLoadingAction = true);
+                  final success = await ref
+                      .read(vendorBookingsProvider.notifier)
+                      .reject(bookingId, selectedReason);
+                  if (mounted) {
+                    setState(() => _isLoadingAction = false);
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Booking request rejected. Full refund initiated.')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPendingDecisionCard(String bookingId) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Booking Request Decision',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const Gap(12),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.pending_actions, color: Colors.amber, size: 22),
+                    ),
+                    const Gap(12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Paid Booking Awaiting Your Approval',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          Gap(2),
+                          Text(
+                            'Review the vehicle and trip details below before accepting or rejecting.',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _showRejectBottomSheet(bookingId),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red[700],
+                          side: BorderSide(color: Colors.red[300]!),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('Reject Request'),
+                      ),
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Accept Booking',
+                        onPressed: () async {
+                          setState(() => _isLoadingAction = true);
+                          final success = await ref
+                              .read(vendorBookingsProvider.notifier)
+                              .updateStatus(bookingId, 'confirmed');
+                          if (mounted) {
+                            setState(() => _isLoadingAction = false);
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Booking request accepted successfully!')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Gap(24),
+      ],
+    );
   }
 }

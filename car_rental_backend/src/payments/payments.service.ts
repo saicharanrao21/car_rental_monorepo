@@ -452,14 +452,6 @@ export class PaymentsService {
           }
         }
 
-        const confirmedBooking = await tx.booking.update({
-          where: { id: b.id },
-          data: { status: BookingStatus.CONFIRMED },
-        });
-        this.logger.log(
-          `Booking ${b.id} status updated to CONFIRMED via server-side payment verification`,
-        );
-
         if (this.invoicesService) {
           try {
             await this.invoicesService.generateInvoiceForBooking(b.id, tx);
@@ -470,7 +462,7 @@ export class PaymentsService {
           }
         }
 
-        return confirmedBooking;
+        return b;
       }
       return b;
     });
@@ -480,8 +472,8 @@ export class PaymentsService {
       this.notificationsService
         .notifyUser(
           updatedBooking.customerId,
-          'Payment Confirmed',
-          `Your payment of INR ${payment.amount} for booking ${updatedBooking.id} was successfully verified and confirmed.`,
+          'Payment Received',
+          `Your payment of INR ${payment.amount} for booking ${updatedBooking.id} was successfully verified. Awaiting host confirmation.`,
         )
         .catch((err) =>
           this.logger.error(
@@ -546,9 +538,9 @@ export class PaymentsService {
 
       if (!payment) {
         this.logger.warn(
-          `No payment record found for razorpayOrderId: ${orderId}`,
+          `Payment record not found for razorpayOrderId: ${orderId}`,
         );
-        return { received: true };
+        return { received: true, error: 'Payment not found' };
       }
 
       // Validate currency
@@ -589,16 +581,6 @@ export class PaymentsService {
           where: { id: payment.bookingId },
         });
 
-        if (b && b.status === BookingStatus.PENDING) {
-          const updated = await tx.booking.update({
-            where: { id: b.id },
-            data: { status: BookingStatus.CONFIRMED },
-          });
-          this.logger.log(
-            `Booking ${b.id} status updated to CONFIRMED due to payment capture`,
-          );
-          return updated;
-        }
         return b;
       });
 
@@ -606,8 +588,8 @@ export class PaymentsService {
         this.notificationsService
           .notifyUser(
             booking.customerId,
-            'Payment Confirmed',
-            `Your payment of INR ${payment.amount} for booking ${booking.id} was confirmed.`,
+            'Payment Received',
+            `Your payment of INR ${payment.amount} for booking ${booking.id} was received. Awaiting host confirmation.`,
           )
           .catch((err) =>
             this.logger.error(

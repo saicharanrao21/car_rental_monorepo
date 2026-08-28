@@ -30,7 +30,9 @@ class BookingDetailActionsCard extends StatelessWidget {
     final car = item.car;
     final status = booking.status.toLowerCase();
 
-    final isPending = status == 'pending';
+    final isPaid = item.paymentStatus?.toLowerCase() == 'paid';
+    final isPendingPayment = status == 'pending' && !isPaid;
+    final isWaitingOwnerConfirmation = status == 'pending' && isPaid;
     final isConfirmed = status == 'confirmed';
     final isHandoverReady = status == 'handover_ready';
     final isOngoing = status == 'ongoing';
@@ -44,8 +46,8 @@ class BookingDetailActionsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1. Pending Payment CTA
-        if (isPending) ...[
+        // 1. Unpaid Pending Payment CTA
+        if (isPendingPayment) ...[
           AppButton(
             text: 'Complete Payment (${IndianCurrencyFormatter.format(booking.totalFare, showDecimals: false)})',
             isLoading: isProcessingPayment,
@@ -64,6 +66,24 @@ class BookingDetailActionsCard extends StatelessWidget {
               if (cancelled == true && onRefresh != null) onRefresh!();
             },
             child: const Text('Cancel Booking'),
+          ),
+          const Gap(16),
+        ],
+
+        // 1b. Paid Waiting for Owner Confirmation Cancel Option
+        if (isWaitingOwnerConfirmation) ...[
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red[700],
+              side: BorderSide(color: Colors.red[300]!),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              final cancelled = await BookingCancelModal.show(context, bookingId: booking.id);
+              if (cancelled == true && onRefresh != null) onRefresh!();
+            },
+            child: const Text('Cancel Booking Request'),
           ),
           const Gap(16),
         ],

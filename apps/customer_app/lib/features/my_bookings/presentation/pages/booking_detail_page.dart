@@ -128,7 +128,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
         _refreshAll();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Payment verified and booking confirmed!'),
+            content: Text('Payment verified! Awaiting host confirmation.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -360,6 +360,13 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
 
           final booking = item.booking;
           final status = booking.status.toLowerCase();
+          final isPaid = item.paymentStatus?.toLowerCase() == 'paid';
+          final isWaitingOwnerConfirmation = status == 'pending' && isPaid;
+          final isConfirmed = status == 'confirmed' ||
+              status == 'handover_ready' ||
+              status == 'ongoing' ||
+              status == 'return_pending' ||
+              status == 'completed';
           final isCompleted = status == 'completed';
           final isCancelled = status == 'cancelled' || status == 'refunded' || status == 'refund_pending';
 
@@ -388,6 +395,55 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                   BookingDetailHeaderCard(item: item),
                   const Gap(14),
 
+                  // 1b. Waiting for Owner Confirmation Card
+                  if (isWaitingOwnerConfirmation) ...[
+                    AppCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.hourglass_top_rounded,
+                              color: Colors.amber,
+                              size: 24,
+                            ),
+                          ),
+                          const Gap(14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Waiting for Owner Confirmation',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                Gap(4),
+                                Text(
+                                  'Your payment has been received successfully. The vehicle owner is reviewing your booking request. You will be notified once the booking is confirmed.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Gap(14),
+                  ],
+
                   // 2. Trip Schedule & Locations Card
                   BookingDetailScheduleCard(item: item),
                   const Gap(14),
@@ -414,7 +470,11 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
                   ],
 
                   // 7. Host / Vendor Card
-                  BookingDetailHostCard(vendor: item.vendor, bookingId: booking.id),
+                  BookingDetailHostCard(
+                    vendor: item.vendor,
+                    bookingId: booking.id,
+                    isConfirmed: isConfirmed,
+                  ),
                   const Gap(16),
 
                   // 8. Completed Review Form

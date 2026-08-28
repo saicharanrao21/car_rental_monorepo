@@ -1,6 +1,7 @@
 export interface VendorRedactionOptions {
   isAdmin?: boolean;
   isOwner?: boolean;
+  isConfirmed?: boolean;
   isPaid?: boolean;
 }
 
@@ -52,12 +53,13 @@ export function redactVendor(
   }
   delete copy.phone;
 
-  if (options.isPaid) {
-    // Post-payment reveal: reveal real businessName and ownerName, exact coordinates
+  // Only reveal real host identity and precise location if booking is confirmed
+  if (options.isConfirmed) {
+    // Post-confirmation reveal: reveal real businessName and ownerName, exact coordinates
     return copy;
   } else {
-    // Pre-payment redaction: hide real businessName and ownerName, round coordinates to ~1km precision (2 decimals)
-    delete copy.businessName;
+    // Pre-confirmation / Unconfirmed redaction: mask real businessName and ownerName, round coordinates to ~1km precision (2 decimals)
+    copy.businessName = copy.displayName;
     delete copy.ownerName;
 
     if (copy.latitude !== undefined && copy.latitude !== null) {

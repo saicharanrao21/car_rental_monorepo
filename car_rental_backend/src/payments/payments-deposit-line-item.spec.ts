@@ -179,10 +179,11 @@ describe('Phase 5 Hardening: Payments & Deposit Line-Item Integrity (SEC-P2-03)'
           razorpayPaymentId: 'pay_rzp_abc',
         }),
       });
-      expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'book_dep_1' },
-        data: { status: BookingStatus.CONFIRMED },
-      });
+      expect(prisma.booking.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: BookingStatus.CONFIRMED },
+        }),
+      );
     });
   });
 });

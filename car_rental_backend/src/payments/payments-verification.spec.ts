@@ -155,10 +155,11 @@ describe('PaymentsService — Phase 3A Payment Verification & Integrity Tests', 
           razorpayPaymentId: paymentId,
         },
       });
-      expect(mockPrisma.booking.update).toHaveBeenCalledWith({
-        where: { id: bookingId },
-        data: { status: BookingStatus.CONFIRMED },
-      });
+      expect(mockPrisma.booking.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: BookingStatus.CONFIRMED },
+        }),
+      );
       expect(mockNotifications.notifyUser).toHaveBeenCalled();
     });
 
@@ -467,10 +468,11 @@ describe('PaymentsService — Phase 3A Payment Verification & Integrity Tests', 
           razorpayPaymentId: paymentId,
         },
       });
-      expect(mockPrisma.booking.update).toHaveBeenCalledWith({
-        where: { id: bookingId },
-        data: { status: BookingStatus.CONFIRMED },
-      });
+      expect(mockPrisma.booking.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: BookingStatus.CONFIRMED },
+        }),
+      );
     });
 
     it('should reject webhook with invalid signature', async () => {

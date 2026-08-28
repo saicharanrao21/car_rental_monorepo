@@ -1199,6 +1199,14 @@ export class BookingsService {
 
     const isAdmin = requestingUser.role === Role.ADMIN;
     const isVendor = booking.vendor.userId === requestingUser.userId;
+    const isConfirmed = [
+      BookingStatus.CONFIRMED,
+      BookingStatus.HANDOVER_READY,
+      BookingStatus.ONGOING,
+      BookingStatus.RETURN_PENDING,
+      BookingStatus.COMPLETED,
+    ].includes(booking.status);
+
     const isPaid =
       booking.payment?.status === PaymentStatus.PAID ||
       booking.payment?.status === 'PAID';
@@ -1207,6 +1215,7 @@ export class BookingsService {
     copy.vendor = redactVendor(booking.vendor, {
       isAdmin,
       isOwner: isVendor,
+      isConfirmed,
       isPaid,
     });
 
