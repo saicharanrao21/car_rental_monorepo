@@ -662,7 +662,7 @@ export class BookingsService {
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { vendor: true },
+      include: { vendor: true, securityDeposit: true },
     });
 
     if (!booking) {
@@ -840,22 +840,46 @@ export class BookingsService {
           where: { bookingId },
         });
         const amountPaid = payment?.amount || booking.totalFare;
+        const depositAmount = booking.securityDeposit?.amount || 0;
         cancellationCalc = this.cancellationPolicyService.calculateCancellation(
           {
             startDate: booking.startDate,
             cancellationTime: new Date(),
             amountPaid,
+            depositAmount,
             actorRole: requestingUser.role,
             isAdminOverride: isAdmin && reason?.includes('admin_full_refund'),
+            isPendingConfirmation: booking.status === BookingStatus.PENDING,
           },
         );
 
-        await this.paymentsService.refund(
-          bookingId,
-          cancellationCalc.refundAmountInPaise,
-          reason,
-          cancellationCalc.tier,
-        );
+        if (cancellationCalc.refundAmountInPaise > 0) {
+          await this.paymentsService.refund(
+            bookingId,
+            cancellationCalc.refundAmountInPaise,
+            reason,
+            cancellationCalc.tier,
+          );
+        }
+
+        // Reconcile and cancel any associated security deposit record
+        if (this.prisma.securityDeposit) {
+          await this.prisma.securityDeposit.updateMany({
+            where: {
+              bookingId,
+              status: {
+                in: [
+                  SecurityDepositStatus.REQUIRED,
+                  SecurityDepositStatus.HELD,
+                ],
+              },
+            },
+            data: {
+              status: SecurityDepositStatus.CANCELLED,
+              releasedAt: new Date(),
+            },
+          });
+        }
       } finally {
         if (cancelLockToken) {
           await this.bookingLockService.releaseCancellationLock(
@@ -929,7 +953,7 @@ export class BookingsService {
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { payment: true, vendor: true },
+      include: { payment: true, vendor: true, securityDeposit: true },
     });
 
     if (!booking) {
@@ -957,11 +981,15 @@ export class BookingsService {
     }
 
     const amountPaid = booking.payment?.amount || booking.totalFare;
+    const depositAmount = booking.securityDeposit?.amount || 0;
+    const isPendingConfirmation = booking.status === BookingStatus.PENDING;
     const calculation = this.cancellationPolicyService.calculateCancellation({
       startDate: booking.startDate,
       cancellationTime: new Date(),
       amountPaid,
+      depositAmount,
       actorRole: requestingUser.role,
+      isPendingConfirmation,
     });
 
     return {

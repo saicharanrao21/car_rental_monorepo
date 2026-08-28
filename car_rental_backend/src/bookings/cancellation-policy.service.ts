@@ -21,8 +21,10 @@ export interface CalculateCancellationParams {
   startDate: Date;
   cancellationTime?: Date;
   amountPaid: Decimal | number;
+  depositAmount?: Decimal | number;
   actorRole: Role;
   isAdminOverride?: boolean;
+  isPendingConfirmation?: boolean;
 }
 
 @Injectable()
@@ -39,14 +41,22 @@ export class CancellationPolicyService {
       cancellationTime = new Date(),
       actorRole,
       isAdminOverride = false,
+      isPendingConfirmation = false,
     } = params;
 
     const paidDecimal =
       params.amountPaid instanceof Decimal
         ? params.amountPaid
         : new Decimal(params.amountPaid);
+    const depositDecimal = params.depositAmount
+      ? params.depositAmount instanceof Decimal
+        ? params.depositAmount
+        : new Decimal(params.depositAmount)
+      : new Decimal(0);
 
     const paidNumber = paidDecimal.toNumber();
+    const depositNumber = depositDecimal.toNumber();
+    const fareNumber = Math.max(0, paidNumber - depositNumber);
 
     // Calculate hours remaining before trip pickup
     const diffMs = startDate.getTime() - cancellationTime.getTime();
@@ -57,8 +67,15 @@ export class CancellationPolicyService {
     let feePercent: number;
     let refundPercent: number;
 
+    // 0. Pending Owner Confirmation -> Always 100% Full Refund if cancelled before owner accepts
+    if (isPendingConfirmation) {
+      tier = 'PENDING_CONFIRMATION_FULL_REFUND';
+      tierDescription = 'Full refund (Booking cancelled prior to host confirmation)';
+      feePercent = 0;
+      refundPercent = 100;
+    }
     // 1. Vendor Cancellation / Rejection -> Always 100% Refund
-    if (actorRole === Role.VENDOR) {
+    else if (actorRole === Role.VENDOR) {
       tier = 'VENDOR_CANCELLED';
       tierDescription = 'Cancelled or rejected by fleet owner (100% refund)';
       feePercent = 0;
@@ -97,10 +114,10 @@ export class CancellationPolicyService {
     }
 
     const feeAmountNumber = Number(
-      ((paidNumber * feePercent) / 100).toFixed(2),
+      ((fareNumber * feePercent) / 100).toFixed(2),
     );
     const refundAmountNumber = Number(
-      ((paidNumber * refundPercent) / 100).toFixed(2),
+      (paidNumber - feeAmountNumber).toFixed(2),
     );
 
     const cancellationFee = new Decimal(feeAmountNumber);

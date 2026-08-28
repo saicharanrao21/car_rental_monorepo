@@ -86,6 +86,9 @@ describe('Phase 23A: Owner Confirmation Gate & Host Details Privacy Security Sui
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      securityDeposit: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
     };
 
     paymentsService = {

@@ -167,4 +167,49 @@ describe('CancellationPolicyService — Phase 3B Policy Engine Tests', () => {
     expect(result.cancellationFeePercent).toBe(0);
     expect(result.refundAmountPercent).toBe(100);
   });
+
+  it('should calculate 100% full refund when booking is cancelled while pending confirmation, even if < 6 hours remaining', () => {
+    // 3 hours before trip start
+    const cancellationTime = new Date('2026-08-20T09:00:00.000Z');
+
+    const result = service.calculateCancellation({
+      startDate: baseStartDate,
+      cancellationTime,
+      amountPaid: totalPaid,
+      actorRole: Role.CUSTOMER,
+      isPendingConfirmation: true,
+    });
+
+    expect(result.tier).toBe('PENDING_CONFIRMATION_FULL_REFUND');
+    expect(result.cancellationFeePercent).toBe(0);
+    expect(result.cancellationFee.toNumber()).toBe(0);
+    expect(result.refundAmountPercent).toBe(100);
+    expect(result.refundAmount.toNumber()).toBe(5000);
+    expect(result.refundAmountInPaise).toBe(500000);
+    expect(result.isEligibleForRefund).toBe(true);
+  });
+
+  it('should protect security deposit from cancellation fee on customer cancellation', () => {
+    // 12 hours before pickup (25% cancellation fee tier)
+    const cancellationTime = new Date('2026-08-20T00:00:00.000Z');
+    const fare = new Decimal(4000.0);
+    const deposit = new Decimal(1000.0);
+    const totalWithDeposit = new Decimal(5000.0);
+
+    const result = service.calculateCancellation({
+      startDate: baseStartDate,
+      cancellationTime,
+      amountPaid: totalWithDeposit,
+      depositAmount: deposit,
+      actorRole: Role.CUSTOMER,
+    });
+
+    // 25% fee on 4000 fare = 1000 fee
+    // Refund = 5000 - 1000 = 4000 (3000 fare refund + 1000 full deposit refund)
+    expect(result.tier).toBe('MODERATE_CANCELLATION');
+    expect(result.cancellationFeePercent).toBe(25);
+    expect(result.cancellationFee.toNumber()).toBe(1000);
+    expect(result.refundAmount.toNumber()).toBe(4000);
+    expect(result.refundAmountInPaise).toBe(400000);
+  });
 });

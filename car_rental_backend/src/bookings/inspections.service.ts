@@ -53,7 +53,7 @@ export class InspectionsService {
     if (dto.type === InspectionType.PRE_TRIP) {
       if (
         booking.status !== BookingStatus.CONFIRMED &&
-        booking.status !== BookingStatus.PENDING
+        booking.status !== BookingStatus.HANDOVER_READY
       ) {
         throw new BadRequestException(
           `Pre-trip inspection can only be recorded for CONFIRMED bookings. Current status: ${booking.status}`,
