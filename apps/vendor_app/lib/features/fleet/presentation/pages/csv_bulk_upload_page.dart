@@ -94,9 +94,9 @@ Toyota,Innova,2021,VAN,Diesel,7,true,MH 12 XY 4321,20,4500,350,LOCAL;OUTSTATION'
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey[300]!),
               ),
-              child: SelectableText(
+              child: const SelectableText(
                 sampleCsvTemplate,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                style: TextStyle(fontFamily: 'monospace', fontSize: 11),
               ),
             ),
             const Gap(20),
@@ -114,6 +114,7 @@ Toyota,Innova,2021,VAN,Diesel,7,true,MH 12 XY 4321,20,4500,350,LOCAL;OUTSTATION'
         withData: true,
       );
 
+      if (!mounted) return;
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
@@ -252,6 +253,7 @@ Toyota,Innova,2021,VAN,Diesel,7,true,MH 12 XY 4321,20,4500,350,LOCAL;OUTSTATION'
         _rows = parsedRows;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isParsing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error parsing CSV: $e')),
@@ -349,11 +351,11 @@ Toyota,Innova,2021,VAN,Diesel,7,true,MH 12 XY 4321,20,4500,350,LOCAL;OUTSTATION'
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.upload_file, color: AppColors.primary, size: 28),
-                        const Gap(12),
-                        const Expanded(
+                        Icon(Icons.upload_file, color: AppColors.primary, size: 28),
+                        Gap(12),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

@@ -216,7 +216,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
           title: const Text('Upload Document'),
           content: SingleChildScrollView(
             child: Column(
@@ -225,7 +225,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
               children: [
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Document Type', border: OutlineInputBorder()),
-                  value: docType,
+                  initialValue: docType,
                   items: const [
                     DropdownMenuItem(value: 'TRADE_LICENSE', child: Text('Trade License (Vendor Level)')),
                     DropdownMenuItem(value: 'RC_BOOK', child: Text('RC Book')),
@@ -597,7 +597,7 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                               const Gap(4),
                               Text(
                                 '• Priority placement in search results for all your vehicles\n• Boosted fleet visibility and dedicated partner support\n• Reduced platform commission fees on outstation trips',
-                                style: TextStyle(fontSize: 12, color: Colors.purple[900]!.withOpacity(0.9), height: 1.4),
+                                style: TextStyle(fontSize: 12, color: Colors.purple[900]!.withValues(alpha: 0.9), height: 1.4),
                               ),
                             ],
                           ),

@@ -170,11 +170,11 @@ class _DamageClaimSubmissionSheetState extends ConsumerState<DamageClaimSubmissi
               const Gap(16),
 
               // Title
-              Row(
+              const Row(
                 children: [
-                  const Icon(Icons.report_problem_outlined, color: Colors.red, size: 24),
-                  const Gap(10),
-                  const Expanded(
+                  Icon(Icons.report_problem_outlined, color: Colors.red, size: 24),
+                  Gap(10),
+                  Expanded(
                     child: Text(
                       'Report Post-Trip Vehicle Damage',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

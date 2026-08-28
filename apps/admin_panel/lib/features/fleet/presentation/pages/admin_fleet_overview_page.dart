@@ -571,7 +571,7 @@ class _CarDetailPanel extends ConsumerWidget {
                               ),
                               Switch(
                                 value: pkg.isActive,
-                                activeColor: AppColors.primary,
+                                activeThumbColor: AppColors.primary,
                                 onChanged: (val) {
                                   ref.read(adminFleetControllerProvider.notifier)
                                       .toggleMileagePackageActive(car.id, pkg.id, val);

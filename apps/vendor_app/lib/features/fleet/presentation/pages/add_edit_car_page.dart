@@ -173,6 +173,8 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       helpText: 'Select $docType Expiry Date',
     );
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -280,7 +282,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedTripType,
+                  initialValue: selectedTripType,
                   decoration: const InputDecoration(labelText: 'Trip Type'),
                   items: _selectedTripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                   onChanged: (val) {

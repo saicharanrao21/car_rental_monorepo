@@ -285,6 +285,13 @@ describe('Configurable Mileage Packages Test Suite', () => {
       isActive: true,
     };
 
+    const getFutureDates = (durationDays: number) => {
+      const now = new Date();
+      const start = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + durationDays * 24 * 60 * 60 * 1000);
+      return { startDate: start, endDate: end };
+    };
+
     it('calculates authoritative price from selected package and stores immutable snapshot', async () => {
       prisma.car.findUnique.mockResolvedValue(mockCar);
       prisma.mileagePackage.findUnique.mockResolvedValue(activePackage);
@@ -296,8 +303,7 @@ describe('Configurable Mileage Packages Test Suite', () => {
         return Promise.resolve({ id: 'bk_123', ...data, car: mockCar, customer: { id: 'cust_1' } });
       });
 
-      const startDate = new Date('2026-08-25T10:00:00.000Z');
-      const endDate = new Date('2026-08-28T10:00:00.000Z'); // 3 days
+      const { startDate, endDate } = getFutureDates(3); // 3 days
 
       const booking = await bookingsService.createBooking('cust_1', {
         carId: 'car_1',
@@ -329,13 +335,15 @@ describe('Configurable Mileage Packages Test Suite', () => {
         carId: 'car_OTHER',
       });
 
+      const { startDate, endDate } = getFutureDates(1);
+
       await expect(
         bookingsService.createBooking('cust_1', {
           carId: 'car_1',
           tripType: TripType.SELF_DRIVE,
           pickupLocation: 'Mumbai',
-          startDate: '2026-08-25T10:00:00.000Z',
-          endDate: '2026-08-26T10:00:00.000Z',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
           mileagePackageId: 'pkg_200km',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -348,13 +356,15 @@ describe('Configurable Mileage Packages Test Suite', () => {
         isActive: false,
       });
 
+      const { startDate, endDate } = getFutureDates(1);
+
       await expect(
         bookingsService.createBooking('cust_1', {
           carId: 'car_1',
           tripType: TripType.SELF_DRIVE,
           pickupLocation: 'Mumbai',
-          startDate: '2026-08-25T10:00:00.000Z',
-          endDate: '2026-08-26T10:00:00.000Z',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
           mileagePackageId: 'pkg_200km',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -367,13 +377,15 @@ describe('Configurable Mileage Packages Test Suite', () => {
         tripType: TripType.OUTSTATION,
       });
 
+      const { startDate, endDate } = getFutureDates(1);
+
       await expect(
         bookingsService.createBooking('cust_1', {
           carId: 'car_1',
           tripType: TripType.SELF_DRIVE,
           pickupLocation: 'Mumbai',
-          startDate: '2026-08-25T10:00:00.000Z',
-          endDate: '2026-08-26T10:00:00.000Z',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
           mileagePackageId: 'pkg_200km',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -389,8 +401,7 @@ describe('Configurable Mileage Packages Test Suite', () => {
         return Promise.resolve({ id: 'bk_legacy', ...data, car: mockCar, customer: { id: 'cust_1' } });
       });
 
-      const startDate = new Date('2026-08-25T10:00:00.000Z');
-      const endDate = new Date('2026-08-27T10:00:00.000Z'); // 2 days
+      const { startDate, endDate } = getFutureDates(2); // 2 days
 
       const booking = await bookingsService.createBooking('cust_1', {
         carId: 'car_1',

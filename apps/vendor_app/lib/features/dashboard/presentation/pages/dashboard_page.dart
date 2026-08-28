@@ -132,7 +132,7 @@ class DashboardPage extends ConsumerWidget {
                                   const Gap(2),
                                   Text(
                                     'Documents are expiring within 30 days or expired. Please upload renewed documents.',
-                                    style: TextStyle(fontSize: 12, color: Colors.amber[900]!.withOpacity(0.85)),
+                                    style: TextStyle(fontSize: 12, color: Colors.amber[900]!.withValues(alpha: 0.85)),
                                   ),
                                 ],
                               ),
