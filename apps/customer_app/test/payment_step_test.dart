@@ -9,6 +9,7 @@ import 'package:customer_app/core/providers/session_provider.dart';
 import 'package:customer_app/core/providers/api_providers.dart';
 import 'package:core/core.dart';
 import 'package:models/models.dart';
+import 'package:customer_app/features/wallet/presentation/providers/wallet_providers.dart';
 
 class MockTokenStorage extends TokenStorage {
   @override
@@ -65,6 +66,23 @@ class MockInterceptor extends Interceptor {
           'success': true,
           'bookingId': 'booking_test_id',
           'status': 'PAID',
+        },
+        statusCode: 200,
+      ));
+    } else if (options.path.contains('/wallets')) {
+      handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'id': 'wallet_mock_1',
+          'userId': 'cust_123',
+          'currency': 'INR',
+          'availableBalance': 0.0,
+          'lockedBalance': 0.0,
+          'realBalance': 0.0,
+          'promoBalance': 0.0,
+          'status': 'ACTIVE',
+          'createdAt': '2026-01-01T00:00:00.000Z',
+          'updatedAt': '2026-01-01T00:00:00.000Z',
         },
         statusCode: 200,
       ));
@@ -136,12 +154,26 @@ void main() {
       totalFare: 5000.00,
     );
 
+    final mockWallet = WalletModel(
+      id: 'wallet_1',
+      userId: 'cust_123',
+      currency: 'INR',
+      availableBalance: 0.0,
+      lockedBalance: 0.0,
+      realBalance: 0.0,
+      promoBalance: 0.0,
+      status: WalletStatus.ACTIVE,
+      createdAt: DateTime.parse('2026-01-01T00:00:00.000Z'),
+      updatedAt: DateTime.parse('2026-01-01T00:00:00.000Z'),
+    );
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           apiClientProvider.overrideWithValue(mockApiClient),
           sessionProvider.overrideWith(() => MyMockSessionNotifier(mockUser)),
           bookingDraftProvider.overrideWith(() => MyMockBookingDraftNotifier(testDraft)),
+          customerWalletProvider.overrideWith((ref) async => mockWallet),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -155,15 +187,18 @@ void main() {
     );
 
     // Wait for the session state to authenticate
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Verify initial state
     expect(find.text('Select Payment Method'), findsOneWidget);
     expect(find.textContaining('Secure checkout powered by Razorpay'), findsOneWidget);
 
-    // Tap Pay button (AppButton has text 'Pay ₹5,000')
+    // Scroll to Pay button and tap
     final payButtonFinder = find.widgetWithText(ElevatedButton, 'Pay ₹5,000');
     expect(payButtonFinder, findsOneWidget);
+    await tester.ensureVisible(payButtonFinder);
+    await tester.pumpAndSettle();
 
     // Run async interactions in runAsync block to allow actual Futures to resolve
     await tester.runAsync(() async {

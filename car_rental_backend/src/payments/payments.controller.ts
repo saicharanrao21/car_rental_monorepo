@@ -30,7 +30,11 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER)
   async createOrder(@Req() req: any, @Body() dto: CreateOrderDto) {
-    return this.paymentsService.createOrder(dto.bookingId, req.user.userId);
+    return this.paymentsService.createOrder(
+      dto.bookingId,
+      req.user.userId,
+      dto.useWallet,
+    );
   }
 
   // 2. POST /payments/verify (CUSTOMER)

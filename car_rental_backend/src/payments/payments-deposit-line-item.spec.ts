@@ -73,11 +73,13 @@ describe('Phase 5 Hardening: Payments & Deposit Line-Item Integrity (SEC-P2-03)'
       const res = await service.createOrder('book_dep_1', 'cust_1');
 
       expect(res.amount).toBe(1500000); // 15,000 * 100 paise
-      expect(res.breakdown).toEqual({
-        tripFare: 10000,
-        securityDeposit: 5000,
-        totalAmount: 15000,
-      });
+      expect(res.breakdown).toEqual(
+        expect.objectContaining({
+          tripFare: 10000,
+          securityDeposit: 5000,
+          totalAmount: 15000,
+        }),
+      );
       expect(prisma.payment.create).toHaveBeenCalledWith({
         data: {
           bookingId: 'book_dep_1',
@@ -103,11 +105,13 @@ describe('Phase 5 Hardening: Payments & Deposit Line-Item Integrity (SEC-P2-03)'
       const res = await service.createOrder('book_nodep_1', 'cust_1');
 
       expect(res.amount).toBe(800000); // 8,000 * 100 paise
-      expect(res.breakdown).toEqual({
-        tripFare: 8000,
-        securityDeposit: 0,
-        totalAmount: 8000,
-      });
+      expect(res.breakdown).toEqual(
+        expect.objectContaining({
+          tripFare: 8000,
+          securityDeposit: 0,
+          totalAmount: 8000,
+        }),
+      );
     });
 
     it('rejects duplicate order creation if payment is already PAID', async () => {

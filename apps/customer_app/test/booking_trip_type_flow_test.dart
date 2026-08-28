@@ -260,7 +260,8 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       // Normal booking flow should be active
       expect(find.text('Step 1 of 5: Trip Details'), findsOneWidget);

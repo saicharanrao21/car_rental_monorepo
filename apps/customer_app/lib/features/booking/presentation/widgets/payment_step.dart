@@ -9,6 +9,7 @@ import '../providers/booking_flow_providers.dart';
 import '../../domain/services/payment_flow_service.dart';
 import '../../../../core/providers/session_provider.dart';
 import 'booking_payment_method_selector.dart';
+import '../../../wallet/presentation/providers/wallet_providers.dart';
 
 class PaymentStep extends ConsumerStatefulWidget {
   final VoidCallback onBack;
@@ -26,6 +27,7 @@ class PaymentStep extends ConsumerStatefulWidget {
 
 class PaymentStepState extends ConsumerState<PaymentStep> {
   int _selectedMethod = 0;
+  bool _useWallet = false;
   final _razorpay = Razorpay();
   bool _isProcessingPayment = false;
   String? _errorMessage;
@@ -173,13 +175,28 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
             draft: draft,
           );
 
-      // 2. Fetch existing CREATED order or create fresh order
+      // 2. Fetch existing CREATED order or create fresh order with optional wallet balance
       final paymentService = ref.read(paymentFlowServiceProvider);
-      final order = await paymentService.getOrCreatePaymentOrder(booking.id);
+      final order = await paymentService.getOrCreatePaymentOrder(
+        booking.id,
+        useWallet: _useWallet,
+      );
 
       _currentBookingId = booking.id;
       _currentOrderId = order.razorpayOrderId;
 
+      if (order.isFullWallet) {
+        // Full wallet payment -> settle directly via backend verification
+        await _verifyAndConfirmPayment(
+          bookingId: booking.id,
+          orderId: order.razorpayOrderId ?? 'order_wallet_full_${booking.id}',
+          paymentId: 'pay_wallet_${booking.id}',
+          signature: 'wallet_signature',
+        );
+        return;
+      }
+
+      // Otherwise launch Razorpay for gateway portion
       paymentService.launchRazorpayCheckout(
         razorpay: _razorpay,
         order: order,
@@ -211,10 +228,24 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
+    final walletAsync = ref.watch(customerWalletProvider);
     final createState = ref.watch(createBookingFlowProvider);
     final isSubmitLoading = createState.isLoading;
     final isProcessing = isSubmitLoading || _isProcessingPayment;
     final cs = Theme.of(context).colorScheme;
+
+    final availableWalletBalance = walletAsync.value?.availableBalance ?? 0.0;
+    final isWalletEligible = availableWalletBalance > 0 &&
+        (walletAsync.value?.status == WalletStatus.ACTIVE);
+    final walletAppliedAmount = (_useWallet && isWalletEligible)
+        ? (availableWalletBalance > draft.totalFare
+            ? draft.totalFare
+            : availableWalletBalance)
+        : 0.0;
+    final remainingPayable = (_useWallet && walletAppliedAmount > 0)
+        ? (draft.totalFare - walletAppliedAmount)
+        : draft.totalFare;
+    final isFullWallet = remainingPayable <= 0 && _useWallet && isWalletEligible;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -222,82 +253,88 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Real Razorpay payment banner ─────────────────────────
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.18),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.shield_outlined,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const Gap(12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Secure checkout powered by Razorpay',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                          if (isProcessing) ...[
-                            const Gap(8),
-                            const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const Gap(2),
-                      Text(
-                        '256-bit encrypted gateway. Your transaction and payment details are safe and tokenized.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // ── Wallet Payment Selection Section ───────────────────────
+          _buildWalletCard(context, cs, walletAsync, draft.totalFare),
           const Gap(16),
 
-          // ── Payment Methods Selector ──────────────────────────────
-          BookingPaymentMethodSelector(
-            selectedMethod: _selectedMethod,
-            onMethodSelected: (idx) => setState(() => _selectedMethod = idx),
-          ),
-          const Gap(16),
+          // ── Real Razorpay payment banner (if not full wallet) ─────
+          if (!isFullWallet) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.shield_outlined,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Secure checkout powered by Razorpay',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            if (isProcessing) ...[
+                              const Gap(8),
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const Gap(2),
+                        Text(
+                          '256-bit encrypted gateway. Your transaction and payment details are safe and tokenized.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Gap(16),
+
+            // ── Payment Methods Selector ──────────────────────────────
+            BookingPaymentMethodSelector(
+              selectedMethod: _selectedMethod,
+              onMethodSelected: (idx) => setState(() => _selectedMethod = idx),
+            ),
+            const Gap(16),
+          ],
 
           // ── Order Summary Card ────────────────────────────────────
           Container(
@@ -374,6 +411,15 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                     valueColor: Colors.green,
                   ),
                 ],
+                if (_useWallet && walletAppliedAmount > 0) ...[
+                  const Gap(6),
+                  _summaryRow(
+                    'Wallet Applied',
+                    '-${IndianCurrencyFormatter.format(walletAppliedAmount, showDecimals: false)}',
+                    cs,
+                    valueColor: Colors.green.shade700,
+                  ),
+                ],
                 const Gap(10),
                 Divider(
                   height: 1,
@@ -384,7 +430,7 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Total Amount Payable',
+                      isFullWallet ? 'Total Paid from Wallet' : 'Amount to Pay',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -393,7 +439,7 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                     ),
                     Text(
                       IndianCurrencyFormatter.format(
-                        draft.totalFare,
+                        remainingPayable > 0 ? remainingPayable : walletAppliedAmount,
                         showDecimals: false,
                       ),
                       style: const TextStyle(
@@ -460,7 +506,9 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                       ),
                     )
                   : Text(
-                      'Pay ${IndianCurrencyFormatter.format(draft.totalFare, showDecimals: false)}',
+                      isFullWallet
+                          ? 'Confirm & Pay with Wallet'
+                          : 'Pay ${IndianCurrencyFormatter.format(remainingPayable, showDecimals: false)}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -470,6 +518,142 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildWalletCard(
+    BuildContext context,
+    ColorScheme cs,
+    AsyncValue<WalletModel> walletAsync,
+    double totalPayable,
+  ) {
+    return walletAsync.when(
+      loading: () => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (wallet) {
+        final available = wallet.availableBalance;
+        final hasBalance = available > 0 && wallet.status == WalletStatus.ACTIVE;
+        final appliedAmount = _useWallet
+            ? (available > totalPayable ? totalPayable : available)
+            : 0.0;
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _useWallet && hasBalance
+                ? AppColors.primary.withValues(alpha: 0.04)
+                : cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _useWallet && hasBalance
+                  ? AppColors.primary.withValues(alpha: 0.3)
+                  : cs.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                      ),
+                      const Gap(10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'DriveGo Wallet',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Available: ${IndianCurrencyFormatter.format(available, showDecimals: false)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: hasBalance
+                                  ? Colors.green.shade700
+                                  : cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Switch.adaptive(
+                    value: _useWallet && hasBalance,
+                    onChanged: hasBalance
+                        ? (val) => setState(() => _useWallet = val)
+                        : null,
+                    activeTrackColor: AppColors.primary,
+                  ),
+                ],
+              ),
+              if (_useWallet && hasBalance) ...[
+                const Gap(10),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.25),
+                ),
+                const Gap(8),
+                if (wallet.promoBalance > 0)
+                  _summaryRow(
+                    'Promotional Credit',
+                    IndianCurrencyFormatter.format(wallet.promoBalance,
+                        showDecimals: false),
+                    cs,
+                  ),
+                if (wallet.realBalance > 0) ...[
+                  const Gap(4),
+                  _summaryRow(
+                    'Wallet Balance',
+                    IndianCurrencyFormatter.format(wallet.realBalance,
+                        showDecimals: false),
+                    cs,
+                  ),
+                ],
+                const Gap(4),
+                _summaryRow(
+                  'Applied to Booking',
+                  '-${IndianCurrencyFormatter.format(appliedAmount, showDecimals: false)}',
+                  cs,
+                  valueColor: Colors.green.shade700,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 

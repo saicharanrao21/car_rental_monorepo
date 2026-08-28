@@ -17,38 +17,28 @@ class MockTokenStorage extends TokenStorage {
 }
 
 void main() {
-  test('PaymentFlowService reuses existing CREATED order and skips create-order', () async {
-    bool createOrderCalled = false;
-    bool getPaymentCalled = false;
+  test('PaymentFlowService creates order with useWallet: false', () async {
+    Map<String, dynamic>? createPayload;
 
     final dio = Dio();
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (options.path == '/payments/booking_existing_123' && options.method == 'GET') {
-          getPaymentCalled = true;
+        if (options.path == '/payments/create-order' && options.method == 'POST') {
+          createPayload = options.data as Map<String, dynamic>;
           handler.resolve(Response(
             requestOptions: options,
             data: {
-              'id': 'pay_db_1',
-              'bookingId': 'booking_existing_123',
-              'razorpayOrderId': 'order_existing_456',
-              'status': 'CREATED',
-              'amount': 5366.4,
-              'amountInPaise': 536640,
+              'orderId': 'order_standard_123',
+              'amount': 300000,
               'currency': 'INR',
               'keyId': 'rzp_test_public_key',
-            },
-            statusCode: 200,
-          ));
-        } else if (options.path == '/payments/create-order' && options.method == 'POST') {
-          createOrderCalled = true;
-          handler.resolve(Response(
-            requestOptions: options,
-            data: {
-              'orderId': 'order_new_789',
-              'amount': 536640,
-              'currency': 'INR',
-              'keyId': 'rzp_test_public_key',
+              'isFullWallet': false,
+              'breakdown': {
+                'tripFare': 3000.0,
+                'totalAmount': 3000.0,
+                'walletApplied': 0.0,
+                'gatewayAmount': 3000.0,
+              },
             },
             statusCode: 201,
           ));
@@ -61,39 +51,44 @@ void main() {
     final apiClient = ApiClient(tokenStorage: MockTokenStorage(), dio: dio);
     final paymentService = PaymentFlowService(apiClient: apiClient);
 
-    final order = await paymentService.getOrCreatePaymentOrder('booking_existing_123');
+    final order = await paymentService.getOrCreatePaymentOrder(
+      'booking_test_1',
+      useWallet: false,
+    );
 
-    expect(getPaymentCalled, isTrue);
-    expect(createOrderCalled, isFalse);
-    expect(order.razorpayOrderId, 'order_existing_456');
-    expect(order.keyId, 'rzp_test_public_key');
-    expect(order.amountInPaise, 536640);
+    expect(createPayload, isNotNull);
+    expect(createPayload!['bookingId'], 'booking_test_1');
+    expect(createPayload!['useWallet'], isFalse);
+    expect(order.razorpayOrderId, 'order_standard_123');
+    expect(order.isFullWallet, isFalse);
+    expect(order.amountInPaise, 300000);
     expect(order.isUsableCreatedOrder, isTrue);
   });
 
-  test('PaymentFlowService creates fresh order when no existing order is present', () async {
-    bool createOrderCalled = false;
-    bool getPaymentCalled = false;
+  test('PaymentFlowService creates split order with useWallet: true', () async {
+    Map<String, dynamic>? createPayload;
 
     final dio = Dio();
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (options.path == '/payments/booking_fresh_123' && options.method == 'GET') {
-          getPaymentCalled = true;
-          handler.reject(DioException(
-            requestOptions: options,
-            response: Response(requestOptions: options, statusCode: 404),
-            type: DioExceptionType.badResponse,
-          ));
-        } else if (options.path == '/payments/create-order' && options.method == 'POST') {
-          createOrderCalled = true;
+        if (options.path == '/payments/create-order' && options.method == 'POST') {
+          createPayload = options.data as Map<String, dynamic>;
           handler.resolve(Response(
             requestOptions: options,
             data: {
-              'orderId': 'order_fresh_789',
-              'amount': 536640,
+              'orderId': 'order_split_456',
+              'amount': 225000,
               'currency': 'INR',
-              'keyId': 'rzp_test_fresh_key',
+              'keyId': 'rzp_test_public_key',
+              'isFullWallet': false,
+              'breakdown': {
+                'tripFare': 3000.0,
+                'totalAmount': 3000.0,
+                'walletApplied': 750.0,
+                'promoApplied': 250.0,
+                'realApplied': 500.0,
+                'gatewayAmount': 2250.0,
+              },
             },
             statusCode: 201,
           ));
@@ -106,13 +101,60 @@ void main() {
     final apiClient = ApiClient(tokenStorage: MockTokenStorage(), dio: dio);
     final paymentService = PaymentFlowService(apiClient: apiClient);
 
-    final order = await paymentService.getOrCreatePaymentOrder('booking_fresh_123');
+    final order = await paymentService.getOrCreatePaymentOrder(
+      'booking_test_1',
+      useWallet: true,
+    );
 
-    expect(getPaymentCalled, isTrue);
-    expect(createOrderCalled, isTrue);
-    expect(order.razorpayOrderId, 'order_fresh_789');
-    expect(order.keyId, 'rzp_test_fresh_key');
-    expect(order.amountInPaise, 536640);
+    expect(createPayload, isNotNull);
+    expect(createPayload!['useWallet'], isTrue);
+    expect(order.razorpayOrderId, 'order_split_456');
+    expect(order.isFullWallet, isFalse);
+    expect(order.walletApplied, 750.0);
+    expect(order.gatewayAmount, 2250.0);
+    expect(order.amountInPaise, 225000);
+  });
+
+  test('PaymentFlowService creates and handles full wallet order', () async {
+    final dio = Dio();
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (options.path == '/payments/create-order' && options.method == 'POST') {
+          handler.resolve(Response(
+            requestOptions: options,
+            data: {
+              'orderId': 'order_wallet_full_booking_test_1',
+              'amount': 0,
+              'currency': 'INR',
+              'keyId': 'rzp_test_public_key',
+              'isFullWallet': true,
+              'breakdown': {
+                'tripFare': 500.0,
+                'totalAmount': 500.0,
+                'walletApplied': 500.0,
+                'promoApplied': 250.0,
+                'realApplied': 250.0,
+                'gatewayAmount': 0.0,
+              },
+            },
+            statusCode: 201,
+          ));
+        } else {
+          handler.next(options);
+        }
+      },
+    ));
+
+    final apiClient = ApiClient(tokenStorage: MockTokenStorage(), dio: dio);
+    final paymentService = PaymentFlowService(apiClient: apiClient);
+
+    final order = await paymentService.getOrCreatePaymentOrder(
+      'booking_test_1',
+      useWallet: true,
+    );
+
+    expect(order.isFullWallet, isTrue);
+    expect(order.amountInPaise, 0);
     expect(order.isUsableCreatedOrder, isTrue);
   });
 

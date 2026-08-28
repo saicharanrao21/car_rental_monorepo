@@ -8,6 +8,11 @@ class PaymentOrderModel {
   final String currency;
   final String? keyId;
   final String status; // CREATED, PAID, FAILED, REFUNDED
+  final bool isFullWallet;
+  final double walletApplied;
+  final double promoApplied;
+  final double realApplied;
+  final double gatewayAmount;
 
   const PaymentOrderModel({
     this.id,
@@ -19,15 +24,19 @@ class PaymentOrderModel {
     required this.currency,
     this.keyId,
     required this.status,
+    this.isFullWallet = false,
+    this.walletApplied = 0.0,
+    this.promoApplied = 0.0,
+    this.realApplied = 0.0,
+    this.gatewayAmount = 0.0,
   });
 
   bool get isUsableCreatedOrder =>
       status.toUpperCase() == 'CREATED' &&
       razorpayOrderId != null &&
       razorpayOrderId!.isNotEmpty &&
-      keyId != null &&
-      keyId!.isNotEmpty &&
-      amountInPaise > 0;
+      (isFullWallet ||
+          (keyId != null && keyId!.isNotEmpty && amountInPaise > 0));
 
   factory PaymentOrderModel.fromJson(Map<String, dynamic> json) {
     final rawAmount = json['amount'];
@@ -64,17 +73,35 @@ class PaymentOrderModel {
       }
     }
 
+    final breakdown = json['breakdown'] is Map ? json['breakdown'] as Map : null;
+    final rzOrderId =
+        (json['razorpayOrderId'] ?? json['orderId']) as String?;
+    final explicitFullWallet = json['isFullWallet'] == true ||
+        (rzOrderId != null && rzOrderId.startsWith('order_wallet_full_'));
+
     return PaymentOrderModel(
       id: json['id'] as String?,
       bookingId: (json['bookingId'] as String?) ?? '',
-      razorpayOrderId:
-          (json['razorpayOrderId'] ?? json['orderId']) as String?,
+      razorpayOrderId: rzOrderId,
       razorpayPaymentId: json['razorpayPaymentId'] as String?,
       amount: parsedAmount,
       amountInPaise: parsedAmountInPaise,
       currency: (json['currency'] as String?) ?? 'INR',
       keyId: (json['keyId'] as String?) ?? 'rzp_test_TPzexZ2MVR3a1e',
       status: (json['status'] as String?) ?? 'CREATED',
+      isFullWallet: explicitFullWallet,
+      walletApplied: breakdown != null
+          ? ((breakdown['walletApplied'] as num?)?.toDouble() ?? 0.0)
+          : (json['walletApplied'] as num?)?.toDouble() ?? 0.0,
+      promoApplied: breakdown != null
+          ? ((breakdown['promoApplied'] as num?)?.toDouble() ?? 0.0)
+          : (json['promoApplied'] as num?)?.toDouble() ?? 0.0,
+      realApplied: breakdown != null
+          ? ((breakdown['realApplied'] as num?)?.toDouble() ?? 0.0)
+          : (json['realApplied'] as num?)?.toDouble() ?? 0.0,
+      gatewayAmount: breakdown != null
+          ? ((breakdown['gatewayAmount'] as num?)?.toDouble() ?? parsedAmount)
+          : (json['gatewayAmount'] as num?)?.toDouble() ?? parsedAmount,
     );
   }
 
@@ -89,6 +116,11 @@ class PaymentOrderModel {
       'currency': currency,
       'keyId': keyId,
       'status': status,
+      'isFullWallet': isFullWallet,
+      'walletApplied': walletApplied,
+      'promoApplied': promoApplied,
+      'realApplied': realApplied,
+      'gatewayAmount': gatewayAmount,
     };
   }
 }

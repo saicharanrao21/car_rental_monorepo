@@ -11,28 +11,18 @@ class PaymentFlowService {
 
   PaymentFlowService({required ApiClient apiClient}) : _apiClient = apiClient;
 
-  /// Fetches an existing CREATED payment order if valid, or creates a new one.
-  /// If a valid CREATED order exists on the server, POST /payments/create-order is skipped.
-  Future<PaymentOrderModel> getOrCreatePaymentOrder(String bookingId) async {
-    // 1. Check existing payment order via GET /payments/:bookingId
-    try {
-      final existingRes = await _apiClient.dio.get('/payments/$bookingId');
-      if (existingRes.data != null) {
-        final existingOrder = PaymentOrderModel.fromJson(
-          Map<String, dynamic>.from(existingRes.data),
-        );
-        if (existingOrder.isUsableCreatedOrder) {
-          return existingOrder;
-        }
-      }
-    } catch (_) {
-      // If GET fails (e.g. 404 or no record), proceed to create-order
-    }
-
-    // 2. Create fresh order via POST /payments/create-order
+  /// Fetches an existing CREATED payment order if valid, or creates a new one with optional wallet balance.
+  Future<PaymentOrderModel> getOrCreatePaymentOrder(
+    String bookingId, {
+    bool useWallet = false,
+  }) async {
+    // 1. Create fresh server-authoritative order via POST /payments/create-order
     final createRes = await _apiClient.dio.post(
       '/payments/create-order',
-      data: {'bookingId': bookingId},
+      data: {
+        'bookingId': bookingId,
+        'useWallet': useWallet,
+      },
     );
     final orderData = Map<String, dynamic>.from(createRes.data);
     orderData['bookingId'] = bookingId;

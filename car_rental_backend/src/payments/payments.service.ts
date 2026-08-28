@@ -5,6 +5,9 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Inject,
+  forwardRef,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,12 +19,15 @@ import {
   BookingStatus,
   RefundStatus,
   SecurityDepositStatus,
+  WalletStatus,
+  LedgerEntryType,
+  WalletBucketType,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { InvoicesService } from '../invoices/invoices.service';
-import { Optional } from '@nestjs/common';
+import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class PaymentsService {
@@ -37,6 +43,9 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
     @Optional() private readonly invoicesService?: InvoicesService,
+    @Optional()
+    @Inject(forwardRef(() => WalletsService))
+    private readonly walletsService?: WalletsService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -81,9 +90,13 @@ export class PaymentsService {
   }
 
   /**
-   * Creates a Razorpay Order for a PENDING booking.
+   * Creates a payment order for a PENDING booking with server-authoritative wallet & split-payment support.
    */
-  async createOrder(bookingId: string, customerId: string) {
+  async createOrder(
+    bookingId: string,
+    customerId: string,
+    useWallet = false,
+  ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { securityDeposit: true },
@@ -124,28 +137,57 @@ export class PaymentsService {
     const tripFare = booking.totalFare;
     const depositAmount = booking.securityDeposit?.amount || new Decimal(0);
     const totalAmount = tripFare.add(depositAmount);
-    const amountInPaise = Math.round(totalAmount.toNumber() * 100);
 
+    let walletApplied = new Decimal(0);
+    let promoApplied = new Decimal(0);
+    let realApplied = new Decimal(0);
+    let gatewayAmount = totalAmount;
+
+    if (useWallet && this.walletsService) {
+      const wallet = await this.walletsService.getOrCreateWallet(customerId);
+      if (wallet.status === WalletStatus.ACTIVE && wallet.availableBalance.gt(0)) {
+        walletApplied = Decimal.min(wallet.availableBalance, totalAmount);
+        promoApplied = Decimal.min(wallet.promoBalance, walletApplied);
+        realApplied = walletApplied.sub(promoApplied);
+        gatewayAmount = totalAmount.sub(walletApplied);
+      }
+    }
+
+    const isFullWallet = gatewayAmount.lte(0);
     let orderId: string;
+    let amountInPaise: number;
 
-    if (this.useMock) {
-      orderId = `order_mock_${Math.random().toString(36).substring(2, 15)}`;
+    if (isFullWallet) {
+      orderId = `order_wallet_full_${bookingId}`;
+      amountInPaise = 0;
       this.logger.log(
-        `[RAZORPAY-MOCK] Created mock order ${orderId} for booking ${bookingId} of amount ${amountInPaise} paise (Fare: ${tripFare}, Deposit: ${depositAmount})`,
+        `[WALLET-FULL] Created full wallet order ${orderId} for booking ${bookingId} (Total: ₹${totalAmount}, Wallet: ₹${walletApplied})`,
       );
     } else {
-      try {
-        const order = await this.razorpay!.orders.create({
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt: bookingId,
-        });
-        orderId = order.id;
-      } catch (err) {
-        this.logger.error('Razorpay Order creation failed:', err);
-        throw new BadRequestException(
-          'Failed to create payment order with Razorpay. Try again.',
+      amountInPaise = Math.round(gatewayAmount.toNumber() * 100);
+
+      if (this.useMock) {
+        const walletPaise = Math.round(walletApplied.toNumber() * 100);
+        orderId = walletPaise > 0
+          ? `order_mock_split_${walletPaise}_${Math.random().toString(36).substring(2, 11)}`
+          : `order_mock_${Math.random().toString(36).substring(2, 15)}`;
+        this.logger.log(
+          `[RAZORPAY-MOCK] Created mock order ${orderId} for booking ${bookingId} of amount ${amountInPaise} paise (Total: ${totalAmount}, Wallet: ${walletApplied}, Gateway: ${gatewayAmount})`,
         );
+      } else {
+        try {
+          const order = await this.razorpay!.orders.create({
+            amount: amountInPaise,
+            currency: 'INR',
+            receipt: bookingId,
+          });
+          orderId = order.id;
+        } catch (err) {
+          this.logger.error('Razorpay Order creation failed:', err);
+          throw new BadRequestException(
+            'Failed to create payment order with Razorpay. Try again.',
+          );
+        }
       }
     }
 
@@ -164,17 +206,22 @@ export class PaymentsService {
       amount: amountInPaise,
       currency: 'INR',
       keyId: this.keyId,
+      isFullWallet,
       breakdown: {
         tripFare: tripFare.toNumber(),
         securityDeposit: depositAmount.toNumber(),
         totalAmount: totalAmount.toNumber(),
+        walletApplied: walletApplied.toNumber(),
+        promoApplied: promoApplied.toNumber(),
+        realApplied: realApplied.toNumber(),
+        gatewayAmount: gatewayAmount.toNumber(),
       },
     };
   }
 
   /**
-   * Verifies Razorpay payment signature, validates authoritative booking amount,
-   * currency, and order-booking binding, and marks Payment as PAID and Booking as CONFIRMED.
+   * Verifies payment signature and/or settles wallet contributions, validates authoritative booking amount,
+   * and atomically marks Payment as PAID.
    */
   async verifyPayment(dto: VerifyPaymentDto, customerId: string) {
     const { bookingId, razorpayOrderId, razorpayPaymentId, razorpaySignature } =
@@ -219,7 +266,8 @@ export class PaymentsService {
     if (payment.status === PaymentStatus.PAID) {
       if (
         payment.razorpayPaymentId === razorpayPaymentId ||
-        !payment.razorpayPaymentId
+        !payment.razorpayPaymentId ||
+        razorpayOrderId.startsWith('order_wallet_full_')
       ) {
         this.logger.log(
           `Payment for booking ${bookingId} already marked PAID (idempotent verification return).`,
@@ -244,226 +292,303 @@ export class PaymentsService {
       );
     }
 
-    // 5. Cryptographic Signature Verification
-    if (this.useMock && razorpaySignature === 'mock_signature') {
-      this.logger.log(
-        `[RAZORPAY-MOCK] Verified mock payment signature for booking ${bookingId}`,
-      );
+    const totalExpected = booking.totalFare.add(
+      booking.securityDeposit?.amount || new Decimal(0),
+    );
+    const expectedAmountInPaise = Math.round(totalExpected.toNumber() * 100);
+
+    const isFullWalletOrder =
+      payment.razorpayOrderId?.startsWith('order_wallet_full_') ||
+      razorpayOrderId.startsWith('order_wallet_full_');
+
+    let gatewayPaid = new Decimal(0);
+    let walletRequired = new Decimal(0);
+
+    if (isFullWalletOrder) {
+      walletRequired = totalExpected;
+      gatewayPaid = new Decimal(0);
     } else {
-      let isSignatureValid = false;
-      try {
-        isSignatureValid = validatePaymentVerification(
-          { order_id: razorpayOrderId, payment_id: razorpayPaymentId },
-          razorpaySignature,
-          this.keySecret,
+      // 5. Cryptographic Signature Verification
+      if (this.useMock && razorpaySignature === 'mock_signature') {
+        this.logger.log(
+          `[RAZORPAY-MOCK] Verified mock payment signature for booking ${bookingId}`,
         );
-      } catch (err) {
-        this.logger.warn(
-          'Razorpay signature verification encountered an error:',
-          err,
-        );
-        isSignatureValid = false;
-      }
-
-      if (!isSignatureValid) {
-        this.logger.warn(
-          `Invalid payment signature detected for booking ${bookingId}, order ${razorpayOrderId}`,
-        );
-        throw new BadRequestException(
-          'Invalid payment signature. Verification failed.',
-        );
-      }
-    }
-
-    // 6. Authoritative Razorpay API Validation (Amount, Currency, Status, Order Binding)
-    if (!this.useMock) {
-      try {
-        const razorpayPayment: any =
-          await this.razorpay!.payments.fetch(razorpayPaymentId);
-
-        if (!razorpayPayment) {
-          throw new BadRequestException(
-            'Payment record not found on Razorpay.',
+      } else {
+        let isSignatureValid = false;
+        try {
+          isSignatureValid = validatePaymentVerification(
+            { order_id: razorpayOrderId, payment_id: razorpayPaymentId },
+            razorpaySignature,
+            this.keySecret,
           );
-        }
-
-        // Verify order binding on payment entity
-        if (
-          razorpayPayment.order_id &&
-          razorpayPayment.order_id !== razorpayOrderId
-        ) {
+        } catch (err) {
           this.logger.warn(
-            `Razorpay payment entity order_id mismatch. Expected: ${razorpayOrderId}, Found on Razorpay: ${razorpayPayment.order_id}`,
+            'Razorpay signature verification encountered an error:',
+            err,
           );
-          throw new BadRequestException(
-            'Razorpay payment is not associated with the provided order ID.',
-          );
+          isSignatureValid = false;
         }
 
-        // Verify currency
-        if (
-          razorpayPayment.currency &&
-          razorpayPayment.currency.toUpperCase() !== 'INR'
-        ) {
+        if (!isSignatureValid) {
+          this.logger.warn(
+            `Invalid payment signature detected for booking ${bookingId}, order ${razorpayOrderId}`,
+          );
           throw new BadRequestException(
-            `Payment currency mismatch. Expected INR, got ${razorpayPayment.currency}.`,
+            'Invalid payment signature. Verification failed.',
           );
         }
+      }
 
-        // Verify amount
-        const totalExpected = booking.totalFare.add(
-          booking.securityDeposit?.amount || new Decimal(0),
-        );
-        const expectedAmountInPaise = Math.round(totalExpected.toNumber() * 100);
-        if (Number(razorpayPayment.amount) !== expectedAmountInPaise) {
+      // 6. Authoritative Razorpay API Validation (Amount, Currency, Status, Order Binding)
+      if (!this.useMock) {
+        try {
+          const razorpayPayment: any =
+            await this.razorpay!.payments.fetch(razorpayPaymentId);
+
+          if (!razorpayPayment) {
+            throw new BadRequestException(
+              'Payment record not found on Razorpay.',
+            );
+          }
+
+          // Verify order binding on payment entity
+          if (
+            razorpayPayment.order_id &&
+            razorpayPayment.order_id !== razorpayOrderId
+          ) {
+            this.logger.warn(
+              `Razorpay payment entity order_id mismatch. Expected: ${razorpayOrderId}, Found on Razorpay: ${razorpayPayment.order_id}`,
+            );
+            throw new BadRequestException(
+              'Razorpay payment is not associated with the provided order ID.',
+            );
+          }
+
+          // Verify currency
+          if (
+            razorpayPayment.currency &&
+            razorpayPayment.currency.toUpperCase() !== 'INR'
+          ) {
+            throw new BadRequestException(
+              `Payment currency mismatch. Expected INR, got ${razorpayPayment.currency}.`,
+            );
+          }
+
+          // Verify status
+          if (razorpayPayment.status === 'failed') {
+            await this.prisma.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: PaymentStatus.FAILED,
+                razorpayPaymentId,
+              },
+            });
+            throw new BadRequestException(
+              'Payment status on Razorpay is failed.',
+            );
+          }
+
+          if (razorpayPayment.status === 'authorized') {
+            throw new BadRequestException(
+              'Payment is authorized but not yet captured. Please wait for payment confirmation.',
+            );
+          }
+
+          if (razorpayPayment.status !== 'captured') {
+            throw new BadRequestException(
+              `Payment status is not captured: ${razorpayPayment.status}`,
+            );
+          }
+
+          gatewayPaid = new Decimal(razorpayPayment.amount).div(100);
+          walletRequired = totalExpected.sub(gatewayPaid);
+
+          if (
+            Number(razorpayPayment.amount) !== expectedAmountInPaise &&
+            !this.walletsService
+          ) {
+            this.logger.error(
+              `CRITICAL PAYMENT FRAUD ATTEMPT: Expected ${expectedAmountInPaise} paise, but received ${razorpayPayment.amount} paise for booking ${bookingId}!`,
+            );
+            throw new BadRequestException(
+              `Payment amount mismatch: expected ${expectedAmountInPaise} paise, but received ${razorpayPayment.amount} paise.`,
+            );
+          }
+
+          if (walletRequired.lt(0)) {
+            throw new BadRequestException(
+              'Payment amount exceeds total booking payable.',
+            );
+          }
+        } catch (err: any) {
+          if (
+            err instanceof BadRequestException ||
+            err instanceof ForbiddenException ||
+            err instanceof NotFoundException ||
+            err instanceof ConflictException
+          ) {
+            throw err;
+          }
           this.logger.error(
-            `CRITICAL PAYMENT FRAUD ATTEMPT: Expected ${expectedAmountInPaise} paise, but received ${razorpayPayment.amount} paise for booking ${bookingId}!`,
+            'Failed to fetch payment details from Razorpay API:',
+            err,
           );
           throw new BadRequestException(
-            `Payment amount mismatch: expected ${expectedAmountInPaise} paise, but received ${razorpayPayment.amount} paise.`,
+            `Unable to verify payment with Razorpay: ${err.message || err}`,
           );
         }
-
-        // Verify status
-        if (razorpayPayment.status === 'failed') {
-          await this.prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-              status: PaymentStatus.FAILED,
-              razorpayPaymentId,
-            },
-          });
-          throw new BadRequestException(
-            'Payment status on Razorpay is failed.',
-          );
+      } else {
+        // Derive split / full amounts in mock mode from order structure
+        if (razorpayOrderId.startsWith('order_mock_split_')) {
+          const parts = razorpayOrderId.split('_');
+          const walletPaise = parseInt(parts[3], 10) || 0;
+          walletRequired = new Decimal(walletPaise).div(100);
+          gatewayPaid = totalExpected.sub(walletRequired);
+        } else {
+          gatewayPaid = totalExpected;
+          walletRequired = new Decimal(0);
         }
-
-        if (razorpayPayment.status === 'authorized') {
-          throw new BadRequestException(
-            'Payment is authorized but not yet captured. Please wait for payment confirmation.',
-          );
-        }
-
-        if (razorpayPayment.status !== 'captured') {
-          throw new BadRequestException(
-            `Payment status is not captured: ${razorpayPayment.status}`,
-          );
-        }
-      } catch (err: any) {
-        if (
-          err instanceof BadRequestException ||
-          err instanceof ForbiddenException ||
-          err instanceof NotFoundException ||
-          err instanceof ConflictException
-        ) {
-          throw err;
-        }
-        this.logger.error(
-          'Failed to fetch payment details from Razorpay API:',
-          err,
-        );
-        throw new BadRequestException(
-          `Unable to verify payment with Razorpay: ${err.message || err}`,
-        );
       }
     }
 
-    // 7. Atomic Transactional Confirmation
+    // 7. Atomic Transactional Finalization & Wallet Debit
+    const resolvedPaymentId =
+      razorpayPaymentId ||
+      (isFullWalletOrder ? `pay_wallet_${bookingId}` : `pay_mock_${Date.now()}`);
+
     const updatedBooking = await this.prisma.$transaction(async (tx) => {
+      // Settle wallet contribution if needed
+      if (walletRequired.gt(0)) {
+        if (!this.walletsService) {
+          throw new BadRequestException('Wallet service unavailable to settle checkout debit.');
+        }
+
+        const userWallet = await this.walletsService.getOrCreateWallet(
+          booking.customerId,
+          tx,
+        );
+
+        if (userWallet.availableBalance.lt(walletRequired)) {
+          throw new BadRequestException(
+            `Insufficient wallet balance to complete payment. Available: ₹${userWallet.availableBalance}, Required: ₹${walletRequired}`,
+          );
+        }
+
+        await this.walletsService.debitWallet(
+          userWallet.id,
+          walletRequired,
+          LedgerEntryType.CHECKOUT_DEBIT,
+          'BOOKING',
+          booking.id,
+          `wallet_checkout_debit_${booking.id}`,
+          isFullWalletOrder
+            ? `Full wallet payment for booking ${booking.id}`
+            : `Split wallet payment for booking ${booking.id}`,
+          {
+            bookingId: booking.id,
+            isFullWallet: isFullWalletOrder,
+            walletAmount: walletRequired.toNumber(),
+            gatewayAmount: gatewayPaid.toNumber(),
+          },
+          tx,
+        );
+      }
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
           status: PaymentStatus.PAID,
-          razorpayPaymentId,
+          razorpayPaymentId: resolvedPaymentId,
         },
       });
 
+      // Update Security Deposit Status to HELD if deposit exists
       if (booking.securityDeposit) {
         await tx.securityDeposit.update({
           where: { id: booking.securityDeposit.id },
           data: {
             status: SecurityDepositStatus.HELD,
-            razorpayPaymentId,
+            razorpayPaymentId: resolvedPaymentId,
             heldAt: new Date(),
           },
         });
       }
 
+      // Keep Booking in PENDING status - Payment does NOT confirm booking (Phase 23A Owner Confirmation Gate)
       const b = await tx.booking.findUnique({
-        where: { id: bookingId },
+        where: { id: booking.id },
+        include: { car: true, customer: true },
       });
 
-      if (b && b.status === BookingStatus.PENDING) {
-        // Process coupon redemption if couponId exists
-        if (b.couponId) {
-          const existingUsage = await tx.couponUsage.findUnique({
-            where: { bookingId: b.id },
+      if (!b) return null;
+
+      // Handle coupon usage recording idempotently
+      if (b.couponId) {
+        const existingUsage = await tx.couponUsage.findFirst({
+          where: { bookingId: b.id },
+        });
+
+        if (!existingUsage) {
+          await tx.$queryRaw`
+            SELECT id FROM "Coupon" WHERE id = ${b.couponId} FOR UPDATE
+          `;
+
+          const couponRecord = await tx.coupon.findUnique({
+            where: { id: b.couponId },
           });
 
-          if (!existingUsage) {
-            // Acquire pessimistic row-level lock on Coupon record to serialize concurrent payment verifications
-            await tx.$queryRaw`
-              SELECT id FROM "Coupon" WHERE id = ${b.couponId} FOR UPDATE
-            `;
-
-            const couponRecord = await tx.coupon.findUnique({
-              where: { id: b.couponId },
-            });
-
-            if (!couponRecord || !couponRecord.isActive) {
-              throw new BadRequestException('Coupon is no longer available.');
-            }
-
-            if (
-              couponRecord.globalUsageLimit !== null &&
-              couponRecord.globalUsageLimit !== undefined &&
-              couponRecord.usageCount >= couponRecord.globalUsageLimit
-            ) {
-              throw new BadRequestException('Coupon global usage limit reached.');
-            }
-
-            const perCustomerLimit = couponRecord.perCustomerLimit ?? 1;
-            const customerUsageCount = await tx.couponUsage.count({
-              where: {
-                couponId: b.couponId,
-                customerId: b.customerId,
-              },
-            });
-
-            if (customerUsageCount >= perCustomerLimit) {
-              throw new BadRequestException(
-                'You have reached the maximum redemptions for this coupon.',
-              );
-            }
-
-            await tx.coupon.update({
-              where: { id: b.couponId },
-              data: { usageCount: { increment: 1 } },
-            });
-
-            await tx.couponUsage.create({
-              data: {
-                couponId: b.couponId,
-                customerId: b.customerId,
-                bookingId: b.id,
-                discountAmount: b.discountAmount!,
-              },
-            });
+          if (!couponRecord || !couponRecord.isActive) {
+            throw new BadRequestException('Coupon is no longer available.');
           }
-        }
 
-        if (this.invoicesService) {
-          try {
-            await this.invoicesService.generateInvoiceForBooking(b.id, tx);
-          } catch (invErr: any) {
-            this.logger.warn(
-              `Failed to generate invoice during payment verification: ${invErr.message}`,
+          if (
+            couponRecord.globalUsageLimit !== null &&
+            couponRecord.globalUsageLimit !== undefined &&
+            couponRecord.usageCount >= couponRecord.globalUsageLimit
+          ) {
+            throw new BadRequestException('Coupon global usage limit reached.');
+          }
+
+          const perCustomerLimit = couponRecord.perCustomerLimit ?? 1;
+          const customerUsageCount = await tx.couponUsage.count({
+            where: {
+              couponId: b.couponId,
+              customerId: b.customerId,
+            },
+          });
+
+          if (customerUsageCount >= perCustomerLimit) {
+            throw new BadRequestException(
+              'You have reached the maximum redemptions for this coupon.',
             );
           }
-        }
 
-        return b;
+          await tx.coupon.update({
+            where: { id: b.couponId },
+            data: { usageCount: { increment: 1 } },
+          });
+
+          await tx.couponUsage.create({
+            data: {
+              couponId: b.couponId,
+              customerId: b.customerId,
+              bookingId: b.id,
+              discountAmount: b.discountAmount!,
+            },
+          });
+        }
       }
+
+      if (this.invoicesService) {
+        try {
+          await this.invoicesService.generateInvoiceForBooking(b.id, tx);
+        } catch (invErr: any) {
+          this.logger.warn(
+            `Failed to generate invoice during payment verification: ${invErr.message}`,
+          );
+        }
+      }
+
       return b;
     });
 
@@ -813,85 +938,153 @@ export class PaymentsService {
       );
     }
 
+    // 1. Determine Wallet vs Gateway contribution from checkout debits
+    const walletDebits = this.prisma.walletLedgerEntry
+      ? await this.prisma.walletLedgerEntry.findMany({
+          where: {
+            referenceType: 'BOOKING',
+            referenceId: bookingId,
+            type: LedgerEntryType.CHECKOUT_DEBIT,
+          },
+        })
+      : [];
+
+    const totalWalletPaid = walletDebits.reduce(
+      (sum, entry) => sum.add(entry.amount),
+      new Decimal(0),
+    );
+    const totalGatewayPaid = payment.amount.sub(totalWalletPaid);
+
+    // 2. Allocate Refund: Gateway first (refund to source), remainder to Wallet
+    const totalRefundRupees = refundAmountInRupees;
+    const gatewayRefundRupees = Decimal.min(totalRefundRupees, totalGatewayPaid);
+    const walletRefundRupees = totalRefundRupees.sub(gatewayRefundRupees);
+
+    const gatewayRefundInPaise = Math.round(gatewayRefundRupees.toNumber() * 100);
     const idempotencyKey = `refund_${bookingId}_${payment.id}`;
-    let refundId: string;
+    let refundId: string | null = null;
     let initialRefundStatus: RefundStatus = RefundStatus.PROCESSED;
 
-    this.logger.log(
-      `Initiating refund of ${refundAmountInPaise} paise for booking ${bookingId}, paymentId: ${payment.razorpayPaymentId}, idempotencyKey: ${idempotencyKey}`,
-    );
-
-    if (this.useMock) {
-      refundId = `rfnd_mock_${Math.random().toString(36).substring(2, 12)}`;
+    // 3. Process Gateway Refund if applicable
+    if (gatewayRefundInPaise > 0) {
       this.logger.log(
-        `[RAZORPAY-MOCK] Processed mock refund ${refundId} of ${refundAmountInRupees} for booking ${bookingId}`,
+        `Initiating gateway refund of ${gatewayRefundInPaise} paise for booking ${bookingId}, paymentId: ${payment.razorpayPaymentId}, idempotencyKey: ${idempotencyKey}`,
       );
-    } else {
-      if (!payment.razorpayPaymentId) {
-        throw new BadRequestException(
-          'Cannot refund a payment without a Razorpay payment ID',
+
+      if (this.useMock) {
+        refundId = `rfnd_mock_${Math.random().toString(36).substring(2, 12)}`;
+        this.logger.log(
+          `[RAZORPAY-MOCK] Processed mock gateway refund ${refundId} of ${gatewayRefundRupees} for booking ${bookingId}`,
         );
-      }
-
-      try {
-        const refundResponse: any = await (
-          this.razorpay!.payments as any
-        ).refund(payment.razorpayPaymentId, {
-          amount: refundAmountInPaise,
-          speed: 'normal',
-          notes: {
-            bookingId,
-            reason: reason || 'Booking cancelled',
-            cancellationTier: cancellationTier || 'N/A',
-          },
-          receipt: idempotencyKey,
-        });
-
-        refundId = refundResponse.id;
-        if (refundResponse.status === 'pending') {
-          initialRefundStatus = RefundStatus.PENDING;
-        } else if (refundResponse.status === 'failed') {
-          initialRefundStatus = RefundStatus.FAILED;
-        } else {
-          initialRefundStatus = RefundStatus.PROCESSED;
-        }
-      } catch (err: any) {
-        const errorDesc = err?.error?.description || err?.message || String(err);
-        const isAlreadyRefunded =
-          typeof errorDesc === 'string' &&
-          errorDesc.toLowerCase().includes('already');
-
-        if (isAlreadyRefunded) {
-          this.logger.warn(
-            `Payment ${payment.razorpayPaymentId} was already refunded at Razorpay. Fetching existing refund details for idempotent recovery...`,
+      } else {
+        if (!payment.razorpayPaymentId) {
+          throw new BadRequestException(
+            'Cannot refund a gateway payment without a Razorpay payment ID',
           );
-          const refundsList = await (
+        }
+
+        try {
+          const refundResponse: any = await (
             this.razorpay!.payments as any
-          ).fetchMultipleRefund(payment.razorpayPaymentId);
-          if (refundsList && refundsList.items && refundsList.items.length > 0) {
-            const existingRefund = refundsList.items[0];
-            refundId = existingRefund.id;
-            initialRefundStatus =
-              existingRefund.status === 'pending'
-                ? RefundStatus.PENDING
-                : existingRefund.status === 'failed'
-                  ? RefundStatus.FAILED
-                  : RefundStatus.PROCESSED;
-            this.logger.log(
-              `Recovered existing Razorpay refund ${refundId} (status: ${initialRefundStatus}) for booking ${bookingId}`,
+          ).refund(payment.razorpayPaymentId, {
+            amount: gatewayRefundInPaise,
+            speed: 'normal',
+            notes: {
+              bookingId,
+              reason: reason || 'Booking cancelled',
+              cancellationTier: cancellationTier || 'N/A',
+            },
+            receipt: idempotencyKey,
+          });
+
+          refundId = refundResponse.id;
+          if (refundResponse.status === 'pending') {
+            initialRefundStatus = RefundStatus.PENDING;
+          } else if (refundResponse.status === 'failed') {
+            initialRefundStatus = RefundStatus.FAILED;
+          } else {
+            initialRefundStatus = RefundStatus.PROCESSED;
+          }
+        } catch (err: any) {
+          const errorDesc =
+            err?.error?.description || err?.message || String(err);
+          const isAlreadyRefunded =
+            typeof errorDesc === 'string' &&
+            errorDesc.toLowerCase().includes('already');
+
+          if (isAlreadyRefunded) {
+            this.logger.warn(
+              `Payment ${payment.razorpayPaymentId} was already refunded at Razorpay. Fetching existing refund details for idempotent recovery...`,
             );
+            const refundsList = await (
+              this.razorpay!.payments as any
+            ).fetchMultipleRefund(payment.razorpayPaymentId);
+            if (refundsList && refundsList.items && refundsList.items.length > 0) {
+              const existingRefund = refundsList.items[0];
+              refundId = existingRefund.id;
+              initialRefundStatus =
+                existingRefund.status === 'pending'
+                  ? RefundStatus.PENDING
+                  : existingRefund.status === 'failed'
+                    ? RefundStatus.FAILED
+                    : RefundStatus.PROCESSED;
+              this.logger.log(
+                `Recovered existing Razorpay refund ${refundId} (status: ${initialRefundStatus}) for booking ${bookingId}`,
+              );
+            } else {
+              this.logger.error('Razorpay refund API call failed:', err);
+              throw new BadRequestException(
+                `Failed to initiate refund with Razorpay: ${errorDesc}`,
+              );
+            }
           } else {
             this.logger.error('Razorpay refund API call failed:', err);
             throw new BadRequestException(
               `Failed to initiate refund with Razorpay: ${errorDesc}`,
             );
           }
-        } else {
-          this.logger.error('Razorpay refund API call failed:', err);
-          throw new BadRequestException(
-            `Failed to initiate refund with Razorpay: ${errorDesc}`,
-          );
         }
+      }
+    } else {
+      // Full wallet refund or zero gateway refund
+      refundId = `rfnd_wlt_${bookingId.slice(-8)}`;
+      initialRefundStatus = RefundStatus.PROCESSED;
+    }
+
+    // 4. Process Wallet Refund if applicable
+    if (walletRefundRupees.gt(0) && this.walletsService) {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { customerId: true },
+      });
+
+      if (booking?.customerId) {
+        const customerWallet = await this.walletsService.getOrCreateWallet(
+          booking.customerId,
+        );
+
+        await this.walletsService.creditWallet(
+          customerWallet.id,
+          walletRefundRupees,
+          LedgerEntryType.BOOKING_REFUND,
+          WalletBucketType.REFUND_CREDIT,
+          'BOOKING',
+          bookingId,
+          `refund_wallet_${bookingId}_${payment.id}`,
+          `Refund for cancelled booking ${bookingId} (${cancellationTier || 'N/A'})`,
+          undefined,
+          {
+            bookingId,
+            cancellationTier,
+            reason,
+            gatewayRefund: gatewayRefundRupees.toNumber(),
+            walletRefund: walletRefundRupees.toNumber(),
+          },
+        );
+
+        this.logger.log(
+          `[WALLET REFUND] Credited ₹${walletRefundRupees.toFixed(2)} to User ${booking.customerId} Wallet for cancelled booking ${bookingId}`,
+        );
       }
     }
 
@@ -903,14 +1096,14 @@ export class PaymentsService {
             ? PaymentStatus.REFUNDED
             : PaymentStatus.PAID,
         razorpayRefundId: refundId,
-        refundAmount: refundAmountInRupees,
+        refundAmount: totalRefundRupees,
         refundStatus: initialRefundStatus,
       },
     });
 
     return {
       refundId,
-      refundAmount: refundAmountInRupees,
+      refundAmount: totalRefundRupees,
       refundStatus: initialRefundStatus,
     };
   }
