@@ -43,6 +43,13 @@ class ApiVendorAuthRepository implements VendorAuthRepository {
     final userJson = Map<String, dynamic>.from(data['user']);
     final role = userJson['role'] as String?;
 
+    if (role != null && role != 'VENDOR') {
+      await apiClient.tokenStorage.clearTokens();
+      throw Exception(
+        'This phone number is registered as a customer account. Please use the Customer App to sign in, or use a different number to register as a DriveGo partner.',
+      );
+    }
+
     if (role == 'VENDOR') {
       var vendorJson = userJson['vendor'] != null 
           ? Map<String, dynamic>.from(userJson['vendor'])

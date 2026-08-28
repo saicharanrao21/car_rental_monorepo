@@ -19,7 +19,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
-  final List<TextEditingController> _controllers = List.generate(6, (i) => TextEditingController(text: '${i + 1}'));
+  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   int _cooldownSeconds = 30;
@@ -30,9 +30,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void initState() {
     super.initState();
     _startCooldown();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _verify();
-    });
   }
 
   @override
@@ -113,7 +110,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       _startCooldown();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP resent successfully. Enter 123456.')),
+          const SnackBar(content: Text('OTP resent successfully.')),
         );
       }
     } else {
