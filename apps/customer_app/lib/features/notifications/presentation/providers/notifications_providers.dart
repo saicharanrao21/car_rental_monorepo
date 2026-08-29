@@ -43,3 +43,10 @@ class NotificationsListNotifier extends AutoDisposeAsyncNotifier<List<Notificati
 final notificationsListProvider =
     AutoDisposeAsyncNotifierProvider<NotificationsListNotifier, List<NotificationModel>>(
         NotificationsListNotifier.new);
+
+/// Provider calculating the real unread notification count
+final unreadNotificationsCountProvider = Provider.autoDispose<int>((ref) {
+  final notificationsAsync = ref.watch(notificationsListProvider);
+  final list = notificationsAsync.valueOrNull ?? [];
+  return list.where((n) => !n.isRead).length;
+});
