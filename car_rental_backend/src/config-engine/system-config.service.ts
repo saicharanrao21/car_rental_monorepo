@@ -9,6 +9,8 @@ import {
   SearchRankingConfig,
   BookingPolicyConfig,
   GrowthCampaignConfig,
+  NotificationConfig,
+  SupportSlaConfig,
   PlatformFeatureFlags,
 } from './system-config.interface';
 
@@ -133,6 +135,14 @@ export class SystemConfigService {
 
   async getGrowthCampaignConfig(): Promise<GrowthCampaignConfig> {
     return this.getConfig<GrowthCampaignConfig>('growth.campaigns');
+  }
+
+  async getNotificationConfig(): Promise<NotificationConfig> {
+    return this.getConfig<NotificationConfig>('notification.orchestration');
+  }
+
+  async getSupportSlaConfig(): Promise<SupportSlaConfig> {
+    return this.getConfig<SupportSlaConfig>('support.sla');
   }
 
   async getFeatureFlags(): Promise<PlatformFeatureFlags> {

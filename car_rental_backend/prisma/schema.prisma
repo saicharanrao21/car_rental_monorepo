@@ -313,6 +313,8 @@ model User {
   referralsSent    ReferralAttribution[] @relation("ReferrerAttributions")
   referralReceived ReferralAttribution?  @relation("RefereeAttribution")
   loyaltyAccount   LoyaltyAccount?
+  devices          UserDevice[]
+  notificationPreference NotificationPreference?
 
   @@index([phone])
   @@index([role])
@@ -568,17 +570,60 @@ model Review {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  isRead         Boolean   @default(false)
+  category       String    @default("GENERAL") // BOOKING, PAYMENT, TRIP, VENDOR, SUPPORT, GROWTH, SYSTEM
+  eventType      String?
+  entityType     String?
+  entityId       String?
+  actionUrl      String?
+  idempotencyKey String?   @unique
+  metadata       Json?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
 
   @@index([userId])
   @@index([isRead])
   @@index([userId, isRead, createdAt])
+  @@index([userId, category])
+  @@index([createdAt])
+}
+
+model UserDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  platform   String   @default("ANDROID") // ANDROID, IOS, WEB
+  deviceId   String?
+  appVersion String?
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, isActive])
+  @@index([token])
+  @@index([lastSeenAt])
+}
+
+model NotificationPreference {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotionalPush      Boolean  @default(true)
+  promotionalSms       Boolean  @default(false)
+  promotionalEmail     Boolean  @default(true)
+  promotionalWhatsApp  Boolean  @default(false)
+  operationalPush      Boolean  @default(true)
+  operationalSms       Boolean  @default(true)
+  operationalEmail     Boolean  @default(true)
+  operationalWhatsApp  Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
 }
 
 model CommissionConfig {
@@ -1014,24 +1059,30 @@ model AdditionalDriver {
 }
 
 model SupportTicket {
-  id               String          @id @default(cuid())
-  ticketNumber     String          @unique
-  customerId       String
-  customer         User            @relation("CustomerTickets", fields: [customerId], references: [id], onDelete: Cascade)
-  bookingId        String?
-  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  category         TicketCategory
-  priority         TicketPriority  @default(NORMAL)
-  subject          String
-  description      String
-  status           TicketStatus    @default(OPEN)
-  assignedToUserId String?
-  assignedToUser   User?           @relation("AssignedTickets", fields: [assignedToUserId], references: [id], onDelete: SetNull)
-  resolvedAt       DateTime?
-  closedAt         DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  messages         TicketMessage[]
+  id                  String          @id @default(cuid())
+  ticketNumber        String          @unique
+  customerId          String
+  customer            User            @relation("CustomerTickets", fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId           String?
+  booking             Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  category            TicketCategory
+  priority            TicketPriority  @default(NORMAL)
+  subject             String
+  description         String
+  status              TicketStatus    @default(OPEN)
+  assignedToUserId    String?
+  assignedToUser      User?           @relation("AssignedTickets", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  slaFirstResponseDue DateTime?
+  slaResolutionDue    DateTime?
+  firstRespondedAt    DateTime?
+  escalatedAt         DateTime?
+  escalatedReason     String?
+  escalationTier      Int             @default(1)
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  messages            TicketMessage[]
 
   @@index([customerId])
   @@index([bookingId])
@@ -1039,6 +1090,7 @@ model SupportTicket {
   @@index([category])
   @@index([priority])
   @@index([assignedToUserId])
+  @@index([customerId, status])
 }
 
 model TicketMessage {

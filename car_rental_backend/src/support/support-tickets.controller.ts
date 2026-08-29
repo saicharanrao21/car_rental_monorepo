@@ -135,6 +135,25 @@ export class SupportTicketsController {
     @Param('id') id: string,
     @Body() dto: UpdateTicketStatusDto,
   ) {
-    return this.supportService.updateTicketStatus(id, dto, req.user.userId);
+    const adminUserId = req.user.id || req.user.userId;
+    return this.supportService.updateTicketStatus(id, dto, adminUserId);
+  }
+
+  /**
+   * Admin / Support Agent escalates ticket to a specialist tier.
+   */
+  @Post('admin/support/tickets/:id/escalate')
+  @Roles(Role.SUPPORT_AGENT, Role.ADMIN)
+  async escalateTicket(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+  ) {
+    const adminUserId = req.user.id || req.user.userId;
+    return this.supportService.escalateTicket(
+      id,
+      reason || 'Escalated by support operator.',
+      adminUserId,
+    );
   }
 }

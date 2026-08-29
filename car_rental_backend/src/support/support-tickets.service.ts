@@ -4,10 +4,12 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../admin/audit-log.service';
+import { SystemConfigService } from '../config-engine/system-config.service';
 import {
   Role,
   TicketStatus,
@@ -70,6 +72,7 @@ export class SupportTicketsService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
+    @Optional() private readonly systemConfigService?: SystemConfigService,
   ) {}
 
   /**
@@ -91,13 +94,13 @@ export class SupportTicketsService {
   }
 
   /**
-   * Customer creates a new support ticket.
+   * Customer creates a new support ticket with SLA deadlines and abuse limits.
    */
   async createTicket(
     customerId: string,
     dto: CreateTicketDto,
   ): Promise<SupportTicket> {
-    // If bookingId is provided, verify customer ownership
+    // 1. If bookingId is provided, verify customer ownership
     if (dto.bookingId) {
       const booking = await this.prisma.booking.findUnique({
         where: { id: dto.bookingId },
@@ -112,6 +115,57 @@ export class SupportTicketsService {
       }
     }
 
+    // 2. Enforce SLA & Max Open Ticket Bounds via SystemConfig
+    const slaConfig = this.systemConfigService
+      ? await this.systemConfigService.getSupportSlaConfig()
+      : {
+          firstResponseMinutesUrgent: 15,
+          firstResponseMinutesHigh: 60,
+          firstResponseMinutesNormal: 240,
+          resolutionMinutesUrgent: 120,
+          resolutionMinutesHigh: 480,
+          resolutionMinutesNormal: 1440,
+          maxOpenTicketsPerCustomer: 5,
+        };
+
+    const openCount = await this.prisma.supportTicket.count({
+      where: {
+        customerId,
+        status: {
+          in: [
+            TicketStatus.OPEN,
+            TicketStatus.ASSIGNED,
+            TicketStatus.IN_PROGRESS,
+            TicketStatus.WAITING_FOR_CUSTOMER,
+            TicketStatus.WAITING_FOR_VENDOR,
+          ],
+        },
+      },
+    });
+
+    if (openCount >= (slaConfig.maxOpenTicketsPerCustomer || 5)) {
+      throw new BadRequestException(
+        `You have reached the maximum open support tickets limit (${slaConfig.maxOpenTicketsPerCustomer || 5}). Please await resolution of existing tickets.`,
+      );
+    }
+
+    const priority = dto.priority || TicketPriority.NORMAL;
+    let firstResponseMinutes = slaConfig.firstResponseMinutesNormal || 240;
+    let resolutionMinutes = slaConfig.resolutionMinutesNormal || 1440;
+
+    if (priority === TicketPriority.URGENT) {
+      firstResponseMinutes = slaConfig.firstResponseMinutesUrgent || 15;
+      resolutionMinutes = slaConfig.resolutionMinutesUrgent || 120;
+    } else if (priority === TicketPriority.HIGH) {
+      firstResponseMinutes = slaConfig.firstResponseMinutesHigh || 60;
+      resolutionMinutes = slaConfig.resolutionMinutesHigh || 480;
+    }
+
+    const slaFirstResponseDue = new Date(
+      Date.now() + firstResponseMinutes * 60000,
+    );
+    const slaResolutionDue = new Date(Date.now() + resolutionMinutes * 60000);
+
     const ticketNumber = await this.generateTicketNumber();
 
     const ticket = await this.prisma.supportTicket.create({
@@ -120,10 +174,12 @@ export class SupportTicketsService {
         customerId,
         bookingId: dto.bookingId || null,
         category: dto.category,
-        priority: dto.priority || TicketPriority.NORMAL,
+        priority,
         subject: dto.subject,
         description: dto.description,
         status: TicketStatus.OPEN,
+        slaFirstResponseDue,
+        slaResolutionDue,
         messages: {
           create: {
             senderId: customerId,
@@ -136,7 +192,15 @@ export class SupportTicketsService {
       },
       include: {
         customer: { select: { id: true, name: true, phone: true, email: true } },
-        booking: { select: { id: true, tripType: true, status: true, startDate: true, endDate: true } },
+        booking: {
+          select: {
+            id: true,
+            tripType: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
         messages: true,
       },
     });
@@ -146,9 +210,16 @@ export class SupportTicketsService {
       customerId,
       'Support Ticket Received',
       `Your support ticket #${ticketNumber} has been received. Our team will respond shortly.`,
+      'SUPPORT',
+      'TICKET_CREATED',
+      'SupportTicket',
+      ticket.id,
+      `notif_tkt_created_${ticket.id}`,
     );
 
-    this.logger.log(`Created support ticket #${ticketNumber} for customer ${customerId}`);
+    this.logger.log(
+      `Created support ticket #${ticketNumber} for customer ${customerId}`,
+    );
     return ticket;
   }
 
@@ -297,15 +368,70 @@ export class SupportTicketsService {
       }
     }
 
+    const isAgent = user.role === Role.ADMIN || (user.role as any) === 'SUPPORT_AGENT';
+    const firstRespondedAt = isAgent && !ticket.firstRespondedAt ? new Date() : ticket.firstRespondedAt;
+
     await this.prisma.supportTicket.update({
       where: { id: ticketId },
       data: {
         status: nextStatus,
+        firstRespondedAt,
         updatedAt: new Date(),
       },
     });
 
     return message;
+  }
+
+  /**
+   * Escalates ticket to higher support/specialist tier with audit trail.
+   */
+  async escalateTicket(
+    ticketId: string,
+    reason: string,
+    adminUserId: string,
+  ): Promise<SupportTicket> {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Support ticket not found.');
+    }
+
+    const updated = await this.prisma.supportTicket.update({
+      where: { id: ticketId },
+      data: {
+        priority: TicketPriority.URGENT,
+        escalatedAt: new Date(),
+        escalatedReason: reason,
+        escalationTier: ticket.escalationTier + 1,
+      },
+      include: {
+        customer: { select: { id: true, name: true, phone: true } },
+        assignedToUser: { select: { id: true, name: true, role: true } },
+      },
+    });
+
+    await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        senderId: adminUserId,
+        senderRole: Role.ADMIN,
+        message: `[ESCALATION - Tier ${updated.escalationTier}] ${reason}`,
+        isInternal: true,
+      },
+    });
+
+    await this.auditLogService.log(
+      adminUserId,
+      'SUPPORT_TICKET_ESCALATED',
+      'SupportTicket',
+      ticketId,
+      { tier: updated.escalationTier, reason },
+    );
+
+    return updated;
   }
 
   /**

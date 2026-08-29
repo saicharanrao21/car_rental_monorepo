@@ -41,6 +41,26 @@ export interface BookingPolicyConfig {
   doorstepDeliveryMaxRadiusKm: number;
 }
 
+export interface NotificationConfig {
+  enableFcmPush: boolean;
+  enableSmsNotifications: boolean;
+  enableEmailNotifications: boolean;
+  enableWhatsAppNotifications: boolean;
+  maxBatchMulticastSize: number;
+  retentionDaysTransactional: number;
+  retentionDaysMarketing: number;
+}
+
+export interface SupportSlaConfig {
+  firstResponseMinutesUrgent: number;
+  firstResponseMinutesHigh: number;
+  firstResponseMinutesNormal: number;
+  resolutionMinutesUrgent: number;
+  resolutionMinutesHigh: number;
+  resolutionMinutesNormal: number;
+  maxOpenTicketsPerCustomer: number;
+}
+
 export interface PlatformFeatureFlags {
   enableDoorstepDelivery: boolean;
   enableSplitPayments: boolean;
@@ -112,6 +132,34 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as BookingPolicyConfig,
     isPublic: true,
     description: 'Operational booking constraints and time limits',
+  },
+  'notification.orchestration': {
+    category: 'NOTIFICATION',
+    value: {
+      enableFcmPush: true,
+      enableSmsNotifications: true,
+      enableEmailNotifications: true,
+      enableWhatsAppNotifications: true,
+      maxBatchMulticastSize: 500,
+      retentionDaysTransactional: 365,
+      retentionDaysMarketing: 30,
+    } as NotificationConfig,
+    isPublic: false,
+    description: 'Cross-channel notification delivery rules and retention policies',
+  },
+  'support.sla': {
+    category: 'SUPPORT',
+    value: {
+      firstResponseMinutesUrgent: 15,
+      firstResponseMinutesHigh: 60,
+      firstResponseMinutesNormal: 240,
+      resolutionMinutesUrgent: 120,
+      resolutionMinutesHigh: 480,
+      resolutionMinutesNormal: 1440,
+      maxOpenTicketsPerCustomer: 5,
+    } as SupportSlaConfig,
+    isPublic: false,
+    description: 'Customer support SLA target response times and concurrency bounds',
   },
   'platform.feature_flags': {
     category: 'FEATURE_FLAGS',

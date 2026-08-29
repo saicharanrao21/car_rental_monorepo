@@ -13,9 +13,24 @@ describe('Phase 27.2 — Notifications & Async Queue Integration Tests', () => {
   beforeEach(async () => {
     prisma = {
       notification: {
+        findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(({ data }) =>
           Promise.resolve({ id: 'notif_1', ...data, createdAt: new Date() }),
         ),
+      },
+      userDevice: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      notificationPreference: {
+        findUnique: jest.fn().mockResolvedValue({
+          userId: 'user_123',
+          promotionalPush: true,
+          operationalPush: true,
+          promotionalSms: true,
+          operationalSms: true,
+          promotionalEmail: true,
+          operationalEmail: true,
+        }),
       },
       user: {
         findUnique: jest.fn().mockResolvedValue({
