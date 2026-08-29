@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:core/core.dart';
+import 'drivego_button.dart';
 
+/// Legacy AppButton maintained for backward compatibility.
+/// Forwards directly to DriveGo Design System (DDS) DriveGoButton.
 class AppButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -19,21 +21,12 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final button = ElevatedButton(
-      onPressed: isLoading ? null : onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: backgroundColor ?? AppColors.primary,
-        minimumSize: isFullWidth ? const Size(double.infinity, 50) : const Size(120, 50),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-            )
-          : Text(text),
+    return DriveGoButton(
+      text: text,
+      onPressed: onPressed,
+      isLoading: isLoading,
+      isFullWidth: isFullWidth,
+      backgroundColor: backgroundColor,
     );
-
-    return isFullWidth ? button : Center(child: button);
   }
 }

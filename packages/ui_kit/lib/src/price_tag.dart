@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:core/core.dart';
+import 'drivego_price_tag.dart';
 
+/// Legacy PriceTag maintained for backward compatibility.
+/// Forwards directly to DriveGo Design System (DDS) DriveGoPriceTag.
 class PriceTag extends StatelessWidget {
   final double amount;
   final String? suffix;
@@ -17,31 +19,11 @@ class PriceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedAmount = IndianCurrencyFormatter.format(amount, showDecimals: false);
-
-    return RichText(
-      text: TextSpan(
-        text: formattedAmount,
-        style: amountStyle ??
-            const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.accent,
-            ),
-        children: suffix != null
-            ? [
-                TextSpan(
-                  text: suffix,
-                  style: suffixStyle ??
-                      const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.normal,
-                        color: Colors.grey,
-                      ),
-                ),
-              ]
-            : [],
-      ),
+    return DriveGoPriceTag(
+      amount: amount,
+      suffix: suffix,
+      amountStyle: amountStyle,
+      suffixStyle: suffixStyle,
     );
   }
 }

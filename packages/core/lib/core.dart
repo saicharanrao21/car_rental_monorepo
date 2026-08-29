@@ -1,6 +1,13 @@
 library core;
 
 export 'src/app_constants.dart';
+export 'src/dds_colors.dart';
+export 'src/dds_typography.dart';
+export 'src/dds_spacing.dart';
+export 'src/dds_radius.dart';
+export 'src/dds_elevation.dart';
+export 'src/dds_motion.dart';
+export 'src/dds_breakpoints.dart';
 export 'src/app_colors.dart';
 export 'src/app_spacing.dart';
 export 'src/app_theme.dart';

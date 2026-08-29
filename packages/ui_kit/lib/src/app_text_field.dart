@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:core/core.dart';
+import 'drivego_text_field.dart';
 
+/// Legacy AppTextField maintained for backward compatibility.
+/// Forwards directly to DriveGo Design System (DDS) DriveGoTextField.
 class AppTextField extends StatelessWidget {
   final String label;
   final String? hint;
@@ -31,50 +33,18 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          maxLines: maxLines,
-          validator: validator,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            hintText: hint,
-            errorText: errorText,
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.grey),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.grey),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red, width: 2),
-            ),
-          ),
-        ),
-      ],
+    return DriveGoTextField(
+      label: label,
+      hint: hint,
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      validator: validator,
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      errorText: errorText,
+      onChanged: onChanged,
+      maxLines: maxLines,
     );
   }
 }

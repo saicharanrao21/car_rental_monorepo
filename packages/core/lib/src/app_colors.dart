@@ -1,42 +1,46 @@
 import 'package:flutter/material.dart';
+import 'dds_colors.dart';
 
+/// Legacy AppColors wrapper pointing directly to DDSColors
+/// Maintained for 100% backward compatibility across existing feature pages.
 class AppColors {
   // --- Brand Colors ---
-  static const Color primary = Color(0xFF1A237E); // Deep Indigo
-  static const Color accent = Color(0xFFFF6F00); // Amber Orange
-  static const Color error = Color(0xFFD32F2F);
-  static const Color success = Color(0xFF388E3C);
+  static const Color primary = DDSColors.primaryBlue;
+  static const Color primaryNavy = DDSColors.primaryNavy;
+  static const Color accent = DDSColors.accentAmber;
+  static const Color error = DDSColors.errorRed;
+  static const Color success = DDSColors.successGreen;
   static const Color onPrimary = Colors.white;
 
   // --- Light Mode Surfaces ---
-  static const Color backgroundLight = Color(0xFFF5F7FA);
-  static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color cardLight = Color(0xFFFFFFFF);
-  static const Color inputFillLight = Color(0xFFF0F2F5);
-  static const Color dividerLight = Color(0xFFE0E3E8);
+  static const Color backgroundLight = DDSColors.bgCanvas;
+  static const Color surfaceLight = DDSColors.surfaceCard;
+  static const Color cardLight = DDSColors.surfaceCard;
+  static const Color inputFillLight = DDSColors.surfaceSubtle;
+  static const Color dividerLight = DDSColors.borderLight;
 
   // --- Dark Mode Surfaces ---
-  static const Color backgroundDark = Color(0xFF121318);
-  static const Color surfaceDark = Color(0xFF1E2028);
-  static const Color cardDark = Color(0xFF252830);
-  static const Color inputFillDark = Color(0xFF2C2F3A);
-  static const Color dividerDark = Color(0xFF383B47);
+  static const Color backgroundDark = DDSColors.bgDark;
+  static const Color surfaceDark = DDSColors.surfaceDark;
+  static const Color cardDark = DDSColors.surfaceDark;
+  static const Color inputFillDark = Color(0xFF1E2638);
+  static const Color dividerDark = DDSColors.borderDark;
 
   // --- Light Mode Text ---
-  static const Color textPrimaryLight = Color(0xFF1A1C23);
-  static const Color textSecondaryLight = Color(0xFF6B7280);
-  static const Color textHintLight = Color(0xFF9CA3AF);
+  static const Color textPrimaryLight = DDSColors.textPrimary;
+  static const Color textSecondaryLight = DDSColors.textSecondary;
+  static const Color textHintLight = DDSColors.textMuted;
 
   // --- Dark Mode Text ---
-  static const Color textPrimaryDark = Color(0xFFE8EAF0);
-  static const Color textSecondaryDark = Color(0xFF9DA5B4);
-  static const Color textHintDark = Color(0xFF6B7280);
+  static const Color textPrimaryDark = DDSColors.textPrimaryDark;
+  static const Color textSecondaryDark = DDSColors.textSecondaryDark;
+  static const Color textHintDark = DDSColors.textMutedDark;
 
-  // --- Semantic / Status (mode-independent) ---
-  static const Color starYellow = Color(0xFFFFB800);
-  static const Color sponsored = Color(0xFFFF6F00);
+  // --- Semantic / Status ---
+  static const Color starYellow = DDSColors.accentAmber;
+  static const Color sponsored = DDSColors.sponsoredGold;
 
-  // Legacy aliases kept for backward compat
+  // Legacy aliases
   static const Color background = backgroundLight;
   static const Color surface = surfaceLight;
 }

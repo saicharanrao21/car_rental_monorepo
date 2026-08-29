@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
-import 'app_button.dart';
+import 'drivego_error_state.dart';
 
+/// Legacy ErrorStateWidget maintained for backward compatibility.
+/// Forwards directly to DriveGo Design System (DDS) DriveGoErrorState.
 class ErrorStateWidget extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -14,47 +15,9 @@ class ErrorStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 72,
-                color: Colors.redAccent,
-              ),
-              const Gap(16),
-              const Text(
-                'Something went wrong',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const Gap(8),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const Gap(24),
-              AppButton(
-                text: 'Retry',
-                onPressed: onRetry,
-                isFullWidth: false,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DriveGoErrorState(
+      message: message,
+      onRetry: onRetry,
     );
   }
 }

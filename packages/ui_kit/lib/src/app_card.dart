@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'drivego_card.dart';
 
+/// Legacy AppCard maintained for backward compatibility.
+/// Forwards directly to DriveGo Design System (DDS) DriveGoCard.
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -20,25 +23,13 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: elevation,
+    return DriveGoCard(
+      padding: padding,
       margin: margin,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: onTap != null
-          ? InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: padding ?? EdgeInsets.zero,
-                child: child,
-              ),
-            )
-          : Padding(
-              padding: padding ?? EdgeInsets.zero,
-              child: child,
-            ),
+      elevation: elevation,
+      borderRadius: borderRadius,
+      onTap: onTap,
+      child: child,
     );
   }
 }
