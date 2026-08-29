@@ -34,6 +34,8 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { FraudService, RiskAction } from '../fraud/fraud.service';
+import { RedisCacheService } from '../redis/redis-cache.service';
+import { REDIS_NAMESPACES } from '../redis/redis-namespace.constants';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 
@@ -57,6 +59,7 @@ export class BookingsService {
     @Optional() private readonly referralsService?: ReferralsService,
     @Optional() private readonly loyaltyService?: LoyaltyService,
     @Optional() private readonly fraudService?: FraudService,
+    @Optional() private readonly cacheService?: RedisCacheService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -418,6 +421,12 @@ export class BookingsService {
           timeout: 15000,
         },
       );
+
+      // Invalidate vehicle search cache and detail cache
+      if (this.cacheService) {
+        await this.cacheService.invalidatePattern('cache:search:cars:*');
+        await this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(dto.carId));
+      }
 
       // After transaction completes, notify vendor
       const vendorUser = await this.prisma.vendor.findUnique({
@@ -906,6 +915,13 @@ export class BookingsService {
       },
       include: { car: true, customer: true },
     });
+
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+      if (updatedBooking.carId) {
+        await this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(updatedBooking.carId));
+      }
+    }
 
     let title = '';
     let body = '';

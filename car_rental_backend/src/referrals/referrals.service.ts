@@ -23,6 +23,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { ApplyReferralCodeDto } from './dto/apply-referral-code.dto';
 import { CreateReferralCampaignDto } from './dto/create-referral-campaign.dto';
 import { UpdateReferralCampaignDto } from './dto/update-referral-campaign.dto';
+import { SystemConfigService } from '../config-engine/system-config.service';
 import * as crypto from 'crypto';
 
 export const DEFAULT_REFERRER_REWARD = 250;
@@ -40,6 +41,7 @@ export class ReferralsService {
     private readonly auditLogService: AuditLogService,
     private readonly notificationsService: NotificationsService,
     @Optional() private readonly apmMonitoringService?: ApmMonitoringService,
+    @Optional() private readonly systemConfigService?: SystemConfigService,
   ) {}
 
   /**
@@ -51,16 +53,26 @@ export class ReferralsService {
       where: { code: 'DEFAULT_GLOBAL', isActive: true },
     });
 
+    const refConfig = this.systemConfigService
+      ? await this.systemConfigService.getReferralConfig()
+      : {
+          defaultReferrerReward: DEFAULT_REFERRER_REWARD,
+          defaultRefereeReward: DEFAULT_REFEREE_DISCOUNT,
+          minBookingAmount: DEFAULT_MIN_BOOKING_AMOUNT,
+          maxReferralsPerUser: DEFAULT_MAX_REFERRALS_PER_USER,
+          isReferralsEnabled: true,
+        };
+
     if (!campaign) {
       campaign = await client.referralCampaign.create({
         data: {
           name: 'DriveGo Standard Referral Program',
           code: 'DEFAULT_GLOBAL',
-          referrerRewardAmount: new Decimal(DEFAULT_REFERRER_REWARD),
-          refereeRewardAmount: new Decimal(DEFAULT_REFEREE_DISCOUNT),
-          minBookingAmount: new Decimal(DEFAULT_MIN_BOOKING_AMOUNT),
-          maxReferralsPerUser: DEFAULT_MAX_REFERRALS_PER_USER,
-          isActive: true,
+          referrerRewardAmount: new Decimal(refConfig.defaultReferrerReward),
+          refereeRewardAmount: new Decimal(refConfig.defaultRefereeReward),
+          minBookingAmount: new Decimal(refConfig.minBookingAmount),
+          maxReferralsPerUser: refConfig.maxReferralsPerUser,
+          isActive: refConfig.isReferralsEnabled,
         },
       });
       this.logger.log(`Initialized default ReferralCampaign: ${campaign.id}`);

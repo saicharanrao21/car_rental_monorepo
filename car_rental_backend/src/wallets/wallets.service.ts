@@ -14,6 +14,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ApmMonitoringService } from '../common/apm-monitoring.service';
 import Razorpay from 'razorpay';
 import { validatePaymentVerification } from 'razorpay/dist/utils/razorpay-utils';
+import { SystemConfigService } from '../config-engine/system-config.service';
 import {
   WalletStatus,
   WalletBucketType,
@@ -43,6 +44,7 @@ export class WalletsService {
     private readonly auditLogService: AuditLogService,
     private readonly notificationsService: NotificationsService,
     @Optional() private readonly apmMonitoringService?: ApmMonitoringService,
+    @Optional() private readonly systemConfigService?: SystemConfigService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -368,18 +370,31 @@ export class WalletsService {
    * Creates a Razorpay Order for adding money to the customer's wallet.
    */
   async createDepositOrder(userId: string, amount: number) {
-    if (amount < MIN_SINGLE_DEPOSIT || amount > MAX_SINGLE_DEPOSIT) {
+    const config = this.systemConfigService
+      ? await this.systemConfigService.getWalletConfig()
+      : {
+          minSingleDeposit: MIN_SINGLE_DEPOSIT,
+          maxSingleDeposit: MAX_SINGLE_DEPOSIT,
+          maxWalletBalanceCap: MAX_WALLET_BALANCE_CAP,
+          isDepositsEnabled: true,
+        };
+
+    if (!config.isDepositsEnabled) {
+      throw new BadRequestException('Wallet deposits are currently disabled.');
+    }
+
+    if (amount < config.minSingleDeposit || amount > config.maxSingleDeposit) {
       throw new BadRequestException(
-        `Deposit amount must be between ₹${MIN_SINGLE_DEPOSIT} and ₹${MAX_SINGLE_DEPOSIT.toLocaleString('en-IN')}.`,
+        `Deposit amount must be between ₹${config.minSingleDeposit} and ₹${config.maxSingleDeposit.toLocaleString('en-IN')}.`,
       );
     }
 
     const wallet = await this.getOrCreateWallet(userId);
     const projectedBalance = wallet.availableBalance.add(amount);
 
-    if (projectedBalance.gt(MAX_WALLET_BALANCE_CAP)) {
+    if (projectedBalance.gt(config.maxWalletBalanceCap)) {
       throw new BadRequestException(
-        `Deposit of ₹${amount} exceeds the maximum wallet balance cap of ₹${MAX_WALLET_BALANCE_CAP.toLocaleString('en-IN')}. Current balance: ₹${wallet.availableBalance.toFixed(2)}`,
+        `Deposit of ₹${amount} exceeds the maximum wallet balance cap of ₹${config.maxWalletBalanceCap.toLocaleString('en-IN')}. Current balance: ₹${wallet.availableBalance.toFixed(2)}`,
       );
     }
 

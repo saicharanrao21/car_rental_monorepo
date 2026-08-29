@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FcmService } from './fcm.service';
+import { QueueProducerService } from '../queues/queue-producer.service';
 import { Role } from '@prisma/client';
 
 import { AuditLogService } from '../admin/audit-log.service';
@@ -13,10 +14,11 @@ export class NotificationsService {
     private prisma: PrismaService,
     private fcmService: FcmService,
     private auditLogService: AuditLogService,
+    @Optional() private queueProducer?: QueueProducerService,
   ) {}
 
   async notifyUser(userId: string, title: string, body: string) {
-    // 1. Create in-app notification in DB
+    // 1. Create in-app notification in DB (synchronous for immediate UI rendering)
     const notification = await this.prisma.notification.create({
       data: {
         userId,
@@ -26,8 +28,33 @@ export class NotificationsService {
       },
     });
 
-    // 2. Trigger FCM push notification (skips/fails gracefully inside fcmService)
+    // 2. Trigger FCM push notification
     await this.fcmService.sendToUser(userId, title, body);
+
+    // 3. If QueueProducer is available, enqueue async notification job for channel delivery
+    if (this.queueProducer) {
+      this.prisma.user
+        .findUnique({
+          where: { id: userId },
+          select: { phone: true, email: true },
+        })
+        .then((u) => {
+          if (u?.phone && this.queueProducer) {
+            this.queueProducer.dispatchSmsNotification({
+              phone: u.phone,
+              message: `${title}: ${body}`,
+            }).catch((err) => this.logger.warn(`Async SMS enqueue error: ${err?.message}`));
+          }
+          if (u?.email && this.queueProducer) {
+            this.queueProducer.dispatchEmailNotification({
+              to: u.email,
+              subject: title,
+              htmlContent: `<p>${body}</p>`,
+            }).catch((err) => this.logger.warn(`Async Email enqueue error: ${err?.message}`));
+          }
+        })
+        .catch((err) => this.logger.warn(`Failed resolving user for async notification: ${err?.message}`));
+    }
 
     return notification;
   }

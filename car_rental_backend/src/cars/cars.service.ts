@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerificationStatus, Role, Prisma, TripType, BookingStatus } from '@prisma/client';
@@ -11,12 +12,22 @@ import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
 import { AdminCarsQueryDto } from './dto/admin-cars-query.dto';
 import { PaginatedResult } from '../common/pagination.dto';
-
+import { SearchRankingService } from './search-ranking.service';
+import { GeospatialService } from '../geospatial/geospatial.service';
+import { RedisCacheService } from '../redis/redis-cache.service';
+import { SystemConfigService } from '../config-engine/system-config.service';
+import { REDIS_NAMESPACES, DEFAULT_CACHE_TTLS } from '../redis/redis-namespace.constants';
 import { redactVendor } from '../common/vendor-redactor.util';
 
 @Injectable()
 export class CarsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly searchRankingService?: SearchRankingService,
+    @Optional() private readonly geoService?: GeospatialService,
+    @Optional() private readonly cacheService?: RedisCacheService,
+    @Optional() private readonly configService?: SystemConfigService,
+  ) {}
 
   // --- Reusable Ownership Validation ---
   async verifyOwnership(carId: string, userId: string) {
@@ -51,6 +62,9 @@ export class CarsService {
     lat2: number,
     lon2: number,
   ): number {
+    if (this.geoService) {
+      return this.geoService.calculateDistanceKm(lat1, lon1, lat2, lon2);
+    }
     const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -64,27 +78,25 @@ export class CarsService {
     return R * c;
   }
 
-  private computeScore(
-    rating: number | null,
-    distanceKm: number | null,
-    maxDistanceKm: number,
-    hasLocation: boolean,
-  ): number {
-    const rScore = (rating || 0) / 5.0;
-    if (hasLocation && distanceKm !== null) {
-      const normDist = Math.min(distanceKm / maxDistanceKm, 1.0);
-      return rScore * 0.6 + (1 - normDist) * 0.4;
-    }
-    return rScore;
-  }
-
   async searchCars(
     query: CarsQueryDto,
     isAdmin: boolean,
   ): Promise<PaginatedResult<any>> {
+    // 1. Try Redis cache for public customer searches
+    const queryHash = Buffer.from(JSON.stringify(query)).toString('base64');
+    const cacheKey = REDIS_NAMESPACES.CACHE.CAR_SEARCH(queryHash);
+
+    if (!isAdmin && this.cacheService) {
+      const cached = await this.cacheService.get<PaginatedResult<any>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const where: any = {};
 
-    if (query.city) {
+    // Support city-specific search or "ALL" scope
+    if (query.city && query.city.trim().toUpperCase() !== 'ALL') {
       where.vendor = {
         ...(where.vendor || {}),
         city: { equals: query.city, mode: 'insensitive' },
@@ -257,99 +269,104 @@ export class CarsService {
     }
 
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
+    const userLat = hasLocation ? Number(query.lat) : undefined;
+    const userLng = hasLocation ? Number(query.lng) : undefined;
     const now = new Date();
 
-    const processedCars = availableCars.map((car) => {
-      let rawDistance: number | null = null;
-      let distanceKm: number | null = null;
+    // 2. Fetch dynamic ranking weights from SystemConfigService
+    const rankingConfig = this.configService
+      ? await this.configService.getSearchRankingConfig()
+      : undefined;
 
-      if (
-        hasLocation &&
-        car.vendor.latitude !== null &&
-        car.vendor.latitude !== undefined &&
-        car.vendor.longitude !== null &&
-        car.vendor.longitude !== undefined
-      ) {
-        rawDistance = this.calculateHaversine(
-          Number(query.lat),
-          Number(query.lng),
-          Number(car.vendor.latitude),
-          Number(car.vendor.longitude),
-        );
-        distanceKm = Math.round(rawDistance * 10) / 10;
-      }
-
-      const isSponsored =
-        car.vendor.isSponsored === true &&
-        (!car.vendor.boostExpiresAt ||
-          new Date(car.vendor.boostExpiresAt) > now);
-
-      const vendorCopy = {
+    // 3. Score and rank vehicles using SearchRankingService
+    const rankableVehicles = availableCars.map((car) => ({
+      ...car,
+      pricePerDay: Number(car.pricePerDay),
+      vendor: {
         ...car.vendor,
-        isSponsored,
-      };
+        rating: car.vendor.rating || 0,
+      },
+    }));
 
-      return {
-        ...car,
-        vendor: vendorCopy,
-        isSponsored,
-        rawDistance,
-        ...(hasLocation ? { distanceKm } : {}),
-      };
-    });
-
-    const distances = processedCars
-      .map((c) => c.rawDistance)
-      .filter((d): d is number => d !== null);
-    const maxDistance = distances.length > 0 ? Math.max(...distances, 1) : 1;
+    const scoredVehicles = this.searchRankingService
+      ? this.searchRankingService.rankVehicles(
+          rankableVehicles,
+          userLat,
+          userLng,
+          rankingConfig,
+        )
+      : rankableVehicles.map((car) => {
+          let distanceKm: number | null = null;
+          if (
+            hasLocation &&
+            car.vendor.latitude != null &&
+            car.vendor.longitude != null
+          ) {
+            distanceKm = this.calculateHaversine(
+              userLat!,
+              userLng!,
+              car.vendor.latitude,
+              car.vendor.longitude,
+            );
+          }
+          return {
+            car,
+            distanceKm,
+            scoreBreakdown: { finalCompositeScore: 1 },
+          };
+        });
 
     const sortBy = query.sortBy || SortByOption.RECOMMENDED;
 
+    let sorted = [...scoredVehicles];
     if (sortBy === SortByOption.NEAREST && hasLocation) {
-      processedCars.sort((a, b) => {
-        if (a.rawDistance === null && b.rawDistance === null) return 0;
-        if (a.rawDistance === null) return 1;
-        if (b.rawDistance === null) return -1;
-        return a.rawDistance - b.rawDistance;
+      sorted.sort((a, b) => {
+        if (a.distanceKm === null && b.distanceKm === null) return 0;
+        if (a.distanceKm === null) return 1;
+        if (b.distanceKm === null) return -1;
+        return a.distanceKm - b.distanceKm;
       });
     } else if (sortBy === SortByOption.PRICE_ASC) {
-      processedCars.sort(
-        (a, b) => Number(a.pricePerDay) - Number(b.pricePerDay),
+      sorted.sort(
+        (a, b) => Number(a.car.pricePerDay) - Number(b.car.pricePerDay),
       );
     } else if (sortBy === SortByOption.PRICE_DESC) {
-      processedCars.sort(
-        (a, b) => Number(b.pricePerDay) - Number(a.pricePerDay),
+      sorted.sort(
+        (a, b) => Number(b.car.pricePerDay) - Number(a.car.pricePerDay),
       );
     } else if (sortBy === SortByOption.RATING) {
-      processedCars.sort(
-        (a, b) => (b.vendor.rating || 0) - (a.vendor.rating || 0),
+      sorted.sort(
+        (a, b) => (b.car.vendor.rating || 0) - (a.car.vendor.rating || 0),
       );
     } else {
-      // SortByOption.RECOMMENDED or RELEVANCE
-      processedCars.sort((a, b) => {
-        if (a.isSponsored !== b.isSponsored) {
-          return a.isSponsored ? -1 : 1;
-        }
-
-        const scoreA = this.computeScore(
-          a.vendor.rating,
-          a.rawDistance,
-          maxDistance,
-          hasLocation,
-        );
-        const scoreB = this.computeScore(
-          b.vendor.rating,
-          b.rawDistance,
-          maxDistance,
-          hasLocation,
-        );
-        return scoreB - scoreA;
-      });
+      // SortByOption.RECOMMENDED: Primary sort by finalCompositeScore
+      sorted.sort(
+        (a, b) =>
+          b.scoreBreakdown.finalCompositeScore -
+          a.scoreBreakdown.finalCompositeScore,
+      );
     }
+
+    const processedCars = sorted.map((s) => {
+      const isSponsored =
+        s.car.vendor.isSponsored === true &&
+        (!s.car.vendor.boostExpiresAt ||
+          new Date(s.car.vendor.boostExpiresAt) > now);
+
+      return {
+        ...s.car,
+        vendor: {
+          ...s.car.vendor,
+          isSponsored,
+        },
+        isSponsored,
+        ...(s.distanceKm !== null ? { distanceKm: s.distanceKm } : {}),
+      };
+    });
 
     const total = processedCars.length;
     const page = query.page || 1;
-    const limit = query.limit || 20;
+    const limit = Math.min(query.limit || 20, 50); // Bound pagination max 50
     const paginated = processedCars.slice((page - 1) * limit, page * limit);
 
     const redactedData = paginated.map((car) => {
@@ -359,12 +376,19 @@ export class CarsService {
       return copy;
     });
 
-    return {
+    const result: PaginatedResult<any> = {
       data: redactedData,
       total,
       page,
       totalPages: Math.ceil(total / limit),
     };
+
+    // Cache public search results in Redis with 60-second TTL
+    if (!isAdmin && this.cacheService) {
+      await this.cacheService.set(cacheKey, result, DEFAULT_CACHE_TTLS.SHORT_TERM);
+    }
+
+    return result;
   }
 
   async findOne(id: string, requestingUser?: { userId: string; role: Role }) {
@@ -679,6 +703,15 @@ export class CarsService {
     }
   }
 
+  private async invalidateCarCaches(carId?: string) {
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+      if (carId) {
+        await this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(carId));
+      }
+    }
+  }
+
   async createCar(userId: string, dto: CreateCarDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
@@ -689,7 +722,7 @@ export class CarsService {
 
     await this.validateAvailableTripTypes(dto.availableTripTypes);
 
-    return this.prisma.car.create({
+    const created = await this.prisma.car.create({
       data: {
         vendorId: vendor.id,
         make: dto.make,
@@ -708,6 +741,9 @@ export class CarsService {
         availableTripTypes: dto.availableTripTypes || [],
       },
     });
+
+    await this.invalidateCarCaches(created.id);
+    return created;
   }
 
   async updateCar(carId: string, userId: string, dto: UpdateCarDto) {
@@ -715,7 +751,7 @@ export class CarsService {
 
     await this.validateAvailableTripTypes(dto.availableTripTypes);
 
-    return this.prisma.car.update({
+    const updated = await this.prisma.car.update({
       where: { id: carId },
       data: {
         make: dto.make ?? undefined,
@@ -733,6 +769,9 @@ export class CarsService {
         availableTripTypes: dto.availableTripTypes ?? undefined,
       },
     });
+
+    await this.invalidateCarCaches(carId);
+    return updated;
   }
 
   async updateAvailability(
@@ -742,10 +781,13 @@ export class CarsService {
   ) {
     await this.verifyOwnership(carId, userId);
 
-    return this.prisma.car.update({
+    const updated = await this.prisma.car.update({
       where: { id: carId },
       data: { isAvailable },
     });
+
+    await this.invalidateCarCaches(carId);
+    return updated;
   }
 
   async updateBlockedDates(
@@ -757,10 +799,13 @@ export class CarsService {
 
     const dates = blockedDates.map((d) => new Date(d));
 
-    return this.prisma.car.update({
+    const updated = await this.prisma.car.update({
       where: { id: carId },
       data: { blockedDates: dates },
     });
+
+    await this.invalidateCarCaches(carId);
+    return updated;
   }
 
   async adminFindAll(query: AdminCarsQueryDto): Promise<PaginatedResult<any>> {

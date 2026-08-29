@@ -32,6 +32,19 @@ export class LocationsController {
     return this.locationsService.reverseGeocode(lat, lng);
   }
 
+  @Get('resolve-current-location')
+  async resolveCurrentLocation(
+    @Query('lat') latStr: string,
+    @Query('lng') lngStr: string,
+  ) {
+    if (!latStr || !lngStr) {
+      throw new BadRequestException('lat and lng query parameters are required.');
+    }
+    const lat = parseFloat(latStr);
+    const lng = parseFloat(lngStr);
+    return this.locationsService.resolveCurrentLocation(lat, lng);
+  }
+
   @Get('distance')
   async calculateDistance(@Query() query: DistanceQueryDto) {
     const originLat = parseFloat(query.originLat);

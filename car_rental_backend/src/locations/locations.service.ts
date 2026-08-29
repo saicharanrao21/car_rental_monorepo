@@ -3,9 +3,13 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { BookingStatus, EmergencyStatus } from '@prisma/client';
+import { GeospatialService } from '../geospatial/geospatial.service';
+import { RedisCacheService } from '../redis/redis-cache.service';
+import { REDIS_NAMESPACES, DEFAULT_CACHE_TTLS } from '../redis/redis-namespace.constants';
+import { BookingStatus, EmergencyStatus, VerificationStatus } from '@prisma/client';
 
 export interface RouteEstimateResult {
   distanceKm: number;
@@ -24,12 +28,125 @@ export interface GeocodeResult {
   longitude: number;
 }
 
+export interface CurrentLocationResolution {
+  detectedCoordinates: { latitude: number; longitude: number };
+  nearestCity: {
+    id: string;
+    name: string;
+    state: string;
+    latitude: number;
+    longitude: number;
+    distanceKm: number;
+    isWithinOperationalRange: boolean;
+  };
+  suggestedPickupLocations: Array<{
+    id: string;
+    name: string;
+    locality?: string | null;
+    city: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    distanceKm: number;
+  }>;
+}
+
 @Injectable()
 export class LocationsService {
   private readonly logger = new Logger(LocationsService.name);
   private readonly geocodeCache = new Map<string, GeocodeResult>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly geoService?: GeospatialService,
+    @Optional() private readonly cacheService?: RedisCacheService,
+  ) {}
+
+  /**
+   * Server-authoritative resolution of client coordinates to nearest supported DriveGo city
+   * and nearby verified pickup hubs.
+   */
+  async resolveCurrentLocation(
+    lat: number,
+    lng: number,
+  ): Promise<CurrentLocationResolution> {
+    this.validateCoordinates(lat, lng);
+
+    const cacheKey = REDIS_NAMESPACES.CACHE.SUPPORTED_CITIES();
+    const fetchCities = async () =>
+      this.prisma.supportedCity.findMany({
+        where: { isActive: true },
+      });
+
+    const cities = this.cacheService
+      ? await this.cacheService.getOrSet(cacheKey, fetchCities, DEFAULT_CACHE_TTLS.LONG_TERM)
+      : await fetchCities();
+
+    if (!cities || cities.length === 0) {
+      throw new NotFoundException('No active operational cities found.');
+    }
+
+    // 1. Find nearest city using great-circle calculation
+    const scoredCities = cities.map((c) => {
+      const distanceKm = this.geoService
+        ? this.geoService.calculateDistanceKm(lat, lng, c.latitude, c.longitude)
+        : this.calculateHaversine(lat, lng, c.latitude, c.longitude);
+      return { ...c, distanceKm };
+    });
+
+    scoredCities.sort((a, b) => a.distanceKm - b.distanceKm);
+    const nearest = scoredCities[0];
+    const isWithinOperationalRange = nearest.distanceKm <= 100; // 100km operational catchment radius
+
+    // 2. Fetch verified vendor hubs in nearest city for pickup suggestions
+    const vendors = await this.prisma.vendor.findMany({
+      where: {
+        city: { equals: nearest.name, mode: 'insensitive' },
+        verificationStatus: VerificationStatus.VERIFIED,
+      },
+      select: {
+        id: true,
+        businessName: true,
+        locality: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+      },
+      take: 20,
+    });
+
+    const hubs = vendors
+      .filter((v) => v.latitude != null && v.longitude != null)
+      .map((v) => {
+        const distanceKm = this.geoService
+          ? this.geoService.calculateDistanceKm(lat, lng, v.latitude!, v.longitude!)
+          : this.calculateHaversine(lat, lng, v.latitude!, v.longitude!);
+        return {
+          id: v.id,
+          name: v.businessName,
+          locality: v.locality,
+          city: v.city,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          distanceKm,
+        };
+      });
+
+    hubs.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    return {
+      detectedCoordinates: { latitude: lat, longitude: lng },
+      nearestCity: {
+        id: nearest.id,
+        name: nearest.name,
+        state: nearest.state,
+        latitude: nearest.latitude,
+        longitude: nearest.longitude,
+        distanceKm: nearest.distanceKm,
+        isWithinOperationalRange,
+      },
+      suggestedPickupLocations: hubs.slice(0, 8),
+    };
+  }
 
   /**
    * Computes great-circle distance between two coordinate pairs using the Haversine formula.
