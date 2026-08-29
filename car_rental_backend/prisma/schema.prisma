@@ -1551,3 +1551,72 @@ model BookingAttribution {
   @@index([campaignId])
   @@index([sponsoredCampaignId])
 }
+
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  eventType      String
+  userId         String?
+  vendorId       String?
+  carId          String?
+  bookingId      String?
+  city           String?
+  sessionId      String?
+  platform       String?  // IOS, ANDROID, WEB
+  source         String?  // ORGANIC, FEATURED, SPONSORED, REFERRAL, COUPON, CAMPAIGN, DIRECT
+  metadata       Json?
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+  @@index([vendorId, createdAt])
+  @@index([carId, createdAt])
+  @@index([city, createdAt])
+  @@index([createdAt])
+  @@index([idempotencyKey])
+}
+
+model DailyMarketplaceMetric {
+  id                    String   @id @default(cuid())
+  date                  DateTime @unique // Normalized 00:00:00 UTC
+  totalSearches         Int      @default(0)
+  totalViews            Int      @default(0)
+  totalBookings         Int      @default(0)
+  completedTrips        Int      @default(0)
+  cancelledBookings     Int      @default(0)
+  grossMerchandiseValue Decimal  @default(0) @db.Decimal(12, 2)
+  platformRevenue       Decimal  @default(0) @db.Decimal(12, 2)
+  vendorPayable         Decimal  @default(0) @db.Decimal(12, 2)
+  refundTotal           Decimal  @default(0) @db.Decimal(12, 2)
+  activeCustomers       Int      @default(0)
+  activeVendors         Int      @default(0)
+  activeFleet           Int      @default(0)
+  avgUtilizationRate    Float    @default(0)
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([date])
+}
+
+model DailyCityMetric {
+  id                String   @id @default(cuid())
+  date              DateTime
+  city              String
+  searches          Int      @default(0)
+  noResultSearches  Int      @default(0)
+  bookings          Int      @default(0)
+  completedTrips    Int      @default(0)
+  cancelledBookings Int      @default(0)
+  gmv               Decimal  @default(0) @db.Decimal(12, 2)
+  platformRevenue   Decimal  @default(0) @db.Decimal(12, 2)
+  activeCars        Int      @default(0)
+  utilizationRate   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([date, city])
+  @@index([city, date])
+  @@index([date])
+}
+

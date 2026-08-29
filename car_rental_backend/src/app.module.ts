@@ -36,6 +36,7 @@ import { FraudModule } from './fraud/fraud.module';
 import { LocationsModule } from './locations/locations.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { GrowthModule } from './growth/growth.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { SystemConfigModule } from './config-engine/system-config.module';
 import { GeospatialModule } from './geospatial/geospatial.module';
@@ -88,6 +89,7 @@ import { validateEnv } from './common/env.validation';
     LocationsModule,
     WhatsAppModule,
     GrowthModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -76,6 +76,16 @@ export interface ReconciliationConfig {
   cronIntervalMinutes: number;
 }
 
+export interface AnalyticsConfig {
+  rawEventRetentionDays: number;
+  enableRealtimeEventTracking: boolean;
+  aggregationIntervalMinutes: number;
+  churnInactivityDays: number;
+  vendorRiskInactivityDays: number;
+  alertPaymentFailureSpikeRate: number;
+  alertCancellationSpikeRate: number;
+}
+
 export interface PlatformFeatureFlags {
   enableDoorstepDelivery: boolean;
   enableSplitPayments: boolean;
@@ -198,6 +208,20 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as ReconciliationConfig,
     isPublic: false,
     description: 'Financial gateway reconciliation rules and drift alert thresholds',
+  },
+  'analytics.governance': {
+    category: 'ANALYTICS',
+    value: {
+      rawEventRetentionDays: 90,
+      enableRealtimeEventTracking: true,
+      aggregationIntervalMinutes: 60,
+      churnInactivityDays: 45,
+      vendorRiskInactivityDays: 30,
+      alertPaymentFailureSpikeRate: 0.15,
+      alertCancellationSpikeRate: 0.25,
+    } as AnalyticsConfig,
+    isPublic: false,
+    description: 'Marketplace analytics retention policies, aggregation cadences, and risk alert thresholds',
   },
   'platform.feature_flags': {
     category: 'FEATURE_FLAGS',

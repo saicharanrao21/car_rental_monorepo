@@ -46,6 +46,10 @@ export enum AdminPermission {
   // Risk & Fraud
   FRAUD_VIEW = 'fraud:view',
   FRAUD_RESOLVE = 'fraud:resolve',
+
+  // Analytics & Control Tower
+  ANALYTICS_READ = 'analytics:read',
+  MARKETPLACE_INTELLIGENCE = 'marketplace:intelligence',
 }
 
 export const ROLE_PERMISSIONS_MATRIX: Record<Role, AdminPermission[]> = {

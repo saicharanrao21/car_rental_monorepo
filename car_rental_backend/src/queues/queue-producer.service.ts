@@ -85,4 +85,17 @@ export class QueueProducerService {
       { jobId },
     );
   }
+
+  /**
+   * Enqueues an analytics event for asynchronous batch processing.
+   */
+  async dispatchAnalyticsEvent(data: any) {
+    const jobId = data.idempotencyKey || `analytics-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    return this.queueFactory.addJob(
+      QUEUE_NAMES.ANALYTICS,
+      JOB_TYPES.ANALYTICS.TRACK_EVENT,
+      data,
+      { jobId },
+    );
+  }
 }

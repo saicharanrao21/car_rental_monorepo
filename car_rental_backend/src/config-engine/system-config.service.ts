@@ -13,6 +13,7 @@ import {
   SupportSlaConfig,
   PayoutConfig,
   ReconciliationConfig,
+  AnalyticsConfig,
   PlatformFeatureFlags,
 } from './system-config.interface';
 
@@ -153,6 +154,10 @@ export class SystemConfigService {
 
   async getReconciliationConfig(): Promise<ReconciliationConfig> {
     return this.getConfig<ReconciliationConfig>('reconciliation.rules');
+  }
+
+  async getAnalyticsConfig(): Promise<AnalyticsConfig> {
+    return this.getConfig<AnalyticsConfig>('analytics.governance');
   }
 
   async getFeatureFlags(): Promise<PlatformFeatureFlags> {
