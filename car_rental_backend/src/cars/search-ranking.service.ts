@@ -16,6 +16,18 @@ export interface RankableVehicle {
   };
   distanceKm?: number | null;
   isFeatured?: boolean;
+  sponsoredCampaigns?: Array<{
+    status: string;
+    startDate: Date | string;
+    endDate: Date | string;
+    boostMultiplier?: number;
+  }>;
+  featuredListings?: Array<{
+    isActive: boolean;
+    startDate: Date | string;
+    endDate: Date | string;
+    priority?: number;
+  }>;
 }
 
 export interface ScoredVehicle<T extends RankableVehicle> {
@@ -121,15 +133,37 @@ export class SearchRankingService {
         config.relevanceWeight * priceScore;
 
       // 6. Multipliers for sponsored and featured placement (with fairness ceilings)
+      const hasActiveSponsoredCampaign =
+        car.sponsoredCampaigns &&
+        car.sponsoredCampaigns.some(
+          (sc) =>
+            sc.status === 'ACTIVE' &&
+            new Date(sc.startDate) <= now &&
+            new Date(sc.endDate) >= now,
+        );
+
       const isSponsored =
-        car.vendor.isSponsored === true &&
-        (!car.vendor.boostExpiresAt ||
-          new Date(car.vendor.boostExpiresAt) > now);
+        (car.vendor.isSponsored === true &&
+          (!car.vendor.boostExpiresAt ||
+            new Date(car.vendor.boostExpiresAt) > now)) ||
+        Boolean(hasActiveSponsoredCampaign);
+
+      const hasActiveFeaturedListing =
+        car.featuredListings &&
+        car.featuredListings.some(
+          (fl) =>
+            fl.isActive &&
+            new Date(fl.startDate) <= now &&
+            new Date(fl.endDate) >= now,
+        );
+
+      const isFeatured =
+        car.isFeatured === true || Boolean(hasActiveFeaturedListing);
 
       const sponsoredMultiplier = isSponsored
         ? Math.min(Math.max(config.sponsoredBoostMultiplier, 1.0), 2.0)
         : 1.0;
-      const featuredMultiplier = car.isFeatured
+      const featuredMultiplier = isFeatured
         ? Math.min(Math.max(config.featuredBoostMultiplier, 1.0), 1.5)
         : 1.0;
 

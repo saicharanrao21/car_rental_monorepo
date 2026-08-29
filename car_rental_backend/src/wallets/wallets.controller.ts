@@ -47,6 +47,25 @@ export class WalletsController {
   }
 
   /**
+   * Calculate usable wallet breakdown for a booking according to dynamic SystemConfig rules.
+   */
+  @Get('usable')
+  async getUsableWallet(
+    @Req() req: any,
+    @Query('bookingAmount') bookingAmount: string,
+    @Query('requestedAmount') requestedAmount?: string,
+  ) {
+    const userId = req.user.id || req.user.userId;
+    const parsedBookingAmount = parseFloat(bookingAmount) || 0;
+    const parsedRequested = requestedAmount ? parseFloat(requestedAmount) : undefined;
+    return this.walletsService.validateAndCalculateUsableWallet(
+      userId,
+      parsedBookingAmount,
+      parsedRequested,
+    );
+  }
+
+  /**
    * Create Razorpay order to add money to wallet.
    */
   @Post('deposit/create-order')

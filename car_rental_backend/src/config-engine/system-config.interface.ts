@@ -2,7 +2,10 @@ export interface WalletConfig {
   maxSingleDeposit: number;
   minSingleDeposit: number;
   maxWalletBalanceCap: number;
-  maxWalletPaymentPercentage: number; // e.g. 100% or 50%
+  maxWalletPaymentPercentage: number; // e.g. 100% or 30%
+  minBookingAmountForWalletUse: number; // e.g. ₹500
+  maxPromoCreditPerBooking: number; // e.g. ₹1000
+  maxDailyWalletUsage: number; // e.g. ₹25000
   isDepositsEnabled: boolean;
 }
 
@@ -12,6 +15,14 @@ export interface ReferralConfig {
   minBookingAmount: number;
   maxReferralsPerUser: number;
   isReferralsEnabled: boolean;
+}
+
+export interface GrowthCampaignConfig {
+  enablePromotionalCampaigns: boolean;
+  enableSponsoredListings: boolean;
+  enableFeaturedListings: boolean;
+  sponsoredMaxBoostMultiplier: number;
+  featuredMaxBoostMultiplier: number;
 }
 
 export interface SearchRankingConfig {
@@ -46,10 +57,25 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
       minSingleDeposit: 100,
       maxWalletBalanceCap: 100000,
       maxWalletPaymentPercentage: 100,
+      minBookingAmountForWalletUse: 0,
+      maxPromoCreditPerBooking: 5000,
+      maxDailyWalletUsage: 50000,
       isDepositsEnabled: true,
     } as WalletConfig,
     isPublic: true,
-    description: 'Wallet deposit limits and checkout usage caps',
+    description: 'Wallet deposit limits, checkout usage caps, and promotional credit bounds',
+  },
+  'growth.campaigns': {
+    category: 'GROWTH',
+    value: {
+      enablePromotionalCampaigns: true,
+      enableSponsoredListings: true,
+      enableFeaturedListings: true,
+      sponsoredMaxBoostMultiplier: 2.0,
+      featuredMaxBoostMultiplier: 1.5,
+    } as GrowthCampaignConfig,
+    isPublic: false,
+    description: 'Growth and marketplace monetization campaign controls and multiplier ceilings',
   },
   'referral.rules': {
     category: 'REFERRAL',

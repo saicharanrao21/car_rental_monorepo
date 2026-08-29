@@ -133,6 +133,183 @@ export class WalletsService {
   }
 
   /**
+   * Lazily checks and expires outdated promotional credits for a wallet.
+   */
+  async cleanExpiredPromotionalCredits(
+    walletId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Decimal> {
+    const client = tx || this.prisma;
+    const now = new Date();
+
+    const expiredEntries = await client.walletLedgerEntry.findMany({
+      where: {
+        walletId,
+        bucket: WalletBucketType.PROMOTIONAL,
+        direction: LedgerDirection.CREDIT,
+        expiresAt: { lt: now },
+      },
+    });
+
+    if (expiredEntries.length === 0) {
+      return new Decimal(0);
+    }
+
+    const wallet = await client.wallet.findUnique({ where: { id: walletId } });
+    if (!wallet || wallet.promoBalance.lte(0)) {
+      return new Decimal(0);
+    }
+
+    const totalHistoricalExpiredCredits = expiredEntries.reduce(
+      (acc, entry) => acc.add(entry.amount),
+      new Decimal(0),
+    );
+
+    const alreadyExpiredLedgerSum = await client.walletLedgerEntry.aggregate({
+      where: {
+        walletId,
+        type: LedgerEntryType.EXPIRATION,
+      },
+      _sum: { amount: true },
+    });
+
+    const alreadyExpiredAmount = alreadyExpiredLedgerSum._sum.amount
+      ? new Decimal(alreadyExpiredLedgerSum._sum.amount)
+      : new Decimal(0);
+
+    const unexpiredDebitRequired = totalHistoricalExpiredCredits.sub(alreadyExpiredAmount);
+    const actualExpiredAmount = Decimal.min(unexpiredDebitRequired, wallet.promoBalance);
+
+    if (actualExpiredAmount.gt(0)) {
+      const idempotencyKey = `promo_expiry_${walletId}_${now.toISOString().slice(0, 10)}`;
+      const newPromo = wallet.promoBalance.sub(actualExpiredAmount);
+      const newAvailable = wallet.availableBalance.sub(actualExpiredAmount);
+
+      await client.walletLedgerEntry.create({
+        data: {
+          walletId,
+          type: LedgerEntryType.EXPIRATION,
+          direction: LedgerDirection.DEBIT,
+          bucket: WalletBucketType.PROMOTIONAL,
+          amount: actualExpiredAmount,
+          balanceBefore: wallet.availableBalance,
+          balanceAfter: newAvailable,
+          referenceType: 'SYSTEM',
+          referenceId: 'PROMO_EXPIRATION',
+          idempotencyKey,
+          description: `Expired promotional credit cleanup (-₹${actualExpiredAmount.toFixed(2)})`,
+        },
+      });
+
+      await client.wallet.update({
+        where: { id: walletId },
+        data: {
+          availableBalance: newAvailable,
+          promoBalance: newPromo,
+        },
+      });
+
+      this.logger.log(
+        `[PROMO EXPIRED] Expired ₹${actualExpiredAmount.toFixed(2)} promo credits from wallet ${walletId}`,
+      );
+
+      return actualExpiredAmount;
+    }
+
+    return new Decimal(0);
+  }
+
+  /**
+   * Evaluates SystemConfig rules to determine maximum allowable wallet debit for a booking.
+   */
+  async validateAndCalculateUsableWallet(
+    userId: string,
+    bookingAmount: number,
+    requestedWalletAmount?: number,
+  ) {
+    const wallet = await this.getOrCreateWallet(userId);
+    await this.cleanExpiredPromotionalCredits(wallet.id);
+
+    const refreshedWallet = await this.prisma.wallet.findUnique({
+      where: { id: wallet.id },
+    });
+    const currentWallet = refreshedWallet || wallet;
+
+    const config = this.systemConfigService
+      ? await this.systemConfigService.getWalletConfig()
+      : {
+          maxSingleDeposit: 50000,
+          minSingleDeposit: 100,
+          maxWalletBalanceCap: 100000,
+          maxWalletPaymentPercentage: 100,
+          minBookingAmountForWalletUse: 0,
+          maxPromoCreditPerBooking: 5000,
+          maxDailyWalletUsage: 50000,
+          isDepositsEnabled: true,
+        };
+
+    const bookingTotal = new Decimal(bookingAmount);
+
+    if (config.minBookingAmountForWalletUse && bookingTotal.lt(config.minBookingAmountForWalletUse)) {
+      return {
+        allowed: false,
+        usableAmount: 0,
+        promoAmount: 0,
+        realAmount: 0,
+        availableBalance: currentWallet.availableBalance.toNumber(),
+        reason: `Booking amount must be at least ₹${config.minBookingAmountForWalletUse} to apply DriveGo Wallet balance.`,
+      };
+    }
+
+    const maxPercent = config.maxWalletPaymentPercentage || 100;
+    const maxAllowedByPercentage = bookingTotal.mul(maxPercent).div(100);
+    const maxPromoAllowed = new Decimal(config.maxPromoCreditPerBooking || 5000);
+    const usablePromo = Decimal.min(currentWallet.promoBalance, maxPromoAllowed);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const dailyDebits = await this.prisma.walletLedgerEntry.aggregate({
+      where: {
+        walletId: currentWallet.id,
+        direction: LedgerDirection.DEBIT,
+        type: { in: [LedgerEntryType.CHECKOUT_DEBIT] },
+        createdAt: { gte: startOfToday },
+      },
+      _sum: { amount: true },
+    });
+
+    const usedToday = dailyDebits._sum.amount ? new Decimal(dailyDebits._sum.amount) : new Decimal(0);
+    const maxDailyLimit = new Decimal(config.maxDailyWalletUsage || 50000);
+    const remainingDailyAllowance = Decimal.max(0, maxDailyLimit.sub(usedToday));
+
+    const maxPossibleDebit = Decimal.min(
+      currentWallet.availableBalance,
+      bookingTotal,
+      maxAllowedByPercentage,
+      remainingDailyAllowance,
+    );
+
+    const targetAmount = requestedWalletAmount !== undefined
+      ? Decimal.min(new Decimal(requestedWalletAmount), maxPossibleDebit)
+      : maxPossibleDebit;
+
+    const finalPromo = Decimal.min(targetAmount, usablePromo);
+    const finalReal = targetAmount.sub(finalPromo);
+
+    return {
+      allowed: targetAmount.gt(0),
+      usableAmount: targetAmount.toNumber(),
+      promoAmount: finalPromo.toNumber(),
+      realAmount: finalReal.toNumber(),
+      availableBalance: currentWallet.availableBalance.toNumber(),
+      realBalance: currentWallet.realBalance.toNumber(),
+      promoBalance: currentWallet.promoBalance.toNumber(),
+      maxPercentageAllowed: maxPercent,
+    };
+  }
+
+  /**
    * Authoritative credit operation with pessimistic row locking and idempotency.
    */
   async creditWallet(

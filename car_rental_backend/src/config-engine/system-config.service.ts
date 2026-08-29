@@ -8,6 +8,7 @@ import {
   ReferralConfig,
   SearchRankingConfig,
   BookingPolicyConfig,
+  GrowthCampaignConfig,
   PlatformFeatureFlags,
 } from './system-config.interface';
 
@@ -128,6 +129,10 @@ export class SystemConfigService {
 
   async getBookingPolicyConfig(): Promise<BookingPolicyConfig> {
     return this.getConfig<BookingPolicyConfig>('booking.policies');
+  }
+
+  async getGrowthCampaignConfig(): Promise<GrowthCampaignConfig> {
+    return this.getConfig<GrowthCampaignConfig>('growth.campaigns');
   }
 
   async getFeatureFlags(): Promise<PlatformFeatureFlags> {

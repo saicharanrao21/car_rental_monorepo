@@ -276,6 +276,30 @@ export class CarsService {
           where: { isActive: true },
           orderBy: [{ isDefault: 'desc' }, { basePricePerDay: 'asc' }],
         },
+        sponsoredCampaigns: {
+          where: {
+            status: 'ACTIVE',
+          },
+          select: {
+            id: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+            boostMultiplier: true,
+          },
+        },
+        featuredListings: {
+          where: {
+            isActive: true,
+          },
+          select: {
+            id: true,
+            isActive: true,
+            startDate: true,
+            endDate: true,
+            priority: true,
+          },
+        },
       },
     });
 

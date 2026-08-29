@@ -351,6 +351,7 @@ model Vendor {
   invoices           Invoice[]
   emergencyRequests  EmergencyRequest[]
   pickupHubs         PickupHub[]
+  sponsoredCampaigns SponsoredCampaign[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -433,6 +434,8 @@ model Car {
   recentlyViewed         RecentlyViewed[]
   emergencyRequests      EmergencyRequest[]
   mileagePackages        MileagePackage[]
+  sponsoredCampaigns     SponsoredCampaign[]
+  featuredListings       FeaturedListing[]
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -516,6 +519,7 @@ model Booking {
   additionalDrivers  AdditionalDriver[]
   supportTickets     SupportTicket[]
   emergencyRequests  EmergencyRequest[]
+  attribution        BookingAttribution?
 
   @@index([customerId])
   @@index([vendorId])
@@ -689,6 +693,7 @@ model Coupon {
   updatedAt         DateTime      @updatedAt
   bookings          Booking[]
   usages            CouponUsage[]
+  attributions      BookingAttribution[]
 
   @@index([code])
   @@index([isActive])
@@ -1195,6 +1200,7 @@ model ReferralAttribution {
   createdAt              DateTime          @default(now())
   qualifiedAt            DateTime?
   rewardedAt             DateTime?
+  bookingAttributions    BookingAttribution[]
 
   @@index([referrerId])
   @@index([refereeId])
@@ -1313,4 +1319,95 @@ model SystemConfig {
 
   @@index([category])
   @@index([isPublic])
+}
+
+model PromotionalCampaign {
+  id                String               @id @default(cuid())
+  code              String               @unique
+  name              String
+  type              String               @default("GENERAL") // FIRST_BOOKING, WEEKEND, FESTIVAL, CITY_LAUNCH, VENDOR_PROMOTION
+  city              String?
+  carCategory       CarCategory?
+  discountType      DiscountType         @default(PERCENTAGE)
+  discountValue     Decimal              @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?             @db.Decimal(10, 2)
+  minBookingAmount  Decimal?             @db.Decimal(10, 2)
+  budget            Decimal?             @db.Decimal(10, 2)
+  spentBudget       Decimal              @default(0) @db.Decimal(10, 2)
+  redemptionCount   Int                  @default(0)
+  maxRedemptions    Int?
+  startDate         DateTime?
+  endDate           DateTime?
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  attributions      BookingAttribution[]
+
+  @@index([code])
+  @@index([type])
+  @@index([city])
+  @@index([isActive])
+}
+
+model SponsoredCampaign {
+  id               String               @id @default(cuid())
+  vendorId         String
+  vendor           Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  carId            String
+  car              Car                  @relation(fields: [carId], references: [id], onDelete: Cascade)
+  city             String
+  startDate        DateTime
+  endDate          DateTime
+  boostMultiplier  Float                @default(1.25)
+  status           String               @default("ACTIVE") // ACTIVE, PAUSED, EXPIRED, PENDING_REVIEW
+  impressionsCount Int                  @default(0)
+  clicksCount      Int                  @default(0)
+  bookingsCount    Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  attributions     BookingAttribution[]
+
+  @@index([vendorId])
+  @@index([carId])
+  @@index([city, status])
+  @@index([status, startDate, endDate])
+}
+
+model FeaturedListing {
+  id        String   @id @default(cuid())
+  carId     String
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  city      String
+  priority  Int      @default(1)
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([carId])
+  @@index([city, isActive])
+  @@index([isActive, startDate, endDate])
+}
+
+model BookingAttribution {
+  id                    String               @id @default(cuid())
+  bookingId             String               @unique
+  booking               Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  source                String               @default("ORGANIC") // ORGANIC, FEATURED, SPONSORED, REFERRAL, COUPON, CAMPAIGN
+  campaignId            String?
+  campaign              PromotionalCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  sponsoredCampaignId   String?
+  sponsoredCampaign     SponsoredCampaign?   @relation(fields: [sponsoredCampaignId], references: [id], onDelete: SetNull)
+  referralAttributionId String?
+  referralAttribution   ReferralAttribution? @relation(fields: [referralAttributionId], references: [id], onDelete: SetNull)
+  couponId              String?
+  coupon                Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  metadata              Json?
+  createdAt             DateTime             @default(now())
+
+  @@index([bookingId])
+  @@index([source])
+  @@index([campaignId])
+  @@index([sponsoredCampaignId])
 }
