@@ -69,4 +69,8 @@ export class UpdateCarDto {
   @IsArray()
   @IsString({ each: true })
   availableTripTypes?: string[];
+
+  @IsOptional()
+  @IsString()
+  pickupHubId?: string;
 }

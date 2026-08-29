@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/pagination.dto';
@@ -64,7 +65,33 @@ export class CarsQueryDto extends PaginationDto {
 
   @IsOptional()
   @IsString()
+  pickupHubId?: string;
+
+  @IsOptional()
+  @IsString()
   tripType?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(150)
+  radiusKm?: number;
+
+  @IsOptional()
+  @IsString()
+  fuelType?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  seating?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  featuredOnly?: boolean;
 
   @IsOptional()
   @IsEnum(SortByOption)

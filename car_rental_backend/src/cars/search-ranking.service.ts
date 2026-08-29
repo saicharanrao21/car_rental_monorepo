@@ -58,7 +58,30 @@ export class SearchRankingService {
     const hasLocation = userLat != null && userLng != null;
     const now = new Date();
 
+    // Price distribution for dynamic competitiveness normalization
+    const validPrices = cars.map((c) => c.pricePerDay).filter((p) => p > 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 1000;
+    const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 5000;
+    const priceRange = maxPrice - minPrice || 1;
+
     const scored: ScoredVehicle<T>[] = cars.map((car) => {
+      // 0. Hard availability check: unavailable vehicles always score 0.0 and never get boosted
+      if (!car.isAvailable) {
+        return {
+          car,
+          distanceKm: null,
+          scoreBreakdown: {
+            distanceScore: 0,
+            ratingScore: 0,
+            priceScore: 0,
+            availabilityScore: 0,
+            sponsoredBoost: 1.0,
+            featuredBoost: 1.0,
+            finalCompositeScore: 0,
+          },
+        };
+      }
+
       // 1. Distance calculation and score (0.0 to 1.0)
       let distanceKm: number | null = null;
       let distanceScore = 0.5; // Neutral baseline if no location provided
@@ -84,10 +107,11 @@ export class SearchRankingService {
       const ratingScore = Math.min(Math.max(rating / 5.0, 0), 1.0);
 
       // 3. Availability score
-      const availabilityScore = car.isAvailable ? 1.0 : 0.0;
+      const availabilityScore = 1.0;
 
-      // 4. Base Price Competitiveness score (normalize around price)
-      const priceScore = 0.5; // baseline neutral
+      // 4. Base Price Competitiveness score (lower relative price gets higher score)
+      const priceNorm = (car.pricePerDay - minPrice) / priceRange;
+      const priceScore = Math.max(0.2, 1.0 - priceNorm * 0.8); // Bounded 0.2 to 1.0
 
       // 5. Calculate base weighted composite score
       const baseScore =
@@ -96,17 +120,17 @@ export class SearchRankingService {
         config.availabilityWeight * availabilityScore +
         config.relevanceWeight * priceScore;
 
-      // 6. Multipliers for sponsored and featured placement
+      // 6. Multipliers for sponsored and featured placement (with fairness ceilings)
       const isSponsored =
         car.vendor.isSponsored === true &&
         (!car.vendor.boostExpiresAt ||
           new Date(car.vendor.boostExpiresAt) > now);
 
       const sponsoredMultiplier = isSponsored
-        ? config.sponsoredBoostMultiplier
+        ? Math.min(Math.max(config.sponsoredBoostMultiplier, 1.0), 2.0)
         : 1.0;
       const featuredMultiplier = car.isFeatured
-        ? config.featuredBoostMultiplier
+        ? Math.min(Math.max(config.featuredBoostMultiplier, 1.0), 1.5)
         : 1.0;
 
       const finalCompositeScore = Number(

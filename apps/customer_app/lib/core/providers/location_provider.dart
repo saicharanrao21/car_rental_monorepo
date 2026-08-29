@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:core/core.dart';
+import 'api_providers.dart';
 
 enum LocationDetectionStatus {
   idle,
@@ -13,13 +15,58 @@ enum LocationDetectionStatus {
   error,
 }
 
+class ServerResolvedPickupHub {
+  final String id;
+  final String name;
+  final String? locality;
+  final String city;
+  final double? latitude;
+  final double? longitude;
+  final double distanceKm;
+  final double? serviceRadiusKm;
+  final String? operatingHours;
+  final bool isWithinServiceRadius;
+
+  const ServerResolvedPickupHub({
+    required this.id,
+    required this.name,
+    this.locality,
+    required this.city,
+    this.latitude,
+    this.longitude,
+    required this.distanceKm,
+    this.serviceRadiusKm,
+    this.operatingHours,
+    this.isWithinServiceRadius = true,
+  });
+
+  factory ServerResolvedPickupHub.fromJson(Map<String, dynamic> json) {
+    return ServerResolvedPickupHub(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      locality: json['locality'] as String?,
+      city: json['city'] as String? ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
+      serviceRadiusKm: (json['serviceRadiusKm'] as num?)?.toDouble(),
+      operatingHours: json['operatingHours'] as String?,
+      isWithinServiceRadius: json['isWithinServiceRadius'] as bool? ?? true,
+    );
+  }
+}
+
 class CurrentLocationResult {
   final LocationDetectionStatus status;
   final double? latitude;
   final double? longitude;
   final String? message;
   final String? resolvedCity;
+  final String? resolvedState;
   final String? resolvedLocality;
+  final double? distanceToCityCenterKm;
+  final bool isWithinOperationalRange;
+  final List<ServerResolvedPickupHub> suggestedPickupLocations;
 
   const CurrentLocationResult({
     required this.status,
@@ -27,7 +74,11 @@ class CurrentLocationResult {
     this.longitude,
     this.message,
     this.resolvedCity,
+    this.resolvedState,
     this.resolvedLocality,
+    this.distanceToCityCenterKm,
+    this.isWithinOperationalRange = true,
+    this.suggestedPickupLocations = const [],
   });
 }
 
@@ -38,6 +89,9 @@ class UserLocationState {
   final bool isRequestedThisSession;
   final LocationDetectionStatus detectionStatus;
   final String? lastError;
+  final String? resolvedCity;
+  final bool isWithinOperationalRange;
+  final List<ServerResolvedPickupHub> suggestedPickupLocations;
 
   const UserLocationState({
     this.latitude,
@@ -46,6 +100,9 @@ class UserLocationState {
     this.isRequestedThisSession = true,
     this.detectionStatus = LocationDetectionStatus.idle,
     this.lastError,
+    this.resolvedCity,
+    this.isWithinOperationalRange = true,
+    this.suggestedPickupLocations = const [],
   });
 
   UserLocationState copyWith({
@@ -55,6 +112,9 @@ class UserLocationState {
     bool? isRequestedThisSession,
     LocationDetectionStatus? detectionStatus,
     String? lastError,
+    String? resolvedCity,
+    bool? isWithinOperationalRange,
+    List<ServerResolvedPickupHub>? suggestedPickupLocations,
   }) {
     return UserLocationState(
       latitude: latitude ?? this.latitude,
@@ -63,12 +123,17 @@ class UserLocationState {
       isRequestedThisSession: isRequestedThisSession ?? this.isRequestedThisSession,
       detectionStatus: detectionStatus ?? this.detectionStatus,
       lastError: lastError,
+      resolvedCity: resolvedCity ?? this.resolvedCity,
+      isWithinOperationalRange: isWithinOperationalRange ?? this.isWithinOperationalRange,
+      suggestedPickupLocations: suggestedPickupLocations ?? this.suggestedPickupLocations,
     );
   }
 }
 
 class UserLocationNotifier extends StateNotifier<UserLocationState> {
-  UserLocationNotifier() : super(const UserLocationState());
+  final ApiClient? apiClient;
+
+  UserLocationNotifier({this.apiClient}) : super(const UserLocationState());
 
   static const Map<String, List<double>> _cityCoordinates = {
     'Mumbai': [19.0760, 72.8777],
@@ -81,7 +146,7 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
     'Kolkata': [22.5726, 88.3639],
   };
 
-  /// Explicitly detects current location with full state feedback
+  /// Explicitly detects current location with server-authoritative resolution
   Future<CurrentLocationResult> detectCurrentLocation() async {
     state = state.copyWith(detectionStatus: LocationDetectionStatus.loading, lastError: null);
 
@@ -131,21 +196,70 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         ),
       );
 
-      final nearestCity = _findNearestCity(position.latitude, position.longitude);
+      String resolvedCity = _findNearestCity(position.latitude, position.longitude);
+      String? resolvedState;
+      double? distKm;
+      bool isWithinRange = true;
+      List<ServerResolvedPickupHub> hubs = [];
+
+      // Server-authoritative resolution via backend
+      if (apiClient != null) {
+        try {
+          final response = await apiClient!.dio.get(
+            '/locations/resolve-current-location',
+            queryParameters: {
+              'lat': position.latitude,
+              'lng': position.longitude,
+            },
+          );
+
+          if (response.statusCode == 200 && response.data is Map) {
+            final data = response.data as Map<String, dynamic>;
+            final nearest = data['nearestCity'] as Map<String, dynamic>?;
+            if (nearest != null) {
+              resolvedCity = nearest['name'] as String? ?? resolvedCity;
+              resolvedState = nearest['state'] as String?;
+              distKm = (nearest['distanceKm'] as num?)?.toDouble();
+              isWithinRange = nearest['isWithinOperationalRange'] as bool? ?? true;
+            }
+
+            final suggested = data['suggestedPickupLocations'] as List<dynamic>?;
+            if (suggested != null) {
+              hubs = suggested
+                  .map((item) => ServerResolvedPickupHub.fromJson(item as Map<String, dynamic>))
+                  .toList();
+            }
+          }
+        } catch (e) {
+          debugPrint('Backend location resolution fallback: $e');
+        }
+      }
 
       state = state.copyWith(
         latitude: position.latitude,
         longitude: position.longitude,
         isPermissionGranted: true,
         detectionStatus: LocationDetectionStatus.success,
+        resolvedCity: resolvedCity,
+        isWithinOperationalRange: isWithinRange,
+        suggestedPickupLocations: hubs,
       );
+
+      final message = !isWithinRange
+          ? 'You are ${distKm?.toStringAsFixed(0) ?? '>100'}km from $resolvedCity. DriveGo operates within 100km of our active cities.'
+          : null;
 
       return CurrentLocationResult(
         status: LocationDetectionStatus.success,
         latitude: position.latitude,
         longitude: position.longitude,
-        resolvedCity: nearestCity,
-        resolvedLocality: '$nearestCity Central',
+        resolvedCity: resolvedCity,
+        resolvedState: resolvedState,
+        resolvedLocality: hubs.isNotEmpty ? hubs.first.name : '$resolvedCity Central Hub',
+        distanceToCityCenterKm: distKm,
+        isWithinOperationalRange: isWithinRange,
+        suggestedPickupLocations: hubs,
+        message: message,
       );
     } catch (e) {
       debugPrint('Error detecting location: $e');
@@ -267,5 +381,6 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
 }
 
 final userLocationProvider = StateNotifierProvider<UserLocationNotifier, UserLocationState>((ref) {
-  return UserLocationNotifier();
+  final apiClient = ref.watch(apiClientProvider);
+  return UserLocationNotifier(apiClient: apiClient);
 });

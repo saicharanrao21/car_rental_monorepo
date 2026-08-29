@@ -103,6 +103,18 @@ export class CarsService {
       };
     }
 
+    if (query.pickupHubId) {
+      where.pickupHubId = query.pickupHubId;
+    }
+
+    if (query.fuelType) {
+      where.fuelType = query.fuelType;
+    }
+
+    if (query.seating !== undefined) {
+      where.seating = { gte: Number(query.seating) };
+    }
+
     if (!isAdmin) {
       where.isAvailable = true;
       where.vendor = {
@@ -247,6 +259,19 @@ export class CarsService {
             boostExpiresAt: true,
           },
         },
+        pickupHub: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            locality: true,
+            city: true,
+            latitude: true,
+            longitude: true,
+            serviceRadiusKm: true,
+            operatingHours: true,
+          },
+        },
         mileagePackages: {
           where: { isActive: true },
           orderBy: [{ isDefault: 'desc' }, { basePricePerDay: 'asc' }],
@@ -271,6 +296,7 @@ export class CarsService {
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
     const userLat = hasLocation ? Number(query.lat) : undefined;
     const userLng = hasLocation ? Number(query.lng) : undefined;
+    const maxRadius = query.radiusKm ? Number(query.radiusKm) : 100;
     const now = new Date();
 
     // 2. Fetch dynamic ranking weights from SystemConfigService
@@ -278,17 +304,24 @@ export class CarsService {
       ? await this.configService.getSearchRankingConfig()
       : undefined;
 
-    // 3. Score and rank vehicles using SearchRankingService
-    const rankableVehicles = availableCars.map((car) => ({
-      ...car,
-      pricePerDay: Number(car.pricePerDay),
-      vendor: {
-        ...car.vendor,
-        rating: car.vendor.rating || 0,
-      },
-    }));
+    // 3. Resolve vehicle effective coordinates (Pickup Hub takes priority over primary vendor address)
+    const rankableVehicles = availableCars.map((car) => {
+      const effLat = car.pickupHub?.latitude ?? car.vendor.latitude;
+      const effLng = car.pickupHub?.longitude ?? car.vendor.longitude;
 
-    const scoredVehicles = this.searchRankingService
+      return {
+        ...car,
+        pricePerDay: Number(car.pricePerDay),
+        vendor: {
+          ...car.vendor,
+          latitude: effLat,
+          longitude: effLng,
+          rating: car.vendor.rating || 0,
+        },
+      };
+    });
+
+    let scoredVehicles = this.searchRankingService
       ? this.searchRankingService.rankVehicles(
           rankableVehicles,
           userLat,
@@ -315,6 +348,13 @@ export class CarsService {
             scoreBreakdown: { finalCompositeScore: 1 },
           };
         });
+
+    // Apply distance radius cutoff if geo-searching
+    if (hasLocation && query.radiusKm) {
+      scoredVehicles = scoredVehicles.filter(
+        (s) => s.distanceKm === null || s.distanceKm <= maxRadius,
+      );
+    }
 
     const sortBy = query.sortBy || SortByOption.RECOMMENDED;
 
@@ -360,6 +400,7 @@ export class CarsService {
           isSponsored,
         },
         isSponsored,
+        pickupHub: s.car.pickupHub || null,
         ...(s.distanceKm !== null ? { distanceKm: s.distanceKm } : {}),
       };
     });
@@ -407,6 +448,19 @@ export class CarsService {
             latitude: true,
             longitude: true,
             verificationStatus: true,
+          },
+        },
+        pickupHub: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            locality: true,
+            city: true,
+            latitude: true,
+            longitude: true,
+            serviceRadiusKm: true,
+            operatingHours: true,
           },
         },
         mileagePackages: {
@@ -722,6 +776,15 @@ export class CarsService {
 
     await this.validateAvailableTripTypes(dto.availableTripTypes);
 
+    if (dto.pickupHubId && this.prisma.pickupHub) {
+      const hub = await this.prisma.pickupHub.findUnique({
+        where: { id: dto.pickupHubId },
+      });
+      if (!hub || hub.vendorId !== vendor.id || !hub.isActive) {
+        throw new BadRequestException('Invalid or inactive pickup hub specified.');
+      }
+    }
+
     const created = await this.prisma.car.create({
       data: {
         vendorId: vendor.id,
@@ -739,6 +802,7 @@ export class CarsService {
         pricePerHour: dto.pricePerHour,
         isAvailable: dto.isAvailable !== undefined ? dto.isAvailable : true,
         availableTripTypes: dto.availableTripTypes || [],
+        pickupHubId: dto.pickupHubId ?? undefined,
       },
     });
 
@@ -750,6 +814,19 @@ export class CarsService {
     await this.verifyOwnership(carId, userId);
 
     await this.validateAvailableTripTypes(dto.availableTripTypes);
+
+    if (dto.pickupHubId && this.prisma.pickupHub) {
+      const car = await this.prisma.car.findUnique({
+        where: { id: carId },
+        select: { vendorId: true },
+      });
+      const hub = await this.prisma.pickupHub.findUnique({
+        where: { id: dto.pickupHubId },
+      });
+      if (!hub || hub.vendorId !== car?.vendorId || !hub.isActive) {
+        throw new BadRequestException('Invalid or inactive pickup hub specified.');
+      }
+    }
 
     const updated = await this.prisma.car.update({
       where: { id: carId },
@@ -767,6 +844,7 @@ export class CarsService {
         pricePerDay: dto.pricePerDay ?? undefined,
         pricePerHour: dto.pricePerHour ?? undefined,
         availableTripTypes: dto.availableTripTypes ?? undefined,
+        pickupHubId: dto.pickupHubId ?? undefined,
       },
     });
 

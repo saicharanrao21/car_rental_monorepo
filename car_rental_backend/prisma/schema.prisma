@@ -350,6 +350,7 @@ model Vendor {
   damageClaims       DamageClaim[]
   invoices           Invoice[]
   emergencyRequests  EmergencyRequest[]
+  pickupHubs         PickupHub[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -357,6 +358,31 @@ model Vendor {
   @@index([city, verificationStatus])
   @@index([isSponsored, boostExpiresAt])
   @@index([rating])
+}
+
+model PickupHub {
+  id              String    @id @default(cuid())
+  vendorId        String
+  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name            String
+  address         String
+  locality        String?
+  city            String
+  state           String?
+  latitude        Float
+  longitude       Float
+  serviceRadiusKm Float     @default(25.0)
+  operatingHours  String?
+  contactPhone    String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  cars            Car[]
+
+  @@index([vendorId])
+  @@index([city])
+  @@index([city, isActive])
+  @@index([isActive])
 }
 
 model Document {
@@ -380,6 +406,8 @@ model Car {
   id                     String           @id @default(cuid())
   vendorId               String
   vendor                 Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  pickupHubId            String?
+  pickupHub              PickupHub?       @relation(fields: [pickupHubId], references: [id], onDelete: SetNull)
   make                   String
   model                  String
   year                   Int
@@ -407,6 +435,7 @@ model Car {
   mileagePackages        MileagePackage[]
 
   @@index([vendorId])
+  @@index([pickupHubId])
   @@index([type])
   @@index([isAvailable])
   @@index([vendorId, isAvailable])

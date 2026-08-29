@@ -80,4 +80,17 @@ extension CarModelMileagePackagesX on CarModel {
     }
     return [];
   }
+
+  String? get pickupLocationName {
+    if (vendor != null && vendor!['pickupHub'] != null && vendor!['pickupHub']['name'] != null) {
+      return vendor!['pickupHub']['name'] as String;
+    }
+    if (vendor != null && vendor!['locality'] != null) {
+      return '${vendor!['locality']}, ${vendor!['city']}';
+    }
+    if (vendor != null && vendor!['city'] != null) {
+      return '${vendor!['city']} Hub';
+    }
+    return null;
+  }
 }
