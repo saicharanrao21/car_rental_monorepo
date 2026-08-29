@@ -35,6 +35,9 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
 import { FraudModule } from './fraud/fraud.module';
 import { LocationsModule } from './locations/locations.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { QueuesModule } from './queues/queues.module';
+import { SystemConfigModule } from './config-engine/system-config.module';
+import { GeospatialModule } from './geospatial/geospatial.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -49,6 +52,9 @@ import { validateEnv } from './common/env.validation';
     ScheduleModule.forRoot(),
     PrismaModule,
     RedisModule,
+    QueuesModule,
+    SystemConfigModule,
+    GeospatialModule,
     AuthModule,
     UsersModule,
     VendorsModule,

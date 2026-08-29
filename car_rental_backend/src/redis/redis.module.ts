@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { BookingLockService } from './booking-lock.service';
+import { RedisCacheService } from './redis-cache.service';
+import { DistributedLockService } from './distributed-lock.service';
 import { REDIS_CLIENT } from './redis.constants';
 
 const redisProvider: Provider = {
@@ -39,8 +41,21 @@ const redisProvider: Provider = {
 
 @Global()
 @Module({
-  providers: [redisProvider, BookingLockService],
-  exports: [REDIS_CLIENT, BookingLockService],
+  providers: [
+    redisProvider,
+    BookingLockService,
+    RedisCacheService,
+    DistributedLockService,
+  ],
+  exports: [
+    REDIS_CLIENT,
+    BookingLockService,
+    RedisCacheService,
+    DistributedLockService,
+  ],
 })
 export class RedisModule {}
 export { REDIS_CLIENT };
+export * from './redis-namespace.constants';
+export * from './redis-cache.service';
+export * from './distributed-lock.service';

@@ -354,6 +354,9 @@ model Vendor {
   @@index([city])
   @@index([verificationStatus])
   @@index([branchOfId])
+  @@index([city, verificationStatus])
+  @@index([isSponsored, boostExpiresAt])
+  @@index([rating])
 }
 
 model Document {
@@ -406,6 +409,8 @@ model Car {
   @@index([vendorId])
   @@index([type])
   @@index([isAvailable])
+  @@index([vendorId, isAvailable])
+  @@index([type, pricePerDay])
 }
 
 model Booking {
@@ -490,6 +495,9 @@ model Booking {
   @@index([createdAt])
   @@index([mileagePackageId])
   @@index([carId, startDate, endDate, status])
+  @@index([customerId, status])
+  @@index([vendorId, status])
+  @@index([status, createdAt])
 }
 
 model MileagePackage {
@@ -537,6 +545,7 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([userId, isRead, createdAt])
 }
 
 model CommissionConfig {
@@ -580,6 +589,8 @@ model Payment {
 
   @@index([razorpayRefundId])
   @@index([razorpayOrderId])
+  @@index([status, createdAt])
+  @@index([bookingId, status])
 }
 
 model Banner {
@@ -728,6 +739,8 @@ model AuditLog {
   @@index([adminUserId])
   @@index([action])
   @@index([targetType])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model Dispute {
@@ -1109,6 +1122,8 @@ model WalletLedgerEntry {
   @@index([referenceType, referenceId])
   @@index([bucket])
   @@index([createdAt])
+  @@index([walletId, createdAt])
+  @@index([walletId, bucket])
 }
 
 model ReferralCampaign {
@@ -1156,6 +1171,7 @@ model ReferralAttribution {
   @@index([refereeId])
   @@index([referralCodeUsed])
   @@index([status])
+  @@index([referrerId, status])
 }
 
 model LoyaltyTier {
@@ -1253,4 +1269,19 @@ model WhatsAppMessage {
   @@index([bookingId])
   @@index([status])
   @@index([messageType])
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  category    String   @default("GENERAL")
+  description String?
+  isPublic    Boolean  @default(false)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isPublic])
 }
