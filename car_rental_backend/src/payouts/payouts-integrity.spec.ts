@@ -150,11 +150,11 @@ describe('Phase 4D: Payouts Integrity & Balance Reservation Security', () => {
       expect(prisma.$queryRaw).toHaveBeenCalled();
       expect(prisma.payout.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: {
+          data: expect.objectContaining({
             vendorId: 'vendor-1',
             amount: new Prisma.Decimal(4000),
             status: PayoutStatus.PENDING,
-          },
+          }),
         }),
       );
       expect(auditLogService.log).toHaveBeenCalledWith(

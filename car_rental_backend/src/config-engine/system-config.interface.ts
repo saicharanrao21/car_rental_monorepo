@@ -61,6 +61,21 @@ export interface SupportSlaConfig {
   maxOpenTicketsPerCustomer: number;
 }
 
+export interface PayoutConfig {
+  minPayoutAmount: number;
+  maxSinglePayoutAmount: number;
+  dailyVendorPayoutCap: number;
+  payoutApprovalThreshold: number;
+  autoPayoutEnabled: boolean;
+  settlementHoldDays: number;
+}
+
+export interface ReconciliationConfig {
+  autoHealMinorDrifts: boolean;
+  alertDiscrepancyThreshold: number;
+  cronIntervalMinutes: number;
+}
+
 export interface PlatformFeatureFlags {
   enableDoorstepDelivery: boolean;
   enableSplitPayments: boolean;
@@ -160,6 +175,29 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as SupportSlaConfig,
     isPublic: false,
     description: 'Customer support SLA target response times and concurrency bounds',
+  },
+  'payout.rules': {
+    category: 'FINANCE',
+    value: {
+      minPayoutAmount: 500,
+      maxSinglePayoutAmount: 100000,
+      dailyVendorPayoutCap: 200000,
+      payoutApprovalThreshold: 25000,
+      autoPayoutEnabled: false,
+      settlementHoldDays: 2,
+    } as PayoutConfig,
+    isPublic: false,
+    description: 'Vendor payout limits, daily ceilings, approval thresholds, and settlement hold duration',
+  },
+  'reconciliation.rules': {
+    category: 'FINANCE',
+    value: {
+      autoHealMinorDrifts: false,
+      alertDiscrepancyThreshold: 1.0,
+      cronIntervalMinutes: 15,
+    } as ReconciliationConfig,
+    isPublic: false,
+    description: 'Financial gateway reconciliation rules and drift alert thresholds',
   },
   'platform.feature_flags': {
     category: 'FEATURE_FLAGS',

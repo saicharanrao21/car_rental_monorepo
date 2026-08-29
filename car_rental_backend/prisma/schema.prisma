@@ -103,8 +103,12 @@ enum BookingStatus {
 
 enum PayoutStatus {
   PENDING
+  APPROVED
+  PROCESSING
   PAID
   FAILED
+  REJECTED
+  REVERSED
 }
 
 enum PaymentStatus {
@@ -315,6 +319,7 @@ model User {
   loyaltyAccount   LoyaltyAccount?
   devices          UserDevice[]
   notificationPreference NotificationPreference?
+  financialAdjustmentsApproved FinancialAdjustment[]
 
   @@index([phone])
   @@index([role])
@@ -639,16 +644,99 @@ model CommissionConfig {
 }
 
 model Payout {
-  id        String       @id @default(cuid())
-  vendorId  String
-  vendor    Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  amount    Decimal      @db.Decimal(10, 2)
-  status    PayoutStatus @default(PENDING)
-  paidAt    DateTime?
-  createdAt DateTime     @default(now())
+  id                   String       @id @default(cuid())
+  payoutNumber         String?      @unique
+  vendorId             String
+  vendor               Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  amount               Decimal      @db.Decimal(10, 2)
+  feeAmount            Decimal      @default(0) @db.Decimal(10, 2)
+  netAmount            Decimal?     @db.Decimal(10, 2)
+  status               PayoutStatus @default(PENDING)
+  provider             String       @default("MANUAL") // MANUAL, RAZORPAYX, CASHFREE
+  providerTransferId   String?      @unique
+  providerFee          Decimal?     @db.Decimal(10, 2)
+  providerFailureReason String?
+  idempotencyKey       String?      @unique
+  initiatedByUserId   String?
+  approvedByUserId    String?
+  approvedAt          DateTime?
+  processedAt         DateTime?
+  bankAccountSnapshot Json?
+  notes               String?
+  paidAt               DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @default(now()) @updatedAt
 
   @@index([vendorId])
   @@index([status])
+  @@index([createdAt])
+  @@index([payoutNumber])
+  @@index([providerTransferId])
+  @@index([idempotencyKey])
+}
+
+model FinancialAdjustment {
+  id               String          @id @default(cuid())
+  adjustmentNumber String          @unique
+  targetType       String          // "VENDOR", "CUSTOMER_WALLET", "BOOKING", "SECURITY_DEPOSIT"
+  targetId         String          // vendorId, walletId, bookingId
+  amount           Decimal         @db.Decimal(10, 2)
+  direction        LedgerDirection // CREDIT, DEBIT
+  reason           String
+  category         String          // "DAMAGE_COMPENSATION", "DISPUTE_SETTLEMENT", "GOODWILL", "COMMISSION_CORRECTION", "PENALTY_WAIVER"
+  referenceId      String?
+  approvedByUserId String
+  approvedByUser   User            @relation(fields: [approvedByUserId], references: [id])
+  idempotencyKey   String          @unique
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+
+  @@index([targetType, targetId])
+  @@index([approvedByUserId])
+  @@index([createdAt])
+}
+
+model ReconciliationRecord {
+  id                     String                    @id @default(cuid())
+  periodStart            DateTime
+  periodEnd              DateTime
+  status                 String                    // "COMPLETED", "EXCEPTIONS_FOUND", "FAILED"
+  totalTransactions      Int                       @default(0)
+  matchedTransactions    Int                       @default(0)
+  mismatchedTransactions Int                       @default(0)
+  totalAmountGateway     Decimal                   @default(0) @db.Decimal(12, 2)
+  totalAmountInternal    Decimal                   @default(0) @db.Decimal(12, 2)
+  discrepancyAmount      Decimal                   @default(0) @db.Decimal(12, 2)
+  performedByUserId      String?
+  createdAt              DateTime                  @default(now())
+  exceptions             ReconciliationException[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model ReconciliationException {
+  id                     String                @id @default(cuid())
+  reconciliationRecordId String?
+  reconciliationRecord   ReconciliationRecord? @relation(fields: [reconciliationRecordId], references: [id], onDelete: Cascade)
+  referenceType          String                // "PAYMENT", "REFUND", "PAYOUT", "DEPOSIT"
+  referenceId            String                // paymentId, razorpayPaymentId, payoutId
+  type                   String                // "MISSING_GATEWAY_RECORD", "MISSING_INTERNAL_RECORD", "AMOUNT_MISMATCH", "STATUS_MISMATCH", "DUPLICATE_GATEWAY_RECORD"
+  gatewayAmount          Decimal?              @db.Decimal(10, 2)
+  internalAmount         Decimal?              @db.Decimal(10, 2)
+  gatewayStatus          String?
+  internalStatus         String?
+  status                 String                @default("OPEN") // "OPEN", "UNDER_REVIEW", "RESOLVED", "IGNORED"
+  resolutionNotes        String?
+  resolvedByUserId       String?
+  resolvedAt             DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([type])
+  @@index([reconciliationRecordId])
 }
 
 model Payment {

@@ -24,9 +24,14 @@ export enum AdminPermission {
   // Finance & Payouts
   FINANCE_READ = 'finance:read',
   FINANCE_WRITE = 'finance:write',
+  FINANCE_ADJUSTMENT = 'finance:adjustment',
   PAYOUT_APPROVE = 'payout:approve',
+  PAYOUT_EXECUTE = 'payout:execute',
   REFUND_ADJUDICATE = 'refund:adjudicate',
   DAMAGE_CLAIM_ADJUDICATE = 'damage_claim:adjudicate',
+  RECONCILIATION_READ = 'reconciliation:read',
+  RECONCILIATION_MANAGE = 'reconciliation:manage',
+  COMMISSION_MANAGE = 'commission:manage',
 
   // Support & Disputes
   SUPPORT_TICKET_READ = 'support:ticket:read',

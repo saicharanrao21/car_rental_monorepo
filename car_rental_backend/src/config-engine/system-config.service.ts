@@ -11,6 +11,8 @@ import {
   GrowthCampaignConfig,
   NotificationConfig,
   SupportSlaConfig,
+  PayoutConfig,
+  ReconciliationConfig,
   PlatformFeatureFlags,
 } from './system-config.interface';
 
@@ -143,6 +145,14 @@ export class SystemConfigService {
 
   async getSupportSlaConfig(): Promise<SupportSlaConfig> {
     return this.getConfig<SupportSlaConfig>('support.sla');
+  }
+
+  async getPayoutConfig(): Promise<PayoutConfig> {
+    return this.getConfig<PayoutConfig>('payout.rules');
+  }
+
+  async getReconciliationConfig(): Promise<ReconciliationConfig> {
+    return this.getConfig<ReconciliationConfig>('reconciliation.rules');
   }
 
   async getFeatureFlags(): Promise<PlatformFeatureFlags> {
