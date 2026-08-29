@@ -8,6 +8,7 @@ import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../providers/dashboard_providers.dart';
+import '../../domain/repositories/dashboard_repository.dart';
 import '../../../profile/presentation/providers/documents_provider.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -36,341 +37,351 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: statsAsync.when(
-        loading: () => const Center(child: AppLoader()),
-        error: (err, stack) => Center(
-          child: ErrorStateWidget(
-            message: 'Failed to load dashboard statistics',
-            onRetry: () {
-              ref.invalidate(dashboardStatsProvider);
-              ref.invalidate(latestBookingRequestsProvider);
-            },
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(dashboardStatsProvider);
+          ref.invalidate(latestBookingRequestsProvider);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Greeting Header (Always Visible)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hello,',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        businessName,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    child: Text(
+                      businessName.isNotEmpty ? businessName[0].toUpperCase() : 'P',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(16),
+
+              // 2. Document Expiry Alert Banner (Independent)
+              const _ExpiringDocsBanner(),
+              const Gap(8),
+
+              // 3. Quick Stats Row (Resilient Loading/Error)
+              statsAsync.when(
+                data: (stats) => _buildStatsRow(context, stats),
+                loading: () => _buildStatsRowLoading(context),
+                error: (err, stack) => _buildStatsRowError(context, ref, err),
+              ),
+              const Gap(24),
+
+              // 4. Quick Actions (Always Visible)
+              const SectionHeader(title: 'Quick Actions'),
+              const Gap(8),
+              _buildQuickActions(context),
+              const Gap(24),
+
+              // 5. Fleet Status Summary (Resilient)
+              statsAsync.when(
+                data: (stats) => _buildFleetStatusCard(context, stats),
+                loading: () => const ShimmerCard(),
+                error: (err, stack) => const SizedBox.shrink(),
+              ),
+              const Gap(24),
+
+              // 6. Active Bookings Snapshot (Resilient)
+              statsAsync.when(
+                data: (stats) => _buildActiveTripsCard(context, stats),
+                loading: () => const ShimmerCard(),
+                error: (err, stack) => const SizedBox.shrink(),
+              ),
+              const Gap(24),
+
+              // 7. Incoming Booking Requests (Independent Provider)
+              const SectionHeader(title: 'Incoming Booking Requests'),
+              const Gap(12),
+              requestsAsync.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: AppLoader(),
+                  ),
+                ),
+                error: (err, stack) => ErrorStateWidget(
+                  message: 'Could not load requests',
+                  onRetry: () => ref.invalidate(latestBookingRequestsProvider),
+                ),
+                data: (requests) {
+                  if (requests.isEmpty) {
+                    return const EmptyStateWidget(
+                      icon: Icons.pending_actions,
+                      title: 'No requests',
+                      subtitle: 'No pending booking requests',
+                    );
+                  }
+                  return Column(
+                    children: requests.map((req) => _buildRequestCard(context, ref, req)).toList(),
+                  );
+                },
+              ),
+              const Gap(40),
+            ],
           ),
         ),
-        data: (stats) {
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(dashboardStatsProvider);
-              ref.invalidate(latestBookingRequestsProvider);
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20.0),
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(BuildContext context, DashboardStats stats) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            context,
+            'Today\'s Bookings',
+            stats.todaysBookings.toString(),
+            Icons.today,
+            Colors.blue,
+          ),
+        ),
+        const Gap(12),
+        Expanded(
+          child: _buildStatCard(
+            context,
+            'Pending Requests',
+            stats.pendingRequests.toString(),
+            Icons.pending_actions,
+            Colors.amber,
+          ),
+        ),
+        const Gap(12),
+        Expanded(
+          child: AppCard(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Greeting Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Hello,',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          Text(
-                            businessName,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      Expanded(
                         child: Text(
-                          businessName.isNotEmpty ? businessName[0].toUpperCase() : 'P',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(16),
-
-                  // Document Expiry Alert Banner
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final expiringCount = ref.watch(expiringDocumentsCountProvider);
-                      if (expiringCount == 0) return const SizedBox.shrink();
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.amber[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.amber[400]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber[900], size: 24),
-                            const Gap(12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$expiringCount ${expiringCount == 1 ? 'document needs' : 'documents need'} renewal attention',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.amber[900],
-                                    ),
-                                  ),
-                                  const Gap(2),
-                                  Text(
-                                    'Documents are expiring within 30 days or expired. Please upload renewed documents.',
-                                    style: TextStyle(fontSize: 12, color: Colors.amber[900]!.withValues(alpha: 0.85)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => context.push('/profile'),
-                              child: const Text('View', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const Gap(8),
-
-                  // Quick Stats Cards (3 column-like cards)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          context,
-                          'Today\'s Bookings',
-                          stats.todaysBookings.toString(),
-                          Icons.today,
-                          Colors.blue,
-                        ),
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: _buildStatCard(
-                          context,
-                          'Pending Requests',
-                          stats.pendingRequests.toString(),
-                          Icons.pending_actions,
-                          Colors.amber,
-                        ),
-                      ),
-                      const Gap(12),
-                      Expanded(
-                        child: AppCard(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Earnings',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    const Gap(4),
-                                    const Icon(Icons.account_balance_wallet, size: 16, color: Colors.green),
-                                  ],
-                                ),
-                                const Gap(8),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: PriceTag(
-                                    amount: stats.thisMonthEarnings,
-                                    amountStyle: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green[700]!,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Gap(24),
-
-                  // Quick Actions Grid/Row
-                  const SectionHeader(title: 'Quick Actions'),
-                  const Gap(8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildActionBtn(
-                          context,
-                          'Add Car',
-                          Icons.add_road,
-                          () => context.push('/fleet/add'),
-                        ),
-                      ),
-                      const Gap(8),
-                      Expanded(
-                        child: _buildActionBtn(
-                          context,
-                          'Analytics',
-                          Icons.analytics_outlined,
-                          () => context.push('/analytics'),
-                        ),
-                      ),
-                      const Gap(8),
-                      Expanded(
-                        child: _buildActionBtn(
-                          context,
-                          'Branches',
-                          Icons.store_mall_directory_outlined,
-                          () => context.push('/branches'),
-                        ),
-                      ),
-                      const Gap(8),
-                      Expanded(
-                        child: _buildActionBtn(
-                          context,
                           'Earnings',
-                          Icons.bar_chart,
-                          () => context.push('/earnings'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
+                      const Gap(4),
+                      const Icon(Icons.account_balance_wallet, size: 16, color: Colors.green),
                     ],
                   ),
-                  const Gap(24),
-
-                  // Fleet Status Card
-                  AppCard(
-                    onTap: () => context.push('/fleet'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.garage, color: AppColors.primary),
-                          ),
-                          const Gap(16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Fleet Status Summary',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                ),
-                                const Gap(4),
-                                Text(
-                                  '${stats.activeCars} active, ${stats.inactiveCars} unavailable',
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                        ],
+                  const Gap(8),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: PriceTag(
+                      amount: stats.thisMonthEarnings,
+                      amountStyle: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700]!,
                       ),
                     ),
-                  ),
-                  const Gap(24),
-
-                  // Active Bookings Today
-                  AppCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Active Trips Today',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: (stats.todaysBookings > 0 ? Colors.green : Colors.grey).withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: (stats.todaysBookings > 0 ? Colors.green : Colors.grey).withValues(alpha: 0.24), width: 1),
-                                ),
-                                child: Text(
-                                  stats.todaysBookings > 0 ? 'ACTIVE' : 'NO TRIPS',
-                                  style: TextStyle(
-                                    color: stats.todaysBookings > 0 ? Colors.green : Colors.grey,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Gap(12),
-                          Text(
-                            stats.todaysBookings == 1
-                                ? 'You have 1 ongoing or confirmed booking scheduled for today (July 1, 2026).'
-                                : 'You have ${stats.todaysBookings} ongoing or confirmed bookings scheduled for today (July 1, 2026).',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.4),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Gap(24),
-
-                  // Incoming Booking Requests Card
-                  const SectionHeader(title: 'Incoming Booking Requests'),
-                  const Gap(12),
-                  requestsAsync.when(
-                    loading: () => const Center(child: AppLoader()),
-                    error: (err, stack) => const Text('Error loading booking requests'),
-                    data: (requests) {
-                      if (requests.isEmpty) {
-                        return const EmptyStateWidget(
-                          icon: Icons.pending_actions,
-                          title: 'No requests',
-                          subtitle: 'No pending booking requests',
-                        );
-                      }
-                      return Column(
-                        children: requests.map((req) => _buildRequestCard(context, ref, req)).toList(),
-                      );
-                    },
                   ),
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsRowLoading(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(child: ShimmerCard()),
+        Gap(12),
+        Expanded(child: ShimmerCard()),
+        Gap(12),
+        Expanded(child: ShimmerCard()),
+      ],
+    );
+  }
+
+  Widget _buildStatsRowError(BuildContext context, WidgetRef ref, Object err) {
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 32),
+            const Gap(8),
+            const Text('Could not load summary stats'),
+            TextButton(
+              onPressed: () => ref.invalidate(dashboardStatsProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionBtn(
+            context,
+            'Add Car',
+            Icons.add_road,
+            () => context.push('/fleet/add'),
+          ),
+        ),
+        const Gap(8),
+        Expanded(
+          child: _buildActionBtn(
+            context,
+            'Analytics',
+            Icons.analytics_outlined,
+            () => context.push('/analytics'),
+          ),
+        ),
+        const Gap(8),
+        Expanded(
+          child: _buildActionBtn(
+            context,
+            'Branches',
+            Icons.store_mall_directory_outlined,
+            () => context.push('/branches'),
+          ),
+        ),
+        const Gap(8),
+        Expanded(
+          child: _buildActionBtn(
+            context,
+            'Earnings',
+            Icons.bar_chart,
+            () => context.push('/earnings'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFleetStatusCard(BuildContext context, DashboardStats stats) {
+    return AppCard(
+      onTap: () => context.push('/fleet'),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.garage, color: AppColors.primary),
+            ),
+            const Gap(16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Fleet Status Summary',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const Gap(4),
+                  Text(
+                    '${stats.activeCars} active, ${stats.inactiveCars} unavailable',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTripsCard(BuildContext context, DashboardStats stats) {
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Active Trips Today',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (stats.todaysBookings > 0 ? Colors.green : Colors.grey).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: (stats.todaysBookings > 0 ? Colors.green : Colors.grey).withValues(alpha: 0.24), width: 1),
+                  ),
+                  child: Text(
+                    stats.todaysBookings > 0 ? 'ACTIVE' : 'NO TRIPS',
+                    style: TextStyle(
+                      color: stats.todaysBookings > 0 ? Colors.green : Colors.grey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Gap(12),
+            Text(
+              stats.todaysBookings == 1
+                  ? 'You have 1 ongoing or confirmed booking scheduled for today.'
+                  : 'You have ${stats.todaysBookings} ongoing or confirmed bookings scheduled for today.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -507,6 +518,7 @@ class DashboardPage extends ConsumerWidget {
               children: [
                 Row(
                   children: [
+
                     const Icon(Icons.payments_outlined, size: 16, color: Colors.grey),
                     const Gap(8),
                     Text(
@@ -528,7 +540,7 @@ class DashboardPage extends ConsumerWidget {
             const Gap(16),
             Row(
               children: [
-                 Expanded(
+                Expanded(
                   child: OutlinedButton(
                     onPressed: () => _showRejectBottomSheet(context, ref, req.id),
                     style: OutlinedButton.styleFrom(
@@ -624,6 +636,56 @@ class DashboardPage extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _ExpiringDocsBanner extends ConsumerWidget {
+  const _ExpiringDocsBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expiringCount = ref.watch(expiringDocumentsCountProvider);
+    if (expiringCount == 0) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.amber[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber[400]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.amber[900], size: 24),
+          const Gap(12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$expiringCount ${expiringCount == 1 ? "document needs" : "documents need"} renewal attention',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF795548),
+                  ),
+                ),
+                const Gap(2),
+                const Text(
+                  'Documents are expiring within 30 days or expired. Please upload renewed documents.',
+                  style: TextStyle(fontSize: 12, color: Colors.brown),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/profile'),
+            child: const Text('View', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

@@ -792,7 +792,13 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const SectionHeader(title: 'Mileage Packages'),
+                  const Text(
+                    'Mileage Packages',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   TextButton.icon(
                     onPressed: () => _showAddEditPackageDialog(),
                     icon: const Icon(Icons.add_circle_outline, size: 18),

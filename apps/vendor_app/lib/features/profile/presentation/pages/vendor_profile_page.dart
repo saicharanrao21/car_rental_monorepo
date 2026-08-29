@@ -723,7 +723,13 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const SectionHeader(title: 'Documents'),
+                    const Text(
+                      'Documents',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     TextButton.icon(
                       onPressed: _showUploadDocumentDialog,
                       icon: const Icon(Icons.upload_file, size: 16),

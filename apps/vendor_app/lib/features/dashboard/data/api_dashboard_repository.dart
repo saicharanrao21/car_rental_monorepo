@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
+import 'package:dio/dio.dart';
 import '../domain/repositories/dashboard_repository.dart';
 
 class ApiDashboardRepository implements DashboardRepository {
@@ -30,7 +32,7 @@ class ApiDashboardRepository implements DashboardRepository {
       copy['status'] = rawStatus.toLowerCase();
     }
 
-    // Parse decimal/numeric values to double
+    // Convert decimal-as-string fields to double for models that expect double
     for (final field in ['totalFare', 'platformFee', 'gstAmount', 'netToVendor']) {
       if (copy[field] != null) {
         copy[field] = double.tryParse(copy[field].toString()) ?? 0.0;
@@ -42,10 +44,28 @@ class ApiDashboardRepository implements DashboardRepository {
 
   @override
   Future<DashboardStats> getStats(String vendorId) async {
+    // Helper to perform individual requests with a 15s timeout and fallback to empty data on failure.
+    // This prevents one slow or failing non-critical endpoint from blocking the entire dashboard.
+    Future<Response> safeGet(String path, {dynamic fallbackData}) async {
+      try {
+        return await apiClient.dio
+            .get(path)
+            .timeout(const Duration(seconds: 15));
+      } catch (e) {
+        // Log locally for debugging but fail gracefully by returning the fallback data
+        debugPrint('Dashboard API partial failure: $path -> $e');
+        return Response(
+          requestOptions: RequestOptions(path: path),
+          data: fallbackData,
+          statusCode: 500,
+        );
+      }
+    }
+
     final responses = await Future.wait([
-      apiClient.dio.get('/vendors/me/bookings'),
-      apiClient.dio.get('/vendors/me/cars'),
-      apiClient.dio.get('/vendors/me/earnings/summary'),
+      safeGet('/vendors/me/bookings', fallbackData: []),
+      safeGet('/vendors/me/cars', fallbackData: []),
+      safeGet('/vendors/me/earnings/summary', fallbackData: {}),
     ]);
 
     final bookingsResponse = responses[0];
