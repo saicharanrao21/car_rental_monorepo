@@ -10,7 +10,7 @@ class ApiClient {
           BaseOptions(
             baseUrl: const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'https://drivego-staging-api.onrender.com',
+              defaultValue: 'http://10.0.2.2:3000',
             ),
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),

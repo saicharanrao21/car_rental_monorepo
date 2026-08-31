@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -50,6 +52,21 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
     return 10.0;
   }
 
+  void _handleShare(CarModel car) {
+    Clipboard.setData(
+      ClipboardData(
+        text: 'Check out ${car.make} ${car.model} (${car.year}) on DriveGo: '
+            '₹${car.pricePerDay.toStringAsFixed(0)}/day in ${car.vendor != null ? car.vendor!['city'] ?? 'Mumbai' : 'Mumbai'}',
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Vehicle link copied to clipboard!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final detailVal = ref.watch(carDetailDataProvider(widget.carId));
@@ -61,20 +78,24 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
     final drop = ref.watch(dropLocationProvider) ?? ref.watch(searchDropLocationProvider);
     final city = ref.watch(selectedCityProvider);
 
+    final durationDays = dates != null ? math.max(1, dates.duration.inDays) : 1;
+
     return Scaffold(
+      backgroundColor: DDSColors.bgCanvas,
       body: detailVal.when(
         data: (data) {
           final car = data.car;
           final vendor = data.vendor;
           final reviews = data.reviews;
 
-          final effectiveBasePrice = _selectedMileagePackage?.basePricePerDay ?? car.pricePerDay;
+          final effectiveBasePrice =
+              _selectedMileagePackage?.basePricePerDay ?? car.pricePerDay;
 
-          // Calculate estimated fare using FareCalculatorService
+          // Calculate authoritative estimated fare using FareCalculatorService
           final commissionPercent = _getCommissionPercentage(vendor.city, car.type);
           final fareResult = FareCalculatorService.calculateFare(
-            distanceKm: 50.0,
-            basePackagePrice: effectiveBasePrice,
+            distanceKm: 0,
+            basePackagePrice: effectiveBasePrice * durationDays,
             pricePerKm: car.pricePerKm,
             commissionPercent: commissionPercent,
           );
@@ -83,19 +104,22 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
             children: [
               SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 110),
+                padding: const EdgeInsets.only(bottom: 120),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── 1. Image Gallery Hero with Floating Actions ──────────
+                    // ── 1. Image Gallery Hero ────────────────────────────────
                     CarImageGallery(
                       photos: car.photos,
+                      carMake: car.make,
+                      carModel: car.model,
                       carType: car.type,
                       isSponsored: car.isSponsored || vendor.isSponsored,
                       isWishlisted: isWishlisted,
                       onWishlistToggle: () {
                         ref.read(wishlistIdsProvider.notifier).toggle(widget.carId);
                       },
+                      onShare: () => _handleShare(car),
                       onBackPressed: () {
                         if (context.canPop()) {
                           context.pop();
@@ -107,10 +131,47 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
 
                     // ── 2. Content Sections ──────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      padding: const EdgeInsets.fromLTRB(
+                        DDSSpacing.md,
+                        DDSSpacing.md,
+                        DDSSpacing.md,
+                        DDSSpacing.lg,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Vehicle Unavailable Warning Banner if blocked
+                          if (!car.isAvailable) ...[
+                            Container(
+                              padding: const EdgeInsets.all(DDSSpacing.md),
+                              decoration: BoxDecoration(
+                                color: DDSColors.errorRedBg,
+                                borderRadius: BorderRadius.circular(DDSRadius.medium),
+                                border: Border.all(color: DDSColors.errorRed.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: DDSColors.errorRed,
+                                    size: 20,
+                                  ),
+                                  const Gap(10),
+                                  Expanded(
+                                    child: Text(
+                                      'This vehicle is currently unavailable for selected dates.',
+                                      style: DDSTypography.bodyMedium.copyWith(
+                                        color: DDSColors.errorRed,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Gap(16),
+                          ],
+
                           // Vehicle Identity & Rating
                           CarIdentitySection(
                             car: car,
@@ -150,7 +211,14 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                           ],
 
                           // Rental Pricing Plans
-                          CarPricingSection(car: car),
+                          CarPricingSection(
+                            car: car,
+                            baseFare: fareResult.baseFare,
+                            platformFee: fareResult.platformFee,
+                            gst: fareResult.gst,
+                            totalFare: fareResult.total,
+                            durationDays: durationDays,
+                          ),
                           const Gap(24),
 
                           // Inclusions & Rental Policies
@@ -179,6 +247,9 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                   baseFare: fareResult.baseFare,
                   platformFee: fareResult.platformFee,
                   gst: fareResult.gst,
+                  durationDays: durationDays,
+                  pricePerDay: effectiveBasePrice,
+                  isAvailable: car.isAvailable,
                   onBookNow: () {
                     context.push('/booking/${car.id}');
                   },
@@ -187,15 +258,83 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
             ],
           );
         },
-        loading: () => const Center(child: AppLoader()),
+        loading: () => _buildLoadingSkeleton(),
         error: (err, stack) => Scaffold(
-          appBar: AppBar(title: const Text('Car Details')),
-          body: ErrorStateWidget(
-            message: 'Failed to load details: ${err.toString()}',
+          appBar: AppBar(
+            title: const Text('Car Details'),
+            backgroundColor: DDSColors.surfaceCard,
+          ),
+          body: DriveGoErrorState(
+            title: 'Unable to Load Vehicle',
+            message: 'Failed to load vehicle details. Please check connection and retry.',
             onRetry: () => ref.invalidate(carDetailDataProvider(widget.carId)),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    return Column(
+      children: [
+        // Shimmer Hero
+        Container(
+          height: 290,
+          width: double.infinity,
+          color: DDSColors.surfaceSubtle,
+        ),
+        const Gap(16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 24,
+                width: 220,
+                decoration: BoxDecoration(
+                  color: DDSColors.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(DDSRadius.small),
+                ),
+              ),
+              const Gap(8),
+              Container(
+                height: 14,
+                width: 140,
+                decoration: BoxDecoration(
+                  color: DDSColors.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(DDSRadius.small),
+                ),
+              ),
+              const Gap(24),
+              // Shimmer Specs
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: DDSColors.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(DDSRadius.medium),
+                      ),
+                    ),
+                  ),
+                  const Gap(10),
+                  Expanded(
+                    child: Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: DDSColors.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(DDSRadius.medium),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

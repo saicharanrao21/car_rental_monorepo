@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:core/core.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
+import 'car_price_breakdown_sheet.dart';
 
 class CarBookingBottomBar extends StatelessWidget {
   final double totalFare;
   final double baseFare;
   final double platformFee;
   final double gst;
+  final double securityDeposit;
+  final int durationDays;
+  final double pricePerDay;
+  final bool isAvailable;
   final VoidCallback onBookNow;
 
   const CarBookingBottomBar({
@@ -16,86 +21,45 @@ class CarBookingBottomBar extends StatelessWidget {
     required this.baseFare,
     required this.platformFee,
     required this.gst,
+    this.securityDeposit = 0.0,
+    this.durationDays = 1,
+    required this.pricePerDay,
+    this.isAvailable = true,
     required this.onBookNow,
   });
 
-  void _showFareBreakdown(BuildContext context) {
-    final tripFare = baseFare + platformFee;
-
-    AppBottomSheet.show(
+  void _showBreakdown(BuildContext context) {
+    CarPriceBreakdownSheet.show(
       context,
-      title: 'Estimated Fare Breakdown',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Trip Fare', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(
-                  IndianCurrencyFormatter.format(tripFare, showDecimals: false),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-          const Gap(4),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('GST (18%)', style: TextStyle(fontSize: 14)),
-                Text(
-                  IndianCurrencyFormatter.format(gst, showDecimals: false),
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Estimated Fare',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                PriceTag(
-                  amount: totalFare,
-                  amountStyle: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Gap(16),
-        ],
-      ),
+      baseFare: baseFare,
+      platformFee: platformFee,
+      gst: gst,
+      totalFare: totalFare,
+      securityDeposit: securityDeposit,
+      durationDays: durationDays,
+      pricePerDay: pricePerDay,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final effectiveTotal = totalFare > 0 ? totalFare : (pricePerDay * durationDays);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      padding: const EdgeInsets.symmetric(
+        horizontal: DDSSpacing.md,
+        vertical: DDSSpacing.sm,
+      ),
+      decoration: const BoxDecoration(
+        color: DDSColors.surfaceCard,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(DDSRadius.large),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black12,
             blurRadius: 16,
-            offset: const Offset(0, -4),
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -103,7 +67,7 @@ class CarBookingBottomBar extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            // ── Left: Price & Breakdown ─────────────────────────────────────
+            // ── Left: Price & Breakdown Link ─────────────────────────────────
             Expanded(
               flex: 5,
               child: Column(
@@ -112,23 +76,28 @@ class CarBookingBottomBar extends StatelessWidget {
                 children: [
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => _showFareBreakdown(context),
+                    onTap: () => _showBreakdown(context),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
                           child: Text(
-                            'Est. Fare (50km)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant,
+                            durationDays > 1
+                                ? 'Est. Total ($durationDays days)'
+                                : 'Daily Rate',
+                            style: DDSTypography.labelSmall.copyWith(
+                              color: DDSColors.textSecondary,
                               fontWeight: FontWeight.w500,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const Gap(4),
-                        Icon(Icons.info_outline, size: 14, color: cs.primary),
+                        const Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: DDSColors.primaryBlue,
+                        ),
                       ],
                     ),
                   ),
@@ -136,14 +105,33 @@ class CarBookingBottomBar extends StatelessWidget {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: PriceTag(
-                      amount: totalFare,
-                      amountStyle: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        letterSpacing: -0.3,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          IndianCurrencyFormatter.format(
+                            effectiveTotal,
+                            showDecimals: false,
+                          ),
+                          style: DDSTypography.headlineMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: DDSColors.primaryBlue,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        if (durationDays <= 1) ...[
+                          const Gap(3),
+                          Text(
+                            '/ day',
+                            style: DDSTypography.labelSmall.copyWith(
+                              color: DDSColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -154,31 +142,13 @@ class CarBookingBottomBar extends StatelessWidget {
             // ── Right: Continue CTA ─────────────────────────────────────────
             Expanded(
               flex: 6,
-              child: ElevatedButton(
-                onPressed: onBookNow,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Book Now',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Gap(6),
-                    Icon(Icons.arrow_forward, size: 16),
-                  ],
-                ),
+              child: DriveGoButton(
+                text: isAvailable ? 'Book Now' : 'Unavailable',
+                variant: DriveGoButtonVariant.primary,
+                icon: isAvailable
+                    ? const Icon(Icons.arrow_forward, size: 16, color: Colors.white)
+                    : null,
+                onPressed: isAvailable ? onBookNow : null,
               ),
             ),
           ],

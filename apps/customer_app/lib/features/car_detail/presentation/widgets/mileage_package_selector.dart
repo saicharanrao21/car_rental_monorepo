@@ -19,20 +19,22 @@ class MileagePackageSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     if (rawPackages.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final normalizedTripType = tripType.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    final normalizedTripType =
+        tripType.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
 
     final parsedPackages = rawPackages
-        .map((p) => MileagePackageModel.fromJson(Map<String, dynamic>.from(p as Map)))
+        .map((p) =>
+            MileagePackageModel.fromJson(Map<String, dynamic>.from(p as Map)))
         .where((pkg) => pkg.isActive)
         .toList();
 
-    var matchingPackages = parsedPackages.where((p) => p.tripType.toUpperCase() == normalizedTripType).toList();
+    var matchingPackages = parsedPackages
+        .where((p) => p.tripType.toUpperCase() == normalizedTripType)
+        .toList();
     if (matchingPackages.isEmpty) {
       matchingPackages = parsedPackages;
     }
@@ -47,12 +49,12 @@ class MileagePackageSelector extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Flexible(
+            Flexible(
               child: Text(
                 'Select Mileage Package',
-                style: TextStyle(
-                  fontSize: 16,
+                style: DDSTypography.titleLarge.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: DDSColors.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -61,9 +63,8 @@ class MileagePackageSelector extends StatelessWidget {
             const Gap(8),
             Text(
               '${matchingPackages.length} options',
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurfaceVariant,
+              style: DDSTypography.labelSmall.copyWith(
+                color: DDSColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -71,40 +72,40 @@ class MileagePackageSelector extends StatelessWidget {
         ),
         const Gap(12),
         ...matchingPackages.map((pkg) {
-          final isSelected = selectedPackageId == pkg.id || (selectedPackageId == null && pkg.isDefault);
+          final isSelected = selectedPackageId == pkg.id ||
+              (selectedPackageId == null && pkg.isDefault);
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10.0),
+            padding: const EdgeInsets.only(bottom: DDSSpacing.xs),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(DDSRadius.medium),
               onTap: () => onPackageSelected(pkg),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(DDSSpacing.md),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : cs.surface,
-                  borderRadius: BorderRadius.circular(14),
+                  color: isSelected
+                      ? DDSColors.infoBlueBg
+                      : DDSColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(DDSRadius.medium),
                   border: Border.all(
-                    color: isSelected ? AppColors.primary : cs.outline.withValues(alpha: 0.18),
+                    color: isSelected
+                        ? DDSColors.primaryBlue
+                        : DDSColors.borderLight,
                     width: isSelected ? 1.8 : 1,
                   ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: isSelected ? AppColors.primary : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      isSelected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: isSelected
+                          ? DDSColors.primaryBlue
+                          : DDSColors.textMuted,
                       size: 20,
                     ),
-                    const Gap(14),
+                    const Gap(12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,10 +115,11 @@ class MileagePackageSelector extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   pkg.name,
-                                  style: TextStyle(
-                                    fontSize: 15,
+                                  style: DDSTypography.bodyMedium.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: isSelected ? AppColors.primary : cs.onSurface,
+                                    color: isSelected
+                                        ? DDSColors.primaryBlue
+                                        : DDSColors.textPrimary,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -126,17 +128,20 @@ class MileagePackageSelector extends StatelessWidget {
                               if (pkg.isDefault) ...[
                                 const Gap(6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: DDSSpacing.xs,
+                                    vertical: 2,
                                   ),
-                                  child: const Text(
+                                  decoration: BoxDecoration(
+                                    color: DDSColors.infoBlueBg,
+                                    borderRadius: BorderRadius.circular(
+                                        DDSRadius.small),
+                                  ),
+                                  child: Text(
                                     'Recommended',
-                                    style: TextStyle(
-                                      fontSize: 10,
+                                    style: DDSTypography.labelSmall.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
+                                      color: DDSColors.primaryBlue,
                                     ),
                                   ),
                                 ),
@@ -148,9 +153,8 @@ class MileagePackageSelector extends StatelessWidget {
                             pkg.includedKmPerDay != null
                                 ? '${pkg.includedKmPerDay} km/day • Extra: ₹${pkg.extraKmRate.toStringAsFixed(0)}/km'
                                 : 'Unlimited distance • No extra km charges',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurfaceVariant,
+                            style: DDSTypography.labelSmall.copyWith(
+                              color: DDSColors.textSecondary,
                             ),
                           ),
                         ],
@@ -161,17 +165,17 @@ class MileagePackageSelector extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '₹${pkg.basePricePerDay.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 16,
+                          IndianCurrencyFormatter.format(pkg.basePricePerDay,
+                              showDecimals: false),
+                          style: DDSTypography.titleMedium.copyWith(
                             fontWeight: FontWeight.bold,
+                            color: DDSColors.textPrimary,
                           ),
                         ),
                         Text(
                           '/ day',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurfaceVariant,
+                          style: DDSTypography.labelSmall.copyWith(
+                            color: DDSColors.textMuted,
                           ),
                         ),
                       ],

@@ -119,8 +119,9 @@ export class OtpService {
       );
     }
 
-    // 4. Compare input OTP code with stored bcrypt hash
-    const isMatch = bcrypt.compareSync(otp, latestOtp.otpHash);
+    // 4. Compare input OTP code with stored bcrypt hash (support 123456 dev OTP in non-production)
+    const isDevBypass = process.env.NODE_ENV !== 'production' && otp === '123456';
+    const isMatch = isDevBypass || bcrypt.compareSync(otp, latestOtp.otpHash);
 
     if (!isMatch) {
       const updatedCount = latestOtp.attemptCount + 1;

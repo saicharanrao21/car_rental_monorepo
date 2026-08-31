@@ -14,6 +14,7 @@ import 'package:customer_app/features/car_detail/presentation/widgets/car_pricin
 import 'package:customer_app/features/car_detail/presentation/widgets/car_features_section.dart';
 import 'package:customer_app/features/car_detail/presentation/widgets/car_vendor_section.dart';
 import 'package:customer_app/features/car_detail/presentation/widgets/car_booking_bottom_bar.dart';
+import 'package:customer_app/features/car_detail/presentation/widgets/car_price_breakdown_sheet.dart';
 import 'package:customer_app/features/search/presentation/providers/search_providers.dart';
 import 'package:customer_app/features/home/home_providers.dart';
 
@@ -61,6 +62,24 @@ void main() {
     availableTripTypes: ['Self-Drive'],
   );
 
+  const testUnavailableCar = CarModel(
+    id: 'car_unavail',
+    vendorId: 'v_1',
+    make: 'Mahindra',
+    model: 'Thar',
+    year: 2023,
+    type: 'SUV',
+    fuelType: 'DIESEL',
+    seating: 4,
+    isAC: true,
+    photos: [],
+    pricePerKm: 18.0,
+    pricePerDay: 4000.0,
+    pricePerHour: 300.0,
+    isAvailable: false,
+    availableTripTypes: ['Self-Drive'],
+  );
+
   final testCarWithPackages = CarModel.fromJson({
     'id': 'car_pkg_1',
     'vendorId': 'v_1',
@@ -102,9 +121,9 @@ void main() {
     ],
   });
 
-  group('Car Details Modernization & Flow Tests (Phase 14)', () {
+  group('Car Details Modernization & Flow Tests (Phase 29.5)', () {
     testWidgets(
-        'Scenario 1: With active search dates, displays compact availability confirmation and no monthly calendar',
+        'Scenario 1: With active search dates, displays compact availability confirmation',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -134,20 +153,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Compact availability badge is shown
+      // Compact availability confirmation is shown
       expect(find.byType(SelectedTripSummaryCard), findsOneWidget);
-      expect(find.text('Available for your selected trip'), findsOneWidget);
-      expect(find.text('Change Search'), findsOneWidget);
+      expect(find.text('Available for your schedule'), findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
       expect(find.textContaining('Self-Drive'), findsWidgets);
-
-      // Monthly availability calendar is NOT shown
-      expect(find.text('Vehicle Availability'), findsNothing);
-      expect(find.text('August 2026'), findsNothing);
-      expect(find.text('Available / Booked / Blocked'), findsNothing);
     });
 
     testWidgets(
-        'Scenario 2: Without active search dates, displays neutral date selection prompt with no false availability claim',
+        'Scenario 2: Without active search dates, displays neutral date selection prompt',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -175,14 +189,13 @@ void main() {
       // Neutral prompt is shown
       expect(find.byType(SelectedTripSummaryCard), findsOneWidget);
       expect(find.text('Select dates to check availability'), findsOneWidget);
-      expect(find.text('Available for your selected trip'), findsNothing);
-      expect(find.text('Vehicle Availability'), findsNothing);
+      expect(find.text('Available for your schedule'), findsNothing);
     });
 
     testWidgets(
         'Scenario 3: Renders all modernized sections (Gallery, Identity, Specs, Pricing, Features, Vendor, Bottom Bar)',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 1200));
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -221,7 +234,7 @@ void main() {
     testWidgets(
         'Scenario 4: Selectable mileage packages render and selection updates active package',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 1200));
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final container = ProviderContainer(
@@ -254,6 +267,74 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('200 km/day'), findsOneWidget);
+    });
+
+    testWidgets(
+        'Scenario 5: Transparent price breakdown modal opens from breakdown trigger',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final container = ProviderContainer(
+        overrides: [
+          carDetailRepositoryProvider.overrideWithValue(
+            MockCarDetailRepo(car: testCar, vendor: testVendor),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: CarDetailPage(carId: 'car_123'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final breakdownTrigger = find.text('View breakdown');
+      await tester.ensureVisible(breakdownTrigger);
+      await tester.tap(breakdownTrigger);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CarPriceBreakdownSheet), findsOneWidget);
+      expect(find.text('Price Breakdown'), findsOneWidget);
+      expect(find.text('Refundable Security Deposit'), findsOneWidget);
+      expect(find.text('Got It'), findsOneWidget);
+
+      await tester.tap(find.text('Got It'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CarPriceBreakdownSheet), findsNothing);
+    });
+
+    testWidgets(
+        'Scenario 6: Unavailable car displays unavailable alert and disabled CTA',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final container = ProviderContainer(
+        overrides: [
+          carDetailRepositoryProvider.overrideWithValue(
+            MockCarDetailRepo(car: testUnavailableCar, vendor: testVendor),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: CarDetailPage(carId: 'car_unavail'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('This vehicle is currently unavailable for selected dates.'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget);
+      expect(find.text('Book Now'), findsNothing);
     });
   });
 }

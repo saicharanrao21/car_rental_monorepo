@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 
 class CarIdentitySection extends StatelessWidget {
@@ -17,12 +18,13 @@ class CarIdentitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final rating = car.rating > 0 ? car.rating : vendor.rating;
+    final isVerified = vendor.verificationStatus.toLowerCase() == 'verified';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Title & Status Badge
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,18 +35,16 @@ class CarIdentitySection extends StatelessWidget {
                 children: [
                   Text(
                     '${car.make} ${car.model}',
-                    style: const TextStyle(
-                      fontSize: 24,
+                    style: DDSTypography.headlineMedium.copyWith(
                       fontWeight: FontWeight.bold,
-                      letterSpacing: -0.3,
+                      color: DDSColors.textPrimary,
                     ),
                   ),
                   const Gap(4),
                   Text(
-                    '${car.year} • ${car.fuelType}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: cs.onSurfaceVariant,
+                    '${car.year} • ${car.fuelType} • ${car.seating} Seats • ${car.type}',
+                    style: DDSTypography.bodyMedium.copyWith(
+                      color: DDSColors.textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -52,20 +52,29 @@ class CarIdentitySection extends StatelessWidget {
               ),
             ),
             const Gap(12),
-            StatusBadge(
-              status: car.isAvailable ? 'AVAILABLE' : 'BLOCKED',
+            DriveGoStatusBadge(
+              label: car.isAvailable ? 'AVAILABLE' : 'BLOCKED',
+              variant: car.isAvailable
+                  ? DriveGoBadgeVariant.success
+                  : DriveGoBadgeVariant.error,
             ),
           ],
         ),
-        if (rating > 0) ...[
-          const Gap(10),
-          Row(
-            children: [
+        const Gap(10),
+
+        // Partner Trust Tag & Rating Pill
+        Row(
+          children: [
+            // Rating pill
+            if (rating > 0) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DDSSpacing.xs,
+                  vertical: DDSSpacing.xxs,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(DDSRadius.small),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -74,29 +83,59 @@ class CarIdentitySection extends StatelessWidget {
                     const Gap(4),
                     Text(
                       rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style: DDSTypography.labelSmall.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: DDSColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
               ),
               if (reviewsCount > 0) ...[
-                const Gap(8),
+                const Gap(6),
                 Text(
                   '($reviewsCount ${reviewsCount == 1 ? 'review' : 'reviews'})',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant,
+                  style: DDSTypography.labelSmall.copyWith(
+                    color: DDSColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
+              const Gap(12),
             ],
-          ),
-        ],
+
+            // Partner Verified Badge
+            if (isVerified)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DDSSpacing.xs,
+                  vertical: DDSSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: DDSColors.infoBlueBg,
+                  borderRadius: BorderRadius.circular(DDSRadius.small),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.verified,
+                      size: 13,
+                      color: DDSColors.primaryBlue,
+                    ),
+                    const Gap(4),
+                    Text(
+                      'Partner in ${vendor.city}',
+                      style: DDSTypography.labelSmall.copyWith(
+                        color: DDSColors.primaryBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }

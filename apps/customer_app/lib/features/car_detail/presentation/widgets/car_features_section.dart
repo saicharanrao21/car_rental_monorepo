@@ -7,47 +7,45 @@ class CarFeaturesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     final inclusions = [
       (
         icon: Icons.event_available_outlined,
         title: 'Free Cancellation',
-        subtitle: 'Cancel up to 6 hours before trip start for a full refund',
+        subtitle: 'Cancel up to 6 hours before trip start for a 100% full refund',
       ),
       (
         icon: Icons.security_outlined,
         title: 'Comprehensive Insurance',
-        subtitle: 'Standard insurance included with third-party liability coverage',
+        subtitle: 'Standard protection package with third-party liability coverage included',
       ),
       (
         icon: Icons.support_agent_outlined,
         title: '24/7 Roadside Assistance',
-        subtitle: 'Emergency on-road breakdown support across India',
+        subtitle: 'Dedicated emergency and roadside breakdown support across India',
       ),
       (
         icon: Icons.cleaning_services_outlined,
         title: 'Clean & Sanitized',
-        subtitle: 'Thoroughly sanitized and inspected before handover',
+        subtitle: 'Deep cleaned and rigorously sanitized before vehicle handover',
       ),
     ];
 
     final policies = [
       (
         title: 'Documents Required',
-        desc: 'Original Driving License and Aadhaar / Passport required at pickup.',
+        desc: 'Original Driving Licence and Aadhaar / Passport required at handover inspection.',
       ),
       (
         title: 'Fuel Policy',
-        desc: 'Return the vehicle with the same fuel level as received.',
+        desc: 'Return the vehicle with the same fuel level as received during initial inspection.',
       ),
       (
         title: 'Refundable Security Deposit',
-        desc: 'Zero to minimal deposit. Refunds are credited within 48 hours of return.',
+        desc: 'Zero or minimal deposit. Any held deposit is refunded within 48h after return.',
       ),
       (
         title: 'Age Eligibility',
-        desc: 'Driver must be at least 21 years old with valid driving experience.',
+        desc: 'Primary driver must be at least 21 years old with valid driving licence.',
       ),
     ];
 
@@ -55,35 +53,42 @@ class CarFeaturesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── 1. Rental Inclusions ─────────────────────────────────────────────
-        const Text(
+        Text(
           'What is Included',
-          style: TextStyle(
-            fontSize: 16,
+          style: DDSTypography.titleLarge.copyWith(
             fontWeight: FontWeight.bold,
+            color: DDSColors.textPrimary,
           ),
         ),
         const Gap(12),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DDSSpacing.md,
+            vertical: DDSSpacing.xs,
+          ),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+            color: DDSColors.surfaceCard,
+            borderRadius: BorderRadius.circular(DDSRadius.medium),
+            border: Border.all(color: DDSColors.borderLight),
           ),
           child: Column(
             children: inclusions.map((item) {
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: const EdgeInsets.symmetric(vertical: DDSSpacing.xs),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
+                      padding: const EdgeInsets.all(DDSSpacing.xs - 1),
+                      decoration: const BoxDecoration(
+                        color: DDSColors.infoBlueBg,
+                        borderRadius: BorderRadius.all(Radius.circular(DDSRadius.small)),
                       ),
-                      child: Icon(item.icon, size: 18, color: AppColors.primary),
+                      child: Icon(
+                        item.icon,
+                        size: 18,
+                        color: DDSColors.primaryBlue,
+                      ),
                     ),
                     const Gap(12),
                     Expanded(
@@ -92,17 +97,16 @@ class CarFeaturesSection extends StatelessWidget {
                         children: [
                           Text(
                             item.title,
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: DDSTypography.bodyMedium.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: DDSColors.textPrimary,
                             ),
                           ),
                           const Gap(2),
                           Text(
                             item.subtitle,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurfaceVariant,
+                            style: DDSTypography.labelSmall.copyWith(
+                              color: DDSColors.textSecondary,
                             ),
                           ),
                         ],
@@ -117,38 +121,48 @@ class CarFeaturesSection extends StatelessWidget {
         const Gap(24),
 
         // ── 2. Rental Guidelines & Policies ──────────────────────────────────
-        const Text(
+        Text(
           'Rental Policies & Guidelines',
-          style: TextStyle(
-            fontSize: 16,
+          style: DDSTypography.titleLarge.copyWith(
             fontWeight: FontWeight.bold,
+            color: DDSColors.textPrimary,
           ),
         ),
         const Gap(12),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DDSSpacing.md),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+            color: DDSColors.surfaceSubtle,
+            borderRadius: BorderRadius.circular(DDSRadius.medium),
+            border: Border.all(color: DDSColors.borderLight),
           ),
           child: Column(
             children: policies.map((policy) {
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                padding: const EdgeInsets.symmetric(vertical: DDSSpacing.xxs + 2),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check, size: 16, color: AppColors.primary),
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: DDSColors.primaryBlue,
+                    ),
                     const Gap(10),
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: TextStyle(fontSize: 13, color: cs.onSurface, height: 1.3),
+                          style: DDSTypography.bodyMedium.copyWith(
+                            color: DDSColors.textPrimary,
+                            height: 1.35,
+                          ),
                           children: [
                             TextSpan(
                               text: '${policy.title}: ',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: DDSColors.textPrimary,
+                              ),
                             ),
                             TextSpan(text: policy.desc),
                           ],

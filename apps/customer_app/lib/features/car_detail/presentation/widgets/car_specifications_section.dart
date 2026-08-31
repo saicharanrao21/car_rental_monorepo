@@ -13,8 +13,6 @@ class CarSpecificationsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     final specs = [
       (
         icon: Icons.people_outline,
@@ -29,29 +27,40 @@ class CarSpecificationsSection extends StatelessWidget {
       (
         icon: Icons.ac_unit,
         title: 'Air Conditioning',
-        value: car.isAC ? 'AC' : 'Non-AC',
+        value: car.isAC ? 'Climate Control AC' : 'Non-AC',
       ),
       (
         icon: Icons.directions_car_outlined,
-        title: 'Category',
+        title: 'Body Style',
         value: car.type,
+      ),
+      (
+        icon: Icons.calendar_month_outlined,
+        title: 'Model Year',
+        value: car.year.toString(),
       ),
       if (car.distanceKm != null)
         (
           icon: Icons.near_me_outlined,
           title: 'Distance',
           value: '${car.distanceKm!.toStringAsFixed(1)} km away',
+        )
+      else
+        (
+          icon: Icons.speed_outlined,
+          title: 'Transmission',
+          value: 'Manual / Automatic',
         ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Vehicle Specifications',
-          style: TextStyle(
-            fontSize: 16,
+          style: DDSTypography.titleLarge.copyWith(
             fontWeight: FontWeight.bold,
+            color: DDSColors.textPrimary,
           ),
         ),
         const Gap(12),
@@ -60,32 +69,35 @@ class CarSpecificationsSection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 2.5,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            childAspectRatio: 2.4,
+            crossAxisSpacing: DDSSpacing.xs,
+            mainAxisSpacing: DDSSpacing.xs,
           ),
           itemCount: specs.length,
           itemBuilder: (context, index) {
             final spec = specs[index];
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: DDSSpacing.sm,
+                vertical: DDSSpacing.xs,
+              ),
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+                color: DDSColors.surfaceCard,
+                borderRadius: BorderRadius.circular(DDSRadius.medium),
+                border: Border.all(color: DDSColors.borderLight),
               ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.all(DDSSpacing.xs - 1),
+                    decoration: const BoxDecoration(
+                      color: DDSColors.infoBlueBg,
+                      borderRadius: BorderRadius.all(Radius.circular(DDSRadius.small)),
                     ),
                     child: Icon(
                       spec.icon,
                       size: 18,
-                      color: AppColors.primary,
+                      color: DDSColors.primaryBlue,
                     ),
                   ),
                   const Gap(10),
@@ -96,9 +108,8 @@ class CarSpecificationsSection extends StatelessWidget {
                       children: [
                         Text(
                           spec.title,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurfaceVariant,
+                          style: DDSTypography.labelSmall.copyWith(
+                            color: DDSColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
@@ -107,9 +118,9 @@ class CarSpecificationsSection extends StatelessWidget {
                         const Gap(2),
                         Text(
                           spec.value,
-                          style: const TextStyle(
-                            fontSize: 13,
+                          style: DDSTypography.bodyMedium.copyWith(
                             fontWeight: FontWeight.bold,
+                            color: DDSColors.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

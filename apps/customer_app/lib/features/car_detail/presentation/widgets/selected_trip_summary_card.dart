@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core/core.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 
 class SelectedTripSummaryCard extends StatelessWidget {
@@ -23,39 +24,46 @@ class SelectedTripSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     if (dates == null) {
       return Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(DDSSpacing.md),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+          color: DDSColors.surfaceSubtle,
+          borderRadius: BorderRadius.circular(DDSRadius.medium),
+          border: Border.all(color: DDSColors.borderLight),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+              padding: const EdgeInsets.all(DDSSpacing.xs),
+              decoration: const BoxDecoration(
+                color: DDSColors.infoBlueBg,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.calendar_today_outlined, color: AppColors.primary, size: 18),
+              child: const Icon(
+                Icons.calendar_today_outlined,
+                color: DDSColors.primaryBlue,
+                size: 18,
+              ),
             ),
             const Gap(12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Select dates to check availability',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: DDSTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: DDSColors.textPrimary,
+                    ),
                   ),
                   const Gap(2),
                   Text(
-                    'Choose dates from Search to confirm pricing',
-                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    'Choose dates to confirm accurate pricing',
+                    style: DDSTypography.labelSmall.copyWith(
+                      color: DDSColors.textSecondary,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -63,16 +71,12 @@ class SelectedTripSummaryCard extends StatelessWidget {
               ),
             ),
             const Gap(8),
-            ElevatedButton(
+            DriveGoButton(
+              text: 'Search',
+              isFullWidth: false,
+              size: DriveGoButtonSize.compact,
+              variant: DriveGoButtonVariant.primary,
               onPressed: onChangeSearch ?? () => context.push('/search'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                elevation: 0,
-              ),
-              child: const Text('Search', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -80,65 +84,81 @@ class SelectedTripSummaryCard extends StatelessWidget {
     }
 
     final durationDays = dates!.duration.inDays;
-    final durationText = durationDays > 0 ? '$durationDays ${durationDays == 1 ? 'day' : 'days'}' : '1 day';
+    final durationText = durationDays > 0
+        ? '$durationDays ${durationDays == 1 ? 'day' : 'days'}'
+        : '1 day';
     final hasDrop = drop != null && drop!.isNotEmpty && tripType == 'Outstation';
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+        color: DDSColors.successGreenBg,
+        borderRadius: BorderRadius.circular(DDSRadius.medium),
+        border: Border.all(color: DDSColors.successGreen.withValues(alpha: 0.3)),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(DDSSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Line: Checkmark & Title & Change Search button
+          // Header Row: Checkmark & Title & Change Button
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(5),
+                padding: const EdgeInsets.all(DDSSpacing.xxs),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.15),
+                  color: DDSColors.successGreen.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
+                child: const Icon(
+                  Icons.check_circle_outline,
+                  color: DDSColors.successGreen,
+                  size: 16,
+                ),
               ),
               const Gap(8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Available for your selected trip',
-                  style: TextStyle(
-                    fontSize: 13,
+                  'Available for your schedule',
+                  style: DDSTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    color: DDSColors.successGreen,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Gap(6),
-              OutlinedButton(
-                onPressed: onChangeSearch ?? () => context.push('/search'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  side: BorderSide(color: Colors.green.withValues(alpha: 0.4)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                ),
-                child: const Text(
-                  'Change Search',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+              const Gap(8),
+              InkWell(
+                onTap: onChangeSearch ?? () => context.push('/search'),
+                borderRadius: BorderRadius.circular(DDSRadius.small),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DDSSpacing.xs + 2,
+                    vertical: DDSSpacing.xxs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(DDSRadius.small),
+                    border: Border.all(
+                      color: DDSColors.successGreen.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    'Change',
+                    style: DDSTypography.labelSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: DDSColors.successGreen,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const Gap(10),
-          const Divider(height: 1),
+          const Divider(height: 1, color: DDSColors.borderLight),
           const Gap(10),
 
-          // Details Rows
+          // Details Columns
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -148,19 +168,20 @@ class SelectedTripSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       'PICKUP & LOCATION',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurfaceVariant,
-                        letterSpacing: 0.4,
+                      style: DDSTypography.labelSmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: DDSColors.textMuted,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    const Gap(2),
+                    const Gap(3),
                     Text(
-                      pickup != null && pickup!.isNotEmpty ? '$pickup, $city' : city,
-                      style: const TextStyle(
-                        fontSize: 12,
+                      pickup != null && pickup!.isNotEmpty
+                          ? '$pickup, $city'
+                          : city,
+                      style: DDSTypography.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: DDSColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -169,10 +190,9 @@ class SelectedTripSummaryCard extends StatelessWidget {
                       const Gap(2),
                       Text(
                         'Drop: $drop',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange[800],
-                          fontWeight: FontWeight.w500,
+                        style: DDSTypography.labelSmall.copyWith(
+                          color: DDSColors.warningOrange,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -188,19 +208,18 @@ class SelectedTripSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       'RENTAL SCHEDULE',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurfaceVariant,
-                        letterSpacing: 0.4,
+                      style: DDSTypography.labelSmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: DDSColors.textMuted,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    const Gap(2),
+                    const Gap(3),
                     Text(
                       '${dates!.start.toDDMMYYYY()} → ${dates!.end.toDDMMYYYY()}',
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style: DDSTypography.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: DDSColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -208,9 +227,8 @@ class SelectedTripSummaryCard extends StatelessWidget {
                     const Gap(2),
                     Text(
                       '$durationText • ${tripType ?? 'Self-Drive'}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
+                      style: DDSTypography.labelSmall.copyWith(
+                        color: DDSColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
