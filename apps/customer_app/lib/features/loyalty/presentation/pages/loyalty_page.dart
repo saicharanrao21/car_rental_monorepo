@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:core/core.dart';
+import 'package:gap/gap.dart';
 import '../providers/loyalty_providers.dart';
 
 class LoyaltyPage extends ConsumerStatefulWidget {
@@ -17,18 +19,18 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
     final transactionsAsync = ref.watch(loyaltyTransactionsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'DriveGo Rewards Club',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: DDSColors.primaryBlue),
+            tooltip: 'Refresh Rewards',
             onPressed: () {
               ref.invalidate(loyaltyAccountProvider);
               ref.invalidate(loyaltyTransactionsProvider);
@@ -37,20 +39,32 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
         ],
       ),
       body: accountAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
         error: (err, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              Text('Failed to load rewards account: $err'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(loyaltyAccountProvider),
-                child: const Text('Retry'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(DDSSpacing.lg),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: DDSColors.errorRed),
+                const Gap(DDSSpacing.sm),
+                Text(
+                  'Failed to load rewards account: $err',
+                  textAlign: TextAlign.center,
+                  style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textSecondary),
+                ),
+                const Gap(DDSSpacing.md),
+                FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DDSColors.infoBlueBg,
+                    foregroundColor: DDSColors.primaryBlue,
+                    shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
+                  ),
+                  onPressed: () => ref.invalidate(loyaltyAccountProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
         data: (account) {
@@ -61,25 +75,25 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(DDSSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTierHeroCard(context, account),
-                  const SizedBox(height: 16),
+                  const Gap(DDSSpacing.md),
                   _buildPointsRedemptionCard(context, account),
-                  const SizedBox(height: 20),
+                  const Gap(DDSSpacing.md),
                   _buildEarningRulesCard(context, account),
-                  const SizedBox(height: 24),
-                  const Text(
+                  const Gap(DDSSpacing.lg),
+                  Text(
                     'Points History',
-                    style: TextStyle(
+                    style: DDSTypography.titleMedium.copyWith(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: DDSColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const Gap(DDSSpacing.sm),
                   transactionsAsync.when(
                     loading: () => const Center(
                       child: Padding(
@@ -89,30 +103,31 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                     ),
                     error: (err, _) => Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text('Failed to load transactions: $err'),
+                      child: Text('Failed to load transactions: $err', style: DDSTypography.bodyMedium.copyWith(color: DDSColors.errorRed)),
                     ),
                     data: (transactions) {
                       if (transactions.isEmpty) {
                         return Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(DDSSpacing.xl),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade200),
+                            color: DDSColors.surfaceCard,
+                            borderRadius: DDSRadius.largeBorderRadius,
+                            border: Border.all(color: DDSColors.borderLight),
+                            boxShadow: DDSElevation.cardShadow,
                           ),
-                          child: const Column(
+                          child: Column(
                             children: [
-                              Icon(Icons.stars_outlined, size: 48, color: Colors.black26),
-                              SizedBox(height: 8),
+                              const Icon(Icons.stars_outlined, size: 48, color: DDSColors.textMuted),
+                              const Gap(8),
                               Text(
                                 'No loyalty points earned yet',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                                style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
                               ),
-                              SizedBox(height: 4),
+                              const Gap(4),
                               Text(
                                 'Complete your first rental to earn reward points!',
-                                style: TextStyle(fontSize: 12, color: Colors.black38),
+                                style: DDSTypography.bodyMedium.copyWith(fontSize: 12, color: DDSColors.textSecondary),
                               ),
                             ],
                           ),
@@ -123,7 +138,7 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: transactions.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const Gap(8),
                         itemBuilder: (context, index) {
                           final tx = transactions[index];
                           return _buildTransactionTile(tx);
@@ -131,7 +146,7 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 40),
+                  const Gap(40),
                 ],
               ),
             ),
@@ -152,65 +167,74 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: DDSRadius.largeBorderRadius,
         boxShadow: [
           BoxShadow(
-            color: colors.first.withValues(alpha: 0.3),
+            color: colors.first.withValues(alpha: 0.35),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(DDSSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.workspace_premium, color: Colors.white, size: 28),
                     ),
-                    child: const Icon(Icons.workspace_premium, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${account.tierName.toUpperCase()} MEMBER',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                    const Gap(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${account.tierName.toUpperCase()} MEMBER',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DDSTypography.titleMedium.copyWith(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            '${account.pointsMultiplier}x Points Multiplier',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DDSTypography.bodyMedium.copyWith(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${account.pointsMultiplier}x Points Multiplier',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const Gap(8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: DDSRadius.mediumBorderRadius,
                 ),
                 child: Text(
                   '${account.lifetimePoints} Lifetime Pts',
-                  style: const TextStyle(
+                  style: DDSTypography.labelSmall.copyWith(
                     color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -219,31 +243,33 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const Gap(24),
           if (account.nextTier != null) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Next Tier: ${account.nextTier!.name}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    'Next Tier: ${account.nextTier!.name}',
+                    style: DDSTypography.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 Text(
                   '${account.nextTier!.pointsToNextTier} pts needed',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
+                  style: DDSTypography.bodyMedium.copyWith(
+                    color: Colors.white.withValues(alpha: 0.95),
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const Gap(8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: DDSRadius.smallBorderRadius,
               child: LinearProgressIndicator(
                 value: (account.nextTier!.progressPercent / 100).clamp(0.0, 1.0),
                 backgroundColor: Colors.white.withValues(alpha: 0.25),
@@ -256,11 +282,11 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: DDSRadius.smallBorderRadius,
               ),
-              child: const Text(
+              child: Text(
                 '★ Highest Platinum Tier Achieved — Enjoy 2.00x Points!',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: DDSTypography.labelSmall.copyWith(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -272,18 +298,12 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
   Widget _buildPointsRedemptionCard(BuildContext context, LoyaltyAccountModel account) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(DDSSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
+        boxShadow: DDSElevation.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,54 +311,47 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Available Points Balance',
-                    style: TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '${account.pointsBalance}',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Points Balance',
+                      style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary, fontWeight: FontWeight.w500),
+                    ),
+                    const Gap(4),
+                    Text(
+                      '${account.pointsBalance} Pts',
+                      style: DDSTypography.displayLarge.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: DDSColors.textPrimary,
                       ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Points',
-                        style: TextStyle(fontSize: 14, color: Colors.black45, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const Gap(8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: DDSColors.successGreenBg,
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                  border: Border.all(color: DDSColors.successGreen.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       'Wallet Value',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.bold),
+                      style: DDSTypography.labelSmall.copyWith(fontSize: 10, color: DDSColors.successGreen, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       '₹${account.walletEquivalent}',
-                      style: const TextStyle(
+                      style: DDSTypography.titleMedium.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF10B981),
+                        color: DDSColors.successGreen,
                       ),
                     ),
                   ],
@@ -346,23 +359,23 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
+          const Gap(DDSSpacing.md),
+          const Divider(height: 1, color: DDSColors.borderLight),
+          const Gap(DDSSpacing.md),
           Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Conversion Rate: 2 Points = ₹1',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      style: DDSTypography.bodyMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
                     ),
-                    const SizedBox(height: 2),
+                    const Gap(2),
                     Text(
                       'Directly credited to DriveGo Promotional Wallet',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
                     ),
                   ],
                 ),
@@ -374,9 +387,9 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                 icon: const Icon(Icons.account_balance_wallet, size: 16),
                 label: const Text('Redeem'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C5CE7),
+                  backgroundColor: DDSColors.primaryBlue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
               ),
@@ -390,31 +403,33 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
   Widget _buildEarningRulesCard(BuildContext context, LoyaltyAccountModel account) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Color(0xFFE2E8F0))),
+      padding: const EdgeInsets.all(DDSSpacing.md),
+      decoration: BoxDecoration(
+        color: DDSColors.infoBlueBg,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: Border.all(color: DDSColors.primaryBlue.withValues(alpha: 0.2)),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, size: 18, color: Color(0xFF64748B)),
-              SizedBox(width: 8),
-              Text(
-                'How to Earn Loyalty Points',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              const Icon(Icons.info_outline, size: 18, color: DDSColors.primaryBlue),
+              const Gap(8),
+              Expanded(
+                child: Text(
+                  'How to Earn Loyalty Points',
+                  style: DDSTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: DDSColors.primaryBlue),
+                ),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const Gap(8),
           Text(
             '• Earn 1 base point per ₹10 of eligible rental Base Fare upon trip completion.\n'
             '• Multipliers apply automatically based on your Lifetime Tier.\n'
             '• Redeeming points never reduces your tier or lifetime rank.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
+            style: DDSTypography.bodyMedium.copyWith(fontSize: 12, color: DDSColors.textSecondary, height: 1.4),
           ),
         ],
       ),
@@ -423,21 +438,22 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
 
   Widget _buildTransactionTile(LoyaltyTransactionModel tx) {
     final isCredit = tx.type.isCredit;
-    final color = isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final color = isCredit ? DDSColors.successGreen : DDSColors.errorRed;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.mediumBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
+        boxShadow: DDSElevation.cardShadow,
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(DDSSpacing.xs),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: isCredit ? DDSColors.successGreenBg : DDSColors.errorRedBg,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -446,19 +462,19 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const Gap(12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   tx.type.displayName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13, color: DDSColors.textPrimary),
                 ),
-                const SizedBox(height: 2),
+                const Gap(2),
                 Text(
                   tx.description,
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                  style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textSecondary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -470,16 +486,16 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
             children: [
               Text(
                 '${isCredit ? '+' : '-'}${tx.points} pts',
-                style: TextStyle(
+                style: DDSTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                   color: color,
                 ),
               ),
-              const SizedBox(height: 2),
+              const Gap(2),
               Text(
                 'Bal: ${tx.balanceAfter}',
-                style: const TextStyle(fontSize: 10, color: Colors.black38),
+                style: DDSTypography.labelSmall.copyWith(fontSize: 10, color: DDSColors.textMuted),
               ),
             ],
           ),
@@ -500,33 +516,33 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
             final walletCredit = (redeemPoints / 2).floor();
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('Redeem for Wallet Credit'),
+              shape: RoundedRectangleBorder(borderRadius: DDSRadius.largeBorderRadius),
+              title: Text('Redeem for Wallet Credit', style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Available Points: ${account.pointsBalance} (Max: $maxPoints pts)',
-                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                    style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary),
                   ),
-                  const SizedBox(height: 16),
+                  const Gap(16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Points to Redeem:', style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('$redeemPoints pts', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('Points to Redeem:', style: DDSTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                      Text('$redeemPoints pts', style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const Gap(4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Promotional Wallet Credit:', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w600)),
-                      Text('₹$walletCredit', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text('Promotional Wallet Credit:', style: DDSTypography.bodyMedium.copyWith(color: DDSColors.successGreen, fontWeight: FontWeight.w600)),
+                      Text('₹$walletCredit', style: DDSTypography.titleLarge.copyWith(color: DDSColors.successGreen, fontWeight: FontWeight.bold, fontSize: 18)),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const Gap(16),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -568,13 +584,13 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel', style: DDSTypography.labelLarge.copyWith(color: DDSColors.textSecondary)),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
+                    backgroundColor: DDSColors.successGreen,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
                   ),
                   onPressed: redeemPoints >= 2 && redeemPoints <= maxPoints
                       ? () async {
@@ -588,20 +604,20 @@ class _LoyaltyPageState extends ConsumerState<LoyaltyPage> {
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text('Successfully redeemed $redeemPoints points for ₹$walletCredit Wallet Credit!'),
-                                backgroundColor: const Color(0xFF10B981),
+                                backgroundColor: DDSColors.successGreen,
                               ),
                             );
                           } catch (e) {
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text('Redemption failed: $e'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: DDSColors.errorRed,
                               ),
                             );
                           }
                         }
                       : null,
-                  child: Text('Redeem ₹$walletCredit'),
+                  child: Text('Redeem ₹$walletCredit', style: DDSTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ],
             );

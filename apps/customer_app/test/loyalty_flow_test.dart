@@ -109,7 +109,7 @@ void main() {
     expect(find.text('1.5x Points Multiplier'), findsOneWidget);
     expect(find.text('2400 Lifetime Pts'), findsOneWidget);
     expect(find.text('Next Tier: Platinum'), findsOneWidget);
-    expect(find.text('1200'), findsOneWidget);
+    expect(find.text('1200 Pts'), findsOneWidget);
     expect(find.text('₹600'), findsOneWidget);
     expect(find.text('Redeem'), findsOneWidget);
     expect(find.text('Points History'), findsOneWidget);

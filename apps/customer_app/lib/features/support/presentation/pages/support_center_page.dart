@@ -45,12 +45,18 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help & Support Center'),
+        title: Text(
+          'Help & Support Center',
+          style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: DDSColors.primaryBlue,
+          labelColor: DDSColors.primaryBlue,
+          unselectedLabelColor: DDSColors.textMuted,
+          labelStyle: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
           tabs: const [
             Tab(icon: Icon(Icons.help_outline), text: 'FAQs & Help'),
             Tab(icon: Icon(Icons.confirmation_number_outlined), text: 'My Tickets'),
@@ -58,9 +64,9 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
+        backgroundColor: DDSColors.primaryBlue,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Raise Ticket', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: Text('Raise Ticket', style: DDSTypography.labelLarge.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         onPressed: () async {
           final created = await Navigator.push<bool>(
             context,
@@ -92,47 +98,54 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
     }).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DDSSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Direct Support Contact Card
-          AppCard(
-            padding: const EdgeInsets.all(16),
+          Container(
+            padding: const EdgeInsets.all(DDSSpacing.md),
+            decoration: BoxDecoration(
+              color: DDSColors.surfaceCard,
+              borderRadius: DDSRadius.largeBorderRadius,
+              border: Border.all(color: DDSColors.borderLight),
+              boxShadow: DDSElevation.cardShadow,
+            ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(DDSSpacing.sm),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.headset_mic, color: AppColors.primary, size: 28),
+                  child: const Icon(Icons.headset_mic, color: DDSColors.primaryBlue, size: 28),
                 ),
-                const Gap(16),
-                const Expanded(
+                const Gap(DDSSpacing.md),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('DriveGo 24/7 Helpline', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Gap(4),
-                      Text('support@drivego.in • 1800-200-3000', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      Text('DriveGo 24/7 Helpline', style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 15, color: DDSColors.textPrimary)),
+                      const Gap(4),
+                      Text('support@drivego.in • 1800-200-3000', style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const Gap(16),
+          const Gap(DDSSpacing.md),
 
           // Search Field
           TextField(
             decoration: InputDecoration(
               hintText: 'Search help topics & questions...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              hintStyle: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+              prefixIcon: const Icon(Icons.search, color: DDSColors.primaryBlue),
+              border: OutlineInputBorder(borderRadius: DDSRadius.mediumBorderRadius),
               filled: true,
-              fillColor: Theme.of(context).cardColor,
+              fillColor: DDSColors.surfaceCard,
             ),
             onChanged: (val) {
               setState(() {
@@ -140,40 +153,48 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
               });
             },
           ),
-          const Gap(16),
+          const Gap(DDSSpacing.md),
 
-          const Text('Frequently Asked Questions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const Gap(12),
+          Text('Frequently Asked Questions', style: DDSTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DDSColors.textPrimary)),
+          const Gap(DDSSpacing.sm),
 
           if (filteredFaqs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: Text('No FAQs match your search.')),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(child: Text('No FAQs match your search.', style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted))),
             )
           else
             ...filteredFaqs.map((faq) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: AppCard(
-                  padding: EdgeInsets.zero,
-                  child: ExpansionTile(
-                    leading: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: DDSColors.surfaceCard,
+                    borderRadius: DDSRadius.mediumBorderRadius,
+                    border: Border.all(color: DDSColors.borderLight),
+                    boxShadow: DDSElevation.cardShadow,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      leading: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: DDSColors.primaryBlue.withValues(alpha: 0.08),
+                          borderRadius: DDSRadius.smallBorderRadius,
+                        ),
+                        child: Text(
+                          faq.$1,
+                          style: DDSTypography.labelSmall.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: DDSColors.primaryBlue),
+                        ),
                       ),
-                      child: Text(
-                        faq.$1,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
+                      title: Text(faq.$2, style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 14, color: DDSColors.textPrimary)),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      expandedAlignment: Alignment.topLeft,
+                      children: [
+                        Text(faq.$3, style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary, height: 1.4)),
+                      ],
                     ),
-                    title: Text(faq.$2, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    expandedAlignment: Alignment.topLeft,
-                    children: [
-                      Text(faq.$3, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.4)),
-                    ],
                   ),
                 ),
               );
@@ -193,9 +214,9 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(Icons.error_outline, size: 48, color: DDSColors.errorRed),
             const Gap(12),
-            Text('Failed to load tickets: $err'),
+            Text('Failed to load tickets: $err', style: DDSTypography.bodyMedium.copyWith(color: DDSColors.errorRed)),
             const Gap(12),
             ElevatedButton(
               onPressed: () => ref.invalidate(mySupportTicketsProvider),
@@ -210,11 +231,11 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.confirmation_number_outlined, size: 64, color: Colors.grey.shade400),
+                const Icon(Icons.confirmation_number_outlined, size: 64, color: DDSColors.textMuted),
                 const Gap(16),
-                const Text('No Support Tickets Raised', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('No Support Tickets Raised', style: DDSTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DDSColors.textPrimary)),
                 const Gap(8),
-                const Text('Need assistance with a booking or payment? Tap Raise Ticket below.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+                Text('Need assistance with a booking or payment? Tap Raise Ticket below.', textAlign: TextAlign.center, style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textSecondary, fontSize: 13)),
               ],
             ),
           );
@@ -229,8 +250,7 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
               final ticket = tickets[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: AppCard(
-                  padding: const EdgeInsets.all(16),
+                child: InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
@@ -239,52 +259,62 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
                       ),
                     ).then((_) => ref.invalidate(mySupportTicketsProvider));
                   },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            ticket.ticketNumber,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
-                          ),
-                          _buildStatusBadge(ticket.status),
-                        ],
-                      ),
-                      const Gap(8),
-                      Text(
-                        ticket.subject,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      const Gap(4),
-                      Text(
-                        ticket.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                      const Gap(12),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                  child: Container(
+                    padding: const EdgeInsets.all(DDSSpacing.md),
+                    decoration: BoxDecoration(
+                      color: DDSColors.surfaceCard,
+                      borderRadius: DDSRadius.mediumBorderRadius,
+                      border: Border.all(color: DDSColors.borderLight),
+                      boxShadow: DDSElevation.cardShadow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              ticket.ticketNumber,
+                              style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13, color: DDSColors.primaryBlue),
                             ),
-                            child: Text(ticket.category.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${ticket.createdAt.day}/${ticket.createdAt.month}/${ticket.createdAt.year}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                          const Gap(8),
-                          const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
-                        ],
-                      ),
-                    ],
+                            _buildStatusBadge(ticket.status),
+                          ],
+                        ),
+                        const Gap(8),
+                        Text(
+                          ticket.subject,
+                          style: DDSTypography.titleMedium.copyWith(fontSize: 15, fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
+                        ),
+                        const Gap(4),
+                        Text(
+                          ticket.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary),
+                        ),
+                        const Gap(12),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: DDSColors.infoBlueBg,
+                                borderRadius: DDSRadius.smallBorderRadius,
+                              ),
+                              child: Text(ticket.category.label, style: DDSTypography.labelSmall.copyWith(fontSize: 11, fontWeight: FontWeight.w500, color: DDSColors.primaryBlue)),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${ticket.createdAt.day}/${ticket.createdAt.month}/${ticket.createdAt.year}',
+                              style: DDSTypography.labelSmall.copyWith(fontSize: 11, color: DDSColors.textMuted),
+                            ),
+                            const Gap(8),
+                            const Icon(Icons.arrow_forward_ios, size: 12, color: DDSColors.textMuted),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -300,36 +330,36 @@ class _SupportCenterPageState extends ConsumerState<SupportCenterPage>
     Color fg;
     switch (status) {
       case TicketStatus.OPEN:
-        bg = Colors.blue.withValues(alpha: 0.12);
-        fg = Colors.blue;
+        bg = DDSColors.infoBlueBg;
+        fg = DDSColors.primaryBlue;
         break;
       case TicketStatus.ASSIGNED:
       case TicketStatus.IN_PROGRESS:
-        bg = Colors.orange.withValues(alpha: 0.12);
-        fg = Colors.orange;
+        bg = DDSColors.warningOrangeBg;
+        fg = DDSColors.warningOrange;
         break;
       case TicketStatus.WAITING_FOR_CUSTOMER:
-        bg = Colors.purple.withValues(alpha: 0.12);
-        fg = Colors.purple;
+        bg = Colors.purple.shade50;
+        fg = Colors.purple.shade700;
         break;
       case TicketStatus.WAITING_FOR_VENDOR:
-        bg = Colors.amber.withValues(alpha: 0.12);
-        fg = Colors.amber.shade900;
+        bg = DDSColors.warningOrangeBg;
+        fg = DDSColors.warningOrange;
         break;
       case TicketStatus.RESOLVED:
-        bg = Colors.green.withValues(alpha: 0.12);
-        fg = Colors.green;
+        bg = DDSColors.successGreenBg;
+        fg = DDSColors.successGreen;
         break;
       case TicketStatus.CLOSED:
-        bg = Colors.grey.withValues(alpha: 0.12);
-        fg = Colors.grey.shade700;
+        bg = DDSColors.surfaceCard;
+        fg = DDSColors.textMuted;
         break;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(status.label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: bg, borderRadius: DDSRadius.smallBorderRadius),
+      child: Text(status.label, style: DDSTypography.labelSmall.copyWith(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 }

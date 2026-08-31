@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
+import 'package:gap/gap.dart';
 import '../providers/referral_providers.dart';
 
 class ReferralPage extends ConsumerStatefulWidget {
@@ -25,23 +27,24 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Enter Referral Code', style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: DDSRadius.largeBorderRadius),
+          title: Text('Enter Referral Code', style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Enter the referral code shared by your friend to unlock ₹250 off on your first booking of ₹1,000 or more.',
-                style: TextStyle(fontSize: 13, color: Colors.black54),
+                style: DDSTypography.bodyMedium.copyWith(fontSize: 13, color: DDSColors.textSecondary),
               ),
-              const SizedBox(height: 16),
+              const Gap(16),
               TextField(
                 controller: _codeController,
                 textCapitalization: TextCapitalization.characters,
+                style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
                   hintText: 'e.g. DGALICE1',
-                  prefixIcon: const Icon(Icons.confirmation_number_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.confirmation_number_outlined, color: DDSColors.primaryBlue),
+                  border: OutlineInputBorder(borderRadius: DDSRadius.mediumBorderRadius),
                 ),
               ),
             ],
@@ -49,7 +52,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text('Cancel', style: DDSTypography.labelLarge.copyWith(color: DDSColors.textSecondary)),
             ),
             ElevatedButton(
               onPressed: _isApplying
@@ -70,7 +73,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(res['message'] as String? ?? 'Referral code applied!'),
-                            backgroundColor: Colors.green,
+                            backgroundColor: DDSColors.successGreen,
                           ),
                         );
                         ref.invalidate(refereeEligibilityProvider);
@@ -78,7 +81,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text('Failed to apply code: $err'),
-                            backgroundColor: Colors.red,
+                            backgroundColor: DDSColors.errorRed,
                           ),
                         );
                       } finally {
@@ -88,9 +91,9 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C5CE7),
+                backgroundColor: DDSColors.primaryBlue,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
               ),
               child: _isApplying
                   ? const SizedBox(
@@ -98,7 +101,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Apply Code'),
+                  : Text('Apply Code', style: DDSTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ],
         ),
@@ -112,18 +115,18 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
     final historyAsync = ref.watch(referralHistoryProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Refer & Earn',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
         ),
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: DDSColors.primaryBlue),
+            tooltip: 'Refresh Referral',
             onPressed: () {
               ref.invalidate(myReferralCodeProvider);
               ref.invalidate(referralHistoryProvider);
@@ -138,24 +141,24 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DDSSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Hero Banner
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(DDSSpacing.lg),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
+                    colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: DDSRadius.largeBorderRadius,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6C5CE7).withValues(alpha: 0.3),
+                      color: const Color(0xFF4A00E0).withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
@@ -164,26 +167,28 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.card_giftcard, color: Colors.white, size: 28),
-                        SizedBox(width: 8),
-                        Text(
-                          'Invite Friends, Earn ₹250',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                        const Icon(Icons.card_giftcard, color: Colors.white, size: 28),
+                        const Gap(8),
+                        Expanded(
+                          child: Text(
+                            'Invite Friends, Earn ₹250',
+                            style: DDSTypography.headlineMedium.copyWith(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    const Gap(8),
+                    Text(
                       'Give ₹250 off their first qualifying drive, get ₹250 DriveGo Wallet credit when they complete their first trip.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                      style: DDSTypography.bodyMedium.copyWith(color: Colors.white.withValues(alpha: 0.9), fontSize: 13, height: 1.4),
                     ),
-                    const SizedBox(height: 20),
+                    const Gap(20),
 
                     // Referral Code Box
                     codeAsync.when(
@@ -191,42 +196,45 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                         final code = data['referralCode'] as String? ?? '---';
                         final shareUrl = data['shareUrl'] as String? ?? 'https://drivego.in/invite?code=$code';
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: DDSRadius.mediumBorderRadius,
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'YOUR REFERRAL CODE',
-                                    style: TextStyle(
-                                      color: Colors.black45,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.8,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'YOUR REFERRAL CODE',
+                                      style: DDSTypography.labelSmall.copyWith(
+                                        color: DDSColors.textMuted,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.8,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    code,
-                                    style: const TextStyle(
-                                      color: Color(0xFF2D3436),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.5,
+                                    const Gap(2),
+                                    Text(
+                                      code,
+                                      style: DDSTypography.titleLarge.copyWith(
+                                        color: DDSColors.textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.5,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.copy, color: Color(0xFF6C5CE7)),
+                                    icon: const Icon(Icons.copy, color: DDSColors.primaryBlue),
                                     tooltip: 'Copy Code',
                                     onPressed: () {
                                       Clipboard.setData(ClipboardData(text: code));
@@ -239,7 +247,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                                     },
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.share, color: Color(0xFF6C5CE7)),
+                                    icon: const Icon(Icons.share, color: DDSColors.primaryBlue),
                                     tooltip: 'Share Invite',
                                     onPressed: () {
                                       Clipboard.setData(ClipboardData(
@@ -271,37 +279,36 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const Gap(16),
 
               // Apply Code CTA Banner
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Colors.grey.shade200),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
+                decoration: BoxDecoration(
+                  color: DDSColors.surfaceCard,
+                  borderRadius: DDSRadius.largeBorderRadius,
+                  border: Border.all(color: DDSColors.borderLight),
+                  boxShadow: DDSElevation.cardShadow,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.redeem, color: Color(0xFF00B894)),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Have a friend\'s referral code?',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.redeem, color: DDSColors.successGreen),
+                    const Gap(12),
+                    Expanded(
+                      child: Text(
+                        'Have a friend\'s referral code?',
+                        style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 13, color: DDSColors.textPrimary),
                       ),
-                      TextButton(
-                        onPressed: _showApplyCodeDialog,
-                        child: const Text('Apply Code'),
-                      ),
-                    ],
-                  ),
+                    ),
+                    TextButton(
+                      onPressed: _showApplyCodeDialog,
+                      child: Text('Apply Code', style: DDSTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: DDSColors.primaryBlue)),
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const Gap(20),
 
               // Performance Summary Stats
               historyAsync.when(
@@ -315,43 +322,43 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Your Referral Stats',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: DDSTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
                       ),
-                      const SizedBox(height: 12),
+                      const Gap(12),
                       Row(
                         children: [
                           _buildStatCard(
                             'Invited',
                             totalInvited.toString(),
                             Icons.people_outline,
-                            const Color(0xFF0984E3),
+                            DDSColors.primaryBlue,
                           ),
-                          const SizedBox(width: 8),
+                          const Gap(8),
                           _buildStatCard(
                             'Registered',
                             totalRegistered.toString(),
                             Icons.how_to_reg_outlined,
-                            const Color(0xFFE17055),
+                            DDSColors.warningOrange,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const Gap(8),
                       Row(
                         children: [
                           _buildStatCard(
                             'Trips Done',
                             totalCompleted.toString(),
                             Icons.check_circle_outline,
-                            const Color(0xFF00B894),
+                            DDSColors.successGreen,
                           ),
-                          const SizedBox(width: 8),
+                          const Gap(8),
                           _buildStatCard(
                             'Rewards Earned',
                             '₹${totalEarnings.toStringAsFixed(0)}',
                             Icons.account_balance_wallet_outlined,
-                            const Color(0xFF6C5CE7),
+                            Colors.purple.shade700,
                           ),
                         ],
                       ),
@@ -362,14 +369,14 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                 error: (e, _) => const SizedBox.shrink(),
               ),
 
-              const SizedBox(height: 24),
+              const Gap(24),
 
               // How it Works Stepper
-              const Text(
+              Text(
                 'How It Works',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: DDSTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
               ),
-              const SizedBox(height: 12),
+              const Gap(12),
               _buildStepTile(
                 1,
                 'Share your code',
@@ -386,19 +393,19 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                 'Once your friend successfully completes their first trip, ₹250 is instantly credited to your DriveGo Wallet.',
               ),
 
-              const SizedBox(height: 24),
+              const Gap(24),
 
               // Referred Friends List
               historyAsync.when(
                 data: (data) {
                   final list = data['referrals'] as List<dynamic>? ?? [];
                   if (list.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Text(
                           'No referrals yet. Share your code to start earning!',
-                          style: TextStyle(color: Colors.black45),
+                          style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
                         ),
                       ),
                     );
@@ -407,16 +414,16 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Referred Friends',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: DDSTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DDSColors.textPrimary),
                       ),
-                      const SizedBox(height: 12),
+                      const Gap(12),
                       ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: list.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const Gap(8),
                         itemBuilder: (context, index) {
                           final item = list[index] as Map<String, dynamic>;
                           final name = item['refereeName'] as String? ?? 'User';
@@ -424,26 +431,30 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
                           final status = item['status'] as String? ?? 'REGISTERED';
                           final reward = (item['rewardAmount'] as num?)?.toDouble() ?? 250.0;
 
-                          return Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade200),
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: DDSColors.surfaceCard,
+                              borderRadius: DDSRadius.mediumBorderRadius,
+                              border: Border.all(color: DDSColors.borderLight),
+                              boxShadow: DDSElevation.cardShadow,
                             ),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: const Color(0xFF6C5CE7).withValues(alpha: 0.1),
-                                child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                                  style: const TextStyle(
-                                    color: Color(0xFF6C5CE7),
-                                    fontWeight: FontWeight.bold,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                                  child: Text(
+                                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                    style: DDSTypography.titleMedium.copyWith(
+                                      color: DDSColors.primaryBlue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
+                                title: Text(name, style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600, color: DDSColors.textPrimary)),
+                                subtitle: Text(phone, style: DDSTypography.bodyMedium.copyWith(fontSize: 12, color: DDSColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                trailing: _buildStatusChip(status, reward),
                               ),
-                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              subtitle: Text(phone, style: const TextStyle(fontSize: 12)),
-                              trailing: _buildStatusChip(status, reward),
                             ),
                           );
                         },
@@ -464,38 +475,44 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(DDSSpacing.sm),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
+          color: DDSColors.surfaceCard,
+          borderRadius: DDSRadius.mediumBorderRadius,
+          border: Border.all(color: DDSColors.borderLight),
+          boxShadow: DDSElevation.cardShadow,
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(DDSSpacing.xs),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 10),
+            const Gap(8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     value,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DDSTypography.titleMedium.copyWith(
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: DDSColors.textPrimary,
                     ),
                   ),
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DDSTypography.labelSmall.copyWith(fontSize: 10, color: DDSColors.textMuted),
                   ),
                 ],
               ),
@@ -514,20 +531,20 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
         children: [
           CircleAvatar(
             radius: 12,
-            backgroundColor: const Color(0xFF6C5CE7),
+            backgroundColor: DDSColors.primaryBlue,
             child: Text(
               '$step',
               style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
-          const SizedBox(width: 12),
+          const Gap(12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.3)),
+                Text(title, style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 13, color: DDSColors.textPrimary)),
+                const Gap(2),
+                Text(subtitle, style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textSecondary, fontSize: 12, height: 1.3)),
               ],
             ),
           ),
@@ -543,28 +560,28 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
 
     switch (status) {
       case 'REWARDED':
-        bg = const Color(0xFFE8F8F5);
-        fg = const Color(0xFF00B894);
+        bg = DDSColors.successGreenBg;
+        fg = DDSColors.successGreen;
         label = '+₹${reward.toStringAsFixed(0)} Earned';
         break;
       case 'QUALIFIED':
-        bg = const Color(0xFFFEF9E7);
-        fg = const Color(0xFFF39C12);
+        bg = DDSColors.warningOrangeBg;
+        fg = DDSColors.warningOrange;
         label = 'Trip Completed';
         break;
       case 'REGISTERED':
-        bg = const Color(0xFFEBF5FB);
-        fg = const Color(0xFF3498DB);
+        bg = DDSColors.infoBlueBg;
+        fg = DDSColors.primaryBlue;
         label = 'Signed Up';
         break;
       case 'FRAUD_BLOCKED':
-        bg = const Color(0xFFFDEDEC);
-        fg = const Color(0xFFE74C3C);
+        bg = DDSColors.errorRedBg;
+        fg = DDSColors.errorRed;
         label = 'Blocked';
         break;
       default:
-        bg = Colors.grey.shade100;
-        fg = Colors.grey.shade700;
+        bg = DDSColors.surfaceCard;
+        fg = DDSColors.textMuted;
         label = status;
     }
 
@@ -572,11 +589,11 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: DDSRadius.smallBorderRadius,
       ),
       child: Text(
         label,
-        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
+        style: DDSTypography.labelSmall.copyWith(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }

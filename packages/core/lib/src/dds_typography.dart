@@ -5,8 +5,37 @@ import 'dds_colors.dart';
 /// DriveGo Design System (DDS) — Approved Typographic Scale
 /// Standardized on GoogleFonts.plusJakartaSans across 8 semantic hierarchy steps.
 abstract class DDSTypography {
+  /// When true, renders standard TextStyle without remote GoogleFonts fetching.
+  /// Used in headless test harnesses and golden evidence captures.
+  static bool useSystemFallbackInTests = false;
+
+  static TextStyle _font({
+    required double fontSize,
+    required FontWeight fontWeight,
+    required double height,
+    required double letterSpacing,
+    required Color color,
+  }) {
+    if (useSystemFallbackInTests) {
+      return TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        height: height,
+        letterSpacing: letterSpacing,
+        color: color,
+      );
+    }
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      height: height,
+      letterSpacing: letterSpacing,
+      color: color,
+    );
+  }
+
   // 1. Display Large: 32px / 700 / 40px
-  static TextStyle get displayLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get displayLarge => _font(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         height: 40 / 32,
@@ -15,7 +44,7 @@ abstract class DDSTypography {
       );
 
   // 2. Headline Medium: 24px / 600 / 32px
-  static TextStyle get headlineMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get headlineMedium => _font(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 32 / 24,
@@ -24,7 +53,7 @@ abstract class DDSTypography {
       );
 
   // 3. Title Large: 18px / 600 / 24px
-  static TextStyle get titleLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get titleLarge => _font(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 24 / 18,
@@ -33,7 +62,7 @@ abstract class DDSTypography {
       );
 
   // 4. Title Medium: 16px / 500 / 22px
-  static TextStyle get titleMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get titleMedium => _font(
         fontSize: 16,
         fontWeight: FontWeight.w500,
         height: 22 / 16,
@@ -42,7 +71,7 @@ abstract class DDSTypography {
       );
 
   // 5. Body Large: 15px / 400 / 22px
-  static TextStyle get bodyLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyLarge => _font(
         fontSize: 15,
         fontWeight: FontWeight.w400,
         height: 22 / 15,
@@ -51,7 +80,7 @@ abstract class DDSTypography {
       );
 
   // 6. Body Medium: 14px / 400 / 20px
-  static TextStyle get bodyMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyMedium => _font(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         height: 20 / 14,
@@ -60,7 +89,7 @@ abstract class DDSTypography {
       );
 
   // 7. Label Large: 14px / 600 / 18px
-  static TextStyle get labelLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get labelLarge => _font(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         height: 18 / 14,
@@ -69,7 +98,7 @@ abstract class DDSTypography {
       );
 
   // 8. Label Small: 11px / 600 / 14px
-  static TextStyle get labelSmall => GoogleFonts.plusJakartaSans(
+  static TextStyle get labelSmall => _font(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         height: 14 / 11,
@@ -78,7 +107,7 @@ abstract class DDSTypography {
       );
 
   // Special Numeric Tariff / Price Display: 20px / 800 / 24px
-  static TextStyle get priceDisplay => GoogleFonts.plusJakartaSans(
+  static TextStyle get priceDisplay => _font(
         fontSize: 20,
         fontWeight: FontWeight.w800,
         height: 24 / 20,

@@ -53,6 +53,7 @@ scratch/
 *.jpg
 *.jpeg
 *.webp
+!docs/evidence/**
 *.log
 coverage/
 dist/
