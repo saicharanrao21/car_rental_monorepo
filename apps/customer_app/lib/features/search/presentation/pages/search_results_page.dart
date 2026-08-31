@@ -138,6 +138,15 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     });
   }
 
+  void _clearAllFilters() {
+    ref.read(searchCarCategoryFilterProvider.notifier).state = null;
+    ref.read(searchACFilterProvider.notifier).state = null;
+    ref.read(searchFuelTypeFilterProvider.notifier).state = null;
+    ref.read(searchSeatingFilterProvider.notifier).state = null;
+    ref.read(searchPriceRangeFilterProvider.notifier).state = null;
+    ref.read(searchRatingFilterProvider.notifier).state = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tripType = ref.watch(searchTripTypeProvider);
@@ -145,12 +154,17 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     final dates = ref.watch(searchDatesProvider);
     final pickup = ref.watch(searchPickupLocationProvider) ?? ref.watch(pickupLocationProvider);
     final drop = ref.watch(searchDropLocationProvider) ?? ref.watch(dropLocationProvider);
+    final activeFilterCount = ref.watch(activeFilterCountProvider);
 
     // 1. If no trip type selected, show Trip Type Decision View
     if (tripType == null || tripType.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Choose Trip Type'),
+        appBar: DriveGoAppBar(
+          title: 'Choose Trip Type',
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ),
         body: const ChooseTripTypeView(),
       );
@@ -159,10 +173,10 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     // 2. If editing trip details or dates not yet set, show Trip Search Details Form
     if (_isEditingTripDetails || dates == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Trip Details'),
+        appBar: DriveGoAppBar(
+          title: 'Trip Details',
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () {
               if (dates != null && _isEditingTripDetails) {
                 setState(() {
@@ -189,36 +203,16 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
 
     // 3. Show filtered search results
     final resultsVal = ref.watch(searchResultsProvider);
-    final sortBy = ref.watch(sortByProvider);
     final wishlistedIds = ref.watch(wishlistIdsProvider);
 
-    final titleText = resultsVal.when(
-      data: (state) => '${state.items.length} available in $city',
-      loading: () => 'Finding available cars...',
-      error: (_, __) => 'Error in $city',
-    );
-
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              titleText,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onPrimary,
-              ),
-            ),
-            Text(
-              '${dates.start.toDDMMYYYY()} → ${dates.end.toDDMMYYYY()} • $tripType',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
+      backgroundColor: DDSColors.bgCanvas,
+      appBar: DriveGoAppBar(
+        title: 'Available Cars in $city',
+        subtitle: '${dates.start.toDDMMYYYY()} → ${dates.end.toDDMMYYYY()} • $tripType',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
       body: Column(
@@ -242,64 +236,113 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
           // ── Responsive Filter Bar ──────────────────────────────────────────
           SearchFilterBarWidget(currentTripType: tripType),
 
-          // ── Sort By Dropdown ───────────────────────────────────────────────
+          // ── Results Context Bar ───────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2),
-            child: AppDropdown<String>(
-              label: 'Sort By',
-              value: sortBy,
-              items: const [
-                DropdownMenuItem(value: 'Recommended', child: Text('Recommended')),
-                DropdownMenuItem(value: 'Nearest', child: Text('Nearest')),
-                DropdownMenuItem(value: 'Price Low-High', child: Text('Price Low-High')),
-                DropdownMenuItem(value: 'Price High-Low', child: Text('Price High-Low')),
-                DropdownMenuItem(value: 'Rating', child: Text('Rating')),
-              ],
-              onChanged: (val) {
-                if (val != null) {
-                  ref.read(sortByProvider.notifier).state = val;
-                }
-              },
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: resultsVal.when(
+              data: (state) => Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${state.items.length} ${state.items.length == 1 ? 'vehicle' : 'vehicles'} found',
+                      style: DDSTypography.labelSmall.copyWith(
+                        color: DDSColors.textSecondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (activeFilterCount > 0) ...[
+                    const Gap(8),
+                    Flexible(
+                      child: Text(
+                        '$activeFilterCount filters applied',
+                        style: DDSTypography.labelSmall.copyWith(
+                          color: DDSColors.primaryBlue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              loading: () => Text(
+                'Searching available vehicles...',
+                style: DDSTypography.labelSmall.copyWith(color: DDSColors.textMuted),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
             ),
           ),
-          const Gap(4),
 
           // ── Available Cars List ───────────────────────────────────────────
           Expanded(
             child: resultsVal.when(
               data: (state) {
                 if (state.items.isEmpty) {
-                  return EmptyStateWidget(
-                    icon: Icons.search_off,
-                    title: 'No Available Cars',
-                    subtitle: 'No vehicles are available for the selected dates and filters. Try adjusting your trip dates or filters.',
-                    actionText: 'Change Trip Dates',
-                    onActionPressed: () {
-                      setState(() {
-                        _isEditingTripDetails = true;
-                      });
-                    },
+                  if (activeFilterCount > 0) {
+                    return Center(
+                      child: SingleChildScrollView(
+                        child: DriveGoEmptyState(
+                          title: 'No Cars Match Filters',
+                          subtitle:
+                              'No vehicles match your active filters in $city. Try adjusting or clearing your filters.',
+                          icon: Icons.filter_alt_off_rounded,
+                          actionText: 'Clear All Filters',
+                          onActionPressed: _clearAllFilters,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Center(
+                    child: SingleChildScrollView(
+                      child: DriveGoEmptyState(
+                        title: 'No Available Cars',
+                        subtitle:
+                            'No vehicles are currently available for the selected dates in $city. Try adjusting your trip dates or searching another city.',
+                        icon: Icons.car_rental_rounded,
+                        actionText: 'Change Trip Dates',
+                        onActionPressed: () {
+                          setState(() {
+                            _isEditingTripDetails = true;
+                          });
+                        },
+                      ),
+                    ),
                   );
                 }
 
                 return ListView.builder(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   itemCount: state.items.length + 1,
                   itemBuilder: (context, index) {
                     if (index == state.items.length) {
                       if (state.isLoadingMore) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
-                          child: AppLoader(),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
                         );
                       } else if (state.hasMore) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: AppButton(
-                            text: 'Load More',
-                            onPressed: () => ref.read(searchResultsProvider.notifier).loadMore(),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: DriveGoButton(
+                              text: 'Load More Vehicles',
+                              variant: DriveGoButtonVariant.secondary,
+                              size: DriveGoButtonSize.compact,
+                              isFullWidth: false,
+                              onPressed: () => ref.read(searchResultsProvider.notifier).loadMore(),
+                            ),
                           ),
                         );
                       } else {
@@ -323,13 +366,21 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
                 );
               },
               loading: () => ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: 3,
-                itemBuilder: (context, index) => const ShimmerCard(),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                itemCount: 4,
+                itemBuilder: (context, index) => const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: ShimmerCard(),
+                ),
               ),
-              error: (err, stack) => ErrorStateWidget(
-                message: 'Failed to search cars: ${err.toString()}',
-                onRetry: () => ref.invalidate(searchResultsProvider),
+              error: (err, stack) => Center(
+                child: SingleChildScrollView(
+                  child: DriveGoErrorState(
+                    title: 'Search Failed',
+                    message: 'Unable to load available vehicles. Please check your network and try again.',
+                    onRetry: () => ref.invalidate(searchResultsProvider),
+                  ),
+                ),
               ),
             ),
           ),

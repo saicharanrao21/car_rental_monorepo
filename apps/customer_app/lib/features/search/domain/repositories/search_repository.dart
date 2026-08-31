@@ -10,6 +10,8 @@ abstract class SearchRepository {
     DateTime? endDate,
     String? carType,
     bool? isAC,
+    String? fuelType,
+    int? seating,
     double? minPrice,
     double? maxPrice,
     double? minRating,

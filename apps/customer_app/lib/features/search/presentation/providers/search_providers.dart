@@ -19,10 +19,24 @@ final searchDropLocationProvider = StateProvider.autoDispose<String?>((ref) => n
 
 final searchCarCategoryFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
 final searchACFilterProvider = StateProvider.autoDispose<bool?>((ref) => null);
+final searchFuelTypeFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
+final searchSeatingFilterProvider = StateProvider.autoDispose<int?>((ref) => null);
 final searchPriceRangeFilterProvider = StateProvider.autoDispose<RangeValues?>((ref) => null);
 final searchRatingFilterProvider = StateProvider.autoDispose<double?>((ref) => null);
 
 final sortByProvider = StateProvider.autoDispose<String>((ref) => 'Recommended');
+
+/// Computes the number of non-default active discovery filters
+final activeFilterCountProvider = Provider.autoDispose<int>((ref) {
+  var count = 0;
+  if (ref.watch(searchCarCategoryFilterProvider) != null) count++;
+  if (ref.watch(searchACFilterProvider) != null) count++;
+  if (ref.watch(searchFuelTypeFilterProvider) != null) count++;
+  if (ref.watch(searchSeatingFilterProvider) != null) count++;
+  if (ref.watch(searchPriceRangeFilterProvider) != null) count++;
+  if (ref.watch(searchRatingFilterProvider) != null) count++;
+  return count;
+});
 
 class SearchResultsState {
   final List<CarModel> items;
@@ -60,6 +74,8 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
     final dates = ref.watch(searchDatesProvider);
     final carType = ref.watch(searchCarCategoryFilterProvider);
     final isAC = ref.watch(searchACFilterProvider);
+    final fuelType = ref.watch(searchFuelTypeFilterProvider);
+    final seating = ref.watch(searchSeatingFilterProvider);
     final priceRange = ref.watch(searchPriceRangeFilterProvider);
     final minRating = ref.watch(searchRatingFilterProvider);
     final sortBy = ref.watch(sortByProvider);
@@ -84,6 +100,8 @@ class SearchResultsNotifier extends AutoDisposeAsyncNotifier<SearchResultsState>
       endDate: dates?.end,
       carType: carType,
       isAC: isAC,
+      fuelType: fuelType,
+      seating: seating,
       minPrice: priceRange?.start,
       maxPrice: priceRange?.end,
       minRating: minRating,

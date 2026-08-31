@@ -13,6 +13,7 @@ class CarCard extends StatelessWidget {
   final bool isWishlisted;
   final VoidCallback? onWishlistToggle;
   final double imageHeight;
+  final String ctaText;
 
   const CarCard({
     super.key,
@@ -21,12 +22,14 @@ class CarCard extends StatelessWidget {
     this.isWishlisted = false,
     this.onWishlistToggle,
     this.imageHeight = 150.0,
+    this.ctaText = 'Book Now',
   });
 
   @override
   Widget build(BuildContext context) {
     final distanceKm = car.distanceKm;
     final isSponsored = car.isSponsored || (car.vendor != null && car.vendor!['isSponsored'] == true);
+    final isFeatured = car.vendor != null && car.vendor!['isFeatured'] == true;
     final vendorDisplayName = car.vendor?['displayName'] ?? car.vendor?['businessName'];
 
     return Container(
@@ -76,7 +79,7 @@ class CarCard extends StatelessWidget {
                           ),
                   ),
 
-                  // Sponsored Badge
+                  // Top Left Badges: Sponsored, Featured, or Category Badge
                   if (isSponsored)
                     const Positioned(
                       top: 10,
@@ -85,10 +88,17 @@ class CarCard extends StatelessWidget {
                         label: 'SPONSORED',
                         variant: DriveGoBadgeVariant.sponsored,
                       ),
-                    ),
-
-                  // Category Badge (if not sponsored or in top left)
-                  if (!isSponsored)
+                    )
+                  else if (isFeatured)
+                    const Positioned(
+                      top: 10,
+                      left: 10,
+                      child: DriveGoStatusBadge(
+                        label: 'FEATURED',
+                        variant: DriveGoBadgeVariant.info,
+                      ),
+                    )
+                  else
                     Positioned(
                       top: 10,
                       left: 10,
@@ -257,7 +267,7 @@ class CarCard extends StatelessWidget {
                           ],
                         ),
                         DriveGoButton(
-                          text: 'Book Now',
+                          text: ctaText,
                           size: DriveGoButtonSize.compact,
                           isFullWidth: false,
                           onPressed: onTap,

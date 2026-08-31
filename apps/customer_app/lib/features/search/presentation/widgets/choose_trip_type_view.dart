@@ -18,7 +18,6 @@ class ChooseTripTypeView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final publicSettingsVal = ref.watch(publicSettingsProvider);
     final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
 
@@ -27,44 +26,43 @@ class ChooseTripTypeView extends ConsumerWidget {
         type: 'Self-Drive',
         title: 'Self-Drive Cars',
         subtitle: 'Drive yourself with flexible daily & mileage packages',
-        icon: Icons.directions_car_outlined,
-        badge: 'Popular',
+        icon: Icons.directions_car_rounded,
+        badge: 'POPULAR',
       ),
       (
         type: 'Outstation',
         title: 'Outstation Travel',
         subtitle: 'Comfortable long distance rides across cities',
-        icon: Icons.alt_route_outlined,
-        badge: 'Intercity',
+        icon: Icons.alt_route_rounded,
+        badge: 'INTERCITY',
       ),
       (
         type: 'Local',
         title: 'Local City Rentals',
         subtitle: 'Hourly and daily rentals within city limits',
-        icon: Icons.location_city_outlined,
+        icon: Icons.location_city_rounded,
         badge: null,
       ),
       (
         type: 'Airport Transfer',
         title: 'Airport Transfer',
         subtitle: 'Reliable pickup & drop to and from airports',
-        icon: Icons.flight_takeoff_outlined,
+        icon: Icons.flight_takeoff_rounded,
         badge: null,
       ),
     ];
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Select your trip type to find the best available cars',
-            style: TextStyle(
-              fontSize: 15,
+            style: DDSTypography.bodyMedium.copyWith(
+              color: DDSColors.textSecondary,
               fontWeight: FontWeight.w500,
-              color: Colors.black87,
             ),
           ),
           const Gap(16),
@@ -72,28 +70,20 @@ class ChooseTripTypeView extends ConsumerWidget {
             final isEnabled = _isTripTypeEnabled(opt.type, enabledTripTypes);
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 14.0),
+              padding: const EdgeInsets.only(bottom: 12.0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(18),
+                  color: isEnabled ? DDSColors.surfaceCard : DDSColors.surfaceSubtle,
+                  borderRadius: DDSRadius.mediumBorderRadius,
                   border: Border.all(
-                    color: isEnabled ? cs.outline.withValues(alpha: 0.18) : cs.outline.withValues(alpha: 0.1),
+                    color: isEnabled ? DDSColors.borderLight : DDSColors.borderMedium.withValues(alpha: 0.5),
                   ),
-                  boxShadow: isEnabled
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
+                  boxShadow: isEnabled ? DDSElevation.subtleShadow : null,
                 ),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: DDSRadius.mediumBorderRadius,
                     onTap: isEnabled
                         ? () {
                             ref.read(searchTripTypeProvider.notifier).state = opt.type;
@@ -114,13 +104,13 @@ class ChooseTripTypeView extends ConsumerWidget {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: isEnabled
-                                  ? AppColors.primary.withValues(alpha: 0.1)
-                                  : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                                  ? DDSColors.primaryBlue.withValues(alpha: 0.1)
+                                  : DDSColors.borderMedium.withValues(alpha: 0.3),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               opt.icon,
-                              color: isEnabled ? AppColors.primary : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                              color: isEnabled ? DDSColors.primaryBlue : DDSColors.textMuted,
                               size: 26,
                             ),
                           ),
@@ -134,10 +124,9 @@ class ChooseTripTypeView extends ConsumerWidget {
                                     Flexible(
                                       child: Text(
                                         opt.title,
-                                        style: TextStyle(
-                                          fontSize: 16,
+                                        style: DDSTypography.titleMedium.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: isEnabled ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                          color: isEnabled ? DDSColors.textPrimary : DDSColors.textMuted,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -145,17 +134,17 @@ class ChooseTripTypeView extends ConsumerWidget {
                                     if (opt.badge != null && isEnabled) ...[
                                       const Gap(8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                                          borderRadius: DDSRadius.smallBorderRadius,
                                         ),
                                         child: Text(
                                           opt.badge!,
-                                          style: const TextStyle(
-                                            fontSize: 10,
+                                          style: DDSTypography.labelSmall.copyWith(
+                                            fontSize: 9,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
+                                            color: DDSColors.primaryBlue,
                                           ),
                                         ),
                                       ),
@@ -163,17 +152,17 @@ class ChooseTripTypeView extends ConsumerWidget {
                                     if (!isEnabled) ...[
                                       const Gap(8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: DDSColors.borderMedium.withValues(alpha: 0.3),
+                                          borderRadius: DDSRadius.smallBorderRadius,
                                         ),
-                                        child: const Text(
-                                          'Coming Soon',
-                                          style: TextStyle(
-                                            fontSize: 10,
+                                        child: Text(
+                                          'COMING SOON',
+                                          style: DDSTypography.labelSmall.copyWith(
+                                            fontSize: 9,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.grey,
+                                            color: DDSColors.textMuted,
                                           ),
                                         ),
                                       ),
@@ -183,17 +172,17 @@ class ChooseTripTypeView extends ConsumerWidget {
                                 const Gap(4),
                                 Text(
                                   opt.subtitle,
-                                  style: TextStyle(
+                                  style: DDSTypography.bodyMedium.copyWith(
                                     fontSize: 12,
-                                    color: isEnabled ? cs.onSurfaceVariant : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                    color: isEnabled ? DDSColors.textSecondary : DDSColors.textMuted,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Icon(
-                            Icons.chevron_right,
-                            color: isEnabled ? AppColors.primary : cs.onSurfaceVariant.withValues(alpha: 0.25),
+                            Icons.chevron_right_rounded,
+                            color: isEnabled ? DDSColors.primaryBlue : DDSColors.textMuted,
                           ),
                         ],
                       ),

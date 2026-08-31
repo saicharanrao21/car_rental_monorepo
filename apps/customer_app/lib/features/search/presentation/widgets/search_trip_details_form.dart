@@ -42,15 +42,15 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
   IconData _getTripTypeIcon(String type) {
     switch (type) {
       case 'Self-Drive':
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
       case 'Outstation':
-        return Icons.alt_route_outlined;
+        return Icons.alt_route_rounded;
       case 'Local':
-        return Icons.location_city_outlined;
+        return Icons.location_city_rounded;
       case 'Airport Transfer':
-        return Icons.flight_takeoff_outlined;
+        return Icons.flight_takeoff_rounded;
       default:
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
     }
   }
 
@@ -58,7 +58,7 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
     final selectedCity = ref.read(searchCityProvider);
     final supportedCitiesVal = ref.read(supportedCitiesProvider);
 
-    AppBottomSheet.show(
+    DriveGoBottomSheet.show(
       context,
       title: 'Select City',
       child: supportedCitiesVal.when(
@@ -71,8 +71,14 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
             children: cityList.map((cityName) {
               final isSelected = cityName.toLowerCase() == selectedCity.toLowerCase();
               return ListTile(
-                title: Text(cityName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                title: Text(
+                  cityName,
+                  style: DDSTypography.titleMedium.copyWith(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? DDSColors.primaryBlue : DDSColors.textPrimary,
+                  ),
+                ),
+                trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: DDSColors.primaryBlue) : null,
                 onTap: () {
                   ref.read(searchCityProvider.notifier).state = cityName;
                   ref.read(selectedCityProvider.notifier).state = cityName;
@@ -82,14 +88,23 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
             }).toList(),
           );
         },
-        loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
         error: (_, __) => Column(
           mainAxisSize: MainAxisSize.min,
           children: AppConstants.indianCities.map((cityName) {
             final isSelected = cityName.toLowerCase() == selectedCity.toLowerCase();
             return ListTile(
-              title: Text(cityName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-              trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+              title: Text(
+                cityName,
+                style: DDSTypography.titleMedium.copyWith(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? DDSColors.primaryBlue : DDSColors.textPrimary,
+                ),
+              ),
+              trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: DDSColors.primaryBlue) : null,
               onTap: () {
                 ref.read(searchCityProvider.notifier).state = cityName;
                 ref.read(selectedCityProvider.notifier).state = cityName;
@@ -104,7 +119,6 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final city = ref.watch(searchCityProvider);
     final publicSettingsVal = ref.watch(publicSettingsProvider);
     final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
@@ -113,22 +127,16 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: DDSColors.surfaceCard,
+              borderRadius: DDSRadius.mediumBorderRadius,
+              border: Border.all(color: DDSColors.borderLight),
+              boxShadow: DDSElevation.subtleShadow,
             ),
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -140,10 +148,10 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                        borderRadius: DDSRadius.smallBorderRadius,
                       ),
-                      child: Icon(_getTripTypeIcon(widget.tripType), color: AppColors.primary, size: 24),
+                      child: Icon(_getTripTypeIcon(widget.tripType), color: DDSColors.primaryBlue, size: 24),
                     ),
                     const Gap(12),
                     Expanded(
@@ -152,12 +160,18 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                         children: [
                           Text(
                             'Trip Details — ${widget.tripType}',
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                            style: DDSTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: DDSColors.textPrimary,
+                            ),
                           ),
                           const Gap(2),
                           Text(
                             'Configure your schedule & locations',
-                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                            style: DDSTypography.bodyMedium.copyWith(
+                              fontSize: 12,
+                              color: DDSColors.textMuted,
+                            ),
                           ),
                         ],
                       ),
@@ -174,13 +188,19 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                           },
                         );
                       },
-                      icon: const Icon(Icons.swap_horiz, size: 16),
-                      label: const Text('Change'),
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: DDSColors.primaryBlue),
+                      label: Text(
+                        'Change',
+                        style: DDSTypography.labelLarge.copyWith(
+                          color: DDSColors.primaryBlue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const Gap(16),
-                const Divider(height: 1),
+                const Divider(height: 1, color: DDSColors.borderLight),
                 const Gap(16),
 
                 // City Selector Tile
@@ -189,27 +209,33 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                      color: DDSColors.surfaceSubtle,
+                      borderRadius: DDSRadius.smallBorderRadius,
+                      border: Border.all(color: DDSColors.borderLight),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.location_city, color: AppColors.primary, size: 20),
+                            const Icon(Icons.location_city_rounded, color: DDSColors.primaryBlue, size: 20),
                             const Gap(12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Service City', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                                Text(city, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                Text('Service City', style: DDSTypography.labelSmall.copyWith(color: DDSColors.textMuted)),
+                                Text(
+                                  city,
+                                  style: DDSTypography.titleMedium.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: DDSColors.textPrimary,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
                         ),
-                        const Icon(Icons.keyboard_arrow_down, color: AppColors.primary),
+                        const Icon(Icons.keyboard_arrow_down_rounded, color: DDSColors.primaryBlue),
                       ],
                     ),
                   ),
@@ -242,8 +268,8 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                           ? 'e.g. Terminal 2, CSIA'
                           : 'Enter pickup area in $city',
                       controller: widget.pickupController,
-                      prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
-                      suffixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                      prefixIcon: const Icon(Icons.location_on_outlined, color: DDSColors.primaryBlue),
+                      suffixIcon: const Icon(Icons.search_rounded, size: 18, color: DDSColors.textMuted),
                     ),
                   ),
                 ),
@@ -277,8 +303,8 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                             ? 'e.g. Pune / Lonavala'
                             : 'Enter drop destination',
                         controller: widget.dropController,
-                        prefixIcon: const Icon(Icons.flag_outlined, color: AppColors.primary),
-                        suffixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                        prefixIcon: const Icon(Icons.flag_outlined, color: DDSColors.primaryBlue),
+                        suffixIcon: const Icon(Icons.search_rounded, size: 18, color: DDSColors.textMuted),
                       ),
                     ),
                   ),
@@ -299,19 +325,11 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                 ),
                 const Gap(24),
 
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
+                DriveGoButton(
+                  text: 'Search Available Cars',
+                  size: DriveGoButtonSize.large,
+                  isFullWidth: true,
                   onPressed: widget.onSubmit,
-                  child: const Text(
-                    'Search Available Cars',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             ),

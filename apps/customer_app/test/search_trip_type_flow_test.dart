@@ -26,6 +26,8 @@ class MockSearchRepo implements SearchRepository {
     DateTime? endDate,
     String? carType,
     bool? isAC,
+    String? fuelType,
+    int? seating,
     double? minPrice,
     double? maxPrice,
     double? minRating,
@@ -39,6 +41,12 @@ class MockSearchRepo implements SearchRepository {
         return false;
       }
       if (isAC != null && c.isAC != isAC) {
+        return false;
+      }
+      if (fuelType != null && c.fuelType.toLowerCase() != fuelType.toLowerCase()) {
+        return false;
+      }
+      if (seating != null && c.seating < seating) {
         return false;
       }
       return true;
@@ -82,7 +90,7 @@ void main() {
     ),
   ];
 
-  group('Date-First Car Availability & Trip Search Flow Tests (Phase 13)', () {
+  group('Date-First Car Availability & Trip Search Flow Tests (Phase 13 & Phase 29.4)', () {
     testWidgets(
         'Scenario 1: Navbar search with no tripType shows Choose Trip Type -> Trip Details Form -> Available Cars',
         (tester) async {
@@ -138,7 +146,7 @@ void main() {
       expect(find.byType(SearchSummaryCard), findsOneWidget);
       expect(find.byType(SearchFilterBarWidget), findsOneWidget);
       expect(find.byType(SearchCarCard), findsOneWidget);
-      expect(find.text('Change Search'), findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('Toyota Innova'), findsNothing);
     });
@@ -230,7 +238,7 @@ void main() {
       // Directly renders Search Summary Bar and available cars
       expect(container.read(searchTripTypeProvider), 'Self-Drive');
       expect(find.byType(SearchSummaryCard), findsOneWidget);
-      expect(find.text('Change Search'), findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('Toyota Innova'), findsNothing);
     });
@@ -303,10 +311,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hyundai Creta'), findsOneWidget);
-      expect(find.text('Change Search'), findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
 
       // Tap Change Search
-      await tester.tap(find.text('Change Search'));
+      await tester.tap(find.text('Change'));
       await tester.pumpAndSettle();
 
       // Form is displayed
@@ -364,17 +372,17 @@ void main() {
 
       expect(find.text('Clear (1)'), findsNothing);
 
-      // Tap AC / Non-AC toggle
-      final acFinder = find.text('AC / Non-AC');
+      // Tap AC toggle in filter bar
+      final acFinder = find.descendant(of: find.byType(SearchFilterBarWidget), matching: find.text('AC'));
       await tester.ensureVisible(acFinder);
       await tester.tap(acFinder);
       await tester.pumpAndSettle();
 
       expect(container.read(searchACFilterProvider), isTrue);
-      expect(find.text('Clear (1)'), findsOneWidget);
+      expect(find.text('Clear (1)'), findsWidgets);
 
       // Tap Clear
-      final clearFinder = find.text('Clear (1)');
+      final clearFinder = find.widgetWithText(InkWell, 'Clear (1)').first;
       await tester.ensureVisible(clearFinder);
       await tester.tap(clearFinder);
       await tester.pumpAndSettle();
@@ -384,7 +392,7 @@ void main() {
     });
 
     testWidgets(
-        'Scenario 7: SearchCarCard renders vehicle specs, pricing, and View Details button',
+        'Scenario 7: SearchCarCard renders vehicle specs, pricing, and Book Now CTA',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -417,8 +425,8 @@ void main() {
       expect(find.text('Hyundai Creta'), findsOneWidget);
       expect(find.text('5 Seats'), findsOneWidget);
       expect(find.text('Petrol'), findsOneWidget);
-      expect(find.text('AC'), findsOneWidget);
-      expect(find.text('View Details'), findsOneWidget);
+      expect(find.descendant(of: find.byType(SearchCarCard), matching: find.text('AC')), findsOneWidget);
+      expect(find.text('Book Now'), findsOneWidget);
     });
   });
 }

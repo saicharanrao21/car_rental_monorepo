@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core/core.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 
 class SearchSummaryCard extends StatelessWidget {
@@ -23,21 +24,20 @@ class SearchSummaryCard extends StatelessWidget {
   IconData _getTripTypeIcon(String type) {
     switch (type) {
       case 'Self-Drive':
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
       case 'Outstation':
-        return Icons.alt_route_outlined;
+        return Icons.alt_route_rounded;
       case 'Local':
-        return Icons.location_city_outlined;
+        return Icons.location_city_rounded;
       case 'Airport Transfer':
-        return Icons.flight_takeoff_outlined;
+        return Icons.flight_takeoff_rounded;
       default:
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isOutstationOrAirport = tripType == 'Outstation' || tripType == 'Airport Transfer';
     final hasDrop = isOutstationOrAirport && drop != null && drop!.isNotEmpty;
 
@@ -45,37 +45,31 @@ class SearchSummaryCard extends StatelessWidget {
     final durationText = durationDays > 0 ? ' ($durationDays ${durationDays == 1 ? 'day' : 'days'})' : '';
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.mediumBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
+        boxShadow: DDSElevation.subtleShadow,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ── Trip Type Icon Avatar ──────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+              borderRadius: DDSRadius.smallBorderRadius,
             ),
             child: Icon(
               _getTripTypeIcon(tripType),
-              color: AppColors.primary,
-              size: 20,
+              color: DDSColors.primaryBlue,
+              size: 22,
             ),
           ),
-          const Gap(10),
+          const Gap(12),
 
           // ── Search Context Information ────────────────────────────────────
           Expanded(
@@ -83,7 +77,7 @@ class SearchSummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Location & Trip Type
+                // Location & Trip Type Pill
                 Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 6,
@@ -91,25 +85,26 @@ class SearchSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       pickup != null && pickup!.isNotEmpty ? '$pickup, $city' : city,
-                      style: const TextStyle(
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 14,
+                        color: DDSColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
+                        color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                        borderRadius: DDSRadius.smallBorderRadius,
                       ),
                       child: Text(
                         tripType,
-                        style: const TextStyle(
-                          fontSize: 9,
+                        style: DDSTypography.labelSmall.copyWith(
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: DDSColors.primaryBlue,
                         ),
                       ),
                     ),
@@ -118,18 +113,18 @@ class SearchSummaryCard extends StatelessWidget {
 
                 // Optional Destination drop if Outstation
                 if (hasDrop) ...[
-                  const Gap(2),
+                  const Gap(3),
                   Row(
                     children: [
-                      Icon(Icons.flag_outlined, size: 11, color: Colors.orange[800]),
+                      const Icon(Icons.flag_rounded, size: 12, color: DDSColors.warningOrange),
                       const Gap(4),
                       Expanded(
                         child: Text(
                           'To $drop',
-                          style: TextStyle(
+                          style: DDSTypography.bodyMedium.copyWith(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Colors.orange[900],
+                            color: DDSColors.warningOrange,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -139,15 +134,15 @@ class SearchSummaryCard extends StatelessWidget {
                   ),
                 ],
 
-                const Gap(2),
+                const Gap(3),
 
                 // Bottom line: Dates & duration
                 Row(
                   children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 11,
-                      color: cs.onSurfaceVariant,
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 12,
+                      color: DDSColors.textMuted,
                     ),
                     const Gap(4),
                     Expanded(
@@ -155,9 +150,9 @@ class SearchSummaryCard extends StatelessWidget {
                         dates != null
                             ? '${dates!.start.toDDMMYYYY()} → ${dates!.end.toDDMMYYYY()}$durationText'
                             : 'Flexible Schedule',
-                        style: TextStyle(
+                        style: DDSTypography.bodyMedium.copyWith(
                           fontSize: 11,
-                          color: cs.onSurfaceVariant,
+                          color: DDSColors.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -173,18 +168,12 @@ class SearchSummaryCard extends StatelessWidget {
           const Gap(8),
 
           // ── Change Search Action ──────────────────────────────────────────
-          OutlinedButton(
+          DriveGoButton(
+            text: 'Change',
+            variant: DriveGoButtonVariant.secondary,
+            size: DriveGoButtonSize.compact,
+            isFullWidth: false,
             onPressed: onEditPressed,
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              side: BorderSide(color: cs.outline.withValues(alpha: 0.25)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text(
-              'Change Search',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
           ),
         ],
       ),

@@ -19,6 +19,8 @@ class MockSearchRepository with LatencySimulator implements SearchRepository {
     DateTime? endDate,
     String? carType,
     bool? isAC,
+    String? fuelType,
+    int? seating,
     double? minPrice,
     double? maxPrice,
     double? minRating,
@@ -33,6 +35,12 @@ class MockSearchRepository with LatencySimulator implements SearchRepository {
         return false;
       }
       if (isAC != null && car.isAC != isAC) {
+        return false;
+      }
+      if (fuelType != null && car.fuelType.toLowerCase() != fuelType.toLowerCase()) {
+        return false;
+      }
+      if (seating != null && car.seating < seating) {
         return false;
       }
       if (minPrice != null && car.pricePerDay < minPrice) {

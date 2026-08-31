@@ -19,6 +19,8 @@ class ApiSearchRepository implements SearchRepository {
     DateTime? endDate,
     String? carType,
     bool? isAC,
+    String? fuelType,
+    int? seating,
     double? minPrice,
     double? maxPrice,
     double? minRating,
@@ -61,12 +63,21 @@ class ApiSearchRepository implements SearchRepository {
       }
     }
 
+    String? backendFuelType;
+    if (fuelType != null && fuelType.isNotEmpty) {
+      backendFuelType = fuelType.toUpperCase();
+    }
+
     final queryParams = <String, dynamic>{
       'city': city,
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
       if (backendTripType != null) 'tripType': backendTripType,
+      if (startDate != null) 'startDate': startDate.toIso8601String(),
+      if (endDate != null) 'endDate': endDate.toIso8601String(),
       if (backendCarType != null) 'carType': backendCarType,
+      if (backendFuelType != null) 'fuelType': backendFuelType,
+      if (seating != null) 'seating': seating,
       if (isAC != null) 'isAC': isAC,
       if (minPrice != null) 'minPrice': minPrice,
       if (maxPrice != null) 'maxPrice': maxPrice,
