@@ -348,7 +348,7 @@ class FastSessionNotifier extends VendorSessionNotifier {
   }
 }
 
-final evidenceDir = Directory(r'd:\Flutter\car_rental_monorepo\docs\evidence\phase29-8-vendor-operations-dashboard');
+final evidenceDir = Directory(r'd:\Flutter\car_rental_monorepo\docs\evidence\phase29-8-vendor-operations-dashboard\test-harness');
 
 Future<void> saveScreenshot(WidgetTester tester, GlobalKey key, String path) async {
   await tester.pump(const Duration(milliseconds: 100));
