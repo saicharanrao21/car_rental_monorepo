@@ -233,7 +233,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('01/09/2026 → 04/09/2026 (3 days)'), findsOneWidget);
+      expect(find.text('01/09/2026 → 04/09/2026'), findsOneWidget);
+      expect(find.text('3 days'), findsOneWidget);
     });
   });
 }

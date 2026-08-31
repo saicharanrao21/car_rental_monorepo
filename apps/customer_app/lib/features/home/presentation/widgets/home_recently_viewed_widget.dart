@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../recently_viewed_providers.dart';
 import '../../../wishlist/wishlist_providers.dart';
 
+/// DriveGo Design System (DDS) — Recently Viewed Cars Widget
 class HomeRecentlyViewedWidget extends ConsumerWidget {
   const HomeRecentlyViewedWidget({super.key});
 
@@ -22,10 +22,10 @@ class HomeRecentlyViewedWidget extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionHeader(title: 'Recently Viewed'),
+            const DriveGoSectionHeader(title: 'Recently Viewed'),
             const Gap(12),
             SizedBox(
-              height: AppSpacing.carCardHorizontalHeight,
+              height: 310,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const ClampingScrollPhysics(),
@@ -35,10 +35,11 @@ class HomeRecentlyViewedWidget extends ConsumerWidget {
                   final isWishlisted = wishlistedIds.contains(car.id);
 
                   return Container(
-                    width: 280,
-                    margin: const EdgeInsets.only(right: 12),
+                    width: 260,
+                    margin: const EdgeInsets.only(right: 14),
                     child: CarCard(
                       car: car,
+                      imageHeight: 120,
                       isWishlisted: isWishlisted,
                       onWishlistToggle: () {
                         ref.read(wishlistIdsProvider.notifier).toggle(car.id);

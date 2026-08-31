@@ -4,6 +4,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../../home_providers.dart';
 
+/// DriveGo Design System (DDS) — Trip Type Selector for Customer Home
 class HomeTripTypeSelectorWidget extends ConsumerWidget {
   const HomeTripTypeSelectorWidget({super.key});
 
@@ -18,22 +19,21 @@ class HomeTripTypeSelectorWidget extends ConsumerWidget {
   IconData _getTripTypeIcon(String type) {
     switch (type) {
       case 'Self-Drive':
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
       case 'Outstation':
-        return Icons.alt_route_outlined;
+        return Icons.alt_route_rounded;
       case 'Local':
-        return Icons.location_city_outlined;
+        return Icons.location_city_rounded;
       case 'Airport Transfer':
       case 'Airport':
-        return Icons.flight_takeoff_outlined;
+        return Icons.flight_takeoff_rounded;
       default:
-        return Icons.directions_car_outlined;
+        return Icons.directions_car_rounded;
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final currentTripType = ref.watch(selectedTripTypeProvider);
     final publicSettingsVal = ref.watch(publicSettingsProvider);
     final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
@@ -41,9 +41,9 @@ class HomeTripTypeSelectorWidget extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+        color: DDSColors.surfaceSubtle,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
       ),
       child: Row(
         children: AppConstants.tripTypes.map((type) {
@@ -51,77 +51,76 @@ class HomeTripTypeSelectorWidget extends ConsumerWidget {
           final isSelected = isEnabled && type == currentTripType;
 
           return Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: isEnabled
-                  ? () => ref.read(selectedTripTypeProvider.notifier).state = type
-                  : () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('$type service is launching soon in your city!'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+            child: Semantics(
+              button: true,
+              label: '$type Trip Option${isEnabled ? (isSelected ? ", Selected" : "") : ", Coming Soon"}',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: isEnabled
+                    ? () => ref.read(selectedTripTypeProvider.notifier).state = type
+                    : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$type service is launching soon in your city!'),
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
                           ),
-                        ]
-                      : null,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _getTripTypeIcon(type),
-                      size: 20,
-                      color: isEnabled
-                          ? (isSelected ? Colors.white : cs.onSurfaceVariant)
-                          : cs.onSurfaceVariant.withValues(alpha: 0.4),
-                    ),
-                    const Gap(4),
-                    Text(
-                      type,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        );
+                      },
+                child: AnimatedContainer(
+                  duration: DDSMotion.fast,
+                  curve: DDSMotion.standardCurve,
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? DDSColors.primaryBlue : Colors.transparent,
+                    borderRadius: DDSRadius.mediumBorderRadius,
+                    boxShadow: isSelected ? DDSElevation.subtleShadow : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _getTripTypeIcon(type),
+                        size: 20,
                         color: isEnabled
-                            ? (isSelected ? Colors.white : cs.onSurface)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ? (isSelected ? Colors.white : DDSColors.textSecondary)
+                            : DDSColors.textMuted,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (!isEnabled) ...[
-                      const Gap(2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.amber[800],
-                          borderRadius: BorderRadius.circular(4),
+                      const Gap(4),
+                      Text(
+                        type,
+                        style: DDSTypography.labelSmall.copyWith(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isEnabled
+                              ? (isSelected ? Colors.white : DDSColors.textPrimary)
+                              : DDSColors.textMuted,
                         ),
-                        child: const Text(
-                          'Soon',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (!isEnabled) ...[
+                        const Gap(2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: DDSColors.accentAmber,
+                            borderRadius: DDSRadius.smallBorderRadius,
+                          ),
+                          child: const Text(
+                            'Soon',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

@@ -65,17 +65,23 @@ class DriveGoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveHeight = _height;
-    final minSize = isFullWidth ? Size(double.infinity, effectiveHeight) : Size(100, effectiveHeight);
 
     Widget childContent = Row(
-      mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (icon != null) ...[
           icon!,
           const SizedBox(width: 8),
         ],
-        Text(text, style: _textStyle),
+        Flexible(
+          child: Text(
+            text,
+            style: _textStyle,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
       ],
     );
 
@@ -101,7 +107,8 @@ class DriveGoButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: backgroundColor ?? DDSColors.primaryBlue,
             foregroundColor: foregroundColor ?? Colors.white,
-            minimumSize: minSize,
+            minimumSize: Size(isFullWidth ? double.infinity : 80, effectiveHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
           ),
@@ -114,7 +121,8 @@ class DriveGoButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: foregroundColor ?? DDSColors.primaryBlue,
-            minimumSize: minSize,
+            minimumSize: Size(isFullWidth ? double.infinity : 80, effectiveHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             side: BorderSide(color: backgroundColor ?? DDSColors.primaryBlue, width: 1.5),
             shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
           ),
@@ -127,7 +135,8 @@ class DriveGoButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: TextButton.styleFrom(
             foregroundColor: foregroundColor ?? DDSColors.primaryBlue,
-            minimumSize: minSize,
+            minimumSize: Size(isFullWidth ? double.infinity : 80, effectiveHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
           ),
           child: childContent,
@@ -140,7 +149,8 @@ class DriveGoButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: backgroundColor ?? DDSColors.errorRed,
             foregroundColor: foregroundColor ?? Colors.white,
-            minimumSize: minSize,
+            minimumSize: Size(isFullWidth ? double.infinity : 80, effectiveHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: DDSRadius.mediumBorderRadius),
           ),
@@ -149,6 +159,6 @@ class DriveGoButton extends StatelessWidget {
         break;
     }
 
-    return isFullWidth ? button : Center(child: button);
+    return isFullWidth ? SizedBox(width: double.infinity, child: button) : button;
   }
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../home_providers.dart';
 
+/// DriveGo Design System (DDS) — Top Rated Fleet Partners Widget
 class HomeTopVendorsWidget extends ConsumerWidget {
   const HomeTopVendorsWidget({super.key});
 
@@ -20,10 +22,10 @@ class HomeTopVendorsWidget extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SectionHeader(title: 'Top Rated Partners in $selectedCity'),
+            DriveGoSectionHeader(title: 'Top Fleet Partners in $selectedCity'),
             const Gap(12),
             SizedBox(
-              height: 140,
+              height: 125,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const ClampingScrollPhysics(),
@@ -40,9 +42,9 @@ class HomeTopVendorsWidget extends ConsumerWidget {
       loading: () => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(title: 'Top Rated Partners in $selectedCity'),
+          DriveGoSectionHeader(title: 'Top Fleet Partners in $selectedCity'),
           const Gap(12),
-          const SizedBox(height: 140, child: AppLoader()),
+          const DriveGoLoadingState(variant: DriveGoLoadingVariant.card, itemCount: 1),
         ],
       ),
       error: (_, __) => const SizedBox.shrink(),
@@ -57,89 +59,70 @@ class _VendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final displayName = vendor.displayName ?? vendor.businessName;
 
     return Container(
       width: 220,
       margin: const EdgeInsets.only(right: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    displayName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (vendor.verificationStatus == 'verified') ...[
-                  const Gap(4),
-                  const Icon(
-                    Icons.verified,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
-                ],
-              ],
-            ),
-            const Gap(4),
-            Text(
-              vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurfaceVariant,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Gap(8),
-            Row(
-              children: [
-                StarRating(
-                  rating: vendor.rating,
-                ),
-                const Gap(6),
-                Text(
-                  vendor.rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 12,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.mediumBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
+        boxShadow: DDSElevation.subtleShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  displayName,
+                  style: DDSTypography.labelLarge.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: DDSColors.textPrimary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (vendor.verificationStatus.toLowerCase() == 'verified') ...[
+                const Gap(4),
+                const Icon(
+                  Icons.verified_rounded,
+                  color: DDSColors.primaryBlue,
+                  size: 16,
                 ),
               ],
+            ],
+          ),
+          const Gap(4),
+          Text(
+            vendor.locality != null ? '${vendor.locality}, ${vendor.city}' : vendor.city,
+            style: DDSTypography.labelSmall.copyWith(
+              color: DDSColors.textMuted,
+              fontSize: 11,
             ),
-            const Gap(4),
-            Text(
-              '${vendor.totalTrips} Trips Completed',
-              style: TextStyle(
-                fontSize: 10,
-                color: cs.onSurfaceVariant,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Gap(8),
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, size: 16, color: DDSColors.accentAmber),
+              const Gap(4),
+              Text(
+                vendor.rating > 0 ? vendor.rating.toStringAsFixed(1) : 'New Partner',
+                style: DDSTypography.labelSmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: vendor.rating > 0 ? DDSColors.accentAmber : DDSColors.textMuted,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }

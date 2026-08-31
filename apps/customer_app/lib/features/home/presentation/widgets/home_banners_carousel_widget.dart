@@ -5,6 +5,7 @@ import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../home_providers.dart';
 
+/// DriveGo Design System (DDS) — Promotional Banners Carousel for Customer Home
 class HomeBannersCarouselWidget extends ConsumerWidget {
   const HomeBannersCarouselWidget({super.key});
 
@@ -19,10 +20,10 @@ class HomeBannersCarouselWidget extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionHeader(title: 'Exclusive Offers'),
+            const DriveGoSectionHeader(title: 'Exclusive Offers'),
             const Gap(12),
             SizedBox(
-              height: 135,
+              height: 140,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const ClampingScrollPhysics(),
@@ -30,20 +31,14 @@ class HomeBannersCarouselWidget extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final banner = banners[index];
                   return Container(
-                    width: 280,
+                    width: 290,
                     margin: const EdgeInsets.only(right: 14),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderRadius: DDSRadius.largeBorderRadius,
+                      boxShadow: DDSElevation.subtleShadow,
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: DDSRadius.largeBorderRadius,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -51,8 +46,8 @@ class HomeBannersCarouselWidget extends ConsumerWidget {
                             banner.imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => Container(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              child: const Icon(Icons.image, color: AppColors.primary),
+                              color: DDSColors.surfaceSubtle,
+                              child: const Icon(Icons.image_outlined, color: DDSColors.textMuted, size: 40),
                             ),
                           ),
                           Container(
@@ -62,24 +57,46 @@ class HomeBannersCarouselWidget extends ConsumerWidget {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Color(0xB3000000),
+                                  Color(0xCC0F172A), // Slate 900 gradient overlay
                                 ],
                               ),
                             ),
                           ),
                           Positioned(
-                            bottom: 12,
-                            left: 14,
-                            right: 14,
-                            child: Text(
-                              banner.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            bottom: 14,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: DDSColors.accentAmber,
+                                    borderRadius: DDSRadius.smallBorderRadius,
+                                  ),
+                                  child: const Text(
+                                    'PROMO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const Gap(4),
+                                Text(
+                                  banner.title,
+                                  style: DDSTypography.titleMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -95,9 +112,9 @@ class HomeBannersCarouselWidget extends ConsumerWidget {
       loading: () => const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(title: 'Exclusive Offers'),
+          DriveGoSectionHeader(title: 'Exclusive Offers'),
           Gap(12),
-          SizedBox(height: 135, child: AppLoader()),
+          DriveGoLoadingState(variant: DriveGoLoadingVariant.card, itemCount: 1),
         ],
       ),
       error: (_, __) => const SizedBox.shrink(),

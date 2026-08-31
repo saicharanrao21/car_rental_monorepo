@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:ui_kit/ui_kit.dart';
 import '../../home_providers.dart';
 import '../../../location/presentation/widgets/location_selection_sheet.dart';
 
+/// DriveGo Design System (DDS) — Hero Search & Trip Configuration Card
 class HomeTripConfigCard extends ConsumerWidget {
   final VoidCallback onSearchPressed;
 
@@ -21,17 +23,17 @@ class HomeTripConfigCard extends ConsumerWidget {
     final picked = await showDateRangePicker(
       context: context,
       initialDateRange: currentRange,
-      firstDate: today.subtract(const Duration(days: 1)),
+      firstDate: today,
       lastDate: today.add(const Duration(days: 365)),
       locale: const Locale('en', 'IN'),
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
+              primary: DDSColors.primaryBlue,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+              surface: DDSColors.surfaceCard,
+              onSurface: DDSColors.textPrimary,
             ),
           ),
           child: child!,
@@ -44,9 +46,37 @@ class HomeTripConfigCard extends ConsumerWidget {
     }
   }
 
+  void _applyQuickDate(WidgetRef ref, String option) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    DateTimeRange range;
+    switch (option) {
+      case 'Today':
+        range = DateTimeRange(start: today, end: today.add(const Duration(days: 1)));
+        break;
+      case 'Tomorrow':
+        final tomorrow = today.add(const Duration(days: 1));
+        range = DateTimeRange(start: tomorrow, end: tomorrow.add(const Duration(days: 1)));
+        break;
+      case 'This Weekend':
+        // Calculate upcoming Saturday
+        final daysUntilSat = (DateTime.saturday - today.weekday + 7) % 7;
+        final sat = today.add(Duration(days: daysUntilSat == 0 ? 7 : daysUntilSat));
+        final mon = sat.add(const Duration(days: 2));
+        range = DateTimeRange(start: sat, end: mon);
+        break;
+      case '7 Days':
+        range = DateTimeRange(start: today.add(const Duration(days: 1)), end: today.add(const Duration(days: 8)));
+        break;
+      default:
+        return;
+    }
+    ref.read(selectedDateRangeProvider.notifier).state = range;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final selectedCity = ref.watch(selectedCityProvider);
     final tripType = ref.watch(selectedTripTypeProvider);
     final pickupLocation = ref.watch(pickupLocationProvider);
@@ -57,16 +87,10 @@ class HomeTripConfigCard extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: Border.all(color: DDSColors.borderLight),
+        boxShadow: DDSElevation.subtleShadow,
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -75,8 +99,8 @@ class HomeTripConfigCard extends ConsumerWidget {
           // ── 1. Pickup Location Tile ───────────────────────────────────────
           _buildActionTile(
             context: context,
-            icon: Icons.my_location,
-            iconColor: AppColors.primary,
+            icon: Icons.location_on_rounded,
+            iconColor: DDSColors.accentAmber,
             label: tripType == 'Airport Transfer' ? 'AIRPORT / TERMINAL' : 'PICKUP LOCATION / AREA',
             title: pickupLocation?.isNotEmpty == true
                 ? pickupLocation!
@@ -99,12 +123,12 @@ class HomeTripConfigCard extends ConsumerWidget {
           if (isOutstationOrAirport) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
-              child: Divider(height: 1),
+              child: Divider(height: 1, color: DDSColors.borderLight),
             ),
             _buildActionTile(
               context: context,
-              icon: Icons.flag_outlined,
-              iconColor: Colors.orange[800]!,
+              icon: Icons.flag_rounded,
+              iconColor: DDSColors.warningOrange,
               label: tripType == 'Outstation' ? 'DESTINATION CITY / ADDRESS' : 'DROP-OFF DESTINATION',
               title: dropLocation?.isNotEmpty == true
                   ? dropLocation!
@@ -127,59 +151,76 @@ class HomeTripConfigCard extends ConsumerWidget {
 
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Divider(height: 1),
+            child: Divider(height: 1, color: DDSColors.borderLight),
           ),
 
           // ── 3. Rental Schedule Tile ───────────────────────────────────────
           _buildActionTile(
             context: context,
-            icon: Icons.calendar_today_outlined,
-            iconColor: AppColors.primary,
+            icon: Icons.calendar_today_rounded,
+            iconColor: DDSColors.primaryBlue,
             label: 'RENTAL SCHEDULE',
             title: dateRange != null
-                ? '${dateRange.start.toDDMMYYYY()} → ${dateRange.end.toDDMMYYYY()} (${dateRange.duration.inDays} ${dateRange.duration.inDays == 1 ? 'day' : 'days'})'
+                ? '${dateRange.start.toDDMMYYYY()} → ${dateRange.end.toDDMMYYYY()}'
                 : 'Select pickup & return dates',
+            badgeText: dateRange != null
+                ? '${dateRange.duration.inDays} ${dateRange.duration.inDays == 1 ? 'day' : 'days'}'
+                : null,
             isPlaceholder: dateRange == null,
             onTap: () => _pickDateRange(context, ref),
           ),
 
-          const Gap(18),
+          const Gap(12),
 
-          // ── 4. Primary CTA ────────────────────────────────────────────────
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 3,
-              shadowColor: AppColors.primary.withValues(alpha: 0.4),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            onPressed: onSearchPressed,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+          // ── Quick Date Filter Chips ───────────────────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            child: Row(
               children: [
-                Icon(Icons.search, size: 20, color: Colors.white),
-                Gap(8),
-                Flexible(
-                  child: Text(
-                    'Search Available Cars',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                _buildQuickDateChip(ref, 'Today'),
+                const Gap(8),
+                _buildQuickDateChip(ref, 'Tomorrow'),
+                const Gap(8),
+                _buildQuickDateChip(ref, 'This Weekend'),
+                const Gap(8),
+                _buildQuickDateChip(ref, '7 Days'),
               ],
             ),
           ),
+
+          const Gap(18),
+
+          // ── 4. Primary Search CTA ─────────────────────────────────────────
+          DriveGoButton(
+            text: 'Search Available Cars',
+            size: DriveGoButtonSize.large,
+            icon: const Icon(Icons.search_rounded, size: 20, color: Colors.white),
+            onPressed: onSearchPressed,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickDateChip(WidgetRef ref, String label) {
+    return InkWell(
+      onTap: () => _applyQuickDate(ref, label),
+      borderRadius: DDSRadius.pillBorderRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: DDSColors.surfaceSubtle,
+          borderRadius: DDSRadius.pillBorderRadius,
+          border: Border.all(color: DDSColors.borderLight),
+        ),
+        child: Text(
+          label,
+          style: DDSTypography.labelSmall.copyWith(
+            fontSize: 11,
+            color: DDSColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -192,12 +233,11 @@ class HomeTripConfigCard extends ConsumerWidget {
     required String title,
     required bool isPlaceholder,
     required VoidCallback onTap,
+    String? badgeText,
   }) {
-    final cs = Theme.of(context).colorScheme;
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: DDSRadius.mediumBorderRadius,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         child: Row(
@@ -205,8 +245,8 @@ class HomeTripConfigCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: DDSRadius.smallBorderRadius,
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
@@ -217,20 +257,20 @@ class HomeTripConfigCard extends ConsumerWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
+                    style: DDSTypography.labelSmall.copyWith(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: DDSColors.textMuted,
                     ),
                   ),
                   const Gap(2),
                   Text(
                     title,
-                    style: TextStyle(
+                    style: DDSTypography.bodyMedium.copyWith(
                       fontSize: 14,
                       fontWeight: isPlaceholder ? FontWeight.normal : FontWeight.w600,
-                      color: isPlaceholder ? cs.onSurfaceVariant.withValues(alpha: 0.6) : cs.onSurface,
+                      color: isPlaceholder ? DDSColors.textMuted : DDSColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -238,10 +278,27 @@ class HomeTripConfigCard extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
+            if (badgeText != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: DDSRadius.pillBorderRadius,
+                ),
+                child: Text(
+                  badgeText,
+                  style: DDSTypography.labelSmall.copyWith(
+                    color: DDSColors.primaryBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Gap(8),
+            ],
+            const Icon(
+              Icons.chevron_right_rounded,
               size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              color: DDSColors.textMuted,
             ),
           ],
         ),

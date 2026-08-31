@@ -9,10 +9,14 @@ import '../widgets/home_header_widget.dart';
 import '../widgets/home_trip_type_selector_widget.dart';
 import '../widgets/home_trip_config_card.dart';
 import '../widgets/home_quick_categories_widget.dart';
+import '../widgets/home_available_cars_section.dart';
 import '../widgets/home_banners_carousel_widget.dart';
-import '../widgets/home_recently_viewed_widget.dart';
+import '../widgets/home_popular_cities_widget.dart';
 import '../widgets/home_top_vendors_widget.dart';
+import '../widgets/home_recently_viewed_widget.dart';
+import '../widgets/home_trust_assurance_widget.dart';
 
+/// DriveGo Design System (DDS) — Modern Customer Home Marketplace Feed
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -65,25 +69,31 @@ class _HomePageState extends ConsumerState<HomePage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        shape: RoundedRectangleBorder(borderRadius: DDSRadius.largeBorderRadius),
+        title: Row(
           children: [
-            Icon(Icons.my_location, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Location Detected', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Icon(Icons.my_location_rounded, color: DDSColors.primaryBlue),
+            const SizedBox(width: 8),
+            Text(
+              'Location Detected',
+              style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
-        content: Text('It looks like you are near $detectedCity. Would you like to switch your city to $detectedCity?'),
+        content: Text(
+          'It looks like you are near $detectedCity. Would you like to switch your city to $detectedCity?',
+          style: DDSTypography.bodyMedium,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Keep Current'),
+            child: Text('Keep Current', style: DDSTypography.labelLarge.copyWith(color: DDSColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: DDSColors.primaryBlue,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
             ),
             onPressed: () {
               ref.read(selectedCityProvider.notifier).state = detectedCity;
@@ -103,9 +113,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: const BoxDecoration(
+          color: DDSColors.surfaceCard,
+          borderRadius: DDSRadius.sheetTopRadius,
         ),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: _SearchableCitySelector(
@@ -138,7 +148,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final enabledTripTypes = publicSettingsVal.valueOrNull?.enabledTripTypes ?? const ['SELF_DRIVE', 'OUTSTATION'];
     if (!_isTripTypeEnabled(tripType, enabledTripTypes)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected trip type is coming soon in your city.')),
+        SnackBar(
+          content: Text('$tripType is coming soon in your city.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
+        ),
       );
       return;
     }
@@ -168,14 +182,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: DDSColors.bgCanvas,
       appBar: HomeHeaderWidget(
         onCityTap: _showCitySelector,
       ),
       body: RefreshIndicator(
+        color: DDSColors.primaryBlue,
+        backgroundColor: DDSColors.surfaceCard,
         onRefresh: () async {
           ref.invalidate(bannersProvider);
           ref.invalidate(topVendorsProvider);
           ref.invalidate(availableCarsProvider);
+          ref.invalidate(supportedCitiesProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
@@ -197,16 +215,30 @@ class _HomePageState extends ConsumerState<HomePage> {
               const HomeQuickCategoriesWidget(),
               const Gap(24),
 
-              // 4. Exclusive Offers & Banners Carousel
+              // 4. Available & Recommended Cars in Selected City
+              HomeAvailableCarsSection(
+                onSelectCityPressed: _showCitySelector,
+              ),
+              const Gap(24),
+
+              // 5. Exclusive Offers & Promotional Banners Carousel
               const HomeBannersCarouselWidget(),
               const Gap(24),
 
-              // 5. Recently Viewed Cars (if available)
+              // 6. Popular Destinations / Cities Discovery
+              const HomePopularCitiesWidget(),
+              const Gap(24),
+
+              // 7. Top Rated Fleet Partners
+              const HomeTopVendorsWidget(),
+              const Gap(24),
+
+              // 8. Recently Viewed Cars (if available)
               const HomeRecentlyViewedWidget(),
               const Gap(24),
 
-              // 6. Top Rated Fleet Partners
-              const HomeTopVendorsWidget(),
+              // 9. The DriveGo Assurance / Trust Section
+              const HomeTrustAssuranceWidget(),
             ],
           ),
         ),
@@ -260,18 +292,37 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: DDSColors.borderMedium,
+              borderRadius: DDSRadius.pillBorderRadius,
+            ),
+          ),
+        ),
+        Text(
+          'Select Pickup City',
+          style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const Gap(12),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextField(
             controller: _searchController,
             onChanged: (val) => setState(() => _searchQuery = val),
+            style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search city...',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              hintStyle: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: DDSColors.textMuted),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
+                      icon: const Icon(Icons.clear_rounded, size: 18, color: DDSColors.textMuted),
                       onPressed: () {
                         _searchController.clear();
                         setState(() => _searchQuery = '');
@@ -279,8 +330,19 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
                     )
                   : null,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              filled: true,
+              fillColor: DDSColors.surfaceSubtle,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: DDSRadius.mediumBorderRadius,
+                borderSide: const BorderSide(color: DDSColors.borderLight),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: DDSRadius.mediumBorderRadius,
+                borderSide: const BorderSide(color: DDSColors.borderLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: DDSRadius.mediumBorderRadius,
+                borderSide: const BorderSide(color: DDSColors.primaryBlue, width: 1.5),
               ),
             ),
           ),
@@ -290,26 +352,41 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
             maxHeight: MediaQuery.of(context).size.height * 0.45,
           ),
           child: filteredCities.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Text('No matching cities found', style: TextStyle(color: Colors.grey)),
+              ? Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Text(
+                      'No matching cities found',
+                      style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+                    ),
+                  ),
                 )
-              : ListView.builder(
+              : ListView.separated(
                   shrinkWrap: true,
                   itemCount: filteredCities.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: DDSColors.borderLight),
                   itemBuilder: (context, index) {
                     final city = filteredCities[index];
-                    final isSelected = city == widget.selectedCity;
+                    final isSelected = city.toLowerCase() == widget.selectedCity.toLowerCase();
+
                     return ListTile(
                       dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      leading: Icon(
+                        Icons.location_city_rounded,
+                        size: 20,
+                        color: isSelected ? DDSColors.primaryBlue : DDSColors.textMuted,
+                      ),
                       title: Text(
                         city,
-                        style: TextStyle(
+                        style: DDSTypography.bodyLarge.copyWith(
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+                          color: isSelected ? DDSColors.primaryBlue : DDSColors.textPrimary,
                         ),
                       ),
-                      trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary, size: 18) : null,
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded, color: DDSColors.primaryBlue, size: 20)
+                          : null,
                       onTap: () => widget.onSelectCity(city),
                     );
                   },
