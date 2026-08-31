@@ -102,10 +102,15 @@ class VendorBookingsPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  customerName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    customerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 ),
+                const Gap(8),
                 StatusBadge(
                   status: req.tripType,
                 ),
@@ -116,9 +121,13 @@ class VendorBookingsPage extends ConsumerWidget {
               children: [
                 const Icon(Icons.directions_car_outlined, size: 16, color: Colors.grey),
                 const Gap(8),
-                Text(
-                  carTitle,
-                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                Expanded(
+                  child: Text(
+                    carTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  ),
                 ),
               ],
             ),

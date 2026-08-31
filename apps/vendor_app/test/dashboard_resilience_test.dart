@@ -6,9 +6,9 @@ import 'package:models/models.dart';
 import 'package:vendor_app/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:vendor_app/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:vendor_app/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:vendor_app/features/dashboard/domain/models/operations_models.dart';
 import 'package:vendor_app/core/providers/vendor_session_provider.dart';
 import 'package:vendor_app/features/profile/presentation/providers/documents_provider.dart';
-import 'package:ui_kit/ui_kit.dart';
 
 class FakeDashboardRepository implements DashboardRepository {
   Future<DashboardStats>? getStatsFuture;
@@ -38,6 +38,49 @@ class FakeDashboardRepository implements DashboardRepository {
 
   @override
   Future<void> respondToBooking(String bookingId, bool accept) async {}
+
+  @override
+  Future<List<TriageItem>> getOperationsTriage(String vendorId) async {
+    if (shouldFail) throw Exception('Triage Failure');
+    return [];
+  }
+
+  @override
+  Future<List<TodayTimelineItem>> getTodayOperations(String vendorId) async {
+    return [];
+  }
+
+  @override
+  Future<BookingMatrix> getBookingMatrix(String vendorId) async {
+    return const BookingMatrix(
+      todayCount: 5,
+      pendingCount: 2,
+      upcomingCount: 3,
+      completedCount: 12,
+      activeCount: 4,
+    );
+  }
+
+  @override
+  Future<FleetSummary> getFleetSummary(String vendorId) async {
+    return const FleetSummary(
+      totalCars: 11,
+      availableCars: 10,
+      onTripCars: 0,
+      unavailableCars: 1,
+    );
+  }
+
+  @override
+  Future<EarningsSnapshot> getEarningsSnapshot(String vendorId) async {
+    return const EarningsSnapshot(
+      thisMonthEarnings: 15000.0,
+      availableBalance: 12000.0,
+      heldEarnings: 3000.0,
+      totalEarnings: 85000.0,
+      totalPaidOut: 70000.0,
+    );
+  }
 }
 
 void main() {
@@ -79,15 +122,12 @@ void main() {
       await tester.pump();
 
       // Verify Header is visible (Resilience: greeting is always shown)
-      expect(find.text('Hello,'), findsOneWidget);
       expect(find.text('DriveGo Staging Rentals'), findsOneWidget);
+      expect(find.text('Welcome Back,'), findsOneWidget);
 
-      // Verify Stats Row shows loading (Shimmer)
-      expect(find.byType(ShimmerCard), findsWidgets);
-
-      // Verify Quick Actions are visible even during stats load
-      expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Add Car'), findsOneWidget);
+      // Verify Quick Actions are visible
+      expect(find.text('Operational Quick Actions'), findsOneWidget);
+      expect(find.text('+ Add Vehicle'), findsOneWidget);
 
       // Cleanup
       completer.complete(const DashboardStats(
@@ -95,25 +135,26 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('2. Dashboard shows error in stats row but keeps other parts functional', (tester) async {
+    testWidgets('2. Dashboard shows error in triage but keeps other parts functional', (tester) async {
       fakeRepo.shouldFail = true;
 
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       // Verify Header is still visible
-      expect(find.text('Hello,'), findsOneWidget);
+      expect(find.text('DriveGo Staging Rentals'), findsOneWidget);
 
-      // Verify Stats Row shows error state instead of breaking the whole page
-      expect(find.text('Could not load summary stats'), findsOneWidget);
+      // Verify Triage shows error state with retry
+      expect(find.text('Could not refresh operations triage'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
 
       // Verify Quick Actions are still visible
-      expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Add Car'), findsOneWidget);
+      expect(find.text('Operational Quick Actions'), findsOneWidget);
+      expect(find.text('+ Add Vehicle'), findsOneWidget);
     });
   });
 }
+
 
 class MockSessionNotifier extends VendorSessionNotifier {
   final VendorModel _vendor;

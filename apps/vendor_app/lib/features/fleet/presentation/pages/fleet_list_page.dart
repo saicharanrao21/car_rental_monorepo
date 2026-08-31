@@ -140,25 +140,27 @@ class FleetListPage extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '₹${car.pricePerDay.toStringAsFixed(0)}/d',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.accent),
+                      Expanded(
+                        child: Text(
+                          '₹${car.pricePerDay.toStringAsFixed(0)}/d',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.accent),
+                        ),
                       ),
                       // Availability toggle
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Switch(
-                            value: car.isAvailable,
-                            activeThumbColor: Colors.white,
-                            activeTrackColor: Colors.green,
-                            inactiveThumbColor: Colors.white,
-                            inactiveTrackColor: Colors.red[200],
-                            onChanged: (val) {
-                              ref.read(fleetControllerProvider.notifier).toggleAvailability(car.id, val);
-                            },
-                          ),
-                        ],
+                      Transform.scale(
+                        scale: 0.75,
+                        child: Switch(
+                          value: car.isAvailable,
+                          activeThumbColor: Colors.white,
+                          activeTrackColor: Colors.green,
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: Colors.red[200],
+                          onChanged: (val) {
+                            ref.read(fleetControllerProvider.notifier).toggleAvailability(car.id, val);
+                          },
+                        ),
                       ),
                     ],
                   ),

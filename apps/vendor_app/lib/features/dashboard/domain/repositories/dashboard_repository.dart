@@ -1,4 +1,5 @@
 import 'package:models/models.dart';
+import '../models/operations_models.dart';
 
 class DashboardStats {
   final int todaysBookings;
@@ -20,4 +21,10 @@ abstract class DashboardRepository {
   Future<DashboardStats> getStats(String vendorId);
   Future<List<BookingModel>> getLatestBookingRequests(String vendorId, {int limit = 3});
   Future<void> respondToBooking(String bookingId, bool accept);
+  Future<List<TriageItem>> getOperationsTriage(String vendorId);
+  Future<List<TodayTimelineItem>> getTodayOperations(String vendorId);
+  Future<BookingMatrix> getBookingMatrix(String vendorId);
+  Future<FleetSummary> getFleetSummary(String vendorId);
+  Future<EarningsSnapshot> getEarningsSnapshot(String vendorId);
 }
+
