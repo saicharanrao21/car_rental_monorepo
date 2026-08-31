@@ -24,29 +24,21 @@ class BookingStickyBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(
+        color: DDSColors.surfaceCard,
+        border: const Border(
           top: BorderSide(
-            color: cs.outlineVariant.withValues(alpha: 0.35),
+            color: DDSColors.borderLight,
             width: 1,
           ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        boxShadow: DDSElevation.floatingShadow,
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
           child: Row(
             children: [
               // Total Fare Column
@@ -54,7 +46,7 @@ class BookingStickyBottomBar extends StatelessWidget {
                 flex: 4,
                 child: InkWell(
                   onTap: onBreakdownPressed,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: DDSRadius.smallBorderRadius,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Column(
@@ -66,18 +58,16 @@ class BookingStickyBottomBar extends StatelessWidget {
                           children: [
                             Text(
                               'Total Payable',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurfaceVariant,
+                              style: DDSTypography.labelSmall.copyWith(
+                                color: DDSColors.textMuted,
                               ),
                             ),
                             if (onBreakdownPressed != null) ...[
                               const Gap(3),
-                              Icon(
+                              const Icon(
                                 Icons.info_outline,
                                 size: 13,
-                                color: cs.onSurfaceVariant,
+                                color: DDSColors.textMuted,
                               ),
                             ],
                           ],
@@ -86,10 +76,9 @@ class BookingStickyBottomBar extends StatelessWidget {
                         Text(
                           IndianCurrencyFormatter.format(totalAmount,
                               showDecimals: false),
-                          style: TextStyle(
-                            fontSize: 18,
+                          style: DDSTypography.titleMedium.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: cs.onSurface,
+                            color: DDSColors.textPrimary,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -98,7 +87,7 @@ class BookingStickyBottomBar extends StatelessWidget {
                   ),
                 ),
               ),
-              const Gap(10),
+              const Gap(DDSSpacing.sm),
 
               // Back Button (if enabled)
               if (showBackButton && onBackPressed != null) ...[
@@ -109,19 +98,19 @@ class BookingStickyBottomBar extends StatelessWidget {
                         horizontal: 14, vertical: 12),
                     minimumSize: const Size(44, 46),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: DDSRadius.mediumBorderRadius,
                     ),
-                    side: BorderSide(
-                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    side: const BorderSide(
+                      color: DDSColors.borderMedium,
                     ),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.arrow_back,
                     size: 18,
-                    color: cs.onSurface,
+                    color: DDSColors.textPrimary,
                   ),
                 ),
-                const Gap(8),
+                const Gap(DDSSpacing.xs),
               ],
 
               // Primary Action CTA
@@ -132,11 +121,11 @@ class BookingStickyBottomBar extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: isLoading ? null : onPrimaryPressed,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: DDSColors.primaryBlue,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: DDSRadius.mediumBorderRadius,
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                     ),
@@ -151,9 +140,9 @@ class BookingStickyBottomBar extends StatelessWidget {
                           )
                         : Text(
                             primaryButtonText,
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: DDSTypography.titleMedium.copyWith(
                               fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

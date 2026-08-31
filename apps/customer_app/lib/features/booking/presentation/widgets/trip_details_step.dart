@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 import 'booking_trip_schedule_card.dart';
@@ -53,30 +54,28 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(DDSSpacing.md, DDSSpacing.md, DDSSpacing.md, DDSSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'Confirm your trip schedule and locations. Your search preferences have been pre-filled below.',
-            style: TextStyle(
-              fontSize: 12,
-              color: cs.onSurfaceVariant,
+            style: DDSTypography.bodyMedium.copyWith(
+              color: DDSColors.textSecondary,
               height: 1.4,
+              fontSize: 12,
             ),
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Trip Schedule & Location Card ─────────────────────────
           BookingTripScheduleCard(
             car: widget.car,
             vendor: widget.vendor,
           ),
-          const Gap(16),
+          const Gap(DDSSpacing.md),
 
           // ── Mileage Package Selector (or Distance fallback) ─────────
           BookingMileagePackageSelector(

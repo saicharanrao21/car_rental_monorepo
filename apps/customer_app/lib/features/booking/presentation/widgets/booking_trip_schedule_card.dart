@@ -49,64 +49,55 @@ class BookingTripScheduleCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(bookingDraftProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ── Vehicle Header Card ─────────────────────────────────────
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(DDSSpacing.md),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.35),
+            color: DDSColors.surfaceCard,
+            borderRadius: DDSRadius.largeBorderRadius,
+            border: const Border.fromBorderSide(
+              BorderSide(color: DDSColors.borderLight),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: DDSElevation.cardShadow,
           ),
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: DDSRadius.mediumBorderRadius,
                 child: car.photos.isNotEmpty
                     ? Image.network(
                         car.photos.first,
                         width: 88,
                         height: 68,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _carPlaceholder(cs),
+                        errorBuilder: (_, __, ___) => _carPlaceholder(),
                       )
-                    : _carPlaceholder(cs),
+                    : _carPlaceholder(),
               ),
-              const Gap(14),
+              const Gap(DDSSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '${car.make} ${car.model} (${car.year})',
-                      style: TextStyle(
-                        fontSize: 15,
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
+                        color: DDSColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Gap(3),
+                    const Gap(2),
                     Text(
                       vendor.businessName,
-                      style: TextStyle(
+                      style: DDSTypography.bodyMedium.copyWith(
+                        color: DDSColors.textMuted,
                         fontSize: 12,
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const Gap(6),
@@ -114,9 +105,9 @@ class BookingTripScheduleCard extends ConsumerWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _featureBadge(car.type, cs),
-                        _featureBadge(car.isAC ? 'AC' : 'Non-AC', cs),
-                        _featureBadge(car.fuelType, cs),
+                        _featureBadge(car.type),
+                        _featureBadge(car.isAC ? 'AC' : 'Non-AC'),
+                        _featureBadge(car.fuelType),
                       ],
                     ),
                   ],
@@ -125,33 +116,33 @@ class BookingTripScheduleCard extends ConsumerWidget {
             ],
           ),
         ),
-        const Gap(14),
+        const Gap(DDSSpacing.sm),
 
         // ── Immutable Service / Trip Type Badge ──────────────────────
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(14),
+            color: DDSColors.infoBlueBg,
+            borderRadius: DDSRadius.mediumBorderRadius,
             border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.18),
+              color: DDSColors.primaryBlue.withValues(alpha: 0.2),
             ),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(DDSSpacing.xs),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: DDSColors.primaryBlue.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _getServiceIcon(draft.tripType),
-                  color: AppColors.primary,
+                  color: DDSColors.primaryBlue,
                   size: 20,
                 ),
               ),
-              const Gap(12),
+              const Gap(DDSSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,28 +152,26 @@ class BookingTripScheduleCard extends ConsumerWidget {
                         Flexible(
                           child: Text(
                             'Service: ${draft.tripType}',
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: DDSTypography.titleMedium.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                              color: DDSColors.primaryBlue,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Gap(8),
+                        const Gap(DDSSpacing.xs),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(4),
+                            color: DDSColors.primaryBlue,
+                            borderRadius: DDSRadius.smallBorderRadius,
                           ),
-                          child: const Text(
+                          child: Text(
                             'Selected',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                            style: DDSTypography.labelSmall.copyWith(
                               color: Colors.white,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -191,9 +180,9 @@ class BookingTripScheduleCard extends ConsumerWidget {
                     const Gap(2),
                     Text(
                       _getServiceSubtitle(draft.tripType),
-                      style: TextStyle(
+                      style: DDSTypography.bodyMedium.copyWith(
+                        color: DDSColors.textSecondary,
                         fontSize: 11,
-                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -202,41 +191,41 @@ class BookingTripScheduleCard extends ConsumerWidget {
             ],
           ),
         ),
-        const Gap(14),
+        const Gap(DDSSpacing.sm),
 
         // ── Schedule & Locations Card ────────────────────────────────
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DDSSpacing.md),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.35),
+            color: DDSColors.surfaceCard,
+            borderRadius: DDSRadius.largeBorderRadius,
+            border: const Border.fromBorderSide(
+              BorderSide(color: DDSColors.borderLight),
             ),
+            boxShadow: DDSElevation.cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Trip Schedule & Locations',
-                style: TextStyle(
-                  fontSize: 14,
+                style: DDSTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
+                  color: DDSColors.textPrimary,
                 ),
               ),
-              const Gap(12),
-              Divider(
+              const Gap(DDSSpacing.sm),
+              const Divider(
                 height: 1,
-                color: cs.outlineVariant.withValues(alpha: 0.25),
+                color: DDSColors.borderLight,
               ),
-              const Gap(12),
+              const Gap(DDSSpacing.sm),
 
               // Pickup Location
               _locationTile(
                 context,
                 icon: Icons.location_on_outlined,
-                iconColor: AppColors.primary,
+                iconColor: DDSColors.primaryBlue,
                 label: 'Pickup',
                 value: draft.pickupLocation.isEmpty
                     ? 'Not specified'
@@ -256,14 +245,14 @@ class BookingTripScheduleCard extends ConsumerWidget {
                   );
                 },
               ),
-              const Gap(12),
+              const Gap(DDSSpacing.sm),
 
               // Drop / Destination Location (if applicable)
               if (draft.tripType != 'Local') ...[
                 _locationTile(
                   context,
                   icon: Icons.flag_outlined,
-                  iconColor: Colors.deepOrange,
+                  iconColor: DDSColors.warningOrange,
                   label: draft.tripType == 'Outstation' ? 'Destination' : 'Drop',
                   value: draft.dropLocation.isEmpty
                       ? 'Not specified'
@@ -286,14 +275,14 @@ class BookingTripScheduleCard extends ConsumerWidget {
                     );
                   },
                 ),
-                const Gap(12),
+                const Gap(DDSSpacing.sm),
               ],
 
               // Rental Dates
               _locationTile(
                 context,
                 icon: Icons.calendar_today_outlined,
-                iconColor: AppColors.accent,
+                iconColor: DDSColors.accentAmber,
                 label: 'Dates',
                 value: draft.startDate != null && draft.endDate != null
                     ? '${draft.startDate!.toDDMMYYYY()} → ${draft.endDate!.toDDMMYYYY()}'
@@ -323,39 +312,39 @@ class BookingTripScheduleCard extends ConsumerWidget {
                   }
                 },
               ),
-              const Gap(12),
+              const Gap(DDSSpacing.sm),
 
               // Duration & Chauffeur Rows
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(DDSSpacing.sm),
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(10),
+                  color: DDSColors.surfaceSubtle,
+                  borderRadius: DDSRadius.mediumBorderRadius,
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.nights_stay_outlined,
                             size: 16,
-                            color: cs.onSurfaceVariant,
+                            color: DDSColors.textSecondary,
                           ),
                           const Gap(6),
                           Text(
                             'Duration: ',
-                            style: TextStyle(
+                            style: DDSTypography.bodyMedium.copyWith(
+                              color: DDSColors.textSecondary,
                               fontSize: 12,
-                              color: cs.onSurfaceVariant,
                             ),
                           ),
                           Text(
                             '${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}',
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: DDSTypography.bodyMedium.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
+                              color: DDSColors.textPrimary,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -364,10 +353,10 @@ class BookingTripScheduleCard extends ConsumerWidget {
                     Expanded(
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.person_pin_outlined,
                             size: 16,
-                            color: cs.onSurfaceVariant,
+                            color: DDSColors.textSecondary,
                           ),
                           const Gap(6),
                           Expanded(
@@ -375,10 +364,10 @@ class BookingTripScheduleCard extends ConsumerWidget {
                               draft.driverIncluded
                                   ? 'Chauffeur Included'
                                   : 'Self-Drive (No Chauffeur)',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: DDSTypography.bodyMedium.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: cs.onSurface,
+                                color: DDSColors.textPrimary,
+                                fontSize: 12,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -405,18 +394,16 @@ class BookingTripScheduleCard extends ConsumerWidget {
     required bool isPlaceholder,
     required VoidCallback onTap,
   }) {
-    final cs = Theme.of(context).colorScheme;
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: DDSRadius.mediumBorderRadius,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.sm, vertical: DDSSpacing.xs),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.2),
+          color: DDSColors.surfaceSubtle,
+          borderRadius: DDSRadius.mediumBorderRadius,
+          border: const Border.fromBorderSide(
+            BorderSide(color: DDSColors.borderLight),
           ),
         ),
         child: Row(
@@ -429,28 +416,26 @@ class BookingTripScheduleCard extends ConsumerWidget {
               ),
               child: Icon(icon, size: 16, color: iconColor),
             ),
-            const Gap(10),
+            const Gap(DDSSpacing.xs),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: DDSTypography.labelSmall.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
+                      color: DDSColors.textMuted,
                     ),
                   ),
                   const Gap(1),
                   Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: DDSTypography.bodyMedium.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isPlaceholder
-                          ? cs.onSurfaceVariant
-                          : cs.onSurface,
+                          ? DDSColors.textMuted
+                          : DDSColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -462,10 +447,10 @@ class BookingTripScheduleCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                color: DDSColors.surfaceCard,
+                borderRadius: DDSRadius.smallBorderRadius,
+                border: const Border.fromBorderSide(
+                  BorderSide(color: DDSColors.borderMedium),
                 ),
               ),
               child: Row(
@@ -473,17 +458,16 @@ class BookingTripScheduleCard extends ConsumerWidget {
                 children: [
                   Text(
                     'Change',
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: DDSTypography.labelSmall.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: cs.primary,
+                      color: DDSColors.primaryBlue,
                     ),
                   ),
                   const Gap(2),
-                  Icon(
+                  const Icon(
                     Icons.edit_outlined,
                     size: 11,
-                    color: cs.primary,
+                    color: DDSColors.primaryBlue,
                   ),
                 ],
               ),
@@ -494,33 +478,33 @@ class BookingTripScheduleCard extends ConsumerWidget {
     );
   }
 
-  Widget _featureBadge(String text, ColorScheme cs) {
+  Widget _featureBadge(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
+        color: DDSColors.surfaceSubtle,
+        borderRadius: DDSRadius.smallBorderRadius,
+        border: const Border.fromBorderSide(BorderSide(color: DDSColors.borderLight)),
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 10,
+        style: DDSTypography.labelSmall.copyWith(
           fontWeight: FontWeight.w700,
-          color: cs.onSurfaceVariant,
+          color: DDSColors.textSecondary,
         ),
       ),
     );
   }
 
-  Widget _carPlaceholder(ColorScheme cs) {
+  Widget _carPlaceholder() {
     return Container(
       width: 88,
       height: 68,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: DDSColors.surfaceSubtle,
+        borderRadius: DDSRadius.mediumBorderRadius,
       ),
-      child: Icon(Icons.directions_car, color: cs.outline, size: 28),
+      child: const Icon(Icons.directions_car, color: DDSColors.textMuted, size: 28),
     );
   }
 }

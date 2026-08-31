@@ -232,7 +232,6 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
     final createState = ref.watch(createBookingFlowProvider);
     final isSubmitLoading = createState.isLoading;
     final isProcessing = isSubmitLoading || _isProcessingPayment;
-    final cs = Theme.of(context).colorScheme;
 
     final availableWalletBalance = walletAsync.value?.availableBalance ?? 0.0;
     final isWalletEligible = availableWalletBalance > 0 &&
@@ -249,23 +248,23 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(DDSSpacing.md, DDSSpacing.md, DDSSpacing.md, DDSSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Wallet Payment Selection Section ───────────────────────
-          _buildWalletCard(context, cs, walletAsync, draft.totalFare),
-          const Gap(16),
+          _buildWalletCard(walletAsync, draft.totalFare),
+          const Gap(DDSSpacing.md),
 
           // ── Real Razorpay payment banner (if not full wallet) ─────
           if (!isFullWallet) ...[
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(DDSSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
+                color: DDSColors.infoBlueBg,
+                borderRadius: DDSRadius.largeBorderRadius,
                 border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.18),
+                  color: DDSColors.primaryBlue.withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
@@ -274,28 +273,30 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
+                      color: DDSColors.primaryBlue.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.shield_outlined,
-                      color: AppColors.primary,
+                      color: DDSColors.primaryBlue,
                       size: 20,
                     ),
                   ),
-                  const Gap(12),
+                  const Gap(DDSSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Text(
-                              'Secure checkout powered by Razorpay',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface,
+                            Expanded(
+                              child: Text(
+                                'Secure checkout powered by Razorpay',
+                                style: DDSTypography.titleMedium.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: DDSColors.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (isProcessing) ...[
@@ -305,7 +306,7 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                                 height: 12,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: AppColors.primary,
+                                  color: DDSColors.primaryBlue,
                                 ),
                               ),
                             ],
@@ -314,9 +315,9 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                         const Gap(2),
                         Text(
                           '256-bit encrypted gateway. Your transaction and payment details are safe and tokenized.',
-                          style: TextStyle(
+                          style: DDSTypography.bodyMedium.copyWith(
+                            color: DDSColors.textSecondary,
                             fontSize: 11,
-                            color: cs.onSurfaceVariant,
                             height: 1.3,
                           ),
                         ),
@@ -326,59 +327,57 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                 ],
               ),
             ),
-            const Gap(16),
+            const Gap(DDSSpacing.md),
 
             // ── Payment Methods Selector ──────────────────────────────
             BookingPaymentMethodSelector(
               selectedMethod: _selectedMethod,
               onMethodSelected: (idx) => setState(() => _selectedMethod = idx),
             ),
-            const Gap(16),
+            const Gap(DDSSpacing.md),
           ],
 
           // ── Order Summary Card ────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(DDSSpacing.md),
             decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.35),
+              color: DDSColors.surfaceCard,
+              borderRadius: DDSRadius.largeBorderRadius,
+              border: const Border.fromBorderSide(
+                BorderSide(color: DDSColors.borderLight),
               ),
+              boxShadow: DDSElevation.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Order Summary',
-                  style: TextStyle(
-                    fontSize: 14,
+                  'Order Payment Summary',
+                  style: DDSTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
+                    color: DDSColors.textPrimary,
                   ),
                 ),
-                const Gap(12),
-                Divider(
+                const Gap(DDSSpacing.sm),
+                const Divider(
                   height: 1,
-                  color: cs.outlineVariant.withValues(alpha: 0.25),
+                  color: DDSColors.borderLight,
                 ),
-                const Gap(10),
+                const Gap(DDSSpacing.sm),
                 _summaryRow(
                   'Base Trip Fare',
                   IndianCurrencyFormatter.format(
                     draft.baseFare + draft.platformFee,
                     showDecimals: false,
                   ),
-                  cs,
                 ),
                 const Gap(6),
                 _summaryRow(
-                  'GST (18%)',
+                  'GST (18% Statutory Tax)',
                   IndianCurrencyFormatter.format(
                     draft.gst,
                     showDecimals: false,
                   ),
-                  cs,
                 ),
                 if (draft.protectionFee > 0) ...[
                   const Gap(6),
@@ -388,7 +387,6 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                       draft.protectionFee,
                       showDecimals: false,
                     ),
-                    cs,
                   ),
                 ],
                 if (draft.deliveryFee > 0) ...[
@@ -399,7 +397,6 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                       draft.deliveryFee,
                       showDecimals: false,
                     ),
-                    cs,
                   ),
                 ],
                 if (draft.couponDiscountAmount > 0) ...[
@@ -407,8 +404,7 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                   _summaryRow(
                     'Coupon Savings',
                     '-${IndianCurrencyFormatter.format(draft.couponDiscountAmount, showDecimals: false)}',
-                    cs,
-                    valueColor: Colors.green,
+                    valueColor: DDSColors.successGreen,
                   ),
                 ],
                 if (_useWallet && walletAppliedAmount > 0) ...[
@@ -416,36 +412,37 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                   _summaryRow(
                     'Wallet Applied',
                     '-${IndianCurrencyFormatter.format(walletAppliedAmount, showDecimals: false)}',
-                    cs,
-                    valueColor: Colors.green.shade700,
+                    valueColor: DDSColors.successGreen,
                   ),
                 ],
-                const Gap(10),
-                Divider(
+                const Gap(DDSSpacing.sm),
+                const Divider(
                   height: 1,
-                  color: cs.outlineVariant.withValues(alpha: 0.35),
+                  color: DDSColors.borderLight,
                 ),
-                const Gap(10),
+                const Gap(DDSSpacing.sm),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isFullWallet ? 'Total Paid from Wallet' : 'Amount to Pay',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
+                    Expanded(
+                      child: Text(
+                        isFullWallet ? 'Total Paid from Wallet' : 'Amount to Pay',
+                        style: DDSTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: DDSColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const Gap(8),
                     Text(
                       IndianCurrencyFormatter.format(
                         remainingPayable > 0 ? remainingPayable : walletAppliedAmount,
                         showDecimals: false,
                       ),
-                      style: const TextStyle(
-                        fontSize: 18,
+                      style: DDSTypography.titleLarge.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
+                        color: DDSColors.primaryBlue,
                       ),
                     ),
                   ],
@@ -453,29 +450,29 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
               ],
             ),
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Error Banner ──────────────────────────────────────────
           if (_errorMessage != null)
             Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(DDSSpacing.sm),
+              margin: const EdgeInsets.only(bottom: DDSSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                color: DDSColors.errorRedBg,
+                borderRadius: DDSRadius.mediumBorderRadius,
+                border: Border.all(color: DDSColors.errorRed.withValues(alpha: 0.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, size: 18, color: Colors.red),
-                  const Gap(8),
+                  const Icon(Icons.error_outline, size: 18, color: DDSColors.errorRed),
+                  const Gap(DDSSpacing.xs),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(
+                      style: DDSTypography.bodyMedium.copyWith(
+                        color: DDSColors.errorRed,
                         fontSize: 12,
-                        color: Colors.red,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -490,11 +487,12 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
             child: ElevatedButton(
               onPressed: isProcessing ? null : startPaymentFlow,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: DDSColors.primaryBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: DDSRadius.mediumBorderRadius,
                 ),
+                elevation: 0,
               ),
               child: isProcessing
                   ? const SizedBox(
@@ -509,9 +507,9 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                       isFullWallet
                           ? 'Confirm & Pay with Wallet'
                           : 'Pay ${IndianCurrencyFormatter.format(remainingPayable, showDecimals: false)}',
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
             ),
@@ -522,18 +520,16 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
   }
 
   Widget _buildWalletCard(
-    BuildContext context,
-    ColorScheme cs,
     AsyncValue<WalletModel> walletAsync,
     double totalPayable,
   ) {
     return walletAsync.when(
       loading: () => Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(DDSSpacing.md),
         decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+          color: DDSColors.surfaceCard,
+          borderRadius: DDSRadius.largeBorderRadius,
+          border: const Border.fromBorderSide(BorderSide(color: DDSColors.borderLight)),
         ),
         child: const Center(
           child: SizedBox(
@@ -552,17 +548,18 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
             : 0.0;
 
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(DDSSpacing.md),
           decoration: BoxDecoration(
             color: _useWallet && hasBalance
-                ? AppColors.primary.withValues(alpha: 0.04)
-                : cs.surface,
-            borderRadius: BorderRadius.circular(14),
+                ? DDSColors.infoBlueBg
+                : DDSColors.surfaceCard,
+            borderRadius: DDSRadius.largeBorderRadius,
             border: Border.all(
               color: _useWallet && hasBalance
-                  ? AppColors.primary.withValues(alpha: 0.3)
-                  : cs.outlineVariant.withValues(alpha: 0.35),
+                  ? DDSColors.primaryBlue.withValues(alpha: 0.3)
+                  : DDSColors.borderLight,
             ),
+            boxShadow: DDSElevation.cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,35 +572,34 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.account_balance_wallet_outlined,
-                          color: AppColors.primary,
+                          color: DDSColors.primaryBlue,
                           size: 18,
                         ),
                       ),
-                      const Gap(10),
+                      const Gap(DDSSpacing.xs),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'DriveGo Wallet',
-                            style: TextStyle(
-                              fontSize: 13,
+                            style: DDSTypography.titleMedium.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
+                              color: DDSColors.textPrimary,
                             ),
                           ),
                           Text(
                             'Available: ${IndianCurrencyFormatter.format(available, showDecimals: false)}',
-                            style: TextStyle(
+                            style: DDSTypography.bodyMedium.copyWith(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: hasBalance
-                                  ? Colors.green.shade700
-                                  : cs.onSurfaceVariant,
+                                  ? DDSColors.successGreen
+                                  : DDSColors.textMuted,
                             ),
                           ),
                         ],
@@ -615,23 +611,22 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                     onChanged: hasBalance
                         ? (val) => setState(() => _useWallet = val)
                         : null,
-                    activeTrackColor: AppColors.primary,
+                    activeTrackColor: DDSColors.primaryBlue,
                   ),
                 ],
               ),
               if (_useWallet && hasBalance) ...[
-                const Gap(10),
-                Divider(
+                const Gap(DDSSpacing.sm),
+                const Divider(
                   height: 1,
-                  color: cs.outlineVariant.withValues(alpha: 0.25),
+                  color: DDSColors.borderLight,
                 ),
-                const Gap(8),
+                const Gap(DDSSpacing.xs),
                 if (wallet.promoBalance > 0)
                   _summaryRow(
                     'Promotional Credit',
                     IndianCurrencyFormatter.format(wallet.promoBalance,
                         showDecimals: false),
-                    cs,
                   ),
                 if (wallet.realBalance > 0) ...[
                   const Gap(4),
@@ -639,15 +634,13 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
                     'Wallet Balance',
                     IndianCurrencyFormatter.format(wallet.realBalance,
                         showDecimals: false),
-                    cs,
                   ),
                 ],
                 const Gap(4),
                 _summaryRow(
                   'Applied to Booking',
                   '-${IndianCurrencyFormatter.format(appliedAmount, showDecimals: false)}',
-                  cs,
-                  valueColor: Colors.green.shade700,
+                  valueColor: DDSColors.successGreen,
                 ),
               ],
             ],
@@ -657,25 +650,24 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
     );
   }
 
-  Widget _summaryRow(String label, String value, ColorScheme cs,
-      {Color? valueColor}) {
+  Widget _summaryRow(String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: DDSTypography.bodyMedium.copyWith(
+            color: DDSColors.textSecondary,
             fontSize: 12,
-            color: cs.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: DDSTypography.bodyMedium.copyWith(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: valueColor ?? cs.onSurface,
+            color: valueColor ?? DDSColors.textPrimary,
           ),
         ),
       ],

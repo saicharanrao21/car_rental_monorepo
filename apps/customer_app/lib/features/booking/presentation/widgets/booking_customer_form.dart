@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
+import 'package:ui_kit/ui_kit.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
+import '../../../profile/presentation/pages/kyc_upload_page.dart';
 
 class BookingCustomerForm extends ConsumerStatefulWidget {
   final GlobalKey<FormState> formKey;
@@ -49,7 +51,7 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final kycAsync = ref.watch(kycStatusProvider);
 
     return Form(
       key: widget.formKey,
@@ -58,13 +60,14 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
         children: [
           // ── Contact Details Card ──────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(DDSSpacing.md),
             decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.35),
+              color: DDSColors.surfaceCard,
+              borderRadius: DDSRadius.largeBorderRadius,
+              border: const Border.fromBorderSide(
+                BorderSide(color: DDSColors.borderLight),
               ),
+              boxShadow: DDSElevation.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,50 +77,49 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.person_outline,
-                        color: AppColors.primary,
+                        color: DDSColors.primaryBlue,
                         size: 18,
                       ),
                     ),
-                    const Gap(10),
+                    const Gap(DDSSpacing.xs),
                     Text(
-                      'Primary Contact Details',
-                      style: TextStyle(
+                      'Primary Driver Details',
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: cs.onSurface,
+                        color: DDSColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
                 const Gap(4),
                 Text(
-                  'Trip confirmation and driver handover details will be sent here.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: cs.onSurfaceVariant,
+                  'Trip confirmation and vehicle handover verification are issued to this driver.',
+                  style: DDSTypography.bodyMedium.copyWith(
+                    color: DDSColors.textMuted,
+                    fontSize: 12,
                   ),
                 ),
-                const Gap(16),
+                const Gap(DDSSpacing.md),
 
                 // Name field
                 AppTextField(
-                  label: 'Full Name',
-                  hint: 'Enter your full name as on ID',
+                  label: 'Full Name (as on Driving Licence)',
+                  hint: 'Enter your full legal name',
                   controller: _nameCtrl,
                   prefixIcon: const Icon(
                     Icons.badge_outlined,
-                    color: AppColors.primary,
+                    color: DDSColors.primaryBlue,
                     size: 20,
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                 ),
-                const Gap(14),
+                const Gap(DDSSpacing.md),
 
                 // Phone field
                 AppTextField(
@@ -127,7 +129,7 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
                   keyboardType: TextInputType.phone,
                   prefixIcon: const Icon(
                     Icons.phone_outlined,
-                    color: AppColors.primary,
+                    color: DDSColors.primaryBlue,
                     size: 20,
                   ),
                   validator: (v) {
@@ -143,16 +145,27 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
               ],
             ),
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
-          // ── KYC & License Notice ──────────────────────────────────
+          // ── KYC Status Card ───────────────────────────────────────
+          kycAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => _buildKycCard(status: 'NOT_SUBMITTED'),
+            data: (data) {
+              final status = (data['status'] as String?)?.toUpperCase() ?? 'NOT_SUBMITTED';
+              return _buildKycCard(status: status);
+            },
+          ),
+          const Gap(DDSSpacing.md),
+
+          // ── Handover Requirement Notice ───────────────────────────
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(DDSSpacing.md),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(14),
+              color: DDSColors.infoBlueBg,
+              borderRadius: DDSRadius.largeBorderRadius,
               border: Border.all(
-                color: Colors.blue.withValues(alpha: 0.2),
+                color: DDSColors.primaryBlue.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -160,28 +173,28 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
               children: [
                 const Icon(
                   Icons.verified_user_outlined,
-                  color: Colors.blueAccent,
+                  color: DDSColors.primaryBlue,
                   size: 20,
                 ),
-                const Gap(10),
+                const Gap(DDSSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Document Verification at Handover',
-                        style: TextStyle(
+                      Text(
+                        'Document Inspection at Handover',
+                        style: DDSTypography.titleMedium.copyWith(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Colors.blueAccent,
+                          color: DDSColors.primaryBlue,
                         ),
                       ),
                       const Gap(2),
                       Text(
-                        'Please carry your original Driving Licence and Aadhaar/Passport during vehicle handover.',
-                        style: TextStyle(
+                        'Please carry your original physical Driving Licence and Aadhaar/Passport during vehicle pickup.',
+                        style: DDSTypography.bodyMedium.copyWith(
                           fontSize: 11,
-                          color: cs.onSurfaceVariant,
+                          color: DDSColors.textSecondary,
                           height: 1.3,
                         ),
                       ),
@@ -191,6 +204,119 @@ class _BookingCustomerFormState extends ConsumerState<BookingCustomerForm> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKycCard({required String status}) {
+    Color badgeBg;
+    Color badgeFg;
+    String badgeText;
+    IconData icon;
+    String description;
+    bool showAction = false;
+
+    switch (status) {
+      case 'APPROVED':
+        badgeBg = DDSColors.successGreenBg;
+        badgeFg = DDSColors.successGreen;
+        badgeText = 'VERIFIED';
+        icon = Icons.check_circle_outline;
+        description = 'Driving licence verified. Ready for seamless vehicle handover.';
+        break;
+      case 'PENDING':
+        badgeBg = DDSColors.warningOrangeBg;
+        badgeFg = DDSColors.warningOrange;
+        badgeText = 'UNDER REVIEW';
+        icon = Icons.hourglass_top_outlined;
+        description = 'Documents uploaded and currently under verification by operations team.';
+        break;
+      case 'REJECTED':
+        badgeBg = DDSColors.errorRedBg;
+        badgeFg = DDSColors.errorRed;
+        badgeText = 'ACTION REQUIRED';
+        icon = Icons.error_outline;
+        description = 'Document verification failed. Please re-upload clear photos of your Driving Licence.';
+        showAction = true;
+        break;
+      default:
+        badgeBg = DDSColors.warningOrangeBg;
+        badgeFg = DDSColors.warningOrange;
+        badgeText = 'PENDING UPLOAD';
+        icon = Icons.info_outline;
+        description = 'Upload your Driving Licence now to expedite vehicle pickup.';
+        showAction = true;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(DDSSpacing.md),
+      decoration: BoxDecoration(
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: const Border.fromBorderSide(
+          BorderSide(color: DDSColors.borderLight),
+        ),
+        boxShadow: DDSElevation.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 18, color: badgeFg),
+                  const Gap(DDSSpacing.xs),
+                  Text(
+                    'Driver KYC Status',
+                    style: DDSTypography.titleMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: DDSColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: DDSRadius.smallBorderRadius,
+                ),
+                child: Text(
+                  badgeText,
+                  style: DDSTypography.labelSmall.copyWith(
+                    color: badgeFg,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Gap(DDSSpacing.xs),
+          Text(
+            description,
+            style: DDSTypography.bodyMedium.copyWith(
+              color: DDSColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          if (showAction) ...[
+            const Gap(DDSSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/kyc/upload'),
+              icon: const Icon(Icons.upload_file, size: 16),
+              label: const Text('Upload Driving Licence'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 38),
+                shape: RoundedRectangleBorder(
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

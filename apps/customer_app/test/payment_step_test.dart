@@ -200,24 +200,11 @@ void main() {
     await tester.ensureVisible(payButtonFinder);
     await tester.pumpAndSettle();
 
-    // Run async interactions in runAsync block to allow actual Futures to resolve
-    await tester.runAsync(() async {
-      await tester.tap(payButtonFinder);
-      // Give enough time for the Dio interceptors and futures to process
-      await Future.delayed(const Duration(milliseconds: 300));
-    });
-
-    // Re-pump widget to propagate state updates to UI (using pump rather than pumpAndSettle to avoid loader timeouts)
+    // Tap pay button
+    await tester.tap(payButtonFinder);
     await tester.pump();
-
-    // Print error banner text for debugging
-    final errorTextFinder = find.byType(Text);
-    for (final element in errorTextFinder.evaluate()) {
-      final widget = element.widget as Text;
-      if (widget.data != null) {
-        debugPrint('Found text in widget tree: "${widget.data}"');
-      }
-    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
 
     // Verify platform error message is shown
     expect(

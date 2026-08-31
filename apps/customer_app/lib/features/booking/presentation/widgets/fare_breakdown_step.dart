@@ -97,7 +97,6 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
     final repo = ref.watch(bookingRepositoryProvider);
-    final cs = Theme.of(context).colorScheme;
 
     final rentalDays = draft.rentalDays;
     double discountPercent = 0.0;
@@ -127,7 +126,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
     final discountAmount = originalRentalFare * (discountPercent / 100.0);
     final actualBasePackagePrice = originalRentalFare - discountAmount;
 
-    // Compute fare on every relevant change
+    // Authoritative calculations
     final config = repo.getCommissionConfig(
       city: widget.vendor.city,
       carCategory: widget.car.type,
@@ -154,36 +153,37 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(DDSSpacing.md, DDSSpacing.md, DDSSpacing.md, DDSSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'Review your complete booking summary, apply coupons, and inspect the price breakdown.',
-            style: TextStyle(
-              fontSize: 12,
-              color: cs.onSurfaceVariant,
+            style: DDSTypography.bodyMedium.copyWith(
+              color: DDSColors.textSecondary,
               height: 1.4,
+              fontSize: 12,
             ),
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Booking Review Summary Card ───────────────────────────
           BookingReviewSummaryCard(
             car: widget.car,
             vendor: widget.vendor,
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Coupon / Promo Code Card ──────────────────────────────
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(DDSSpacing.md),
             decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.35),
+              color: DDSColors.surfaceCard,
+              borderRadius: DDSRadius.largeBorderRadius,
+              border: const Border.fromBorderSide(
+                BorderSide(color: DDSColors.borderLight),
               ),
+              boxShadow: DDSElevation.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,63 +193,62 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.local_offer_outlined,
                         size: 16,
-                        color: AppColors.primary,
+                        color: DDSColors.primaryBlue,
                       ),
                     ),
-                    const Gap(8),
+                    const Gap(DDSSpacing.xs),
                     Text(
                       'Promo Code / Coupon',
-                      style: TextStyle(
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: cs.onSurface,
+                        color: DDSColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
-                const Gap(10),
+                const Gap(DDSSpacing.sm),
                 if (draft.appliedCouponCode != null &&
                     draft.appliedCouponCode!.isNotEmpty)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: DDSSpacing.sm, vertical: DDSSpacing.xs),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      color: DDSColors.successGreenBg,
+                      borderRadius: DDSRadius.mediumBorderRadius,
                       border: Border.all(
-                        color: Colors.green.withValues(alpha: 0.3),
+                        color: DDSColors.successGreen.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.check_circle,
-                          color: Colors.green,
+                          color: DDSColors.successGreen,
                           size: 18,
                         ),
-                        const Gap(8),
+                        const Gap(DDSSpacing.xs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Code: ${draft.appliedCouponCode}',
-                                style: const TextStyle(
+                                style: DDSTypography.titleMedium.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.green,
+                                  color: DDSColors.successGreen,
                                   fontSize: 13,
                                 ),
                               ),
                               Text(
                                 'You save ₹${draft.couponDiscountAmount.toInt()}',
-                                style: const TextStyle(
-                                  color: Colors.green,
+                                style: DDSTypography.bodyMedium.copyWith(
+                                  color: DDSColors.successGreen,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -259,7 +258,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close,
-                              size: 18, color: Colors.red),
+                              size: 18, color: DDSColors.errorRed),
                           onPressed: _removeCoupon,
                           tooltip: 'Remove Coupon',
                           padding: EdgeInsets.zero,
@@ -275,27 +274,27 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                         child: TextField(
                           controller: _couponController,
                           textCapitalization: TextCapitalization.characters,
-                          style: TextStyle(fontSize: 13, color: cs.onSurface),
+                          style: DDSTypography.bodyMedium,
                           decoration: InputDecoration(
                             hintText: 'Enter promo code',
-                            hintStyle: TextStyle(
+                            hintStyle: DDSTypography.bodyMedium.copyWith(
+                              color: DDSColors.textMuted,
                               fontSize: 12,
-                              color: cs.onSurfaceVariant,
                             ),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: cs.outlineVariant.withValues(alpha: 0.4),
+                              borderRadius: DDSRadius.mediumBorderRadius,
+                              borderSide: const BorderSide(
+                                color: DDSColors.borderMedium,
                               ),
                             ),
                             errorText: _errorMessage,
                           ),
                         ),
                       ),
-                      const Gap(8),
+                      const Gap(DDSSpacing.xs),
                       SizedBox(
                         height: 40,
                         child: ElevatedButton(
@@ -303,10 +302,10 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                               ? null
                               : () => _applyCoupon(result.total),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
+                            backgroundColor: DDSColors.primaryBlue,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: DDSRadius.mediumBorderRadius,
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
@@ -319,11 +318,12 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   'Apply',
-                                  style: TextStyle(
+                                  style: DDSTypography.labelSmall.copyWith(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
+                                    color: Colors.white,
                                   ),
                                 ),
                         ),
@@ -333,7 +333,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
               ],
             ),
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Referral Reward Eligibility Banner ────────────────────
           ref.watch(refereeEligibilityProvider).when(
@@ -349,38 +349,38 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                   if (!isEligible) return const SizedBox.shrink();
 
                   return Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(DDSSpacing.sm),
+                    margin: const EdgeInsets.only(bottom: DDSSpacing.md),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3E5F5),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFCE93D8)),
+                      color: DDSColors.accentAmber.withValues(alpha: 0.12),
+                      borderRadius: DDSRadius.largeBorderRadius,
+                      border: Border.all(color: DDSColors.accentAmber.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.card_giftcard,
-                          color: Color(0xFF8E24AA),
+                          color: DDSColors.accentAmber,
                           size: 22,
                         ),
-                        const Gap(10),
+                        const Gap(DDSSpacing.xs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Referral Reward (₹${discount.toInt()} Off)',
-                                style: const TextStyle(
+                                'First-Booking Referral Reward (₹${discount.toInt()} Off)',
+                                style: DDSTypography.titleMedium.copyWith(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
-                                  color: Color(0xFF6A1B9A),
+                                  color: DDSColors.textPrimary,
                                 ),
                               ),
                               Text(
                                 '₹${discount.toInt()} discount on qualifying bookings (min. ₹${minBooking.toInt()})',
-                                style: const TextStyle(
+                                style: DDSTypography.bodyMedium.copyWith(
                                   fontSize: 11,
-                                  color: Colors.black87,
+                                  color: DDSColors.textSecondary,
                                 ),
                               ),
                             ],
@@ -390,13 +390,13 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8E24AA),
-                            borderRadius: BorderRadius.circular(6),
+                            color: DDSColors.accentAmber,
+                            borderRadius: DDSRadius.smallBorderRadius,
                           ),
-                          child: const Text(
-                            'APPLIED',
-                            style: TextStyle(
-                              color: Colors.white,
+                          child: Text(
+                            'ELIGIBLE',
+                            style: DDSTypography.labelSmall.copyWith(
+                              color: Colors.black,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
@@ -410,6 +410,48 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                 error: (_, __) => const SizedBox.shrink(),
               ),
 
+          // ── Security Deposit Info Banner ───────────────────────────
+          Container(
+            padding: const EdgeInsets.all(DDSSpacing.md),
+            margin: const EdgeInsets.only(bottom: DDSSpacing.md),
+            decoration: BoxDecoration(
+              color: DDSColors.infoBlueBg,
+              borderRadius: DDSRadius.largeBorderRadius,
+              border: Border.all(color: DDSColors.primaryBlue.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.shield_outlined, color: DDSColors.primaryBlue, size: 20),
+                const Gap(DDSSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '100% Refundable Security Deposit',
+                        style: DDSTypography.titleMedium.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: DDSColors.primaryBlue,
+                        ),
+                      ),
+                      const Gap(2),
+                      Text(
+                        'Security deposit is held securely during your rental and automatically initiated for refund within 48 hours of vehicle return inspection.',
+                        style: DDSTypography.bodyMedium.copyWith(
+                          fontSize: 11,
+                          color: DDSColors.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // ── Price Breakdown Card ───────────────────────────────────
           BookingPriceBreakdownCard(
             car: widget.car,
@@ -422,27 +464,27 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
             finalPayable: finalPayable,
             config: config,
           ),
-          const Gap(14),
+          const Gap(DDSSpacing.md),
 
           // ── Transparent Pricing Assurance ──────────────────────────
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(DDSSpacing.sm),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+              color: DDSColors.successGreenBg,
+              borderRadius: DDSRadius.mediumBorderRadius,
+              border: Border.all(color: DDSColors.successGreen.withValues(alpha: 0.25)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.verified_outlined, color: Colors.green, size: 18),
-                Gap(8),
+                const Icon(Icons.verified_outlined, color: DDSColors.successGreen, size: 18),
+                const Gap(DDSSpacing.xs),
                 Expanded(
                   child: Text(
                     'Transparent pricing with zero hidden charges. Fare locked at booking confirmation.',
-                    style: TextStyle(
+                    style: DDSTypography.bodyMedium.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.green,
+                      color: DDSColors.successGreen,
                     ),
                   ),
                 ),

@@ -14,20 +14,19 @@ class BookingProgressIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final total = stepTitles.length;
 
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
+      decoration: const BoxDecoration(
+        color: DDSColors.surfaceCard,
         border: Border(
           bottom: BorderSide(
-            color: cs.outlineVariant.withValues(alpha: 0.3),
+            color: DDSColors.borderLight,
             width: 1,
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -36,40 +35,40 @@ class BookingProgressIndicator extends StatelessWidget {
               final isPassed = i < currentStep;
               final isCurrent = i == currentStep;
               return Expanded(
-                child: Container(
+                child: AnimatedContainer(
+                  duration: DDSMotion.fast,
+                  curve: DDSMotion.standardCurve,
                   height: 4,
-                  margin: EdgeInsets.only(right: i < total - 1 ? 6 : 0),
+                  margin: EdgeInsets.only(right: i < total - 1 ? DDSSpacing.xxs : 0),
                   decoration: BoxDecoration(
                     color: isPassed
-                        ? AppColors.primary
+                        ? DDSColors.successGreen
                         : isCurrent
-                            ? AppColors.accent
-                            : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(2),
+                            ? DDSColors.primaryBlue
+                            : DDSColors.surfaceSubtle,
+                    borderRadius: DDSRadius.pillBorderRadius,
                   ),
                 ),
               );
             }),
           ),
-          const Gap(8),
+          const Gap(DDSSpacing.xs),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Step ${currentStep + 1} of $total: ${stepTitles[currentStep]}',
-                style: TextStyle(
-                  fontSize: 12,
+                style: DDSTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
+                  fontSize: 13,
+                  color: DDSColors.textPrimary,
                 ),
               ),
               if (currentStep < total - 1)
                 Text(
                   'Next: ${stepTitles[currentStep + 1]}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurfaceVariant,
+                  style: DDSTypography.labelSmall.copyWith(
+                    color: DDSColors.textMuted,
                   ),
                 ),
             ],

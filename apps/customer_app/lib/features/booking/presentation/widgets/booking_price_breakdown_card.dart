@@ -32,17 +32,17 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(bookingDraftProvider);
-    final cs = Theme.of(context).colorScheme;
     final tripFare = result.baseFare + result.platformFee;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DDSSpacing.md),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.35),
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: const Border.fromBorderSide(
+          BorderSide(color: DDSColors.borderLight),
         ),
+        boxShadow: DDSElevation.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,31 +50,34 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Price Breakdown',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
+              Expanded(
+                child: Text(
+                  'Price Breakdown',
+                  style: DDSTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: DDSColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const Gap(8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  color: DDSColors.successGreenBg,
+                  borderRadius: DDSRadius.smallBorderRadius,
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_outline, size: 12, color: Colors.green),
-                    Gap(4),
+                    const Icon(Icons.lock_outline, size: 12, color: DDSColors.successGreen),
+                    const Gap(4),
                     Text(
                       'Price Locked',
-                      style: TextStyle(
+                      style: DDSTypography.labelSmall.copyWith(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green,
+                        color: DDSColors.successGreen,
                       ),
                     ),
                   ],
@@ -82,22 +85,21 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
               ),
             ],
           ),
-          const Gap(12),
-          Divider(
+          const Gap(DDSSpacing.sm),
+          const Divider(
             height: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.25),
+            color: DDSColors.borderLight,
           ),
-          const Gap(10),
+          const Gap(DDSSpacing.sm),
 
           // Trip Fare
-          _row(context, 'Base Trip Fare', tripFare, bold: true),
+          _row('Base Trip Fare', tripFare, bold: true),
 
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
             child: Column(
               children: [
                 _subRow(
-                  context,
                   draft.selectedMileagePackage != null
                       ? 'Package: ${draft.selectedMileagePackage!.name} (${draft.rentalDays}d × ₹${draft.selectedMileagePackage!.basePricePerDay.toInt()}/d)'
                       : 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
@@ -105,7 +107,6 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
                 ),
                 if (draft.selectedMileagePackage == null)
                   _subRow(
-                    context,
                     'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
                     car.pricePerKm * draft.estimatedDistanceKm,
                   ),
@@ -119,33 +120,37 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+                color: DDSColors.successGreenBg,
+                borderRadius: DDSRadius.mediumBorderRadius,
+                border: Border.all(color: DDSColors.successGreen.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.local_offer, size: 14, color: Colors.green),
-                      const Gap(6),
-                      Text(
-                        discountLabel,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.green,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.local_offer, size: 14, color: DDSColors.successGreen),
+                        const Gap(6),
+                        Expanded(
+                          child: Text(
+                            discountLabel,
+                            style: DDSTypography.labelSmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: DDSColors.successGreen,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const Gap(8),
                   Text(
                     '-${IndianCurrencyFormatter.format(discountAmount, showDecimals: false)}',
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: DDSTypography.labelSmall.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: Colors.green,
+                      color: DDSColors.successGreen,
                     ),
                   ),
                 ],
@@ -153,14 +158,13 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
             ),
           ],
 
-          const Gap(8),
-          _row(context, 'GST (18%)', result.gst),
+          const Gap(6),
+          _row('GST (18% Statutory Tax)', result.gst),
 
           // Protection Package
           if (draft.protectionFee > 0) ...[
             const Gap(6),
             _row(
-              context,
               'Protection Package (${draft.selectedProtectionPackageId == "zero_dep_tier" ? "Premium" : "Standard"})',
               draft.protectionFee,
             ),
@@ -169,19 +173,19 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           // Doorstep Delivery
           if (draft.deliveryFee > 0) ...[
             const Gap(6),
-            _row(context, 'Doorstep Delivery', draft.deliveryFee),
+            _row('Doorstep Delivery', draft.deliveryFee),
           ],
 
           // Doorstep Pickup
           if (draft.returnPickupFee > 0) ...[
             const Gap(6),
-            _row(context, 'Doorstep Return Pickup', draft.returnPickupFee),
+            _row('Doorstep Return Pickup', draft.returnPickupFee),
           ],
 
           // Additional Driver
           if (draft.additionalDriverFee > 0) ...[
             const Gap(6),
-            _row(context, 'Additional Driver', draft.additionalDriverFee),
+            _row('Additional Driver', draft.additionalDriverFee),
           ],
 
           // Coupon Discount
@@ -190,41 +194,44 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Coupon Discount (${draft.appliedCouponCode})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.green,
+                Expanded(
+                  child: Text(
+                    'Coupon Discount (${draft.appliedCouponCode})',
+                    style: DDSTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: DDSColors.successGreen,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const Gap(8),
                 Text(
                   '-${IndianCurrencyFormatter.format(draft.couponDiscountAmount, showDecimals: false)}',
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: DDSTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: Colors.green,
+                    color: DDSColors.successGreen,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
           ],
 
-          const Gap(10),
-          Divider(
+          const Gap(DDSSpacing.sm),
+          const Divider(
             height: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.35),
+            color: DDSColors.borderLight,
           ),
-          const Gap(10),
+          const Gap(DDSSpacing.sm),
 
-          // Total Payable
+          // Total Rental Charges
           _row(
-            context,
-            'Total Payable',
+            'Total Payable Amount',
             finalPayable,
             bold: true,
-            color: AppColors.primary,
-            fontSize: 16,
+            color: DDSColors.primaryBlue,
+            fontSize: 15,
           ),
         ],
       ),
@@ -232,14 +239,12 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
   }
 
   Widget _row(
-    BuildContext context,
     String label,
     double amount, {
     bool bold = false,
     Color? color,
     double fontSize = 13,
   }) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -248,19 +253,19 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: DDSTypography.bodyMedium.copyWith(
                 fontSize: fontSize,
                 fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-                color: color ?? cs.onSurface,
+                color: color ?? DDSColors.textPrimary,
               ),
             ),
           ),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(
+            style: DDSTypography.bodyMedium.copyWith(
               fontSize: fontSize,
               fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-              color: color ?? cs.onSurface,
+              color: color ?? DDSColors.textPrimary,
             ),
           ),
         ],
@@ -268,8 +273,7 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
     );
   }
 
-  Widget _subRow(BuildContext context, String label, double amount) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _subRow(String label, double amount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -278,17 +282,17 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: DDSTypography.bodyMedium.copyWith(
                 fontSize: 11,
-                color: cs.onSurfaceVariant,
+                color: DDSColors.textMuted,
               ),
             ),
           ),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
-            style: TextStyle(
+            style: DDSTypography.bodyMedium.copyWith(
               fontSize: 11,
-              color: cs.onSurfaceVariant,
+              color: DDSColors.textMuted,
               fontWeight: FontWeight.w500,
             ),
           ),

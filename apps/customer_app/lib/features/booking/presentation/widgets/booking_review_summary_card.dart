@@ -18,16 +18,16 @@ class BookingReviewSummaryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(bookingDraftProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DDSSpacing.md),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.35),
+        color: DDSColors.surfaceCard,
+        borderRadius: DDSRadius.largeBorderRadius,
+        border: const Border.fromBorderSide(
+          BorderSide(color: DDSColors.borderLight),
         ),
+        boxShadow: DDSElevation.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,28 +36,27 @@ class BookingReviewSummaryCard extends ConsumerWidget {
           Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: DDSRadius.mediumBorderRadius,
                 child: car.photos.isNotEmpty
                     ? Image.network(
                         car.photos.first,
                         width: 72,
                         height: 54,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _carPlaceholder(cs),
+                        errorBuilder: (_, __, ___) => _carPlaceholder(),
                       )
-                    : _carPlaceholder(cs),
+                    : _carPlaceholder(),
               ),
-              const Gap(12),
+              const Gap(DDSSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '${car.make} ${car.model} (${car.year})',
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: DDSTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
+                        color: DDSColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -65,9 +64,9 @@ class BookingReviewSummaryCard extends ConsumerWidget {
                     const Gap(2),
                     Text(
                       vendor.businessName,
-                      style: TextStyle(
+                      style: DDSTypography.bodyMedium.copyWith(
+                        color: DDSColors.textMuted,
                         fontSize: 12,
-                        color: cs.onSurfaceVariant,
                       ),
                     ),
                     const Gap(4),
@@ -75,15 +74,14 @@ class BookingReviewSummaryCard extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(4),
+                        color: DDSColors.infoBlueBg,
+                        borderRadius: DDSRadius.smallBorderRadius,
                       ),
                       child: Text(
                         draft.tripType,
-                        style: const TextStyle(
-                          fontSize: 10,
+                        style: DDSTypography.labelSmall.copyWith(
+                          color: DDSColors.primaryBlue,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
                         ),
                       ),
                     ),
@@ -92,20 +90,19 @@ class BookingReviewSummaryCard extends ConsumerWidget {
               ),
             ],
           ),
-          const Gap(14),
-          Divider(
+          const Gap(DDSSpacing.sm),
+          const Divider(
             height: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.25),
+            color: DDSColors.borderLight,
           ),
-          const Gap(12),
+          const Gap(DDSSpacing.sm),
 
           // ── Trip Details ───────────────────────────────────────────
           _itemRow(
             'Pickup Location',
             draft.pickupLocation.isEmpty ? 'Not specified' : draft.pickupLocation,
             Icons.location_on_outlined,
-            AppColors.primary,
-            cs,
+            DDSColors.primaryBlue,
           ),
           if (draft.dropLocation.isNotEmpty) ...[
             const Gap(8),
@@ -113,8 +110,7 @@ class BookingReviewSummaryCard extends ConsumerWidget {
               draft.tripType == 'Outstation' ? 'Destination' : 'Drop Location',
               draft.dropLocation,
               Icons.flag_outlined,
-              Colors.deepOrange,
-              cs,
+              DDSColors.warningOrange,
             ),
           ],
           const Gap(8),
@@ -124,8 +120,7 @@ class BookingReviewSummaryCard extends ConsumerWidget {
                 ? '${draft.startDate!.toDDMMYYYY()} → ${draft.endDate!.toDDMMYYYY()} (${draft.rentalDays}d)'
                 : 'Flexible',
             Icons.calendar_today_outlined,
-            AppColors.accent,
-            cs,
+            DDSColors.accentAmber,
           ),
           const Gap(8),
           _itemRow(
@@ -134,26 +129,25 @@ class BookingReviewSummaryCard extends ConsumerWidget {
                 ? '${draft.selectedMileagePackage!.name} (${draft.selectedMileagePackage!.isUnlimited ? "Unlimited km" : "${draft.selectedMileagePackage!.totalIncludedKm(draft.rentalDays)} km total"})'
                 : '${draft.estimatedDistanceKm} km allowance',
             Icons.speed_outlined,
-            Colors.indigo,
-            cs,
+            DDSColors.primaryBlue,
           ),
           if (draft.selectedProtectionPackageId != null ||
               draft.hasDoorstepDelivery ||
               draft.hasAdditionalDriver ||
               draft.childSeat ||
               draft.extraLuggage) ...[
-            const Gap(12),
-            Divider(
+            const Gap(DDSSpacing.sm),
+            const Divider(
               height: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.25),
+              color: DDSColors.borderLight,
             ),
-            const Gap(10),
+            const Gap(DDSSpacing.xs),
             Text(
               'Included Add-ons & Coverage',
-              style: TextStyle(
+              style: DDSTypography.titleMedium.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
             ),
             const Gap(6),
@@ -162,16 +156,16 @@ class BookingReviewSummaryCard extends ConsumerWidget {
               runSpacing: 6,
               children: [
                 if (draft.selectedProtectionPackageId == 'zero_dep_tier')
-                  _chip('Premium Zero-Dep', Colors.green, cs),
+                  _chip('Premium Zero-Dep', DDSColors.successGreen, DDSColors.successGreenBg),
                 if (draft.selectedProtectionPackageId == 'standard_tier')
-                  _chip('Standard Protection', Colors.teal, cs),
+                  _chip('Standard Protection', DDSColors.infoBlue, DDSColors.infoBlueBg),
                 if (draft.hasDoorstepDelivery)
-                  _chip('Doorstep Delivery (+₹400)', AppColors.primary, cs),
+                  _chip('Doorstep Delivery (+₹400)', DDSColors.primaryBlue, DDSColors.infoBlueBg),
                 if (draft.hasAdditionalDriver)
-                  _chip('Additional Driver (+₹350)', Colors.teal, cs),
-                if (draft.childSeat) _chip('Child Seat', AppColors.accent, cs),
+                  _chip('Additional Driver (+₹350)', DDSColors.successGreen, DDSColors.successGreenBg),
+                if (draft.childSeat) _chip('Child Seat', DDSColors.accentAmber, DDSColors.surfaceSubtle),
                 if (draft.extraLuggage)
-                  _chip('Extra Luggage', Colors.blueGrey, cs),
+                  _chip('Extra Luggage', DDSColors.textSecondary, DDSColors.surfaceSubtle),
               ],
             ),
           ],
@@ -185,7 +179,6 @@ class BookingReviewSummaryCard extends ConsumerWidget {
     String value,
     IconData icon,
     Color iconColor,
-    ColorScheme cs,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,9 +189,9 @@ class BookingReviewSummaryCard extends ConsumerWidget {
           width: 105,
           child: Text(
             label,
-            style: TextStyle(
+            style: DDSTypography.bodyMedium.copyWith(
+              color: DDSColors.textMuted,
               fontSize: 12,
-              color: cs.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -206,10 +199,10 @@ class BookingReviewSummaryCard extends ConsumerWidget {
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
-              fontSize: 12,
+            style: DDSTypography.bodyMedium.copyWith(
               fontWeight: FontWeight.w600,
-              color: cs.onSurface,
+              color: DDSColors.textPrimary,
+              fontSize: 12,
             ),
           ),
         ),
@@ -217,34 +210,33 @@ class BookingReviewSummaryCard extends ConsumerWidget {
     );
   }
 
-  Widget _chip(String text, Color color, ColorScheme cs) {
+  Widget _chip(String text, Color fgColor, Color bgColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: bgColor,
+        borderRadius: DDSRadius.smallBorderRadius,
+        border: Border.all(color: fgColor.withValues(alpha: 0.3)),
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 11,
+        style: DDSTypography.labelSmall.copyWith(
+          color: fgColor,
           fontWeight: FontWeight.w700,
-          color: color,
         ),
       ),
     );
   }
 
-  Widget _carPlaceholder(ColorScheme cs) {
+  Widget _carPlaceholder() {
     return Container(
       width: 72,
       height: 54,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
+        color: DDSColors.surfaceSubtle,
+        borderRadius: DDSRadius.mediumBorderRadius,
       ),
-      child: Icon(Icons.directions_car, color: cs.outline, size: 24),
+      child: const Icon(Icons.directions_car, color: DDSColors.textMuted, size: 24),
     );
   }
 }

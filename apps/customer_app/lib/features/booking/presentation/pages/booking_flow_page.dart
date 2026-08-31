@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:models/models.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 import '../providers/booking_providers.dart';
@@ -51,15 +51,20 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
     final repo = ref.watch(bookingRepositoryProvider);
 
     return Scaffold(
+      backgroundColor: DDSColors.bgCanvas,
       appBar: AppBar(
         title: Text(
           'Book — ${_stepTitles[step]}',
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          style: DDSTypography.titleMedium.copyWith(
+            fontWeight: FontWeight.w700,
+            color: DDSColors.textPrimary,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: DDSColors.textPrimary),
           onPressed: () => _prev(ref),
         ),
+        backgroundColor: DDSColors.surfaceCard,
         elevation: 0,
       ),
       body: detailVal.when(
@@ -334,49 +339,47 @@ class _IncompatibleTripTypeView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final selectedCity = ref.read(selectedCityProvider);
 
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(DDSSpacing.xl),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(DDSSpacing.lg),
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.15),
+                color: DDSColors.accentAmber.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.warning_amber_rounded,
                 size: 48,
-                color: Colors.amber,
+                color: DDSColors.accentAmber,
               ),
             ),
-            const Gap(24),
+            const Gap(DDSSpacing.lg),
             Text(
               'Trip Type Not Supported',
-              style: TextStyle(
-                fontSize: 20,
+              style: DDSTypography.headlineMedium.copyWith(
                 fontWeight: FontWeight.bold,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
-            const Gap(12),
+            const Gap(DDSSpacing.sm),
             Text(
               '${car.make} ${car.model} (${car.year}) is not eligible for $requestedTripType bookings. '
               'This car only supports: ${car.availableTripTypes.join(', ')}.',
-              style: TextStyle(
-                fontSize: 14,
-                color: cs.onSurfaceVariant,
+              style: DDSTypography.bodyMedium.copyWith(
+                color: DDSColors.textMuted,
                 height: 1.4,
+                fontSize: 13,
               ),
               textAlign: TextAlign.center,
             ),
-            const Gap(32),
+            const Gap(DDSSpacing.xl),
             AppButton(
               text: 'Browse $requestedTripType Cars',
               onPressed: () {
@@ -390,16 +393,23 @@ class _IncompatibleTripTypeView extends ConsumerWidget {
                 );
               },
             ),
-            const Gap(12),
+            const Gap(DDSSpacing.sm),
             OutlinedButton(
               onPressed: () => context.pop(),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                ),
+                side: const BorderSide(color: DDSColors.borderMedium),
+              ),
+              child: Text(
+                'Go Back',
+                style: DDSTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: DDSColors.textPrimary,
                 ),
               ),
-              child: const Text('Go Back'),
             ),
           ],
         ),

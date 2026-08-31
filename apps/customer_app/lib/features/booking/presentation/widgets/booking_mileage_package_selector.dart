@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
 
@@ -59,7 +59,6 @@ class _BookingMileagePackageSelectorState
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
-    final cs = Theme.of(context).colorScheme;
     final applicablePackages = _getApplicablePackages(draft.tripType);
     final hasPackages = applicablePackages.isNotEmpty;
 
@@ -69,23 +68,23 @@ class _BookingMileagePackageSelectorState
       }
 
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(DDSSpacing.md),
         decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: DDSColors.surfaceCard,
+          borderRadius: DDSRadius.largeBorderRadius,
           border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.35),
+            color: DDSColors.borderLight,
           ),
+          boxShadow: DDSElevation.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Estimated Distance (km)',
-              style: TextStyle(
+              style: DDSTypography.titleMedium.copyWith(
                 fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
             ),
             const Gap(4),
@@ -93,23 +92,23 @@ class _BookingMileagePackageSelectorState
               draft.tripType == 'Self-Drive'
                   ? 'Used to compute estimated kilometer allowance and pricing.'
                   : 'Used to calculate your fare based on trip distance.',
-              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted, fontSize: 12),
             ),
-            const Gap(12),
+            const Gap(DDSSpacing.md),
             AppTextField(
               label: '',
               hint: 'e.g. 50',
               controller: _distanceCtrl,
               keyboardType: TextInputType.number,
-              prefixIcon: const Icon(Icons.route_outlined, color: AppColors.primary),
+              prefixIcon: const Icon(Icons.route_outlined, color: DDSColors.primaryBlue),
             ),
             const Gap(6),
             Text(
               'Current: ${draft.estimatedDistanceKm} km',
-              style: const TextStyle(
-                fontSize: 12,
+              style: DDSTypography.bodyMedium.copyWith(
                 fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                color: DDSColors.primaryBlue,
+                fontSize: 12,
               ),
             ),
           ],
@@ -123,26 +122,28 @@ class _BookingMileagePackageSelectorState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Choose your mileage package',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: cs.onSurface,
+            Expanded(
+              child: Text(
+                'Choose your mileage package',
+                style: DDSTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: DDSColors.textPrimary,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const Gap(8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
+                color: DDSColors.infoBlueBg,
+                borderRadius: DDSRadius.smallBorderRadius,
               ),
               child: Text(
                 '${draft.rentalDays} Day${draft.rentalDays == 1 ? '' : 's'}',
-                style: const TextStyle(
-                  fontSize: 11,
+                style: DDSTypography.labelSmall.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+                  color: DDSColors.primaryBlue,
                 ),
               ),
             ),
@@ -151,15 +152,15 @@ class _BookingMileagePackageSelectorState
         const Gap(4),
         Text(
           'Select the mileage allowance that matches your expected journey for ${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}.',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted, fontSize: 12),
         ),
-        const Gap(12),
+        const Gap(DDSSpacing.sm),
         ...applicablePackages.map((pkg) {
           final isSelected = draft.selectedMileagePackageId == pkg.id;
           final totalKm = pkg.totalIncludedKm(draft.rentalDays);
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: DDSSpacing.sm),
             child: InkWell(
               onTap: () {
                 ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
@@ -167,29 +168,23 @@ class _BookingMileagePackageSelectorState
                       selectedMileagePackage: pkg,
                     ));
               },
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: DDSRadius.mediumBorderRadius,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(14),
+                duration: DDSMotion.fast,
+                padding: const EdgeInsets.all(DDSSpacing.md),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.05)
-                      : cs.surface,
-                  borderRadius: BorderRadius.circular(14),
+                      ? DDSColors.infoBlueBg
+                      : DDSColors.surfaceCard,
+                  borderRadius: DDSRadius.largeBorderRadius,
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.primary
-                        : cs.outlineVariant.withValues(alpha: 0.4),
-                    width: isSelected ? 2 : 1,
+                        ? DDSColors.primaryBlue
+                        : DDSColors.borderLight,
+                    width: isSelected ? 1.5 : 1,
                   ),
                   boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
+                      ? DDSElevation.cardShadow
                       : null,
                 ),
                 child: Row(
@@ -199,10 +194,10 @@ class _BookingMileagePackageSelectorState
                       isSelected
                           ? Icons.radio_button_checked
                           : Icons.radio_button_off,
-                      color: isSelected ? AppColors.primary : cs.outline,
+                      color: isSelected ? DDSColors.primaryBlue : DDSColors.textMuted,
                       size: 20,
                     ),
-                    const Gap(12),
+                    const Gap(DDSSpacing.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,12 +207,11 @@ class _BookingMileagePackageSelectorState
                               Flexible(
                                 child: Text(
                                   pkg.name,
-                                  style: TextStyle(
-                                    fontSize: 14,
+                                  style: DDSTypography.titleMedium.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: isSelected
-                                        ? AppColors.primary
-                                        : cs.onSurface,
+                                        ? DDSColors.primaryBlue
+                                        : DDSColors.textPrimary,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -228,18 +222,18 @@ class _BookingMileagePackageSelectorState
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: DDSColors.successGreenBg,
+                                    borderRadius: DDSRadius.smallBorderRadius,
                                     border: Border.all(
-                                      color: Colors.green.withValues(alpha: 0.4),
+                                      color: DDSColors.successGreen.withValues(alpha: 0.4),
                                     ),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'Popular',
-                                    style: TextStyle(
+                                    style: DDSTypography.labelSmall.copyWith(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.green,
+                                      color: DDSColors.successGreen,
                                     ),
                                   ),
                                 ),
@@ -251,10 +245,10 @@ class _BookingMileagePackageSelectorState
                             pkg.isUnlimited
                                 ? 'Unlimited km allowance • No per-km restriction'
                                 : 'Total included: $totalKm km (${pkg.includedKmPerDay} km/day)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurface,
+                            style: DDSTypography.bodyMedium.copyWith(
+                              color: DDSColors.textPrimary,
                               fontWeight: FontWeight.w500,
+                              fontSize: 12,
                             ),
                           ),
                           const Gap(2),
@@ -262,31 +256,29 @@ class _BookingMileagePackageSelectorState
                             pkg.isUnlimited
                                 ? 'No extra km charges'
                                 : 'Extra km: ₹${pkg.extraKmRate.toInt()}/km beyond $totalKm km',
-                            style: TextStyle(
+                            style: DDSTypography.bodyMedium.copyWith(
                               fontSize: 11,
-                              color: cs.onSurfaceVariant,
+                              color: DDSColors.textMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Gap(8),
+                    const Gap(DDSSpacing.xs),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           '₹${pkg.basePricePerDay.toInt()}',
-                          style: const TextStyle(
-                            fontSize: 16,
+                          style: DDSTypography.titleLarge.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
+                            color: DDSColors.primaryBlue,
                           ),
                         ),
                         Text(
                           '/day',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurfaceVariant,
+                          style: DDSTypography.labelSmall.copyWith(
+                            color: DDSColors.textMuted,
                           ),
                         ),
                       ],

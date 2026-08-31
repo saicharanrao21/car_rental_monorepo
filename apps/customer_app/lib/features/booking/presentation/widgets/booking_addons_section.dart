@@ -10,7 +10,6 @@ class BookingAddonsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(bookingDraftProvider);
-    final cs = Theme.of(context).colorScheme;
     final isSelfDrive = draft.tripType == 'Self-Drive';
 
     return Column(
@@ -18,54 +17,52 @@ class BookingAddonsSection extends ConsumerWidget {
       children: [
         Text(
           'Trip Add-ons & Convenience',
-          style: TextStyle(
+          style: DDSTypography.titleMedium.copyWith(
             fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: cs.onSurface,
+            color: DDSColors.textPrimary,
           ),
         ),
         const Gap(4),
         Text(
           'Enhance your trip with verified delivery, extra drivers, and gear.',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted, fontSize: 12),
         ),
-        const Gap(12),
+        const Gap(DDSSpacing.sm),
 
         // ── Driver Included ──────────────────────────────────────────
         _addonCard(
-          cs,
           child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               'Professional Chauffeur',
-              style: TextStyle(
+              style: DDSTypography.titleMedium.copyWith(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
             ),
             subtitle: Text(
               isSelfDrive
                   ? 'Disabled for Self-Drive rentals'
                   : 'Included in your ${draft.tripType} service package',
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
             ),
             secondary: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isSelfDrive
-                    ? cs.surfaceContainerHighest
-                    : AppColors.primary.withValues(alpha: 0.1),
+                    ? DDSColors.surfaceSubtle
+                    : DDSColors.primaryBlue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.person,
                 size: 18,
-                color: isSelfDrive ? cs.outline : AppColors.primary,
+                color: isSelfDrive ? DDSColors.textMuted : DDSColors.primaryBlue,
               ),
             ),
             value: draft.driverIncluded,
-            activeThumbColor: AppColors.primary,
+            activeThumbColor: DDSColors.primaryBlue,
             onChanged: isSelfDrive
                 ? null
                 : (val) => ref
@@ -73,11 +70,10 @@ class BookingAddonsSection extends ConsumerWidget {
                     .update((d) => d.copyWith(driverIncluded: val)),
           ),
         ),
-        const Gap(10),
+        const Gap(DDSSpacing.sm),
 
         // ── Doorstep Delivery ─────────────────────────────────────────
         _addonCard(
-          cs,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -85,12 +81,15 @@ class BookingAddonsSection extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Row(
                   children: [
-                    Text(
-                      'Doorstep Delivery',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: cs.onSurface,
+                    Expanded(
+                      child: Text(
+                        'Doorstep Delivery',
+                        style: DDSTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: DDSColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const Gap(8),
@@ -98,14 +97,14 @@ class BookingAddonsSection extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
+                        color: DDSColors.infoBlueBg,
+                        borderRadius: DDSRadius.smallBorderRadius,
                       ),
-                      child: const Text(
-                        '+₹400',
-                        style: TextStyle(
+                      child: Text(
+                        '+₹400 flat',
+                        style: DDSTypography.labelSmall.copyWith(
                           fontSize: 10,
-                          color: AppColors.primary,
+                          color: DDSColors.primaryBlue,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -113,23 +112,23 @@ class BookingAddonsSection extends ConsumerWidget {
                   ],
                 ),
                 subtitle: Text(
-                  'Car delivered directly to your home, office, or hotel',
-                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  'Vehicle delivered directly to your door before trip start',
+                  style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
                 ),
                 secondary: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.local_shipping_outlined,
                     size: 18,
-                    color: AppColors.primary,
+                    color: DDSColors.primaryBlue,
                   ),
                 ),
                 value: draft.hasDoorstepDelivery,
-                activeThumbColor: AppColors.primary,
+                activeThumbColor: DDSColors.primaryBlue,
                 onChanged: (val) => ref
                     .read(bookingDraftProvider.notifier)
                     .update((d) => d.copyWith(
@@ -138,16 +137,18 @@ class BookingAddonsSection extends ConsumerWidget {
                         )),
               ),
               if (draft.hasDoorstepDelivery) ...[
-                const Gap(8),
+                const Gap(DDSSpacing.xs),
                 TextFormField(
                   initialValue: draft.deliveryAddress,
+                  style: DDSTypography.bodyMedium,
                   decoration: InputDecoration(
                     labelText: 'Delivery Address',
                     hintText: 'Flat / Building, Landmark, Area',
                     prefixIcon:
-                        const Icon(Icons.location_on_outlined, size: 18),
+                        const Icon(Icons.location_on_outlined, size: 18, color: DDSColors.primaryBlue),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: DDSRadius.mediumBorderRadius,
+                      borderSide: const BorderSide(color: DDSColors.borderMedium),
                     ),
                     isDense: true,
                   ),
@@ -159,11 +160,10 @@ class BookingAddonsSection extends ConsumerWidget {
             ],
           ),
         ),
-        const Gap(10),
+        const Gap(DDSSpacing.sm),
 
         // ── Additional Driver ─────────────────────────────────────────
         _addonCard(
-          cs,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -171,12 +171,15 @@ class BookingAddonsSection extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Row(
                   children: [
-                    Text(
-                      'Additional Driver',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: cs.onSurface,
+                    Expanded(
+                      child: Text(
+                        'Additional Driver',
+                        style: DDSTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: DDSColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const Gap(8),
@@ -184,14 +187,14 @@ class BookingAddonsSection extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
+                        color: DDSColors.successGreenBg,
+                        borderRadius: DDSRadius.smallBorderRadius,
                       ),
-                      child: const Text(
-                        '+₹350',
-                        style: TextStyle(
+                      child: Text(
+                        '+₹350 flat',
+                        style: DDSTypography.labelSmall.copyWith(
                           fontSize: 10,
-                          color: Colors.teal,
+                          color: DDSColors.successGreen,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -200,22 +203,22 @@ class BookingAddonsSection extends ConsumerWidget {
                 ),
                 subtitle: Text(
                   'Authorize a secondary driver with verified driving licence',
-                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
                 ),
                 secondary: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.1),
+                  decoration: const BoxDecoration(
+                    color: DDSColors.successGreenBg,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.group_add_outlined,
                     size: 18,
-                    color: Colors.teal,
+                    color: DDSColors.successGreen,
                   ),
                 ),
                 value: draft.hasAdditionalDriver,
-                activeThumbColor: Colors.teal,
+                activeThumbColor: DDSColors.successGreen,
                 onChanged: (val) => ref
                     .read(bookingDraftProvider.notifier)
                     .update((d) => d.copyWith(
@@ -224,14 +227,16 @@ class BookingAddonsSection extends ConsumerWidget {
                         )),
               ),
               if (draft.hasAdditionalDriver) ...[
-                const Gap(8),
+                const Gap(DDSSpacing.xs),
                 TextFormField(
                   initialValue: draft.additionalDriverName,
+                  style: DDSTypography.bodyMedium,
                   decoration: InputDecoration(
-                    labelText: 'Driver Full Name',
-                    prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                    labelText: 'Secondary Driver Full Name',
+                    prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: DDSColors.successGreen),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: DDSRadius.mediumBorderRadius,
+                      borderSide: const BorderSide(color: DDSColors.borderMedium),
                     ),
                     isDense: true,
                   ),
@@ -239,16 +244,18 @@ class BookingAddonsSection extends ConsumerWidget {
                       .read(bookingDraftProvider.notifier)
                       .update((d) => d.copyWith(additionalDriverName: val)),
                 ),
-                const Gap(8),
+                const Gap(DDSSpacing.xs),
                 TextFormField(
                   initialValue: draft.additionalDriverLicence,
+                  style: DDSTypography.bodyMedium,
                   decoration: InputDecoration(
                     labelText: 'Driving Licence Number',
                     hintText: 'e.g. MH0220201234567',
                     prefixIcon:
-                        const Icon(Icons.credit_card_outlined, size: 18),
+                        const Icon(Icons.credit_card_outlined, size: 18, color: DDSColors.successGreen),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: DDSRadius.mediumBorderRadius,
+                      borderSide: const BorderSide(color: DDSColors.borderMedium),
                     ),
                     isDense: true,
                   ),
@@ -260,77 +267,75 @@ class BookingAddonsSection extends ConsumerWidget {
             ],
           ),
         ),
-        const Gap(10),
+        const Gap(DDSSpacing.sm),
 
         // ── Child Seat ────────────────────────────────────────────────
         _addonCard(
-          cs,
           child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               'Child Safety Seat',
-              style: TextStyle(
+              style: DDSTypography.titleMedium.copyWith(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
             ),
             subtitle: Text(
               'Certified child safety seat for infants and young children',
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
             ),
             secondary: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.1),
+                color: DDSColors.accentAmber.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.child_care,
                 size: 18,
-                color: AppColors.accent,
+                color: DDSColors.accentAmber,
               ),
             ),
             value: draft.childSeat,
-            activeThumbColor: AppColors.primary,
+            activeThumbColor: DDSColors.primaryBlue,
             onChanged: (val) => ref
                 .read(bookingDraftProvider.notifier)
                 .update((d) => d.copyWith(childSeat: val)),
           ),
         ),
-        const Gap(10),
+        const Gap(DDSSpacing.sm),
 
         // ── Extra Luggage Space ───────────────────────────────────────
         _addonCard(
-          cs,
           child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               'Extra Luggage Space',
-              style: TextStyle(
+              style: DDSTypography.titleMedium.copyWith(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: cs.onSurface,
+                color: DDSColors.textPrimary,
               ),
             ),
             subtitle: Text(
               'Roof carrier / extra boot space for oversized baggage',
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              style: DDSTypography.bodyMedium.copyWith(fontSize: 11, color: DDSColors.textMuted),
             ),
             secondary: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: DDSColors.primaryBlue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.luggage_outlined,
                 size: 18,
-                color: AppColors.primary,
+                color: DDSColors.primaryBlue,
               ),
             ),
             value: draft.extraLuggage,
-            activeThumbColor: AppColors.primary,
+            activeThumbColor: DDSColors.primaryBlue,
             onChanged: (val) => ref
                 .read(bookingDraftProvider.notifier)
                 .update((d) => d.copyWith(extraLuggage: val)),
@@ -340,17 +345,19 @@ class BookingAddonsSection extends ConsumerWidget {
     );
   }
 
-  Widget _addonCard(ColorScheme cs, {required Widget child}) {
+  Widget _addonCard({required Widget child}) {
     return Material(
-      color: cs.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: cs.outlineVariant.withValues(alpha: 0.35),
+      color: DDSColors.surfaceCard,
+      borderRadius: DDSRadius.largeBorderRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.xs),
+        decoration: BoxDecoration(
+          borderRadius: DDSRadius.largeBorderRadius,
+          border: const Border.fromBorderSide(
+            BorderSide(color: DDSColors.borderLight),
+          ),
+          boxShadow: DDSElevation.cardShadow,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: child,
       ),
     );
