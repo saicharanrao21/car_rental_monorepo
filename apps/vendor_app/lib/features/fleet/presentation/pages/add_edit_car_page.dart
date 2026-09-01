@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
@@ -18,34 +17,41 @@ class AddEditCarPage extends ConsumerStatefulWidget {
 }
 
 class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
-  final _formKey = GlobalKey<FormState>();
+  int _currentStep = 0;
+  final int _totalSteps = 6;
+  bool _isSubmitting = false;
 
-  bool get isEditMode => widget.carId != null;
+  bool get isEditMode => widget.carId != null && widget.carId!.isNotEmpty;
 
   // Controllers
   late TextEditingController _makeCtrl;
   late TextEditingController _modelCtrl;
+  late TextEditingController _variantCtrl;
   late TextEditingController _regNumCtrl;
   late TextEditingController _seatingCtrl;
-  late TextEditingController _priceKmCtrl;
   late TextEditingController _priceDayCtrl;
   late TextEditingController _priceHourCtrl;
+  late TextEditingController _priceKmCtrl;
 
-  // Dropdowns and toggles state
+  // Specifications
   int? _selectedYear;
   String? _selectedCategory;
   String? _selectedFuelType;
+  String _selectedTransmission = 'Automatic';
   bool _isAC = true;
   List<String> _selectedTripTypes = [];
   List<String> _photos = [];
-  String? _rcBookPath;
-  String? _insurancePath;
-  DateTime? _rcBookExpiry;
-  DateTime? _insuranceExpiry;
-  List<MileagePackageModel> _mileagePackages = [];
+  String _selectedHub = 'Main Hub';
+  bool _isAvailableOnPublish = true;
 
-  // Year list: last 15 years
   late List<int> _years;
+
+  static const List<String> samplePhotos = [
+    'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
+    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70',
+    'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
+  ];
 
   @override
   void initState() {
@@ -54,18 +60,16 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     final currentYear = DateTime.now().year;
     _years = List.generate(15, (index) => currentYear - index);
 
-    // Initialize blank values
     _makeCtrl = TextEditingController();
     _modelCtrl = TextEditingController();
+    _variantCtrl = TextEditingController(text: 'ZXi+');
     _regNumCtrl = TextEditingController();
-    _seatingCtrl = TextEditingController();
-    _priceKmCtrl = TextEditingController();
-    _priceDayCtrl = TextEditingController();
-    _priceHourCtrl = TextEditingController();
+    _seatingCtrl = TextEditingController(text: '5');
+    _priceDayCtrl = TextEditingController(text: '2400');
+    _priceHourCtrl = TextEditingController(text: '180');
+    _priceKmCtrl = TextEditingController(text: '14');
 
-    // If edit mode, populate data
     if (isEditMode) {
-      // Find the car in live fleet provider
       final carsList = ref.read(fleetCarsProvider).value ?? [];
       final car = carsList.firstWhere(
         (c) => c.id == widget.carId,
@@ -74,47 +78,40 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
           vendorId: '',
           make: '',
           model: '',
-          year: 2022,
+          year: 2023,
           type: 'Sedan',
           fuelType: 'Petrol',
           seating: 5,
           isAC: true,
           photos: [],
-          pricePerKm: 0,
-          pricePerDay: 0,
-          pricePerHour: 0,
+          pricePerKm: 14,
+          pricePerDay: 2400,
+          pricePerHour: 180,
         ),
       );
 
       if (car.id.isNotEmpty) {
         _makeCtrl.text = car.make;
         _modelCtrl.text = car.model;
-        _regNumCtrl.text = 'MH 12 AB ${1000 + car.id.hashCode % 9000}';
+        _regNumCtrl.text = car.registrationNumber;
         _seatingCtrl.text = car.seating.toString();
-        _priceKmCtrl.text = car.pricePerKm.toStringAsFixed(0);
         _priceDayCtrl.text = car.pricePerDay.toStringAsFixed(0);
         _priceHourCtrl.text = car.pricePerHour.toStringAsFixed(0);
-
+        _priceKmCtrl.text = car.pricePerKm.toStringAsFixed(0);
         _selectedYear = car.year;
         _selectedCategory = car.type;
         _selectedFuelType = car.fuelType;
         _isAC = car.isAC;
         _selectedTripTypes = List.from(car.availableTripTypes);
         _photos = List.from(car.photos);
-
-        if (car.rawMileagePackages.isNotEmpty) {
-          _mileagePackages = car.rawMileagePackages
-              .map((p) => MileagePackageModel.fromJson(
-                  Map<String, dynamic>.from(p as Map)))
-              .toList();
-        }
+        _isAvailableOnPublish = car.isAvailable;
       }
     } else {
-      // Defaults for add car
       _selectedYear = currentYear;
-      _selectedCategory = AppConstants.carCategories.first;
+      _selectedCategory = 'Sedan';
       _selectedFuelType = 'Petrol';
-      _selectedTripTypes = List.from(AppConstants.tripTypes);
+      _selectedTripTypes = ['Local', 'Outstation', 'Airport Transfer', 'Self-Drive'];
+      _photos = [samplePhotos.first];
     }
   }
 
@@ -122,861 +119,908 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   void dispose() {
     _makeCtrl.dispose();
     _modelCtrl.dispose();
+    _variantCtrl.dispose();
     _regNumCtrl.dispose();
     _seatingCtrl.dispose();
-    _priceKmCtrl.dispose();
     _priceDayCtrl.dispose();
     _priceHourCtrl.dispose();
+    _priceKmCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _simulatePhotoSelection(int index) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            Gap(20),
-            Text('Accessing Gallery & Uploading…'),
-          ],
-        ),
+  bool _validateStep(int step) {
+    if (step == 0) {
+      if (_makeCtrl.text.trim().isEmpty) {
+        _showError('Please enter the vehicle manufacturer/make (e.g. Hyundai, Tata)');
+        return false;
+      }
+      if (_modelCtrl.text.trim().isEmpty) {
+        _showError('Please enter the vehicle model (e.g. Creta, Swift)');
+        return false;
+      }
+      if (_regNumCtrl.text.trim().isEmpty) {
+        _showError('Please enter registration plate number (e.g. MH 12 AB 1234)');
+        return false;
+      }
+    } else if (step == 1) {
+      if (_selectedYear == null) {
+        _showError('Please select manufacturing year');
+        return false;
+      }
+      if (_selectedCategory == null) {
+        _showError('Please select body category');
+        return false;
+      }
+      if (_selectedFuelType == null) {
+        _showError('Please select powertrain fuel type');
+        return false;
+      }
+      final seats = int.tryParse(_seatingCtrl.text.trim());
+      if (seats == null || seats <= 0) {
+        _showError('Please enter valid seating capacity');
+        return false;
+      }
+    } else if (step == 2) {
+      final priceDay = double.tryParse(_priceDayCtrl.text.trim());
+      final priceHour = double.tryParse(_priceHourCtrl.text.trim());
+      final priceKm = double.tryParse(_priceKmCtrl.text.trim());
+      if (priceDay == null || priceDay <= 0) {
+        _showError('Daily rental price must be greater than 0');
+        return false;
+      }
+      if (priceHour == null || priceHour <= 0) {
+        _showError('Hourly rental rate must be greater than 0');
+        return false;
+      }
+      if (priceKm == null || priceKm <= 0) {
+        _showError('Per km rate must be greater than 0');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
       ),
     );
+  }
 
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-    Navigator.of(context).pop(); // Dismiss loading
-
-    setState(() {
-      final fakeUrl = 'https://images.unsplash.com/photo-${1549399542 + index}-fake';
-      if (index < _photos.length) {
-        _photos[index] = fakeUrl;
+  void _onNextStep() {
+    if (_validateStep(_currentStep)) {
+      if (_currentStep < _totalSteps - 1) {
+        setState(() => _currentStep++);
       } else {
-        _photos.add(fakeUrl);
+        _submitCar();
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Photo ${index + 1} uploaded successfully (Simulated)')),
-    );
+    }
   }
 
-  Future<void> _simulateCarDocUpload(String docType) async {
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 365)),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-      helpText: 'Select $docType Expiry Date',
-    );
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            Gap(20),
-            Text('Selecting & processing document…'),
-          ],
-        ),
-      ),
-    );
-
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-    Navigator.of(context).pop();
-
-    setState(() {
-      if (docType == 'RC Book') {
-        _rcBookPath = 'rc_book_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        _rcBookExpiry = pickedDate;
-      } else if (docType == 'Insurance') {
-        _insurancePath = 'insurance_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        _insuranceExpiry = pickedDate;
+  void _onPreviousStep() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    } else {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$docType attached with expiry date')),
-    );
-  }
-
-  Widget _buildCarDocUploadCard(String label, String? filePath, DateTime? expiry, VoidCallback onTap) {
-    final hasFile = filePath != null;
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: hasFile ? Colors.green.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                hasFile ? Icons.check_circle : Icons.description_outlined,
-                color: hasFile ? Colors.green : AppColors.primary,
-                size: 24,
-              ),
-            ),
-            const Gap(16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const Gap(4),
-                  Text(
-                    hasFile
-                        ? (expiry != null ? 'File attached • Expiry: ${expiry.day}/${expiry.month}/${expiry.year}' : 'File attached')
-                        : 'PDF or JPG up to 5MB',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: onTap,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: hasFile ? Colors.green : AppColors.primary,
-                side: BorderSide(color: hasFile ? Colors.green : AppColors.primary),
-              ),
-              child: Text(hasFile ? 'Change' : 'Choose'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddEditPackageDialog({MileagePackageModel? existing, int? index}) {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '100 km/day');
-    final kmCtrl = TextEditingController(text: existing?.includedKmPerDay?.toString() ?? '100');
-    final priceCtrl = TextEditingController(text: existing?.basePricePerDay.toInt().toString() ?? '2500');
-    final extraRateCtrl = TextEditingController(text: existing?.extraKmRate.toInt().toString() ?? '12');
-    bool isUnlimited = existing?.isUnlimited ?? false;
-    bool isDefault = existing?.isDefault ?? false;
-    bool isActive = existing?.isActive ?? true;
-    String selectedTripType = existing?.tripType ?? (_selectedTripTypes.isNotEmpty ? _selectedTripTypes.first : 'Self-Drive');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(existing == null ? 'Add Mileage Package' : 'Edit Mileage Package'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: selectedTripType,
-                  decoration: const InputDecoration(labelText: 'Trip Type'),
-                  items: _selectedTripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedTripType = val);
-                  },
-                ),
-                const Gap(12),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Package Name', hintText: 'e.g. 100 km/day'),
-                ),
-                const Gap(12),
-                SwitchListTile(
-                  title: const Text('Unlimited Kilometers'),
-                  subtitle: const Text('No per-day km limit or extra-km charges'),
-                  value: isUnlimited,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) => setDialogState(() => isUnlimited = val),
-                ),
-                if (!isUnlimited) ...[
-                  const Gap(8),
-                  TextField(
-                    controller: kmCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Included KM per Day', hintText: 'e.g. 100'),
-                  ),
-                ],
-                const Gap(12),
-                TextField(
-                  controller: priceCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Daily Base Rate (₹/day)', hintText: 'e.g. 2500'),
-                ),
-                if (!isUnlimited) ...[
-                  const Gap(12),
-                  TextField(
-                    controller: extraRateCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Extra KM Rate (₹/km)', hintText: 'e.g. 12'),
-                  ),
-                ],
-                const Gap(12),
-                SwitchListTile(
-                  title: const Text('Default Plan (Popular)'),
-                  value: isDefault,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) => setDialogState(() => isDefault = val),
-                ),
-                SwitchListTile(
-                  title: const Text('Active for Bookings'),
-                  value: isActive,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) => setDialogState(() => isActive = val),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final basePrice = double.tryParse(priceCtrl.text.trim()) ?? 0;
-                if (basePrice <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a valid base price per day.')),
-                  );
-                  return;
-                }
-                final includedKm = isUnlimited ? null : int.tryParse(kmCtrl.text.trim());
-                if (!isUnlimited && (includedKm == null || includedKm <= 0)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter valid included KM per day.')),
-                  );
-                  return;
-                }
-
-                final newPkg = MileagePackageModel(
-                  id: existing?.id ?? 'temp_pkg_${DateTime.now().millisecondsSinceEpoch}',
-                  carId: widget.carId ?? '',
-                  tripType: selectedTripType,
-                  name: nameCtrl.text.trim().isEmpty
-                      ? (isUnlimited ? 'Unlimited' : '$includedKm km/day')
-                      : nameCtrl.text.trim(),
-                  includedKmPerDay: includedKm,
-                  basePricePerDay: basePrice,
-                  extraKmRate: isUnlimited ? 0.0 : (double.tryParse(extraRateCtrl.text.trim()) ?? 0.0),
-                  isDefault: isDefault,
-                  isActive: isActive,
-                );
-
-                setState(() {
-                  if (isDefault) {
-                    for (int i = 0; i < _mileagePackages.length; i++) {
-                      if (_mileagePackages[i].tripType == selectedTripType) {
-                        _mileagePackages[i] = _mileagePackages[i].copyWith(isDefault: false);
-                      }
-                    }
-                  }
-                  if (index != null && index >= 0 && index < _mileagePackages.length) {
-                    _mileagePackages[index] = newPkg;
-                  } else {
-                    _mileagePackages.add(newPkg);
-                  }
-                });
-
-                Navigator.pop(ctx);
-              },
-              child: const Text('Save Package'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _saveCar() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
     }
+  }
 
-    final session = ref.read(vendorSessionProvider);
-    final vendorId = session.vendor?.id;
-    if (vendorId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No vendor session found')),
-      );
-      return;
-    }
+  Future<void> _submitCar() async {
+    setState(() => _isSubmitting = true);
 
-    // Prepare car model
-    final car = CarModel(
-      id: isEditMode ? widget.carId! : 'car_${DateTime.now().millisecondsSinceEpoch}',
+    final vendorId = ref.read(vendorSessionProvider).vendor?.id ?? '';
+    final make = _makeCtrl.text.trim();
+    final model = _modelCtrl.text.trim();
+    final regNum = _regNumCtrl.text.trim().toUpperCase();
+    final seating = int.tryParse(_seatingCtrl.text.trim()) ?? 5;
+    final priceDay = double.tryParse(_priceDayCtrl.text.trim()) ?? 2000.0;
+    final priceHour = double.tryParse(_priceHourCtrl.text.trim()) ?? 150.0;
+    final priceKm = double.tryParse(_priceKmCtrl.text.trim()) ?? 12.0;
+
+    final carData = CarModel(
+      id: widget.carId ?? '',
       vendorId: vendorId,
-      make: _makeCtrl.text.trim(),
-      model: _modelCtrl.text.trim(),
+      make: make,
+      model: model,
       year: _selectedYear ?? DateTime.now().year,
       type: _selectedCategory ?? 'Sedan',
       fuelType: _selectedFuelType ?? 'Petrol',
-      seating: int.tryParse(_seatingCtrl.text.trim()) ?? 5,
+      seating: seating,
       isAC: _isAC,
-      photos: _photos.isNotEmpty ? _photos : ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
-      pricePerKm: double.tryParse(_priceKmCtrl.text.trim()) ?? 0.0,
-      pricePerDay: double.tryParse(_priceDayCtrl.text.trim()) ?? 0.0,
-      pricePerHour: double.tryParse(_priceHourCtrl.text.trim()) ?? 0.0,
-      registrationNumber: _regNumCtrl.text.trim(),
-      isAvailable: isEditMode
-          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).isAvailable ?? true)
-          : true,
-      rating: isEditMode
-          ? (ref.read(fleetCarsProvider).value?.firstWhere((c) => c.id == widget.carId, orElse: () => const CarModel(id: '', vendorId: '', make: '', model: '', year: 2022, type: '', fuelType: '', seating: 5, isAC: true, photos: [], pricePerKm: 0, pricePerDay: 0, pricePerHour: 0)).rating ?? 5.0)
-          : 5.0,
-      availableTripTypes: _selectedTripTypes,
+      photos: _photos.isNotEmpty ? _photos : [samplePhotos.first],
+      pricePerKm: priceKm,
+      pricePerDay: priceDay,
+      pricePerHour: priceHour,
+      registrationNumber: regNum,
+      availableTripTypes: _selectedTripTypes.isNotEmpty ? _selectedTripTypes : ['Local', 'Outstation'],
+      isAvailable: _isAvailableOnPublish,
     );
 
     bool success = false;
     if (isEditMode) {
-      success = await ref.read(fleetControllerProvider.notifier).updateCar(car);
+      success = await ref.read(fleetControllerProvider.notifier).updateCar(carData);
     } else {
-      success = await ref.read(fleetControllerProvider.notifier).addCar(car);
+      success = await ref.read(fleetControllerProvider.notifier).addCar(carData);
     }
 
-    if (success) {
-      final repo = ref.read(fleetRepositoryProvider);
-
-      // Sync mileage packages if any configured
-      for (final pkg in _mileagePackages) {
-        try {
-          if (pkg.id.startsWith('temp_pkg_')) {
-            await repo.createMileagePackage(car.id, pkg);
-          } else {
-            await repo.updateMileagePackage(car.id, pkg);
-          }
-        } catch (_) {}
-      }
-
-      // Upload car-specific documents (RC Book / Insurance) with carId if selected
-      if (_rcBookPath != null) {
-        try {
-          await repo.uploadCarDocument(carId: car.id, type: 'RC_BOOK', fileUrl: _rcBookPath!, expiresAt: _rcBookExpiry);
-        } catch (_) {}
-      }
-      if (_insurancePath != null) {
-        try {
-          await repo.uploadCarDocument(carId: car.id, type: 'INSURANCE', fileUrl: _insurancePath!, expiresAt: _insuranceExpiry);
-        } catch (_) {}
-      }
-
-      if (mounted) {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isEditMode ? 'Car updated successfully' : 'Car added successfully')),
+          SnackBar(
+            content: Text(isEditMode ? 'Vehicle updated successfully' : 'Vehicle published to fleet!'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
         );
-        context.pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save vehicle. Please check network/server logs.'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(fleetControllerProvider);
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(isEditMode ? 'Edit Car' : 'Add New Car'),
+        title: Text(
+          isEditMode ? 'Edit Vehicle' : 'Fast Add Vehicle',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Stack(
+        children: [
+          Column(
             children: [
-              // Photos section
-              const SectionHeader(title: 'Car Photos (Max 6)'),
-              const Gap(12),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.0,
+              // Step Progress Bar
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'STEP ${_currentStep + 1} OF $_totalSteps: ${_getStepTitle(_currentStep).toUpperCase()}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          '${((_currentStep + 1) / _totalSteps * 100).toInt()}% Done',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(8),
+                    LinearProgressIndicator(
+                      value: (_currentStep + 1) / _totalSteps,
+                      backgroundColor: const Color(0xFFE2E8F0),
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      minHeight: 6,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ],
                 ),
-                itemCount: 6,
-                itemBuilder: (context, index) {
-                  final hasPhoto = index < _photos.length;
-                  return GestureDetector(
-                    onTap: () => _simulatePhotoSelection(index),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
+              ),
+
+              // Active Step Form Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildCurrentStepWidget(),
+                ),
+              ),
+
+              // Bottom Navigation Actions
+              Container(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: MediaQuery.of(context).padding.bottom + 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    if (_currentStep > 0)
+                      Expanded(
+                        flex: 1,
+                        child: OutlinedButton(
+                          onPressed: _onPreviousStep,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Back'),
+                        ),
                       ),
-                      child: hasPhoto
-                          ? Stack(
-                              children: [
-                                const Center(
-                                  child: Icon(Icons.directions_car, size: 40, color: Colors.green),
-                                ),
-                                Positioned(
-                                  right: 4,
-                                  bottom: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.check, size: 12, color: Colors.white),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 4,
-                                  top: 4,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _photos.removeAt(index);
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.close, size: 12, color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo, color: AppColors.primary, size: 24),
-                                Gap(4),
-                                Text(
-                                  'Add Photo',
-                                  style: TextStyle(fontSize: 10, color: Colors.grey),
-                                ),
-                              ],
-                            ),
+                    if (_currentStep > 0) const Gap(12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _onNextStep,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text(
+                          _currentStep == _totalSteps - 1
+                              ? (isEditMode ? 'Save Changes' : 'Publish Vehicle')
+                              : 'Continue',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-              const Gap(24),
+            ],
+          ),
+          if (_isSubmitting)
+            Container(
+              color: Colors.black26,
+              child: const Center(child: AppLoader()),
+            ),
+        ],
+      ),
+    );
+  }
 
-              // Basic vehicle info
-              const SectionHeader(title: 'Vehicle Details'),
-              const Gap(12),
-              AppTextField(
-                label: 'Make',
-                hint: 'e.g. Maruti Suzuki, Hyundai',
-                controller: _makeCtrl,
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Make is required' : null,
-              ),
-              const Gap(16),
-              AppTextField(
-                label: 'Model',
-                hint: 'e.g. Swift, Creta',
-                controller: _modelCtrl,
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Model is required' : null,
-              ),
-              const Gap(16),
+  String _getStepTitle(int step) {
+    switch (step) {
+      case 0:
+        return 'Vehicle Identity';
+      case 1:
+        return 'Specifications';
+      case 2:
+        return 'Commercial & Pricing';
+      case 3:
+        return 'Media & Photos';
+      case 4:
+        return 'Pickup & Operations';
+      case 5:
+        return 'Review & Publish';
+      default:
+        return '';
+    }
+  }
 
-              // Row for Year & Category Dropdowns
-              Row(
+  Widget _buildCurrentStepWidget() {
+    switch (_currentStep) {
+      case 0:
+        return _buildStep1Identity();
+      case 1:
+        return _buildStep2Specifications();
+      case 2:
+        return _buildStep3Commercial();
+      case 3:
+        return _buildStep4Media();
+      case 4:
+        return _buildStep5Operations();
+      case 5:
+        return _buildStep6Review();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // STEP 1: IDENTITY
+  Widget _buildStep1Identity() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vehicle Identification',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Enter basic identity details of the car as per the registration documents.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(20),
+
+        _buildTextField(
+          controller: _makeCtrl,
+          label: 'Manufacturer / Brand *',
+          hint: 'e.g. Maruti Suzuki, Hyundai, Tata',
+          icon: Icons.directions_car_rounded,
+        ),
+        const Gap(16),
+
+        _buildTextField(
+          controller: _modelCtrl,
+          label: 'Model Name *',
+          hint: 'e.g. Swift, Creta, Nexon, Thar',
+          icon: Icons.label_outline_rounded,
+        ),
+        const Gap(16),
+
+        _buildTextField(
+          controller: _variantCtrl,
+          label: 'Variant / Trim',
+          hint: 'e.g. ZXi+, SX(O), Creative',
+          icon: Icons.tune_rounded,
+        ),
+        const Gap(16),
+
+        _buildTextField(
+          controller: _regNumCtrl,
+          label: 'Registration Plate Number *',
+          hint: 'e.g. MH 12 AB 1234',
+          icon: Icons.pin_rounded,
+          textCapitalization: TextCapitalization.characters,
+        ),
+      ],
+    );
+  }
+
+  // STEP 2: SPECIFICATIONS
+  Widget _buildStep2Specifications() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Technical Specifications',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Specify body category, powertrain, transmission, and seating layout.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(20),
+
+        // Year dropdown
+        const Text('Manufacturing Year *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _selectedYear,
+              isExpanded: true,
+              items: _years.map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
+              onChanged: (val) => setState(() => _selectedYear = val),
+            ),
+          ),
+        ),
+        const Gap(16),
+
+        // Category dropdown
+        const Text('Body / Vehicle Category *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedCategory,
+              isExpanded: true,
+              items: ['Hatchback', 'Sedan', 'SUV', 'Luxury', 'Tempo Traveller', 'Mini Bus']
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedCategory = val),
+            ),
+          ),
+        ),
+        const Gap(16),
+
+        // Fuel Type
+        const Text('Fuel Type *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'].map((fuel) {
+            final isSelected = _selectedFuelType == fuel;
+            return ChoiceChip(
+              label: Text(fuel),
+              selected: isSelected,
+              selectedColor: const Color(0xFFEEF2FF),
+              labelStyle: TextStyle(
+                color: isSelected ? AppColors.primary : const Color(0xFF334155),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              onSelected: (val) {
+                if (val) setState(() => _selectedFuelType = fuel);
+              },
+            );
+          }).toList(),
+        ),
+        const Gap(16),
+
+        // Transmission
+        const Text('Transmission *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(8),
+        Row(
+          children: ['Automatic', 'Manual'].map((trans) {
+            final isSelected = _selectedTransmission == trans;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Center(child: Text(trans)),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFFEEF2FF),
+                  labelStyle: TextStyle(
+                    color: isSelected ? AppColors.primary : const Color(0xFF334155),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  onSelected: (val) {
+                    if (val) setState(() => _selectedTransmission = trans);
+                  },
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const Gap(16),
+
+        // Seating & AC
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _seatingCtrl,
+                label: 'Seating Capacity *',
+                hint: '5',
+                icon: Icons.airline_seat_recline_normal_rounded,
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const Gap(16),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(top: 22),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'Air Conditioned',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: 0.8,
+                      child: Switch(
+                        value: _isAC,
+                        activeThumbColor: const Color(0xFF10B981),
+                        onChanged: (val) => setState(() => _isAC = val),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // STEP 3: COMMERCIAL & PRICING
+  Widget _buildStep3Commercial() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Commercial Rates & Pricing',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Set daily, hourly, and per-km pricing for customer bookings.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(20),
+
+        _buildTextField(
+          controller: _priceDayCtrl,
+          label: 'Daily Rental Price (₹/day) *',
+          hint: 'e.g. 2400',
+          icon: Icons.currency_rupee_rounded,
+          keyboardType: TextInputType.number,
+        ),
+        const Gap(16),
+
+        _buildTextField(
+          controller: _priceHourCtrl,
+          label: 'Hourly Rate (₹/hour) *',
+          hint: 'e.g. 180',
+          icon: Icons.schedule_rounded,
+          keyboardType: TextInputType.number,
+        ),
+        const Gap(16),
+
+        _buildTextField(
+          controller: _priceKmCtrl,
+          label: 'Excess Mileage Rate (₹/km) *',
+          hint: 'e.g. 14',
+          icon: Icons.speed_rounded,
+          keyboardType: TextInputType.number,
+        ),
+        const Gap(20),
+
+        const Text('Supported Trip Types *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['Local', 'Outstation', 'Airport Transfer', 'Self-Drive'].map((trip) {
+            final isSelected = _selectedTripTypes.contains(trip);
+            return FilterChip(
+              label: Text(trip),
+              selected: isSelected,
+              selectedColor: const Color(0xFFEEF2FF),
+              checkmarkColor: AppColors.primary,
+              labelStyle: TextStyle(
+                color: isSelected ? AppColors.primary : const Color(0xFF334155),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+              onSelected: (val) {
+                setState(() {
+                  if (val) {
+                    _selectedTripTypes.add(trip);
+                  } else {
+                    _selectedTripTypes.remove(trip);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // STEP 4: MEDIA & PHOTOS
+  Widget _buildStep4Media() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vehicle Media & Gallery',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Upload clear exterior and interior photos of the vehicle.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(20),
+
+        // Photo Grid Preview
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            ..._photos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final photoUrl = entry.value;
+              return Stack(
                 children: [
-                  Expanded(
-                    child: AppDropdown<int>(
-                      label: 'Year',
-                      value: _selectedYear,
-                      items: _years.map((y) {
-                        return DropdownMenuItem<int>(
-                          value: y,
-                          child: Text(y.toString()),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedYear = val;
-                        });
-                      },
+                  Container(
+                    width: 100,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(photoUrl, fit: BoxFit.cover),
                     ),
                   ),
-                  const Gap(16),
-                  Expanded(
-                    child: AppDropdown<String>(
-                      label: 'Category',
-                      value: _selectedCategory,
-                      items: AppConstants.carCategories.map((cat) {
-                        return DropdownMenuItem<String>(
-                          value: cat,
-                          child: Text(cat),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedCategory = val;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const Gap(16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: AppDropdown<String>(
-                      label: 'Fuel Type',
-                      value: _selectedFuelType,
-                      items: ['Petrol', 'Diesel', 'CNG', 'Electric'].map((fuel) {
-                        return DropdownMenuItem<String>(
-                          value: fuel,
-                          child: Text(fuel),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedFuelType = val;
-                        });
-                      },
-                    ),
-                  ),
-                  const Gap(16),
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Seating Capacity',
-                      hint: 'e.g. 5',
-                      controller: _seatingCtrl,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Required';
-                        }
-                        if (int.tryParse(value) == null) {
-                          return 'Must be number';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const Gap(16),
-
-              AppTextField(
-                label: 'Registration Number',
-                hint: 'e.g. MH 12 AB 1234',
-                controller: _regNumCtrl,
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Registration number is required' : null,
-              ),
-              const Gap(16),
-
-              // AC/Non-AC Toggle Cards
-              const Text(
-                'Air Conditioning',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-              ),
-              const Gap(8),
-              Row(
-                children: [
-                  Expanded(
+                  Positioned(
+                    top: 4,
+                    right: 4,
                     child: GestureDetector(
-                      onTap: () => setState(() => _isAC = true),
+                      onTap: () {
+                        setState(() {
+                          _photos.removeAt(idx);
+                        });
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: _isAC ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
-                          border: Border.all(
-                            color: _isAC ? AppColors.primary : Colors.grey[300]!,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'AC',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _isAC ? AppColors.primary : Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Gap(16),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isAC = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: !_isAC ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
-                          border: Border.all(
-                            color: !_isAC ? AppColors.primary : Colors.grey[300]!,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Non-AC',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: !_isAC ? AppColors.primary : Colors.black87,
-                            ),
-                          ),
-                        ),
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                        child: const Icon(Icons.close, size: 12, color: Colors.white),
                       ),
                     ),
                   ),
                 ],
+              );
+            }),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  final nextSample = samplePhotos[_photos.length % samplePhotos.length];
+                  _photos.add(nextSample);
+                });
+              },
+              child: Container(
+                width: 100,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 24),
+                    Gap(4),
+                    Text('Add Photo', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
-              const Gap(24),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-              // Pricing section
-              const SectionHeader(title: 'Base Pricing Rates (INR)'),
-              const Gap(12),
-              Row(
+  // STEP 5: OPERATIONS & HUB
+  Widget _buildStep5Operations() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Operations & Hub Assignment',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Assign pickup location and set initial operational availability.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(20),
+
+        const Text('Pickup Hub *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const Gap(6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedHub,
+              isExpanded: true,
+              items: ['Main Hub', 'Airport Service Hub', 'Downtown Station']
+                  .map((h) => DropdownMenuItem(value: h, child: Text(h)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedHub = val ?? 'Main Hub'),
+            ),
+          ),
+        ),
+        const Gap(20),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Per KM Rate',
-                      hint: '15',
-                      controller: _priceKmCtrl,
-                      keyboardType: TextInputType.number,
-                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
-                    ),
-                  ),
-                  const Gap(12),
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Per Day Rate',
-                      hint: '2500',
-                      controller: _priceDayCtrl,
-                      keyboardType: TextInputType.number,
-                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
-                    ),
-                  ),
-                  const Gap(12),
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Per Hour Rate',
-                      hint: '200',
-                      controller: _priceHourCtrl,
-                      keyboardType: TextInputType.number,
-                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
-                    ),
-                  ),
+                  Text('Make Available Immediately', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Gap(2),
+                  Text('Car will accept customer bookings upon publish', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
                 ],
               ),
-              const Gap(24),
-
-              // Configurable Mileage Packages Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Mileage Packages',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => _showAddEditPackageDialog(),
-                    icon: const Icon(Icons.add_circle_outline, size: 18),
-                    label: const Text('Add Package'),
-                  ),
-                ],
+              Switch(
+                value: _isAvailableOnPublish,
+                activeThumbColor: const Color(0xFF10B981),
+                onChanged: (val) => setState(() => _isAvailableOnPublish = val),
               ),
-              const Gap(4),
-              Text(
-                'Configure mileage tiers (e.g. 100 km/day, Unlimited) per trip type for customer selection.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const Gap(12),
-              if (_mileagePackages.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'No mileage packages configured yet.\nTap "+ Add Package" above to create daily km allowance packages.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                  ),
-                )
-              else
-                ..._mileagePackages.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final pkg = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: AppCard(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14.0),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                pkg.isUnlimited ? Icons.all_inclusive : Icons.speed,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                            ),
-                            const Gap(12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        pkg.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const Gap(8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          pkg.tripType,
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      if (pkg.isDefault) ...[
-                                        const Gap(6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: Colors.green.shade300),
-                                          ),
-                                          child: Text(
-                                            'Default',
-                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade700),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  const Gap(4),
-                                  Text(
-                                    pkg.isUnlimited
-                                        ? '₹${pkg.basePricePerDay.toInt()}/day • Unlimited km'
-                                        : '₹${pkg.basePricePerDay.toInt()}/day • ${pkg.includedKmPerDay} km/day • Extra: ₹${pkg.extraKmRate.toInt()}/km',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.blueGrey),
-                              onPressed: () => _showAddEditPackageDialog(existing: pkg, index: index),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
-                              onPressed: () {
-                                setState(() {
-                                  _mileagePackages.removeAt(index);
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              const Gap(24),
-
-              // Available Trip Types Chip selection
-              const SectionHeader(title: 'Available Trip Types'),
-              const Gap(12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: AppConstants.tripTypes.map((type) {
-                  final isSelected = _selectedTripTypes.contains(type);
-                  return FilterChip(
-                    label: Text(type),
-                    selected: isSelected,
-                    selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.primary : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedTripTypes.add(type);
-                        } else {
-                          _selectedTripTypes.remove(type);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const Gap(32),
-
-              // Car Documents (RC Book & Insurance)
-              const SectionHeader(title: 'Car Documents'),
-              const Gap(8),
-              Text(
-                'Upload car-specific legal & registration documents.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const Gap(12),
-              _buildCarDocUploadCard('RC Book', _rcBookPath, _rcBookExpiry, () => _simulateCarDocUpload('RC Book')),
-              const Gap(12),
-              _buildCarDocUploadCard('Insurance Policy', _insurancePath, _insuranceExpiry, () => _simulateCarDocUpload('Insurance')),
-              const Gap(32),
-
-              // Save button
-              AppButton(
-                text: isEditMode ? 'Update Car' : 'Add Car to Fleet',
-                onPressed: _saveCar,
-              ),
-              const Gap(24),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  // STEP 6: REVIEW & PUBLISH
+  Widget _buildStep6Review() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Review Vehicle Details',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const Gap(4),
+        const Text(
+          'Please verify all information before publishing the vehicle to your live fleet.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const Gap(16),
+
+        // Summary Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Photo + Title
+              Row(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFF1F5F9),
+                    ),
+                    child: _photos.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(_photos.first, fit: BoxFit.cover),
+                          )
+                        : const Icon(Icons.directions_car),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_makeCtrl.text.trim()} ${_modelCtrl.text.trim()} ${_variantCtrl.text.trim()}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const Gap(2),
+                        Text(
+                          'Plate: ${_regNumCtrl.text.trim().toUpperCase()}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              _buildReviewRow('Manufacturing Year', '$_selectedYear'),
+              _buildReviewRow('Category / Fuel', '$_selectedCategory • $_selectedFuelType'),
+              _buildReviewRow('Transmission / Seats', '$_selectedTransmission • ${_seatingCtrl.text.trim()} Seats'),
+              _buildReviewRow('Air Conditioning', _isAC ? 'Yes (AC)' : 'No (Non-AC)'),
+              _buildReviewRow('Daily Rental Rate', '₹${_priceDayCtrl.text.trim()}/day'),
+              _buildReviewRow('Hourly Rate', '₹${_priceHourCtrl.text.trim()}/hr'),
+              _buildReviewRow('Pickup Hub', _selectedHub),
+              _buildReviewRow('Initial Status', _isAvailableOnPublish ? 'Available (Active)' : 'Draft (Offline)'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+        const Gap(6),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, size: 20, color: const Color(0xFF64748B)),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+          Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+        ],
       ),
     );
   }

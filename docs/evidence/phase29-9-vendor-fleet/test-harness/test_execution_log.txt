@@ -1,0 +1,61 @@
+﻿Resolving dependencies...
+Downloading packages...
+  cached_network_image 3.4.1 (4.0.0 available)
+  cached_network_image_platform_interface 4.1.1 (5.0.0 available)
+  cached_network_image_web 1.3.1 (2.0.0 available)
+  clock 1.1.2 (1.1.3 available)
+  code_assets 1.2.1 (2.0.0 available)
+  cross_file 0.3.5+4 (0.3.5+5 available)
+  csv 6.0.0 (8.0.0 available)
+  dio 5.10.0 (5.11.0 available)
+  dio_web_adapter 2.2.0 (2.2.1 available)
+  file_picker 8.3.7 (12.1.3 available)
+  fl_chart 0.70.2 (1.2.0 available)
+  flutter_cache_manager 3.4.1 (3.4.2 available)
+  flutter_lints 3.0.2 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.4.2 available)
+  flutter_secure_storage 9.2.4 (11.0.0 available)
+  flutter_secure_storage_linux 1.2.3 (3.0.2 available)
+  flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+  flutter_secure_storage_platform_interface 1.1.2 (2.0.3 available)
+  flutter_secure_storage_web 1.2.1 (2.1.1 available)
+  flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+  freezed_annotation 2.4.4 (3.1.0 available)
+  geolocator 13.0.4 (14.0.3 available)
+  geolocator_android 4.6.2 (5.0.3 available)
+  geolocator_platform_interface 4.2.8 (4.3.0 available)
+  go_router 14.8.1 (18.0.0 available)
+  google_fonts 8.2.0 (8.2.1 available)
+  hooks 2.0.2 (2.2.0 available)
+  intl 0.19.0 (0.20.3 available)
+  jni 1.0.0 (1.0.3 available)
+  jni_flutter 1.0.1 (1.0.3 available)
+  js 0.6.7 (0.7.2 available)
+  lints 3.0.0 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  mime 2.0.0 (2.1.0 available)
+  objective_c 9.4.1 (9.6.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  pub_semver 2.2.0 (2.2.1 available)
+  record_use 0.6.0 (1.1.1 available)
+  riverpod 2.6.1 (3.4.2 available)
+  shimmer 3.0.0 (4.0.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  synchronized 3.4.1 (3.4.1+2 available)
+  table_calendar 3.1.3 (3.2.1 available)
+  test_api 0.7.12 (0.7.13 available)
+  vm_service 15.2.0 (15.3.0 available)
+  win32 5.15.0 (6.4.0 available)
+  yaml 3.1.3 (3.1.4 available)
+Got dependencies!
+47 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading D:/Flutter/car_rental_monorepo/apps/vendor_app/test/phase29_9_fleet_test.dart
+00:00 +0: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 1. Fleet Overview renders header, summary health cards, and vehicles
+00:01 +1: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 2. Real-time Search filters fleet by make, model, and registration plate
+00:02 +2: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 3. Filter Drawer filters fleet by operational status and fuel type
+00:04 +3: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 4. Vehicle Details renders specifications, pricing breakdown, and availability switch
+00:04 +4: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 5. Availability switch triggers safety confirmation dialog
+00:05 +5: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 6. Fast Add 6-step wizard navigates through all steps with validation
+00:07 +6: DriveGo Phase 29.9 ΓÇö Vendor Fleet Management Tests 7. Bulk CSV Upload parses and validates rows with actionable rejection errors
+00:08 +7: All tests passed!

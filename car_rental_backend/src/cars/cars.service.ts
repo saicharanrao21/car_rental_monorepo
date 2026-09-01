@@ -528,6 +528,8 @@ export class CarsService {
     return this.prisma.car.findMany({
       where: { vendorId: vendor.id },
       include: {
+        pickupHub: true,
+        vendor: true,
         mileagePackages: {
           orderBy: [{ tripType: 'asc' }, { isDefault: 'desc' }, { basePricePerDay: 'asc' }],
         },

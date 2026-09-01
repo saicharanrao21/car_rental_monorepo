@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:models/models.dart';
 import '../providers/fleet_providers.dart';
 
 class FleetCarDetailPage extends ConsumerStatefulWidget {
@@ -18,10 +19,65 @@ class FleetCarDetailPage extends ConsumerStatefulWidget {
 
 class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
   DateTime _focusedDay = DateTime.now();
+  int _selectedPhotoIndex = 0;
   bool _isToggling = false;
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  void _showAvailabilityConfirmDialog(BuildContext context, CarModel car, bool targetState) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          targetState ? 'Make Vehicle Available?' : 'Take Vehicle Offline?',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Text(
+          targetState
+              ? 'This vehicle will immediately become visible to customers in search results and available for new bookings.'
+              : 'Taking this vehicle offline prevents future customer bookings. Any ongoing or confirmed trips must still be honored.',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              setState(() => _isToggling = true);
+              final success = await ref
+                  .read(fleetControllerProvider.notifier)
+                  .toggleAvailability(car.id, targetState);
+              if (mounted) {
+                setState(() => _isToggling = false);
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? (targetState ? 'Vehicle is now AVAILABLE' : 'Vehicle is now OFFLINE')
+                          : 'Failed to update vehicle availability',
+                    ),
+                    backgroundColor: targetState ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: targetState ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(targetState ? 'Confirm Available' : 'Confirm Offline'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -29,232 +85,468 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
     final carsAsync = ref.watch(fleetCarsProvider);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Car Details'),
+        title: const Text('Vehicle Details', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Vehicle',
+            onPressed: () => context.push('/fleet/edit/${widget.carId}'),
+          ),
+        ],
       ),
       body: carsAsync.when(
         loading: () => const Center(child: AppLoader()),
         error: (err, stack) => Center(
           child: ErrorStateWidget(
-            message: 'Failed to load car details',
+            message: 'Failed to load vehicle details',
             onRetry: () => ref.invalidate(fleetCarsProvider),
           ),
         ),
         data: (cars) {
           final index = cars.indexWhere((c) => c.id == widget.carId);
           if (index == -1) {
-            return const Center(child: Text('Car not found'));
+            return const Center(child: Text('Vehicle not found in fleet'));
           }
           final car = cars[index];
+          final photos = car.photos.isNotEmpty
+              ? car.photos
+              : ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'];
 
           return Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Car header/image area
+                    // 1. Hero Image / Gallery Section
                     Container(
-                      height: 200,
+                      height: 220,
                       decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Center(
-                        child: Icon(Icons.directions_car, size: 100, color: Colors.grey),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              photos[_selectedPhotoIndex.clamp(0, photos.length - 1)],
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.directions_car_rounded, size: 80, color: Color(0xFF94A3B8)),
+                              ),
+                            ),
+                          ),
+                          // Status Badge overlay
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: (car.isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    car.isAvailable ? Icons.check_circle : Icons.pause_circle_filled,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                  const Gap(4),
+                                  Text(
+                                    car.isAvailable ? 'AVAILABLE FOR RENT' : 'OFFLINE',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Gap(24),
 
-                    // Make & Model
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${car.make} ${car.model}',
-                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    // Gallery thumbnails if multiple
+                    if (photos.length > 1) ...[
+                      const Gap(10),
+                      SizedBox(
+                        height: 50,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: photos.length,
+                          itemBuilder: (ctx, i) {
+                            final isSelected = i == _selectedPhotoIndex;
+                            return GestureDetector(
+                              onTap: () => setState(() => _selectedPhotoIndex = i),
+                              child: Container(
+                                width: 60,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(photos[i], fit: BoxFit.cover),
+                                ),
                               ),
-                              const Gap(4),
-                              Text(
-                                'Year ${car.year} | ${car.fuelType} | ${car.type}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const Gap(16),
+
+                    // 2. Identity Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${car.make} ${car.model}',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const Gap(4),
+                                    Text(
+                                      'Year ${car.year} • ${car.type} • ${car.fuelType}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Registration badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+                                ),
+                                child: Text(
+                                  car.registrationNumber.isNotEmpty ? car.registrationNumber : 'MH 12 AB 1234',
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (car.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: (car.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.24), width: 1),
+                          const Divider(height: 24),
+                          // Availability Switch row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Operational Availability',
+                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                  ),
+                                  Text(
+                                    car.isAvailable
+                                        ? 'Active on platform — accepting trip bookings'
+                                        : 'Paused — invisible to customer search',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: car.isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Switch(
+                                value: car.isAvailable,
+                                activeThumbColor: const Color(0xFF10B981),
+                                onChanged: (val) => _showAvailabilityConfirmDialog(context, car, val),
+                              ),
+                            ],
                           ),
-                          child: Text(
-                            car.isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
-                            style: TextStyle(
-                              color: car.isAvailable ? Colors.green : Colors.red,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    const Gap(24),
+                    const Gap(16),
 
-                    // Specifications
-                    const Text('Specifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Gap(12),
+                    // 3. Specifications Grid
+                    const Text(
+                      'Vehicle Specifications',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    const Gap(10),
                     Row(
                       children: [
                         Expanded(
-                          child: _buildSpecTile(Icons.event_seat, '${car.seating} Seats'),
+                          child: _buildSpecTile(
+                            icon: Icons.event_seat_rounded,
+                            title: 'Seating',
+                            value: '${car.seating} Passengers',
+                          ),
                         ),
-                        const Gap(12),
+                        const Gap(10),
                         Expanded(
-                          child: _buildSpecTile(Icons.ac_unit, car.isAC ? 'Air Conditioning' : 'No AC'),
+                          child: _buildSpecTile(
+                            icon: Icons.ac_unit_rounded,
+                            title: 'Climate',
+                            value: car.isAC ? 'Air Conditioned' : 'Non-AC',
+                          ),
                         ),
                       ],
                     ),
-                    const Gap(24),
-
-                    // Pricing
-                    const Text('Pricing Rates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Gap(12),
-                    AppCard(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            _buildPriceRow('Per Hour Rate', car.pricePerHour),
-                            const Divider(height: 24),
-                            _buildPriceRow('Per Day Rate', car.pricePerDay),
-                            const Divider(height: 24),
-                            _buildPriceRow('Per KM Rate', car.pricePerKm),
-                          ],
+                    const Gap(10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSpecTile(
+                            icon: Icons.local_gas_station_rounded,
+                            title: 'Fuel Type',
+                            value: car.fuelType,
+                          ),
                         ),
+                        const Gap(10),
+                        Expanded(
+                          child: _buildSpecTile(
+                            icon: Icons.location_on_rounded,
+                            title: 'Hub Location',
+                            value: car.pickupLocationName ?? 'Main Service Hub',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(16),
+
+                    // 4. Commercial & Pricing Breakdown
+                    const Text(
+                      'Commercial Rates & Pricing',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    const Gap(10),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildPriceItem('Daily Rental Rate', car.pricePerDay, '/day'),
+                          const Divider(height: 20),
+                          _buildPriceItem('Hourly Rate', car.pricePerHour, '/hr'),
+                          const Divider(height: 20),
+                          _buildPriceItem('Excess Mileage Rate', car.pricePerKm, '/km'),
+                        ],
                       ),
                     ),
-                    const Gap(24),
+                    const Gap(16),
 
-                    // Trip Types
-                    const Text('Available Trip Types', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Gap(12),
+                    // 5. Supported Trip Types
+                    const Text(
+                      'Enabled Trip Types',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    const Gap(10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: car.availableTripTypes.map((type) {
-                        return Chip(
-                          label: Text(type),
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                          labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFC7D2FE)),
+                          ),
+                          child: Text(
+                            type,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
                         );
                       }).toList(),
                     ),
-                    const Gap(24),
+                    const Gap(20),
 
-                    // Availability Calendar Section
-                    const Text('Availability Calendar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Gap(4),
-                    Text(
-                      'Tap a date to block or unblock it. Blocked dates are highlighted in red.',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                    const Gap(12),
-                    AppCard(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: TableCalendar(
-                          firstDay: DateTime.now().subtract(const Duration(days: 365)),
-                          lastDay: DateTime.now().add(const Duration(days: 365)),
-                          focusedDay: _focusedDay,
-                          currentDay: DateTime.now(),
-                          calendarFormat: CalendarFormat.month,
-                          headerStyle: const HeaderStyle(
-                            formatButtonVisible: false,
-                            titleCentered: true,
-                          ),
-                          selectedDayPredicate: (day) {
-                            return car.blockedDates.any((d) => _isSameDay(d, day));
-                          },
-                           onDaySelected: (selectedDay, focusedDay) async {
-                            final isAlreadyBlocked = car.blockedDates.any((d) => _isSameDay(d, selectedDay));
-                            final updatedBlocked = List<DateTime>.from(car.blockedDates);
-                            if (isAlreadyBlocked) {
-                              updatedBlocked.removeWhere((d) => _isSameDay(d, selectedDay));
-                            } else {
-                              updatedBlocked.add(selectedDay);
-                            }
-
-                            final messenger = ScaffoldMessenger.of(context);
-
-                            setState(() {
-                              _isToggling = true;
-                              _focusedDay = focusedDay;
-                            });
-
-                            final success = await ref
-                                .read(fleetControllerProvider.notifier)
-                                .updateBlockedDates(car.id, updatedBlocked);
-
-                            if (mounted) {
-                              setState(() {
-                                _isToggling = false;
-                              });
-                              if (success) {
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      isAlreadyBlocked ? 'Date unblocked' : 'Date blocked successfully',
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Failed to update availability'),
-                                  ),
+                    // 6. Availability & Blocked Dates Calendar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Blocked Dates Management',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                            ),
+                            Text(
+                              'Tap any date to block/unblock maintenance or rest days',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                        if (car.blockedDates.isNotEmpty)
+                          TextButton(
+                            onPressed: () async {
+                              final scaffoldMessenger = ScaffoldMessenger.of(context);
+                              setState(() => _isToggling = true);
+                              await ref
+                                  .read(fleetControllerProvider.notifier)
+                                  .updateBlockedDates(car.id, []);
+                              if (mounted) {
+                                setState(() => _isToggling = false);
+                                scaffoldMessenger.showSnackBar(
+                                  const SnackBar(content: Text('All blocked dates cleared')),
                                 );
                               }
-                            }
-                          },
-                          calendarStyle: const CalendarStyle(
-                            selectedDecoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            selectedTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            todayDecoration: BoxDecoration(
-                              color: Colors.blueAccent,
-                              shape: BoxShape.circle,
-                            ),
+                            },
+                            child: const Text('Clear All', style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
                           ),
+                      ],
+                    ),
+                    const Gap(10),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: TableCalendar(
+                        firstDay: DateTime.now().subtract(const Duration(days: 90)),
+                        lastDay: DateTime.now().add(const Duration(days: 365)),
+                        focusedDay: _focusedDay,
+                        currentDay: DateTime.now(),
+                        calendarFormat: CalendarFormat.month,
+                        headerStyle: const HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                          titleTextStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                        selectedDayPredicate: (day) {
+                          return car.blockedDates.any((d) => _isSameDay(d, day));
+                        },
+                        onDaySelected: (selectedDay, focusedDay) async {
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final isAlreadyBlocked = car.blockedDates.any((d) => _isSameDay(d, selectedDay));
+                          final updatedBlocked = List<DateTime>.from(car.blockedDates);
+                          if (isAlreadyBlocked) {
+                            updatedBlocked.removeWhere((d) => _isSameDay(d, selectedDay));
+                          } else {
+                            updatedBlocked.add(selectedDay);
+                          }
+
+                          setState(() {
+                            _isToggling = true;
+                            _focusedDay = focusedDay;
+                          });
+
+                          await ref
+                              .read(fleetControllerProvider.notifier)
+                              .updateBlockedDates(car.id, updatedBlocked);
+
+                          if (mounted) {
+                            setState(() => _isToggling = false);
+                            scaffoldMessenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isAlreadyBlocked ? 'Date unblocked' : 'Date successfully marked as BLOCKED',
+                                ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                        calendarStyle: CalendarStyle(
+                          selectedDecoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          todayDecoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          todayTextStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
-                    const Gap(40),
+                    const Gap(28),
 
-                    // Edit Button
-                    AppButton(
-                      text: 'Edit Car Details',
+                    // 7. Edit Action Button
+                    ElevatedButton.icon(
                       onPressed: () => context.push('/fleet/edit/${car.id}'),
+                      icon: const Icon(Icons.edit_rounded, color: Colors.white),
+                      label: const Text('Edit Vehicle Specifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
-                    const Gap(20),
                   ],
                 ),
               ),
               if (_isToggling)
                 Container(
-                  color: Colors.black12,
-                  child: const Center(
-                    child: AppLoader(),
-                  ),
+                  color: Colors.black26,
+                  child: const Center(child: AppLoader()),
                 ),
             ],
           );
@@ -263,40 +555,74 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
     );
   }
 
-  Widget _buildSpecTile(IconData icon, String text) {
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        child: Column(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 28),
-            const Gap(8),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+  Widget _buildSpecTile({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const Gap(10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                const Gap(2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: Color(0xFF0F172A)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPriceRow(String label, double price) {
+  Widget _buildPriceItem(String label, double price, String suffix) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: Color(0xFF334155)),
         ),
-        PriceTag(
-          amount: price,
-          amountStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.accent,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              '₹${price.toStringAsFixed(0)}',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            Text(
+              suffix,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
+          ],
         ),
       ],
     );
