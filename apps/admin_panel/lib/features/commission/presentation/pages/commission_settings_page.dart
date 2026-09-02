@@ -5,6 +5,8 @@ import 'package:core/core.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/commission_providers.dart';
 
 class CommissionSettingsPage extends ConsumerStatefulWidget {
@@ -171,65 +173,97 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Gap(16),
-          Scrollbar(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
-                columns: const [
-                  DataColumn(label: Text('Applies To Scope')),
-                  DataColumn(label: Text('Commission %', textAlign: TextAlign.right)),
-                  DataColumn(label: Text('Effective From')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: rules.map((rule) {
-                  final scopeLabel = _formatAppliesTo(rule);
-                  final formattedDate = DateFormat('dd MMM yyyy').format(rule.effectiveFrom);
-
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            scopeLabel,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          alignment: Alignment.centerRight,
-                          width: 80,
-                          child: Text(
-                            '${rule.percentage.toStringAsFixed(1)}%',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(formattedDate)),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                              tooltip: 'Edit Rule',
-                              onPressed: () => _showRuleForm(context, rule),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                              tooltip: 'Delete Rule',
-                              onPressed: () => _confirmDeleteRule(context, rule),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
+          AdminDataGrid<CommissionConfigModel>(
+            items: rules,
+            emptyTitle: 'No Commission Rules',
+            emptyMessage: 'Configure commission rules to govern marketplace fee splits.',
+            emptyIcon: Icons.percent_outlined,
+            columns: [
+              AdminDataColumn(
+                title: 'APPLIES TO SCOPE',
+                builder: (rule) => Text(
+                  _formatAppliesTo(rule),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
               ),
-            ),
+              AdminDataColumn(
+                title: 'COMMISSION %',
+                numeric: true,
+                builder: (rule) => Text(
+                  '${rule.percentage.toStringAsFixed(1)}%',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2563EB)),
+                ),
+              ),
+              AdminDataColumn(
+                title: 'EFFECTIVE FROM',
+                builder: (rule) => Text(
+                  DateFormat('dd MMM yyyy').format(rule.effectiveFrom),
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+              ),
+              AdminDataColumn(
+                title: 'ACTIONS',
+                builder: (rule) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
+                      tooltip: 'Edit Rule',
+                      onPressed: () => _showRuleForm(context, rule),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                      tooltip: 'Delete Rule',
+                      onPressed: () => _confirmDeleteRule(context, rule),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            mobileCardBuilder: (ctx, rule) {
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatAppliesTo(rule),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const Gap(4),
+                          Text(
+                            'Effective: ${DateFormat("dd MMM yyyy").format(rule.effectiveFrom)}',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          '${rule.percentage.toStringAsFixed(1)}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB)),
+                        ),
+                        const Gap(8),
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
+                          onPressed: () => _showRuleForm(context, rule),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -481,9 +515,11 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
   }
 
   void _showRuleForm(BuildContext context, [CommissionConfigModel? ruleToEdit]) {
-    AppBottomSheet.show(
-      context,
+    AdminDetailDrawer.show(
+      context: context,
       title: ruleToEdit == null ? 'Add Commission Rule' : 'Edit Commission Rule',
+      subtitle: ruleToEdit != null ? 'Config ID: #${ruleToEdit.id.toUpperCase()}' : 'Configure platform revenue cut',
+      width: 480,
       child: _RuleFormModal(
         ruleToEdit: ruleToEdit,
         onSave: (rule) {
@@ -492,6 +528,7 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
           } else {
             ref.read(commissionControllerProvider.notifier).updateRule(rule);
           }
+          Navigator.of(context).pop();
         },
       ),
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../providers/admin_referral_providers.dart';
 
 class AdminReferralCampaignsPage extends ConsumerStatefulWidget {
@@ -21,170 +23,168 @@ class _AdminReferralCampaignsPageState
     final minBookingCtrl = TextEditingController(text: '1000');
     final cityCtrl = TextEditingController();
     final maxReferralsCtrl = TextEditingController(text: '20');
+    bool isSaving = false;
 
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Create Referral Campaign',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      title: 'Create Referral Campaign',
+      subtitle: 'Configure reward structures and redemption caps',
+      width: 480,
+      child: StatefulBuilder(
+        builder: (context, setModalState) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Campaign Name *',
+                hintText: 'e.g. Bangalore Launch Promo',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const Gap(12),
+            TextField(
+              controller: codeCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Campaign Code *',
+                hintText: 'e.g. BLR2026',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const Gap(12),
+            Row(
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Campaign Name *',
-                    hintText: 'e.g. Bangalore Launch Promo',
-                    border: OutlineInputBorder(),
+                Expanded(
+                  child: TextField(
+                    controller: referrerRewardCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Referrer Reward (₹)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: codeCtrl,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(
-                    labelText: 'Campaign Code *',
-                    hintText: 'e.g. BLR2026',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: referrerRewardCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Referrer Reward (₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+                const Gap(12),
+                Expanded(
+                  child: TextField(
+                    controller: refereeRewardCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Referee Discount (₹)',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: refereeRewardCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Referee Discount (₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: minBookingCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Min Booking Fare (₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: maxReferralsCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Max Referrals / User',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: cityCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Target City (Optional)',
-                    hintText: 'Leave empty for Global',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              final code = codeCtrl.text.trim().toUpperCase();
-              final referrerReward =
-                  double.tryParse(referrerRewardCtrl.text.trim()) ?? 250.0;
-              final refereeReward =
-                  double.tryParse(refereeRewardCtrl.text.trim()) ?? 250.0;
-              final minBooking =
-                  double.tryParse(minBookingCtrl.text.trim()) ?? 1000.0;
-              final maxRef =
-                  int.tryParse(maxReferralsCtrl.text.trim()) ?? 20;
-              final city = cityCtrl.text.trim().isEmpty ? null : cityCtrl.text.trim();
-
-              if (name.isEmpty || code.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Campaign name and code are required.'),
-                    backgroundColor: Colors.red,
+            const Gap(12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: minBookingCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Min Booking Fare (₹)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                );
-                return;
-              }
-
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(ctx);
-
-              try {
-                final repo = ref.read(adminReferralRepositoryProvider);
-                await repo.createCampaign({
-                  'name': name,
-                  'code': code,
-                  'referrerRewardAmount': referrerReward,
-                  'refereeRewardAmount': refereeReward,
-                  'minBookingAmount': minBooking,
-                  'maxReferralsPerUser': maxRef,
-                  if (city != null) 'city': city,
-                  'isActive': true,
-                });
-                navigator.pop();
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Referral campaign created successfully!'),
-                    backgroundColor: Colors.green,
+                ),
+                const Gap(12),
+                Expanded(
+                  child: TextField(
+                    controller: maxReferralsCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Max Referrals / User',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                );
-                ref.invalidate(adminReferralCampaignsProvider);
-              } catch (err) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to create campaign: $err'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C5CE7),
-              foregroundColor: Colors.white,
+                ),
+              ],
             ),
-            child: const Text('Create Campaign'),
-          ),
-        ],
+            const Gap(12),
+            TextField(
+              controller: cityCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Target City (Optional)',
+                hintText: 'Leave empty for Global',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const Gap(24),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final name = nameCtrl.text.trim();
+                      final code = codeCtrl.text.trim().toUpperCase();
+                      final referrerReward =
+                          double.tryParse(referrerRewardCtrl.text.trim()) ?? 250.0;
+                      final refereeReward =
+                          double.tryParse(refereeRewardCtrl.text.trim()) ?? 250.0;
+                      final minBooking =
+                          double.tryParse(minBookingCtrl.text.trim()) ?? 1000.0;
+                      final maxRef =
+                          int.tryParse(maxReferralsCtrl.text.trim()) ?? 20;
+                      final city = cityCtrl.text.trim().isEmpty ? null : cityCtrl.text.trim();
+
+                      if (name.isEmpty || code.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Campaign name and code are required.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final messenger = ScaffoldMessenger.of(context);
+                      setModalState(() => isSaving = true);
+
+                      try {
+                        final repo = ref.read(adminReferralRepositoryProvider);
+                        await repo.createCampaign({
+                          'name': name,
+                          'code': code,
+                          'referrerRewardAmount': referrerReward,
+                          'refereeRewardAmount': refereeReward,
+                          'minBookingAmount': minBooking,
+                          'maxReferralsPerUser': maxRef,
+                          if (city != null) 'city': city,
+                          'isActive': true,
+                        });
+                        if (context.mounted) Navigator.of(context).pop();
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Referral campaign created successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        ref.invalidate(adminReferralCampaignsProvider);
+                      } catch (err) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to create campaign: $err'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } finally {
+                        setModalState(() => isSaving = false);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C5CE7),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Create Campaign'),
+            ),
+          ],
+        ),
       ),
     );
   }

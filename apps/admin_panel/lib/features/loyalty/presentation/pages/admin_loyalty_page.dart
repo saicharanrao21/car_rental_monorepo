@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
+import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_loyalty_providers.dart';
 
 class AdminLoyaltyManagementPage extends ConsumerStatefulWidget {
@@ -272,83 +275,123 @@ class _AdminLoyaltyManagementPageState
           ),
           const SizedBox(height: 16),
           accountsAsync.when(
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            error: (err, _) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Failed to load accounts: $err'),
+            loading: () => const AdminTableSkeleton(),
+            error: (err, _) => AdminErrorState(
+              message: 'Failed to load accounts: $err',
+              onRetry: () => ref.invalidate(adminLoyaltyAccountsProvider),
             ),
             data: (data) {
               final accountsList = data['accounts'] as List<dynamic>? ?? [];
-              if (accountsList.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Text('No loyalty accounts found matching search criteria.'),
+              return AdminDataGrid<dynamic>(
+                items: accountsList,
+                emptyTitle: 'No Loyalty Accounts',
+                emptyMessage: 'No loyalty accounts found matching search criteria.',
+                emptyIcon: Icons.stars_outlined,
+                columns: [
+                  AdminDataColumn(
+                    title: 'CUSTOMER',
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final userName = accMap['userName'] as String? ?? 'N/A';
+                      final userPhone = accMap['userPhone'] as String? ?? '';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(userPhone, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                        ],
+                      );
+                    },
                   ),
-                );
-              }
-
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Tier', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Available Points', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Lifetime Points', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Wallet Equiv.', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                  ],
-                  rows: accountsList.map((acc) {
-                    final tierCode = LoyaltyTierCode.fromString(acc['tierCode'] as String?);
-                    final userId = acc['userId'] as String;
-                    final userName = acc['userName'] as String? ?? 'N/A';
-                    final userPhone = acc['userPhone'] as String? ?? '';
-                    final pointsBalance = acc['pointsBalance'] as int? ?? 0;
-                    final lifetimePoints = acc['lifetimePoints'] as int? ?? 0;
-                    final walletEquiv = acc['walletEquivalent'] as int? ?? 0;
-
-                    return DataRow(
-                      cells: [
-                        DataCell(
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text(userPhone, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                            ],
+                  AdminDataColumn(
+                    title: 'TIER',
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final tierCode = LoyaltyTierCode.fromString(accMap['tierCode'] as String?);
+                      return _buildTierBadge(tierCode);
+                    },
+                  ),
+                  AdminDataColumn(
+                    title: 'AVAILABLE POINTS',
+                    numeric: true,
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final pointsBalance = accMap['pointsBalance'] as int? ?? 0;
+                      return Text('$pointsBalance pts', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981)));
+                    },
+                  ),
+                  AdminDataColumn(
+                    title: 'LIFETIME POINTS',
+                    numeric: true,
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final lifetimePoints = accMap['lifetimePoints'] as int? ?? 0;
+                      return Text('$lifetimePoints pts');
+                    },
+                  ),
+                  AdminDataColumn(
+                    title: 'WALLET EQUIV.',
+                    numeric: true,
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final walletEquiv = accMap['walletEquivalent'] as int? ?? 0;
+                      return Text('₹$walletEquiv', style: const TextStyle(fontWeight: FontWeight.w600));
+                    },
+                  ),
+                  AdminDataColumn(
+                    title: 'ACTIONS',
+                    builder: (acc) {
+                      final accMap = acc as Map<String, dynamic>;
+                      final userId = accMap['userId'] as String;
+                      final userName = accMap['userName'] as String? ?? 'N/A';
+                      final pointsBalance = accMap['pointsBalance'] as int? ?? 0;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.tune, size: 18, color: Color(0xFF3B82F6)),
+                            tooltip: 'Adjust Points',
+                            onPressed: () => _showAdjustPointsDialog(context, userId, userName, pointsBalance),
                           ),
-                        ),
-                        DataCell(_buildTierBadge(tierCode)),
-                        DataCell(Text('$pointsBalance pts', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981)))),
-                        DataCell(Text('$lifetimePoints pts')),
-                        DataCell(Text('₹$walletEquiv', style: const TextStyle(fontWeight: FontWeight.w600))),
-                        DataCell(
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.tune, size: 18, color: Color(0xFF3B82F6)),
-                                tooltip: 'Adjust Points',
-                                onPressed: () => _showAdjustPointsDialog(context, userId, userName, pointsBalance),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.history, size: 18, color: Colors.blueGrey),
-                                tooltip: 'View Transaction History',
-                                onPressed: () => _showTransactionHistoryDialog(context, userId, userName),
-                              ),
-                            ],
+                          IconButton(
+                            icon: const Icon(Icons.history, size: 18, color: Colors.blueGrey),
+                            tooltip: 'View Transaction History',
+                            onPressed: () => _showTransactionHistoryDialog(context, userId, userName),
                           ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+                mobileCardBuilder: (ctx, acc) {
+                  final accMap = acc as Map<String, dynamic>;
+                  final userName = accMap['userName'] as String? ?? 'N/A';
+                  final tierCode = LoyaltyTierCode.fromString(accMap['tierCode'] as String?);
+                  final pointsBalance = accMap['pointsBalance'] as int? ?? 0;
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const Gap(4),
+                            _buildTierBadge(tierCode),
+                          ],
                         ),
+                        Text('$pointsBalance pts', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 14)),
                       ],
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -396,157 +439,158 @@ class _AdminLoyaltyManagementPageState
     final pointsCtrl = TextEditingController();
     final reasonCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool isSaving = false;
 
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Adjust Points: $userName'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Current Available Balance: $currentBalance pts', style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: pointsCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(signed: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Points Delta (+credit or -debit)',
-                    hintText: 'e.g. 250 or -100',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Enter points amount';
-                    final parsed = int.tryParse(val);
-                    if (parsed == null || parsed == 0) return 'Enter non-zero integer';
-                    return null;
-                  },
+      title: 'Adjust Points',
+      subtitle: userName,
+      width: 480,
+      child: StatefulBuilder(
+        builder: (context, setModalState) => Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Current Available Balance: $currentBalance pts', style: const TextStyle(fontSize: 13, color: Colors.black54)),
+              const Gap(16),
+              TextFormField(
+                controller: pointsCtrl,
+                keyboardType: const TextInputType.numberWithOptions(signed: true),
+                decoration: const InputDecoration(
+                  labelText: 'Points Delta (+credit or -debit)',
+                  hintText: 'e.g. 250 or -100',
+                  border: OutlineInputBorder(),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: reasonCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason for Adjustment (Audit Required)',
-                    hintText: 'e.g. Good will compensation for ticket #1234',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().length < 5) return 'Reason must be at least 5 chars';
-                    return null;
-                  },
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Enter points amount';
+                  final parsed = int.tryParse(val);
+                  if (parsed == null || parsed == 0) return 'Enter non-zero integer';
+                  return null;
+                },
+              ),
+              const Gap(12),
+              TextFormField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for Adjustment (Audit Required)',
+                  hintText: 'e.g. Good will compensation for ticket #1234',
+                  border: OutlineInputBorder(),
                 ),
-              ],
-            ),
+                validator: (val) {
+                  if (val == null || val.trim().length < 5) return 'Reason must be at least 5 chars';
+                  return null;
+                },
+              ),
+              const Gap(24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (formKey.currentState?.validate() ?? false) {
+                          setModalState(() => isSaving = true);
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            final points = int.parse(pointsCtrl.text.trim());
+                            final reason = reasonCtrl.text.trim();
+                            final repo = ref.read(adminLoyaltyRepositoryProvider);
+                            await repo.adjustPoints(
+                              userId: userId,
+                              points: points,
+                              reason: reason,
+                              idempotencyKey: 'admin_adj_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+                            );
+                            ref.invalidate(adminLoyaltySummaryProvider);
+                            ref.invalidate(adminLoyaltyAccountsProvider);
+                            if (context.mounted) Navigator.pop(context);
+                            messenger.showSnackBar(
+                              const SnackBar(content: Text('Points adjusted successfully!'), backgroundColor: Color(0xFF10B981)),
+                            );
+                          } catch (e) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Adjustment failed: $e'), backgroundColor: Colors.red),
+                            );
+                          } finally {
+                            setModalState(() => isSaving = false);
+                          }
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Apply Adjustment'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6), foregroundColor: Colors.white),
-              onPressed: () async {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(ctx);
-                  final messenger = ScaffoldMessenger.of(context);
-                  try {
-                    final points = int.parse(pointsCtrl.text.trim());
-                    final reason = reasonCtrl.text.trim();
-                    final repo = ref.read(adminLoyaltyRepositoryProvider);
-                    await repo.adjustPoints(
-                      userId: userId,
-                      points: points,
-                      reason: reason,
-                      idempotencyKey: 'admin_adj_${userId}_${DateTime.now().millisecondsSinceEpoch}',
-                    );
-                    ref.invalidate(adminLoyaltySummaryProvider);
-                    ref.invalidate(adminLoyaltyAccountsProvider);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Points adjusted successfully!'), backgroundColor: Color(0xFF10B981)),
-                    );
-                  } catch (e) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Adjustment failed: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Apply Adjustment'),
-            ),
-          ],
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _showTransactionHistoryDialog(BuildContext context, String userId, String userName) {
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Transaction History: $userName'),
-          content: SizedBox(
-            width: 500,
-            height: 400,
-            child: FutureBuilder<List<LoyaltyTransactionModel>>(
-              future: ref.read(adminLoyaltyRepositoryProvider).getAccountTransactions(userId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error loading history: ${snapshot.error}'));
-                }
-                final txs = snapshot.data ?? [];
-                if (txs.isEmpty) {
-                  return const Center(child: Text('No transactions recorded.'));
-                }
+      title: 'Transaction History',
+      subtitle: userName,
+      width: 480,
+      child: FutureBuilder<List<LoyaltyTransactionModel>>(
+        future: ref.read(adminLoyaltyRepositoryProvider).getAccountTransactions(userId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error loading history: ${snapshot.error}'));
+          }
+          final txs = snapshot.data ?? [];
+          if (txs.isEmpty) {
+            return const Center(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('No transactions recorded.'),
+            ));
+          }
 
-                return ListView.separated(
-                  itemCount: txs.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final tx = txs[index];
-                    final isCredit = tx.type.isCredit;
-                    final color = isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+          return ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: txs.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final tx = txs[index];
+              final isCredit = tx.type.isCredit;
+              final color = isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
-                    return ListTile(
-                      dense: true,
-                      leading: Icon(
-                        isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                        color: color,
-                        size: 20,
-                      ),
-                      title: Text(tx.type.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      subtitle: Text(tx.description, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('${isCredit ? '+' : '-'}${tx.points} pts', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                          Text('Bal: ${tx.balanceAfter}', style: const TextStyle(fontSize: 10, color: Colors.black38)),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: color,
+                  size: 20,
+                ),
+                title: Text(tx.type.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(tx.description, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${isCredit ? '+' : '-'}${tx.points} pts', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                    Text('Bal: ${tx.balanceAfter}', style: const TextStyle(fontSize: 10, color: Colors.black38)),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

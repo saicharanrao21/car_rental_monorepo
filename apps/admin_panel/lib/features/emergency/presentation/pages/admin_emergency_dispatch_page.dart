@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import '../../../../core/providers/api_providers.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
 
 final adminEmergencyRequestsProvider =
     FutureProvider.family.autoDispose<List<EmergencyRequestModel>, String?>((ref, statusFilter) async {
@@ -27,9 +28,12 @@ class _AdminEmergencyDispatchPageState extends ConsumerState<AdminEmergencyDispa
   String _selectedStatus = 'ALL';
 
   void _openDispatchDialog(EmergencyRequestModel request) {
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) => _DispatchActionDialog(
+      title: 'Emergency Dispatch Console',
+      subtitle: 'Incident SOS #${request.requestNumber}',
+      width: 560,
+      child: _DispatchActionDialog(
         request: request,
         onUpdated: () => ref.invalidate(adminEmergencyRequestsProvider(_selectedStatus)),
       ),

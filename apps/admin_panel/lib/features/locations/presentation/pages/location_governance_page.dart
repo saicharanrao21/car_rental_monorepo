@@ -5,6 +5,7 @@ import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/locations_providers.dart';
 import '../widgets/location_detail_drawer.dart';
 
@@ -479,124 +480,146 @@ class _LocationGovernancePageState extends ConsumerState<LocationGovernancePage>
   }
 
   Widget _buildLocationTable(List<VendorLocationModel> locations) {
-    if (locations.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return AdminDataGrid<VendorLocationModel>(
+      items: locations,
+      emptyTitle: 'No locations found',
+      emptyMessage: 'No locations match your filter or search criteria.',
+      emptyIcon: Icons.location_off_outlined,
+      onRowTap: (loc) => _inspectLocation(loc),
+      columns: [
+        AdminDataColumn(
+          title: 'HUB NAME & TYPE',
+          builder: (loc) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.location_off_outlined, size: 48, color: Colors.grey),
-              Gap(12),
               Text(
-                'No locations found matching your filter criteria',
-                style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                loc.name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+              ),
+              Text(
+                loc.type.displayName,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
           ),
         ),
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: 64,
-          columns: const [
-            DataColumn(label: Text('Hub Name & Type', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('City / State', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Street Address', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Fleet Capacity', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: locations.map((loc) {
-            final statusColor = _getStatusColor(loc.status);
-
-            return DataRow(
-              cells: [
-                DataCell(
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        loc.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
-                      ),
-                      Text(
-                        loc.type.displayName,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
+        AdminDataColumn(
+          title: 'CITY / STATE',
+          builder: (loc) => Text('${loc.city}, ${loc.state ?? ""}', style: const TextStyle(fontSize: 13)),
+        ),
+        AdminDataColumn(
+          title: 'STREET ADDRESS',
+          builder: (loc) => ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(
+              loc.address,
+              style: const TextStyle(fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        AdminDataColumn(
+          title: 'FLEET CAPACITY',
+          builder: (loc) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.directions_car_outlined, size: 16, color: Colors.blue),
+              const Gap(6),
+              Text('${loc.assignedCarCount} cars', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+            ],
+          ),
+        ),
+        AdminDataColumn(
+          title: 'STATUS',
+          builder: (loc) => AdminStatusBadge(status: loc.status.toApiString()),
+        ),
+        AdminDataColumn(
+          title: 'ACTIONS',
+          builder: (loc) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  visualDensity: VisualDensity.compact,
                 ),
-                DataCell(Text('${loc.city}, ${loc.state ?? ""}', style: const TextStyle(fontSize: 13))),
-                DataCell(
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
+                onPressed: () => _inspectLocation(loc),
+                child: const Text('Inspect', style: TextStyle(fontSize: 12)),
+              ),
+              if (loc.status == VendorLocationStatus.pendingApproval) ...[
+                const Gap(6),
+                IconButton(
+                  icon: const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                  tooltip: 'Approve Hub',
+                  onPressed: () {
+                    ref.read(locationGovernanceControllerProvider.notifier).updateStatus(loc.id, 'ACTIVE');
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+      mobileCardBuilder: (ctx, loc) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
                     child: Text(
-                      loc.address,
-                      style: const TextStyle(fontSize: 12),
+                      loc.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                DataCell(
+                  AdminStatusBadge(status: loc.status.toApiString(), compact: true),
+                ],
+              ),
+              const Gap(4),
+              Text(
+                '${loc.type.displayName} • ${loc.city}, ${loc.state ?? ""}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const Gap(6),
+              Text(
+                loc.address,
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              const Gap(12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Row(
                     children: [
                       const Icon(Icons.directions_car_outlined, size: 16, color: Colors.blue),
                       const Gap(6),
-                      Text('${loc.assignedCarCount} cars', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${loc.assignedCarCount} vehicles', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                     ],
                   ),
-                ),
-                DataCell(
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    child: Text(
-                      loc.status.toApiString(),
-                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
+                    onPressed: () => _inspectLocation(loc),
+                    child: const Text('Inspect Hub', style: TextStyle(fontSize: 12)),
                   ),
-                ),
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => _inspectLocation(loc),
-                        child: const Text('Inspect', style: TextStyle(fontSize: 12)),
-                      ),
-                      const Gap(8),
-                      if (loc.status == VendorLocationStatus.pendingApproval)
-                        IconButton(
-                          icon: const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
-                          tooltip: 'Approve Hub',
-                          onPressed: () {
-                            ref.read(locationGovernanceControllerProvider.notifier).updateStatus(loc.id, 'ACTIVE');
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

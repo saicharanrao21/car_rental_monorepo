@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:models/models.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../../domain/repositories/admin_dashboard_repository.dart';
 import '../providers/admin_dashboard_providers.dart';
 import '../../../locations/presentation/providers/locations_providers.dart';
@@ -671,60 +672,108 @@ class _RecentBookingsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (bookings.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+    return AdminDataGrid<BookingModel>(
+      items: bookings,
+      emptyTitle: 'No recent bookings registered',
+      emptyMessage: 'Live operational booking events will appear here in real time.',
+      onRowTap: (b) => context.go('/bookings'),
+      columns: [
+        AdminDataColumn(
+          title: 'BOOKING ID',
+          builder: (b) => Text(
+            '#${b.id.toUpperCase()}',
+            style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2563EB), fontSize: 13),
+          ),
         ),
-        child: const Center(
-          child: Text('No recent bookings registered', style: TextStyle(color: Colors.grey)),
+        AdminDataColumn(
+          title: 'CUSTOMER',
+          builder: (b) => Text(
+            'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}',
+            style: const TextStyle(fontSize: 13),
+          ),
         ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          columns: const [
-            DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Vendor Partner', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Pickup Location', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Start Date', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Total Fare', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: bookings.map((b) {
-            final customerName = 'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}';
-            final vendorName = 'Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}';
-
-            return DataRow(
-              cells: [
-                DataCell(Text('#${b.id.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2563EB)))),
-                DataCell(Text(customerName)),
-                DataCell(Text(vendorName)),
-                DataCell(Text(b.pickupLocation)),
-                DataCell(Text(DateFormat('dd MMM yyyy').format(b.startDate))),
-                DataCell(PriceTag(
-                  amount: b.totalFare,
-                  amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                )),
-                DataCell(StatusBadge(status: b.status)),
-              ],
-            );
-          }).toList(),
+        AdminDataColumn(
+          title: 'VENDOR PARTNER',
+          builder: (b) => Text(
+            'Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}',
+            style: const TextStyle(fontSize: 13),
+          ),
         ),
-      ),
+        AdminDataColumn(
+          title: 'PICKUP HUB',
+          builder: (b) => ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              b.pickupLocation,
+              style: const TextStyle(fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        AdminDataColumn(
+          title: 'START DATE',
+          builder: (b) => Text(
+            DateFormat('dd MMM yyyy').format(b.startDate),
+            style: const TextStyle(fontSize: 12.5),
+          ),
+        ),
+        AdminDataColumn(
+          title: 'TOTAL FARE',
+          numeric: true,
+          builder: (b) => PriceTag(
+            amount: b.totalFare,
+            amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+        ),
+        AdminDataColumn(
+          title: 'STATUS',
+          builder: (b) => AdminStatusBadge(status: b.status),
+        ),
+      ],
+      mobileCardBuilder: (ctx, b) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '#${b.id.toUpperCase()}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 13),
+                  ),
+                  AdminStatusBadge(status: b.status, compact: true),
+                ],
+              ),
+              const Gap(8),
+              Text(
+                'Pickup: ${b.pickupLocation}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+              ),
+              const Gap(4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('dd MMM yyyy').format(b.startDate),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  PriceTag(
+                    amount: b.totalFare,
+                    amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

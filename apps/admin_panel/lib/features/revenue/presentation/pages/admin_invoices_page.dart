@@ -4,6 +4,8 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/api_providers.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 
 final adminInvoicesSearchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -68,80 +70,62 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
             .format(DateTime.parse(invoice['issuedAt']))
         : 'N/A';
 
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.receipt_long, color: Colors.blue),
-            const Gap(8),
-            Text('Invoice: $invoiceNum',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        content: SizedBox(
-          width: 440,
-          child: SingleChildScrollView(
+      title: 'Tax Invoice & Receipt',
+      subtitle: 'Invoice #: $invoiceNum',
+      width: 480,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _detailRow('Customer:', customer),
-                      _detailRow('Vendor Fleet:', vendor),
-                      _detailRow('Booking ID:', invoice['bookingId'] ?? 'N/A'),
-                      _detailRow('Payment ID:', invoice['paymentId'] ?? 'N/A'),
-                      _detailRow('Issued Date:', issuedAt),
-                    ],
-                  ),
-                ),
-                const Gap(16),
-                const Text('Fare & Tax Breakdown',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const Gap(8),
-                _fareRow('Vehicle Rental Base Fare', baseFare),
-                _fareRow('Platform Service Fee', platformFee),
-                if (discount > 0)
-                  _fareRow('Promotional Coupon Discount', -discount,
-                      isDiscount: true),
-                _fareRow('GST (18% on Platform Fee)', gst),
-                const Divider(height: 16),
-                _fareRow('Trip Rental Total', total, isBold: true),
-                _fareRow('Refundable Security Deposit', deposit,
-                    isBold: true, color: Colors.blue[800]),
-                const Divider(height: 16),
-                _fareRow('Grand Total Received', total + deposit,
-                    isBold: true, color: Colors.black87),
-                const Gap(12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Company GSTIN: 27AAAAA1111A1Z1 • Escrow Deposit Segregated • Immutable Tax Record',
-                    style: TextStyle(fontSize: 11, color: Colors.blue),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                _detailRow('Customer:', customer),
+                _detailRow('Vendor Fleet:', vendor),
+                _detailRow('Booking ID:', invoice['bookingId'] ?? 'N/A'),
+                _detailRow('Payment ID:', invoice['paymentId'] ?? 'N/A'),
+                _detailRow('Issued Date:', issuedAt),
               ],
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
+          const Gap(16),
+          const Text('Fare & Tax Breakdown',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Gap(8),
+          _fareRow('Vehicle Rental Base Fare', baseFare),
+          _fareRow('Platform Service Fee', platformFee),
+          if (discount > 0)
+            _fareRow('Promotional Coupon Discount', -discount,
+                isDiscount: true),
+          _fareRow('GST (18% on Platform Fee)', gst),
+          const Divider(height: 16),
+          _fareRow('Trip Rental Total', total, isBold: true),
+          _fareRow('Refundable Security Deposit', deposit,
+              isBold: true, color: Colors.blue[800]),
+          const Divider(height: 16),
+          _fareRow('Grand Total Received', total + deposit,
+              isBold: true, color: Colors.black87),
+          const Gap(16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              'Company GSTIN: 27AAAAA1111A1Z1 • Escrow Deposit Segregated • Immutable Tax Record',
+              style: TextStyle(fontSize: 11, color: Colors.blue),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),
@@ -245,102 +229,116 @@ class _AdminInvoicesPageState extends ConsumerState<AdminInvoicesPage> {
             // Invoices Data Table
             Expanded(
               child: invoicesAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => Center(
-                  child: Text('Error loading invoices: $err'),
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading invoices: $err',
+                  onRetry: () => ref.invalidate(adminInvoicesProvider),
                 ),
                 data: (invoices) {
-                  if (invoices.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'No Invoices Found',
-                        subtitle:
-                            'No tax invoices match the search criteria.',
-                      ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor:
-                            WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(
-                              label: Text('Invoice #',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Date',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Customer',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Vendor Fleet',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Trip Fare',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Deposit',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(
-                              label: Text('Actions',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: invoices.map((inv) {
+                  return AdminDataGrid<dynamic>(
+                    items: invoices,
+                    emptyTitle: 'No Invoices Found',
+                    emptyMessage: 'No tax invoices match the search criteria.',
+                    emptyIcon: Icons.receipt_long_outlined,
+                    onRowTap: (inv) => _showInvoiceDetails(context, inv as Map<String, dynamic>),
+                    columns: [
+                      AdminDataColumn(
+                        title: 'INVOICE #',
+                        builder: (inv) {
                           final invMap = inv as Map<String, dynamic>;
-                          final invNum = invMap['invoiceNumber'] ?? 'N/A';
-                          final dateStr = invMap['issuedAt'] != null
-                              ? DateFormat('dd MMM yyyy').format(
-                                  DateTime.parse(invMap['issuedAt']))
-                              : 'N/A';
-                          final custName =
-                              invMap['customer']?['name'] ?? 'N/A';
-                          final vendName =
-                              invMap['vendor']?['businessName'] ?? 'N/A';
-                          final totalFare =
-                              (invMap['totalFare'] as num?)?.toDouble() ?? 0;
-                          final deposit =
-                              (invMap['depositAmount'] as num?)?.toDouble() ??
-                                  0;
-
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(invNum,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue))),
-                              DataCell(Text(dateStr)),
-                              DataCell(Text(custName)),
-                              DataCell(Text(vendName)),
-                              DataCell(Text('₹${totalFare.toInt()}')),
-                              DataCell(Text('₹${deposit.toInt()}',
-                                  style: TextStyle(
-                                      color: Colors.blue[800],
-                                      fontWeight: FontWeight.bold))),
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      color: Colors.blue),
-                                  onPressed: () =>
-                                      _showInvoiceDetails(context, invMap),
-                                  tooltip: 'View Invoice Details',
-                                ),
-                              ),
-                            ],
+                          return Text(
+                            invMap['invoiceNumber'] ?? 'N/A',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 13),
                           );
-                        }).toList(),
+                        },
                       ),
-                    ),
+                      AdminDataColumn(
+                        title: 'DATE',
+                        builder: (inv) {
+                          final invMap = inv as Map<String, dynamic>;
+                          return Text(
+                            invMap['issuedAt'] != null
+                                ? DateFormat('dd MMM yyyy').format(DateTime.parse(invMap['issuedAt']))
+                                : 'N/A',
+                            style: const TextStyle(fontSize: 12.5),
+                          );
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'CUSTOMER',
+                        builder: (inv) {
+                          final invMap = inv as Map<String, dynamic>;
+                          return Text(invMap['customer']?['name'] ?? 'N/A');
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'VENDOR FLEET',
+                        builder: (inv) {
+                          final invMap = inv as Map<String, dynamic>;
+                          return Text(invMap['vendor']?['businessName'] ?? 'N/A');
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'TRIP FARE',
+                        numeric: true,
+                        builder: (inv) {
+                          final invMap = inv as Map<String, dynamic>;
+                          final totalFare = (invMap['totalFare'] as num?)?.toDouble() ?? 0;
+                          return Text('₹${totalFare.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold));
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'DEPOSIT',
+                        numeric: true,
+                        builder: (inv) {
+                          final invMap = inv as Map<String, dynamic>;
+                          final deposit = (invMap['depositAmount'] as num?)?.toDouble() ?? 0;
+                          return Text('₹${deposit.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue));
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'ACTIONS',
+                        builder: (inv) => OutlinedButton.icon(
+                          icon: const Icon(Icons.visibility_outlined, size: 14),
+                          label: const Text('View', style: TextStyle(fontSize: 11.5)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => _showInvoiceDetails(context, inv as Map<String, dynamic>),
+                        ),
+                      ),
+                    ],
+                    mobileCardBuilder: (ctx, inv) {
+                      final invMap = inv as Map<String, dynamic>;
+                      final invNum = invMap['invoiceNumber'] ?? 'N/A';
+                      final totalFare = (invMap['totalFare'] as num?)?.toDouble() ?? 0;
+                      final dateStr = invMap['issuedAt'] != null
+                          ? DateFormat('dd MMM yyyy').format(DateTime.parse(invMap['issuedAt']))
+                          : 'N/A';
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(invNum, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                                Text('₹${totalFare.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const Gap(4),
+                            Text('${invMap["customer"]?["name"] ?? "Customer"} • $dateStr', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

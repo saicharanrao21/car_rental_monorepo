@@ -4,6 +4,7 @@ import 'package:gap/gap.dart';
 import 'package:dio/dio.dart';
 import 'package:models/models.dart';
 import '../../../../core/providers/api_providers.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
 
 final adminSupportTicketsProvider =
     FutureProvider.family.autoDispose<List<SupportTicketModel>, String?>((ref, statusFilter) async {
@@ -28,9 +29,12 @@ class _AdminSupportTicketsPageState extends ConsumerState<AdminSupportTicketsPag
   String _selectedStatus = 'ALL';
 
   void _openTicketDetailDialog(SupportTicketModel ticket) {
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) => _TicketDetailDialog(
+      title: 'Ticket #${ticket.ticketNumber}',
+      subtitle: ticket.subject,
+      width: 560,
+      child: _TicketDetailDrawer(
         ticketId: ticket.id,
         onUpdated: () => ref.invalidate(adminSupportTicketsProvider(_selectedStatus)),
       ),
@@ -252,17 +256,17 @@ class _AdminSupportTicketsPageState extends ConsumerState<AdminSupportTicketsPag
   }
 }
 
-class _TicketDetailDialog extends ConsumerStatefulWidget {
+class _TicketDetailDrawer extends ConsumerStatefulWidget {
   final String ticketId;
   final VoidCallback onUpdated;
 
-  const _TicketDetailDialog({required this.ticketId, required this.onUpdated});
+  const _TicketDetailDrawer({required this.ticketId, required this.onUpdated});
 
   @override
-  ConsumerState<_TicketDetailDialog> createState() => _TicketDetailDialogState();
+  ConsumerState<_TicketDetailDrawer> createState() => _TicketDetailDrawerState();
 }
 
-class _TicketDetailDialogState extends ConsumerState<_TicketDetailDialog> {
+class _TicketDetailDrawerState extends ConsumerState<_TicketDetailDrawer> {
   final _replyController = TextEditingController();
   bool _isInternal = false;
   bool _isSending = false;
@@ -326,182 +330,167 @@ class _TicketDetailDialogState extends ConsumerState<_TicketDetailDialog> {
   Widget build(BuildContext context) {
     final apiClient = ref.watch(apiClientProvider);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 800,
-        height: 650,
-        padding: const EdgeInsets.all(24),
-        child: FutureBuilder(
-          future: apiClient.dio.get('/support/tickets/${widget.ticketId}'),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error loading ticket: ${snapshot.error}'));
-            }
+    return FutureBuilder(
+      future: apiClient.dio.get('/support/tickets/${widget.ticketId}'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading ticket: ${snapshot.error}'));
+        }
 
-            final res = snapshot.data as Response;
-            final ticket =
-                SupportTicketModel.fromJson(res.data as Map<String, dynamic>);
+        final res = snapshot.data as Response;
+        final ticket = SupportTicketModel.fromJson(res.data as Map<String, dynamic>);
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Status & Priority Bar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Dialog Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Ticket #${ticket.ticketNumber}',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text(ticket.subject,
-                            style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        DropdownButton<TicketStatus>(
-                          value: ticket.status,
-                          items: TicketStatus.values.map((s) {
-                            return DropdownMenuItem(value: s, child: Text(s.label));
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) _updateStatus(val);
-                          },
-                        ),
-                        const Gap(8),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ],
+                const Text('Update Status:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                DropdownButton<TicketStatus>(
+                  value: ticket.status,
+                  isDense: true,
+                  items: TicketStatus.values.map((s) {
+                    return DropdownMenuItem(value: s, child: Text(s.label, style: const TextStyle(fontSize: 13)));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) _updateStatus(val);
+                  },
                 ),
-                const Divider(height: 24),
+              ],
+            ),
+            const Divider(height: 24),
 
-                // Description Box
-                Container(
+            // Description Box
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Customer Issue Description:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
+                  const Gap(4),
+                  Text(ticket.description, style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A))),
+                ],
+              ),
+            ),
+            const Gap(16),
+
+            // Message Thread
+            const Text('Conversation History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const Gap(8),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: ticket.messages.length,
+              itemBuilder: (context, index) {
+                final msg = ticket.messages[index];
+                final isStaff = msg.senderRole == 'ADMIN' || msg.senderRole == 'SUPPORT_AGENT';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: msg.isInternal
+                        ? Colors.amber.shade50
+                        : (isStaff ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC)),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: msg.isInternal
+                          ? Colors.amber.shade300
+                          : (isStaff ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0)),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Original Customer Description:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Gap(4),
-                      Text(ticket.description, style: const TextStyle(fontSize: 13)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${msg.senderName ?? msg.senderRole} (${msg.senderRole})',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: msg.isInternal ? Colors.amber.shade900 : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          if (msg.isInternal)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade200,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('🔒 Internal Staff Note',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                            ),
+                        ],
+                      ),
+                      const Gap(6),
+                      Text(msg.message, style: const TextStyle(fontSize: 13)),
                     ],
                   ),
-                ),
-                const Gap(16),
+                );
+              },
+            ),
+            const Divider(height: 24),
 
-                // Message Thread
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: ticket.messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = ticket.messages[index];
-                      final isStaff = msg.senderRole == 'ADMIN' || msg.senderRole == 'SUPPORT_AGENT';
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: msg.isInternal
-                              ? Colors.amber.shade50
-                              : (isStaff ? Colors.blue.shade50 : Colors.grey.shade100),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: msg.isInternal
-                                ? Colors.amber.shade300
-                                : (isStaff ? Colors.blue.shade200 : Colors.grey.shade300),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${msg.senderName ?? msg.senderRole} (${msg.senderRole})',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: msg.isInternal ? Colors.amber.shade900 : Colors.black87,
-                                  ),
-                                ),
-                                if (msg.isInternal)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade200,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text('🔒 Internal Staff Note',
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
-                              ],
-                            ),
-                            const Gap(6),
-                            Text(msg.message, style: const TextStyle(fontSize: 13)),
-                          ],
-                        ),
-                      );
-                    },
+            // Reply Composer
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _replyController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: _isInternal
+                        ? 'Type an internal staff note (hidden from customer)...'
+                        : 'Type reply to customer...',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
                   ),
                 ),
-                const Divider(height: 24),
-
-                // Reply Composer
+                const Gap(8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _replyController,
-                        decoration: InputDecoration(
-                          hintText: _isInternal
-                              ? 'Type an internal staff note (hidden from customer)...'
-                              : 'Type reply to customer...',
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const Gap(12),
                     FilterChip(
-                      label: const Text('Internal Note', style: TextStyle(fontSize: 12)),
+                      label: const Text('Internal Staff Note', style: TextStyle(fontSize: 12)),
                       selected: _isInternal,
                       selectedColor: Colors.amber.shade200,
                       onSelected: (val) => setState(() => _isInternal = val),
                     ),
-                    const Gap(12),
                     ElevatedButton.icon(
                       icon: _isSending
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: 14,
+                              height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Icon(Icons.send, size: 16),
-                      label: const Text('Send'),
+                          : const Icon(Icons.send, size: 14),
+                      label: const Text('Send Response', style: TextStyle(fontSize: 12)),
                       onPressed: _isSending ? null : _sendReply,
                     ),
                   ],
                 ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

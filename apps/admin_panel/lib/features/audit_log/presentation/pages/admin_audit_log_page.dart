@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
+import '../../domain/audit_log_model.dart';
 import '../providers/admin_audit_log_providers.dart';
 
 class AdminAuditLogPage extends ConsumerStatefulWidget {
@@ -35,198 +36,195 @@ class _AdminAuditLogPageState extends ConsumerState<AdminAuditLogPage> {
   Widget build(BuildContext context) {
     final auditLogsAsync = ref.watch(adminAuditLogsProvider);
     final actionFilter = ref.watch(auditActionFilterProvider);
-    final targetTypeFilter = ref.watch(auditTargetTypeFilterProvider);
+    final targetFilter = ref.watch(auditTargetTypeFilterProvider);
+    final searchQuery = ref.watch(auditSearchQueryProvider);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'System Audit Log',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    Text(
+                      'Admin Audit Trail & System Logs',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0F172A),
+                          ),
                     ),
                     const Gap(4),
-                    Text(
-                      'Read-only transparency & security trail recording all administrative actions and system updates.',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    const Text(
+                      'Immutable record of all administrative overrides, security events, and platform state changes.',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
+                IconButton.outlined(
                   onPressed: () => ref.invalidate(adminAuditLogsProvider),
-                  tooltip: 'Refresh Audit Trail',
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh Logs',
                 ),
               ],
             ),
             const Gap(20),
-
-            // Filter Bar
-            AppCard(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: AppTextField(
-                        label: 'Search Audit Trail',
-                        hint: 'Search by admin name, action, target ID...',
-                        controller: _searchCtrl,
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                      ),
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      flex: 2,
-                      child: AppDropdown<String>(
-                        label: 'Action Filter',
-                        value: actionFilter,
-                        items: const [
-                          DropdownMenuItem(value: 'ALL', child: Text('All Actions')),
-                          DropdownMenuItem(value: 'VENDOR_STATUS_CHANGE', child: Text('Vendor Status')),
-                          DropdownMenuItem(value: 'SPONSORSHIP_UPDATE', child: Text('Sponsorship Update')),
-                          DropdownMenuItem(value: 'DISPUTE_UPDATE', child: Text('Dispute Resolution')),
-                          DropdownMenuItem(value: 'BOOKING_OVERRIDE', child: Text('Booking Status')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) ref.read(auditActionFilterProvider.notifier).state = val;
-                        },
-                      ),
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      flex: 2,
-                      child: AppDropdown<String>(
-                        label: 'Target Type',
-                        value: targetTypeFilter,
-                        items: const [
-                          DropdownMenuItem(value: 'ALL', child: Text('All Targets')),
-                          DropdownMenuItem(value: 'VENDOR', child: Text('Vendor')),
-                          DropdownMenuItem(value: 'BOOKING', child: Text('Booking')),
-                          DropdownMenuItem(value: 'DISPUTE', child: Text('Dispute')),
-                          DropdownMenuItem(value: 'CAR', child: Text('Car')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) ref.read(auditTargetTypeFilterProvider.notifier).state = val;
-                        },
-                      ),
-                    ),
+            AdminTableToolbar(
+              searchValue: searchQuery,
+              onSearchChanged: (val) {
+                ref.read(auditSearchQueryProvider.notifier).state = val;
+              },
+              searchHint: 'Search by admin name, action, or target ID...',
+              filters: [
+                DropdownButton<String>(
+                  value: actionFilter,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: 'ALL', child: Text('All Actions', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'MANUAL_PAYOUT_RELEASE', child: Text('Payout Releases', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'VENDOR_SUSPENSION', child: Text('Vendor Suspensions', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'COMMISSION_UPDATE', child: Text('Commission Updates', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'DISPUTE_RESOLUTION', child: Text('Dispute Resolutions', style: TextStyle(fontSize: 13))),
                   ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(auditActionFilterProvider.notifier).state = val;
+                    }
+                  },
                 ),
-              ),
+                const Gap(8),
+                DropdownButton<String>(
+                  value: targetFilter,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: 'ALL', child: Text('All Targets', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'VENDOR', child: Text('Vendor', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'BOOKING', child: Text('Booking', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'COMMISSION', child: Text('Commission', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'DISPUTE', child: Text('Dispute', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'CUSTOMER', child: Text('Customer', style: TextStyle(fontSize: 13))),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(auditTargetTypeFilterProvider.notifier).state = val;
+                    }
+                  },
+                ),
+              ],
             ),
-            const Gap(24),
-
-            // Data Table List Area
+            const Gap(16),
             Expanded(
               child: auditLogsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Failed to load audit trail: $err',
+                loading: () => const AdminTableSkeleton(),
+                error: (e, st) => AdminErrorState(
+                  message: 'Failed to load audit trail: $e',
                   onRetry: () => ref.invalidate(adminAuditLogsProvider),
                 ),
                 data: (logs) {
-                  if (logs.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.history_outlined,
-                        title: 'No Audit Log Entries',
-                        subtitle: 'No administrative actions recorded matching current filters.',
+                  return AdminDataGrid<AuditLogEntry>(
+                    items: logs,
+                    emptyTitle: 'No Audit Log Entries',
+                    emptyMessage: 'No administrative actions recorded matching current filters.',
+                    emptyIcon: Icons.history_outlined,
+                    columns: [
+                      AdminDataColumn<AuditLogEntry>(
+                        title: 'TIMESTAMP',
+                        builder: (AuditLogEntry log) => Text(
+                          DateFormat('dd MMM yyyy, HH:mm:ss').format(log.createdAt),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(label: Text('Timestamp', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Admin User', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Action Performed', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Target Reference', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Metadata & Changes', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: logs.map((log) {
+                      AdminDataColumn<AuditLogEntry>(
+                        title: 'ADMIN USER',
+                        builder: (AuditLogEntry log) => Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                              child: Text(
+                                log.adminUserName.isNotEmpty ? log.adminUserName[0].toUpperCase() : 'A',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                            ),
+                            const Gap(8),
+                            Text(log.adminUserName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      AdminDataColumn<AuditLogEntry>(
+                        title: 'ACTION PERFORMED',
+                        builder: (AuditLogEntry log) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Text(
+                            log.action,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                          ),
+                        ),
+                      ),
+                      AdminDataColumn<AuditLogEntry>(
+                        title: 'TARGET REFERENCE',
+                        builder: (AuditLogEntry log) {
                           final isVendorTarget = log.targetType.toUpperCase() == 'VENDOR';
-
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                Text(
-                                  DateFormat('dd MMM yyyy, HH:mm:ss').format(log.createdAt),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                                      child: Text(
-                                        log.adminUserName.isNotEmpty ? log.adminUserName[0].toUpperCase() : 'A',
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                      ),
-                                    ),
-                                    const Gap(8),
-                                    Text(log.adminUserName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[50],
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.blue[200]!),
-                                  ),
-                                  child: Text(
-                                    log.action,
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue[900]),
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                isVendorTarget
-                                    ? InkWell(
-                                        onTap: () => context.go('/vendors'),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '${log.targetType}:${log.targetId.length > 8 ? log.targetId.substring(0, 8) : log.targetId}',
-                                              style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-                                            ),
-                                            const Gap(4),
-                                            const Icon(Icons.arrow_outward, size: 12, color: Colors.blue),
-                                          ],
-                                        ),
-                                      )
-                                    : Text(
+                          return isVendorTarget
+                              ? InkWell(
+                                  onTap: () => context.go('/vendors'),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
                                         '${log.targetType}:${log.targetId.length > 8 ? log.targetId.substring(0, 8) : log.targetId}',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                                        style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
                                       ),
-                              ),
-                              DataCell(
-                                _buildFormattedMetadata(log.metadata),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                                      const Gap(4),
+                                      const Icon(Icons.arrow_outward, size: 12, color: Colors.blue),
+                                    ],
+                                  ),
+                                )
+                              : Text(
+                                  '${log.targetType}:${log.targetId.length > 8 ? log.targetId.substring(0, 8) : log.targetId}',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                                );
+                        },
                       ),
-                    ),
+                      AdminDataColumn<AuditLogEntry>(
+                        title: 'METADATA & CHANGES',
+                        builder: (AuditLogEntry log) => _buildFormattedMetadata(log.metadata),
+                      ),
+                    ],
+                    mobileCardBuilder: (ctx, AuditLogEntry log) {
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(log.adminUserName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(DateFormat('dd MMM, HH:mm').format(log.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                            const Gap(4),
+                            Text(log.action, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

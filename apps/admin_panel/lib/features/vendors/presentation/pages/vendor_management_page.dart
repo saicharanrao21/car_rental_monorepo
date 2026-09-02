@@ -5,6 +5,8 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_vendor_providers.dart';
 import '../../../fleet/presentation/providers/admin_fleet_providers.dart';
 import '../../../customers/presentation/providers/admin_customer_providers.dart';
@@ -63,39 +65,19 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
   }
 
   void _showDetailPanel(BuildContext context, String vendorId) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 540,
-                height: double.infinity,
-                child: _VendorDetailPanel(
-                  vendorId: vendorId,
-                  onStatusChanged: () {
-                    setState(() {
-                      _selectedPendingIds.remove(vendorId);
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Partner Operational Profile',
+      subtitle: 'Partner ID: #${vendorId.toUpperCase()}',
+      width: 550,
+      child: _VendorDetailPanel(
+        vendorId: vendorId,
+        onStatusChanged: () {
+          setState(() {
+            _selectedPendingIds.remove(vendorId);
+          });
+        },
+      ),
     );
   }
 
@@ -269,166 +251,187 @@ class _VendorManagementPageState extends ConsumerState<VendorManagementPage> {
             // Data Table List Area
             Expanded(
               child: vendorsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
                   message: 'Error loading vendors list: $err',
                   onRetry: () => ref.invalidate(adminVendorsProvider),
                 ),
                 data: (vendors) {
-                  if (vendors.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.people_outline,
-                        title: 'No Partners Found',
-                        subtitle: 'No vendor partners match the selected filters.',
+                  return AdminDataGrid<VendorModel>(
+                    items: vendors,
+                    emptyTitle: 'No Partners Found',
+                    emptyMessage: 'No vendor partners match the selected filter or search criteria.',
+                    emptyIcon: Icons.people_outline,
+                    onRowTap: (v) => _showDetailPanel(context, v.id),
+                    selectedIds: _selectedPendingIds,
+                    idGetter: (v) => v.id,
+                    onSelectRow: (selected, v) {
+                      setState(() {
+                        if (selected == true) {
+                          _selectedPendingIds.add(v.id);
+                        } else {
+                          _selectedPendingIds.remove(v.id);
+                        }
+                      });
+                    },
+                    onSelectAll: (selectedAll) {
+                      setState(() {
+                        if (selectedAll == true) {
+                          _selectedPendingIds.addAll(
+                            vendors.where((v) => v.verificationStatus.toUpperCase() == 'PENDING').map((v) => v.id),
+                          );
+                        } else {
+                          _selectedPendingIds.clear();
+                        }
+                      });
+                    },
+                    columns: [
+                      AdminDataColumn(
+                        title: 'BUSINESS NAME',
+                        builder: (v) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(v.businessName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                            Text('Owner: ${v.ownerName}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          ],
+                        ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        showCheckboxColumn: true,
-                        headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(label: Text('Business Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('City / Locality', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Sponsored Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Trips', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: vendors.map((v) {
-                          final isPending = v.verificationStatus.toUpperCase() == 'PENDING';
-                          final isChecked = _selectedPendingIds.contains(v.id);
+                      AdminDataColumn(
+                        title: 'LOCATION',
+                        builder: (v) => Text(
+                          v.locality != null && v.locality!.isNotEmpty ? '${v.locality}, ${v.city}' : v.city,
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                      AdminDataColumn(
+                        title: 'ORGANIZATION',
+                        builder: (v) {
                           final isBranch = v.branchOfId != null && v.branchOfId!.isNotEmpty;
-
-                          int? daysUntilBoostExpires;
-                          if (v.isSponsored && v.boostExpiresAt != null) {
-                            daysUntilBoostExpires = v.boostExpiresAt!.difference(DateTime.now()).inDays;
-                          }
-
-                          return DataRow(
-                            selected: isChecked,
-                            onSelectChanged: isPending
-                                ? (selected) {
-                                    setState(() {
-                                      if (selected == true) {
-                                        _selectedPendingIds.add(v.id);
-                                      } else {
-                                        _selectedPendingIds.remove(v.id);
-                                      }
-                                    });
-                                  }
-                                : null,
-                            cells: [
-                              DataCell(
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                          return isBranch
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange[50],
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.orange[300]!),
+                                  ),
+                                  child: Text(
+                                    'BRANCH',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                                  ),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.blue[200]!),
+                                  ),
+                                  child: Text(
+                                    'HQ',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue[800]),
+                                  ),
+                                );
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'VISIBILITY',
+                        builder: (v) => v.isSponsored
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[50],
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.purple[300]!),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(v.businessName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    Text('Owner: ${v.ownerName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    Icon(Icons.star, size: 12, color: Colors.purple[700]),
+                                    const Gap(4),
+                                    Text(
+                                      'BOOSTED',
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple[900]),
+                                    ),
                                   ],
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  v.locality != null && v.locality!.isNotEmpty ? '${v.locality}, ${v.city}' : v.city,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DataCell(
-                                isBranch
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange[50],
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: Colors.orange[300]!),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              'BRANCH',
-                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange[900]),
-                                            ),
-                                            if (v.parentBusinessName != null)
-                                              Text(
-                                                'of ${v.parentBusinessName}',
-                                                style: TextStyle(fontSize: 9, color: Colors.orange[800]),
-                                              ),
-                                          ],
-                                        ),
-                                      )
-                                    : Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue[50],
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: Colors.blue[200]!),
-                                        ),
-                                        child: Text(
-                                          'HQ',
-                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue[800]),
-                                        ),
-                                      ),
-                              ),
-                              DataCell(
-                                v.isSponsored
-                                    ? Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: Colors.purple[50],
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.purple[300]!),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.star, size: 12, color: Colors.purple[700]),
-                                                const Gap(4),
-                                                Text(
-                                                  'BOOSTED',
-                                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple[900]),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (daysUntilBoostExpires != null) ...[
-                                            const Gap(2),
-                                            if (daysUntilBoostExpires < 0)
-                                              Text('Boost Expired', style: TextStyle(fontSize: 10, color: Colors.red[700], fontWeight: FontWeight.bold))
-                                            else if (daysUntilBoostExpires <= 7)
-                                              Text('Expires in ${daysUntilBoostExpires}d', style: TextStyle(fontSize: 10, color: Colors.amber[900], fontWeight: FontWeight.bold))
-                                            else
-                                              Text('Expires ${DateFormat('dd MMM').format(v.boostExpiresAt!)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                          ],
-                                        ],
-                                      )
-                                    : const Text('Organic', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              ),
-                              DataCell(Text('${v.totalTrips}')),
-                              DataCell(StatusBadge(status: v.verificationStatus.toLowerCase())),
-                              DataCell(
-                                OutlinedButton.icon(
-                                  onPressed: () => _showDetailPanel(context, v.id),
-                                  icon: const Icon(Icons.visibility_outlined, size: 14),
-                                  label: const Text('View / Manage', style: TextStyle(fontSize: 12)),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                              )
+                            : const Text('Organic', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ),
-                    ),
+                      AdminDataColumn(
+                        title: 'TOTAL TRIPS',
+                        numeric: true,
+                        builder: (v) => Text('${v.totalTrips}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      AdminDataColumn(
+                        title: 'STATUS',
+                        builder: (v) => AdminStatusBadge(status: v.verificationStatus),
+                      ),
+                      AdminDataColumn(
+                        title: 'ACTIONS',
+                        builder: (v) => OutlinedButton.icon(
+                          onPressed: () => _showDetailPanel(context, v.id),
+                          icon: const Icon(Icons.visibility_outlined, size: 14),
+                          label: const Text('Manage', style: TextStyle(fontSize: 11.5)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                    ],
+                    mobileCardBuilder: (ctx, v) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    v.businessName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                AdminStatusBadge(status: v.verificationStatus, compact: true),
+                              ],
+                            ),
+                            const Gap(4),
+                            Text(
+                              'Owner: ${v.ownerName} • ${v.city}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                            const Gap(8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${v.totalTrips} Total Trips',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                ),
+                                OutlinedButton(
+                                  onPressed: () => _showDetailPanel(context, v.id),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  child: const Text('Manage Partner', style: TextStyle(fontSize: 11.5)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

@@ -4,6 +4,8 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/fraud_providers.dart';
 
 class AdminFraudPage extends ConsumerWidget {
@@ -95,19 +97,12 @@ class AdminFraudPage extends ConsumerWidget {
             // Assessments Data Table
             Expanded(
               child: assessmentsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => Center(
-                  child: Text('Error loading assessments: $err'),
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading assessments: $err',
+                  onRetry: () => ref.invalidate(fraudAssessmentsProvider),
                 ),
                 data: (assessments) {
-                  if (assessments.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No risk alerts matching the active filters.',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    );
-                  }
                   return _buildAssessmentsTable(context, ref, assessments);
                 },
               ),
@@ -225,74 +220,102 @@ class AdminFraudPage extends ConsumerWidget {
     WidgetRef ref,
     List<RiskAssessmentModel> assessments,
   ) {
-    return AppCard(
-      margin: EdgeInsets.zero,
-      padding: EdgeInsets.zero,
-      child: SingleChildScrollView(
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-          columns: const [
-            DataColumn(label: Text('Risk Level / Score', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Triggered Signals', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Decision', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Action', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: assessments.map((assessment) {
-            final formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(assessment.createdAt);
-
-            return DataRow(
-              cells: [
-                DataCell(_buildRiskScoreBadge(assessment)),
-                DataCell(
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(assessment.userName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      Text(assessment.userPhone, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 250,
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: assessment.signals.map((s) {
-                        return Tooltip(
-                          message: s.description,
-                          child: Chip(
-                            padding: EdgeInsets.zero,
-                            labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                            visualDensity: VisualDensity.compact,
-                            label: Text(
-                              '${s.code} (+${s.scoreDelta})',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+    return AdminDataGrid<RiskAssessmentModel>(
+      items: assessments,
+      emptyTitle: 'No Risk Alerts',
+      emptyMessage: 'No risk alerts matching the active filters.',
+      emptyIcon: Icons.security_outlined,
+      onRowTap: (assessment) => _showReviewDialog(context, ref, assessment),
+      columns: [
+        AdminDataColumn(
+          title: 'RISK LEVEL / SCORE',
+          builder: (assessment) => _buildRiskScoreBadge(assessment),
+        ),
+        AdminDataColumn(
+          title: 'CUSTOMER',
+          builder: (assessment) => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(assessment.userName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(assessment.userPhone, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
+          ),
+        ),
+        AdminDataColumn(
+          title: 'TRIGGERED SIGNALS',
+          builder: (assessment) => SizedBox(
+            width: 250,
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: assessment.signals.map((s) {
+                return Tooltip(
+                  message: s.description,
+                  child: Chip(
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      '${s.code} (+${s.scoreDelta})',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
-                ),
-                DataCell(_buildActionBadge(assessment.action)),
-                DataCell(_buildStatusBadge(assessment.status)),
-                DataCell(Text(formattedDate, style: const TextStyle(fontSize: 12, color: Colors.black87))),
-                DataCell(
-                  TextButton(
-                    onPressed: () => _showReviewDialog(context, ref, assessment),
-                    child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
         ),
-      ),
+        AdminDataColumn(
+          title: 'DECISION',
+          builder: (assessment) => _buildActionBadge(assessment.action),
+        ),
+        AdminDataColumn(
+          title: 'STATUS',
+          builder: (assessment) => _buildStatusBadge(assessment.status),
+        ),
+        AdminDataColumn(
+          title: 'DATE',
+          builder: (assessment) => Text(
+            DateFormat('dd MMM yyyy, HH:mm').format(assessment.createdAt),
+            style: const TextStyle(fontSize: 12, color: Colors.black87),
+          ),
+        ),
+        AdminDataColumn(
+          title: 'ACTION',
+          builder: (assessment) => TextButton(
+            onPressed: () => _showReviewDialog(context, ref, assessment),
+            child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
+      mobileCardBuilder: (ctx, assessment) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(assessment.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  _buildRiskScoreBadge(assessment),
+                ],
+              ),
+              const Gap(4),
+              Text(
+                '${assessment.signals.length} signals triggered • ${_buildActionBadge(assessment.action)}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -376,112 +399,121 @@ class AdminFraudPage extends ConsumerWidget {
     RiskAssessmentModel assessment,
   ) {
     final notesController = TextEditingController(text: assessment.adminNotes ?? '');
+    bool isSaving = false;
 
-    showDialog(
+    AdminDetailDrawer.show(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.shield, color: Colors.blue),
-              const Gap(8),
-              Text('Review Risk Assessment: ${assessment.userName}'),
-            ],
-          ),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('User Phone: ${assessment.userPhone} | Subject ID: ${assessment.userId}'),
-                  const Gap(12),
-                  Row(
-                    children: [
-                      Text('Calculated Score: ${assessment.score} / 100', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const Gap(12),
-                      _buildRiskScoreBadge(assessment),
-                    ],
-                  ),
-                  const Gap(16),
-                  const Text('Triggered Security Signals:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const Gap(8),
-                  ...assessment.signals.map((s) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${s.code} (+${s.scoreDelta})',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          Text(s.description, style: const TextStyle(fontSize: 11, color: Colors.black87)),
-                        ],
-                      ),
-                    );
-                  }),
-                  const Gap(16),
-                  const Text('Administrative Notes / Reasoning:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const Gap(6),
-                  TextField(
-                    controller: notesController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter reason for resolving, dismissing or escalating...',
-                      border: OutlineInputBorder(),
+      title: 'Review Risk Assessment: ${assessment.userName}',
+      subtitle: 'User Phone: ${assessment.userPhone} | Subject ID: ${assessment.userId}',
+      width: 480,
+      child: StatefulBuilder(
+        builder: (context, setModalState) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('User Phone: ${assessment.userPhone} | Subject ID: ${assessment.userId}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const Gap(12),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Text('Calculated Score: ${assessment.score} / 100', style: const TextStyle(fontWeight: FontWeight.bold)),
+                _buildRiskScoreBadge(assessment),
+              ],
+            ),
+            const Gap(16),
+            const Text('Triggered Security Signals:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Gap(8),
+            ...assessment.signals.map((s) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${s.code} (+${s.scoreDelta})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                     ),
-                  ),
-                ],
+                    Text(s.description, style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                  ],
+                ),
+              );
+            }),
+            const Gap(16),
+            const Text('Administrative Notes / Reasoning:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Gap(6),
+            TextField(
+              controller: notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Enter reason for resolving, dismissing or escalating...',
+                border: OutlineInputBorder(),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[700]),
-              onPressed: () async {
-                final notes = notesController.text.trim();
-                if (notes.isEmpty) return;
-                await ref.read(fraudRepositoryProvider).resolveAssessment(
-                      assessment.id,
-                      status: 'DISMISSED',
-                      adminNotes: notes,
-                    );
-                if (ctx.mounted) Navigator.pop(ctx);
-                ref.invalidate(fraudSummaryProvider);
-                ref.invalidate(fraudAssessmentsProvider);
-              },
-              child: const Text('Dismiss Alert', style: TextStyle(color: Colors.white)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: () async {
-                final notes = notesController.text.trim();
-                if (notes.isEmpty) return;
-                await ref.read(fraudRepositoryProvider).resolveAssessment(
-                      assessment.id,
-                      status: 'RESOLVED',
-                      adminNotes: notes,
-                    );
-                if (ctx.mounted) Navigator.pop(ctx);
-                ref.invalidate(fraudSummaryProvider);
-                ref.invalidate(fraudAssessmentsProvider);
-              },
-              child: const Text('Resolve', style: TextStyle(color: Colors.white)),
+            const Gap(24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final notes = notesController.text.trim();
+                            if (notes.isEmpty) return;
+                            setModalState(() => isSaving = true);
+                            await ref.read(fraudRepositoryProvider).resolveAssessment(
+                                  assessment.id,
+                                  status: 'DISMISSED',
+                                  adminNotes: notes,
+                                );
+                            if (context.mounted) Navigator.pop(context);
+                            ref.invalidate(fraudSummaryProvider);
+                            ref.invalidate(fraudAssessmentsProvider);
+                          },
+                    child: const Text('Dismiss Alert'),
+                  ),
+                ),
+                const Gap(12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final notes = notesController.text.trim();
+                            if (notes.isEmpty) return;
+                            setModalState(() => isSaving = true);
+                            await ref.read(fraudRepositoryProvider).resolveAssessment(
+                                  assessment.id,
+                                  status: 'RESOLVED',
+                                  adminNotes: notes,
+                                );
+                            if (context.mounted) Navigator.pop(context);
+                            ref.invalidate(fraudSummaryProvider);
+                            ref.invalidate(fraudAssessmentsProvider);
+                          },
+                    child: const Text('Resolve'),
+                  ),
+                ),
+              ],
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

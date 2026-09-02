@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
+import 'package:models/models.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_customer_providers.dart';
 
 class CustomerManagementPage extends ConsumerStatefulWidget {
@@ -58,32 +61,12 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
   }
 
   void _showDetailPanel(BuildContext context, String customerId) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 500,
-                height: double.infinity,
-                child: _CustomerDetailPanel(customerId: customerId),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Customer Profile',
+      subtitle: 'Customer ID: #${customerId.toUpperCase()}',
+      width: 500,
+      child: _CustomerDetailPanel(customerId: customerId),
     );
   }
 
@@ -116,129 +99,165 @@ class _CustomerManagementPageState extends ConsumerState<CustomerManagementPage>
               ],
             ),
             const Gap(24),
-
-            // ─── Customer Data Table ───
+            // ─── Customer Data Table Area ───
             Expanded(
               child: customersAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading customers list',
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading customer records: $err',
                   onRetry: () => ref.invalidate(adminCustomersProvider),
                 ),
                 data: (customers) {
-                  if (customers.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.people_outline,
-                        title: 'No Customers Found',
-                        subtitle: 'No customers match the search criteria.',
+                  return AdminDataGrid<UserModel>(
+                    items: customers,
+                    emptyTitle: 'No Customers Found',
+                    emptyMessage: 'No registered customers match the filter or search query.',
+                    emptyIcon: Icons.people_outline,
+                    onRowTap: (c) => _showDetailPanel(context, c.id),
+                    columns: [
+                      AdminDataColumn(
+                        title: 'CUSTOMER PROFILE',
+                        builder: (c) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                              child: Text(
+                                c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
+                                style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                            const Gap(10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                Text(c.email ?? 'No email on record', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(label: Text('Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Phone', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('City (Derived)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Total Bookings', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Joined Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: customers.map((c) {
-                          final city = _deriveCustomerCity(c.id);
-
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                InkWell(
-                                  onTap: () => _showDetailPanel(context, c.id),
+                      AdminDataColumn(
+                        title: 'PHONE NUMBER',
+                        builder: (c) => Text(c.phone, style: const TextStyle(fontSize: 12.5)),
+                      ),
+                      AdminDataColumn(
+                        title: 'PRIMARY CITY',
+                        builder: (c) => Text(_deriveCustomerCity(c.id), style: const TextStyle(fontSize: 12.5)),
+                      ),
+                      AdminDataColumn(
+                        title: 'STATUS',
+                        builder: (c) => AdminStatusBadge(status: c.banned ? 'BANNED' : 'ACTIVE'),
+                      ),
+                      AdminDataColumn(
+                        title: 'ACTIONS',
+                        builder: (c) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () => _showDetailPanel(context, c.id),
+                              child: const Text('View Profile', style: TextStyle(fontSize: 11.5)),
+                            ),
+                            const Gap(6),
+                            IconButton(
+                              icon: Icon(
+                                c.banned ? Icons.check_circle_outline : Icons.block_flipped,
+                                color: c.banned ? Colors.green : Colors.red,
+                                size: 18,
+                              ),
+                              onPressed: controllerState.isLoading
+                                  ? null
+                                  : () {
+                                      final actionTitle = c.banned ? 'Unban Customer' : 'Ban Customer';
+                                      final actionContent = c.banned
+                                          ? 'Unban "${c.name}"? They will regain access to rent cars.'
+                                          : 'Ban "${c.name}"? They will be locked out of the mobile app.';
+                                      _showConfirmDialog(
+                                        context: context,
+                                        title: actionTitle,
+                                        content: actionContent,
+                                        onConfirm: () {
+                                          ref
+                                              .read(adminCustomerControllerProvider.notifier)
+                                              .toggleCustomerBanned(c.id, !c.banned);
+                                        },
+                                      );
+                                    },
+                              tooltip: c.banned ? 'Unban Customer' : 'Ban Customer',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    mobileCardBuilder: (ctx, c) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
                                   child: Row(
                                     children: [
                                       CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                                        radius: 14,
+                                        backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
                                         child: Text(
                                           c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
-                                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                                          style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.bold, fontSize: 11),
                                         ),
                                       ),
-                                      const Gap(12),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          Text(c.email ?? 'No email', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-                                        ],
+                                      const Gap(8),
+                                      Expanded(
+                                        child: Text(
+                                          c.name,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
-                              DataCell(Text(c.phone)),
-                              DataCell(Text(city)),
-                              const DataCell(Text('0')),
-                              const DataCell(Text('15 Jan 2026')), // Hardcoded mock join date
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (c.banned ? Colors.red : Colors.green).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: (c.banned ? Colors.red : Colors.green).withValues(alpha: 0.24)),
+                                AdminStatusBadge(status: c.banned ? 'BANNED' : 'ACTIVE', compact: true),
+                              ],
+                            ),
+                            const Gap(6),
+                            Text(
+                              'Phone: ${c.phone} • ${c.email ?? "No email"}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                            const Gap(10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                OutlinedButton(
+                                  onPressed: () => _showDetailPanel(context, c.id),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
                                   ),
-                                  child: Text(
-                                    c.banned ? 'BANNED' : 'ACTIVE',
-                                    style: TextStyle(
-                                      color: c.banned ? Colors.red : Colors.green,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  child: const Text('View Profile', style: TextStyle(fontSize: 11.5)),
                                 ),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        c.banned ? Icons.check_circle_outline : Icons.block_flipped,
-                                        color: c.banned ? Colors.green : Colors.red,
-                                      ),
-                                      onPressed: controllerState.isLoading
-                                          ? null
-                                          : () {
-                                              final actionTitle = c.banned ? 'Unban Customer' : 'Ban Customer';
-                                              final actionContent = c.banned
-                                                  ? 'Unban "${c.name}"? They will regain access to rent cars.'
-                                                  : 'Ban "${c.name}"? They will be locked out of the mobile app.';
-                                              _showConfirmDialog(
-                                                context: context,
-                                                title: actionTitle,
-                                                content: actionContent,
-                                                onConfirm: () {
-                                                  ref
-                                                      .read(adminCustomerControllerProvider.notifier)
-                                                      .toggleCustomerBanned(c.id, !c.banned);
-                                                },
-                                              );
-                                            },
-                                      tooltip: c.banned ? 'Unban' : 'Ban',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

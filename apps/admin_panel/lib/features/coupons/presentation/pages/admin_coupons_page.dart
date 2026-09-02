@@ -3,15 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:models/models.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_coupons_providers.dart';
 
 class AdminCouponsPage extends ConsumerWidget {
   const AdminCouponsPage({super.key});
 
   void _showCouponForm(BuildContext context, WidgetRef ref, [CouponModel? coupon]) {
-    AppBottomSheet.show(
-      context,
+    AdminDetailDrawer.show(
+      context: context,
       title: coupon == null ? 'Create Coupon' : 'Edit Coupon',
+      subtitle: coupon != null ? 'Code: ${coupon.code}' : 'Configure promotional discount codes',
+      width: 480,
       child: _CouponFormModal(
         couponToEdit: coupon,
         onSave: (Map<String, dynamic> data) async {
@@ -28,6 +32,7 @@ class AdminCouponsPage extends ConsumerWidget {
                 const SnackBar(content: Text('Coupon updated successfully!'), backgroundColor: Colors.green),
               );
             }
+            if (context.mounted) Navigator.of(context).pop();
           } catch (e) {
             messenger.showSnackBar(
               SnackBar(content: Text('Failed to save coupon: $e'), backgroundColor: Colors.red),
@@ -111,111 +116,105 @@ class AdminCouponsPage extends ConsumerWidget {
             const Gap(24),
             Expanded(
               child: couponsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading coupons',
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading coupons: $err',
                   onRetry: () => ref.invalidate(adminCouponsProvider),
                 ),
                 data: (coupons) {
-                  if (coupons.isEmpty) {
-                    return AppCard(
-                      child: Center(
-                        child: Column(
+                  return AdminDataGrid<CouponModel>(
+                    items: coupons,
+                    emptyTitle: 'No Coupons Configured',
+                    emptyMessage: 'Click "Create Coupon" to add your first promotional discount code.',
+                    emptyIcon: Icons.local_offer_outlined,
+                    onRowTap: (c) => _showCouponForm(context, ref, c),
+                    columns: [
+                      AdminDataColumn(
+                        title: 'PROMO CODE',
+                        builder: (c) => Column(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey),
-                            const Gap(12),
-                            const Text('No coupons found', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Gap(4),
-                            const Text('Click "Create Coupon" above to add your first promotional discount code.',
-                                style: TextStyle(color: Colors.grey, fontSize: 13)),
-                            const Gap(16),
-                            AppButton(
-                              text: 'Create Coupon',
-                              isFullWidth: false,
-                              onPressed: () => _showCouponForm(context, ref),
+                            Text(c.code, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                            if (c.description != null && c.description!.isNotEmpty)
+                              Text(c.description!, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      AdminDataColumn(
+                        title: 'DISCOUNT',
+                        builder: (c) {
+                          final discountStr = c.discountType == 'PERCENTAGE'
+                              ? '${c.discountValue.toInt()}% OFF'
+                              : '₹${c.discountValue.toInt()} OFF';
+                          return Text(
+                            discountStr,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          );
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'LIMITS & CAPS',
+                        builder: (c) => Text(
+                          'Min: ₹${c.minBookingAmount?.toInt() ?? 0} | Max Cap: ${c.maxDiscountAmount != null ? "₹${c.maxDiscountAmount!.toInt()}" : "None"}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      AdminDataColumn(
+                        title: 'USAGE COUNT',
+                        numeric: true,
+                        builder: (c) => Text('${c.usageCount} used', style: const TextStyle(fontSize: 12.5)),
+                      ),
+                      AdminDataColumn(
+                        title: 'STATUS',
+                        builder: (c) => AdminStatusBadge(status: c.isActive ? 'ACTIVE' : 'INACTIVE'),
+                      ),
+                      AdminDataColumn(
+                        title: 'ACTIONS',
+                        builder: (c) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              tooltip: 'Edit Coupon',
+                              onPressed: () => _showCouponForm(context, ref, c),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              tooltip: 'Delete Coupon',
+                              onPressed: () => _confirmDeleteCoupon(context, ref, c),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    padding: EdgeInsets.zero,
-                    margin: EdgeInsets.zero,
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowHeight: 48,
-                        dataRowMinHeight: 56,
-                        dataRowMaxHeight: 56,
-                        columns: const [
-                          DataColumn(label: Text('Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Discount', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Limits & Caps', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Usage Count', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: coupons.map((c) {
-                          final discountStr = c.discountType == 'PERCENTAGE'
-                              ? '${c.discountValue.toInt()}% OFF'
-                              : '₹${c.discountValue.toInt()} OFF';
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(c.code, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    if (c.description != null && c.description!.isNotEmpty)
-                                      Text(c.description!, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  discountStr,
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700]),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  'Min: ₹${c.minBookingAmount?.toInt() ?? 0} | Max Cap: ${c.maxDiscountAmount != null ? "₹${c.maxDiscountAmount!.toInt()}" : "None"}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              DataCell(
-                                Text('${c.usageCount} used'),
-                              ),
-                              DataCell(
-                                StatusBadge(
-                                  status: c.isActive ? 'Active' : 'Inactive',
-                                ),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, size: 18),
-                                      tooltip: 'Edit Coupon',
-                                      onPressed: () => _showCouponForm(context, ref, c),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                      tooltip: 'Delete Coupon',
-                                      onPressed: () => _confirmDeleteCoupon(context, ref, c),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                    ],
+                    mobileCardBuilder: (ctx, c) {
+                      final discountStr = c.discountType == 'PERCENTAGE'
+                          ? '${c.discountValue.toInt()}% OFF'
+                          : '₹${c.discountValue.toInt()} OFF';
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(c.code, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 14)),
+                                AdminStatusBadge(status: c.isActive ? 'ACTIVE' : 'INACTIVE', compact: true),
+                              ],
+                            ),
+                            const Gap(4),
+                            Text('$discountStr • ${c.usageCount} redemptions', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

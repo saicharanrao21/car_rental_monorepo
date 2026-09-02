@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../../domain/repositories/platform_settings_repository.dart';
 import '../providers/settings_providers.dart';
 
@@ -119,152 +120,160 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
             const Gap(24),
             Expanded(
               child: settingsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading platform settings',
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading platform settings: $err',
                   onRetry: () => ref.invalidate(platformSettingsProvider),
                 ),
                 data: (settings) {
                   _initControllers(settings);
 
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Form Card
-                      Expanded(
-                        flex: 3,
-                        child: SingleChildScrollView(
-                          child: AppCard(
-                            margin: EdgeInsets.zero,
-                            padding: const EdgeInsets.all(24),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const Text(
-                                    'Platform Profile & Parameters',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                                  const Gap(24),
-
-                                  // Logo upload slot
-                                  const Text(
-                                    'Platform Logo',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  const Gap(8),
-                                  _buildLogoSlot(),
-                                  const Gap(20),
-
-                                  // Name
-                                  AppTextField(
-                                    label: 'Platform Name',
-                                    controller: _nameController,
-                                    hint: 'e.g. DriveGo Rent',
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'Platform name is required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const Gap(16),
-
-                                  // GSTIN
-                                  AppTextField(
-                                    label: 'GSTIN (Tax Identification Number)',
-                                    controller: _gstController,
-                                    hint: 'e.g. 27AAAAA1111A1Z1',
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'GST Number is required';
-                                      }
-                                      final cleaned = val.trim().toUpperCase();
-                                      if (cleaned.length != 15) {
-                                        return 'GSTIN must be exactly 15 characters';
-                                      }
-                                      final gstRegex = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
-                                      if (!gstRegex.hasMatch(cleaned)) {
-                                        return 'Enter a valid Indian GSTIN format';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const Gap(16),
-
-                                  // Support Email
-                                  AppTextField(
-                                    label: 'Customer Support Email',
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    hint: 'support@drivego.com',
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'Support email is required';
-                                      }
-                                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                                      if (!emailRegex.hasMatch(val.trim())) {
-                                        return 'Enter a valid email address';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const Gap(16),
-
-                                  // Support Phone
-                                  AppTextField(
-                                    label: 'Customer Support Helpline',
-                                    controller: _phoneController,
-                                    keyboardType: TextInputType.phone,
-                                    hint: '+91 98765 43210',
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'Support phone is required';
-                                      }
-                                      final phoneRegex = RegExp(r'^\+91\s?\d{10}$|^\+91-\d{10}$|^\d{10}$');
-                                      if (!phoneRegex.hasMatch(val.trim())) {
-                                        return 'Enter phone in valid +91XXXXXXXXXX format';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const Gap(24),
-
-                                  // Enabled Trip Types Section
-                                  _buildTripTypesSection(),
-
-                                  const Gap(24),
-
-                                  // Save changes button
-                                  _isSaving
-                                      ? const Center(child: AppLoader())
-                                      : AppButton(
-                                          text: 'Save Platform Settings',
-                                          onPressed: () => _handleSave(settings),
-                                        ),
-                                ],
-                              ),
-                            ),
+                  final isDesktop = MediaQuery.of(context).size.width >= 900;
+                  final formWidget = AppCard(
+                    margin: EdgeInsets.zero,
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Platform Profile & Parameters',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                        ),
-                      ),
-                      const Gap(24),
+                          const Gap(24),
 
-                      // Sidebar Info Cards
-                      Expanded(
-                        flex: 2,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildAppInfoCard(settings),
-                            ],
+                          // Logo upload slot
+                          const Text(
+                            'Platform Logo',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
-                        ),
+                          const Gap(8),
+                          _buildLogoSlot(),
+                          const Gap(20),
+
+                          // Name
+                          AppTextField(
+                            label: 'Platform Name',
+                            controller: _nameController,
+                            hint: 'e.g. DriveGo Rent',
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Platform name is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const Gap(16),
+
+                          // GSTIN
+                          AppTextField(
+                            label: 'GSTIN (Tax Identification Number)',
+                            controller: _gstController,
+                            hint: 'e.g. 27AAAAA1111A1Z1',
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'GST Number is required';
+                              }
+                              final cleaned = val.trim().toUpperCase();
+                              if (cleaned.length != 15) {
+                                return 'GSTIN must be exactly 15 characters';
+                              }
+                              final gstRegex = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+                              if (!gstRegex.hasMatch(cleaned)) {
+                                return 'Enter a valid Indian GSTIN format';
+                              }
+                              return null;
+                            },
+                          ),
+                          const Gap(16),
+
+                          // Support Email
+                          AppTextField(
+                            label: 'Customer Support Email',
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            hint: 'support@drivego.com',
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Support email is required';
+                              }
+                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (!emailRegex.hasMatch(val.trim())) {
+                                return 'Enter a valid email address';
+                              }
+                              return null;
+                            },
+                          ),
+                          const Gap(16),
+
+                          // Support Phone
+                          AppTextField(
+                            label: 'Customer Support Helpline',
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            hint: '+91 98765 43210',
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Support phone is required';
+                              }
+                              final phoneRegex = RegExp(r'^\+91\s?\d{10}$|^\+91-\d{10}$|^\d{10}$');
+                              if (!phoneRegex.hasMatch(val.trim())) {
+                                return 'Enter phone in valid +91XXXXXXXXXX format';
+                              }
+                              return null;
+                            },
+                          ),
+                          const Gap(24),
+
+                          // Enabled Trip Types Section
+                          _buildTripTypesSection(),
+
+                          const Gap(24),
+
+                          // Save changes button
+                          _isSaving
+                              ? const Center(child: AppLoader())
+                              : AppButton(
+                                  text: 'Save Platform Settings',
+                                  onPressed: () => _handleSave(settings),
+                                ),
+                        ],
                       ),
-                    ],
+                    ),
                   );
+
+                  if (isDesktop) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: SingleChildScrollView(
+                            child: formWidget,
+                          ),
+                        ),
+                        const Gap(24),
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            child: _buildAppInfoCard(settings),
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          formWidget,
+                          const Gap(24),
+                          _buildAppInfoCard(settings),
+                        ],
+                      ),
+                    );
+                  }
                 },
               ),
             ),

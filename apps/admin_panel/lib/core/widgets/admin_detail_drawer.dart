@@ -204,3 +204,98 @@ class AdminDetailDrawer extends StatelessWidget {
     );
   }
 }
+
+/// Standard Drawer Section Header.
+class AdminDrawerSection extends StatelessWidget {
+  final String title;
+  final IconData? icon;
+  final Widget? trailing;
+
+  const AdminDrawerSection({
+    super.key,
+    required this.title,
+    this.icon,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: const Color(0xFF2563EB)),
+                const Gap(8),
+              ],
+              Text(
+                title.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+/// Standard 2-Column Key-Value Row for Side Drawers.
+class AdminDrawerField extends StatelessWidget {
+  final String label;
+  final String? value;
+  final Widget? customValue;
+  final bool copyable;
+
+  const AdminDrawerField({
+    super.key,
+    required this.label,
+    this.value,
+    this.customValue,
+    this.copyable = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const Gap(8),
+          Expanded(
+            child: customValue ??
+                SelectableText(
+                  value != null && value!.isNotEmpty ? value! : '—',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}

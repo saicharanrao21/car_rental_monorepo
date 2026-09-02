@@ -8,6 +8,9 @@ import 'package:core/core.dart';
 import '../providers/admin_fleet_providers.dart';
 import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
 
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
+
 class AdminFleetOverviewPage extends ConsumerStatefulWidget {
   const AdminFleetOverviewPage({super.key});
 
@@ -45,32 +48,12 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
   }
 
   void _showDetailPanel(BuildContext context, String carId) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 500,
-                height: double.infinity,
-                child: _CarDetailPanel(carId: carId),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Vehicle Specifications',
+      subtitle: 'Vehicle ID: #${carId.toUpperCase()}',
+      width: 520,
+      child: _CarDetailPanel(carId: carId),
     );
   }
 
@@ -212,38 +195,43 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
             // ─── Fleet Overview Table ───
             Expanded(
               child: fleetAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading fleet list',
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading fleet list: $err',
                   onRetry: () => ref.invalidate(adminFleetProvider),
                 ),
                 data: (cars) {
-                  if (cars.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.directions_car,
-                        title: 'No Cars Found',
-                        subtitle: 'No vehicles match the filter criteria.',
+                  return AdminDataGrid<CarModel>(
+                    items: cars,
+                    emptyTitle: 'No Vehicles Found',
+                    emptyMessage: 'No vehicles match the selected filter criteria.',
+                    emptyIcon: Icons.directions_car_outlined,
+                    onRowTap: (c) => _showDetailPanel(context, c.id),
+                    columns: [
+                      AdminDataColumn(
+                        title: 'VEHICLE MODEL',
+                        builder: (c) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '${c.make} ${c.model} (${c.year})',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontSize: 13),
+                            ),
+                            Text(
+                              '#${c.id.toUpperCase()}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(label: Text('Car Model', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Vendor Partner', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('City', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Seats', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('AC', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Price/Day', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Availability', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: cars.map((c) {
+                      AdminDataColumn(
+                        title: 'CATEGORY',
+                        builder: (c) => Text(c.type, style: const TextStyle(fontSize: 12.5)),
+                      ),
+                      AdminDataColumn(
+                        title: 'VENDOR PARTNER',
+                        builder: (c) {
                           final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
                             (v) => v.id == c.vendorId,
                             orElse: () => VendorModel(
@@ -254,70 +242,122 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                               verificationStatus: '',
                             ),
                           );
-
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                InkWell(
-                                  onTap: () => _showDetailPanel(context, c.id),
-                                  child: Text(
-                                    '${c.make} ${c.model} (${c.year})',
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
+                          return Text(vendor.businessName, style: const TextStyle(fontSize: 12.5));
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'CITY',
+                        builder: (c) {
+                          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
+                            (v) => v.id == c.vendorId,
+                            orElse: () => VendorModel(id: c.vendorId, businessName: '', ownerName: '', city: 'N/A', verificationStatus: ''),
+                          );
+                          return Text(vendor.city.isNotEmpty ? vendor.city : '—');
+                        },
+                      ),
+                      AdminDataColumn(
+                        title: 'SEATS',
+                        numeric: true,
+                        builder: (c) => Text('${c.seating}'),
+                      ),
+                      AdminDataColumn(
+                        title: 'AC',
+                        builder: (c) => Text(c.isAC ? 'Yes' : 'No'),
+                      ),
+                      AdminDataColumn(
+                        title: 'PRICE / DAY',
+                        numeric: true,
+                        builder: (c) => Text('₹${c.pricePerDay.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      AdminDataColumn(
+                        title: 'STATUS',
+                        builder: (c) => AdminStatusBadge(status: c.isAvailable ? 'AVAILABLE' : 'DEACTIVATED'),
+                      ),
+                      AdminDataColumn(
+                        title: 'ACTIONS',
+                        builder: (c) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                visualDensity: VisualDensity.compact,
                               ),
-                              DataCell(Text(c.type)),
-                              DataCell(Text(vendor.businessName)),
-                              DataCell(Text(vendor.city)),
-                              DataCell(Text('${c.seating}')),
-                              DataCell(Text(c.isAC ? 'Yes' : 'No')),
-                              DataCell(Text('₹${c.pricePerDay.toStringAsFixed(0)}')),
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (c.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: (c.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.24),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    c.isAvailable ? 'AVAILABLE' : 'DEACTIVATED',
-                                    style: TextStyle(
-                                      color: c.isAvailable ? Colors.green : Colors.red,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                c.isAvailable
-                                    ? IconButton(
-                                        icon: const Icon(Icons.block, color: Colors.red, size: 20),
-                                        tooltip: 'Deactivate listing',
-                                        onPressed: () {
-                                          _showConfirmDialog(
-                                            context: context,
-                                            title: 'Deactivate Vehicle Listing',
-                                            content: 'Are you sure you want to deactivate ${c.make} ${c.model}? Customers will no longer be able to search for or book this vehicle.',
-                                            onConfirm: () => ref
-                                                .read(adminFleetControllerProvider.notifier)
-                                                .deactivateCarListing(c.id),
-                                          );
-                                        },
-                                      )
-                                    : const Icon(Icons.check_circle_outline, color: Colors.grey, size: 20),
+                              onPressed: () => _showDetailPanel(context, c.id),
+                              child: const Text('Inspect', style: TextStyle(fontSize: 11.5)),
+                            ),
+                            if (c.isAvailable) ...[
+                              const Gap(6),
+                              IconButton(
+                                icon: const Icon(Icons.block, color: Colors.red, size: 18),
+                                tooltip: 'Deactivate listing',
+                                onPressed: () {
+                                  _showConfirmDialog(
+                                    context: context,
+                                    title: 'Deactivate Vehicle Listing',
+                                    content: 'Are you sure you want to deactivate ${c.make} ${c.model}? Customers will no longer be able to search for or book this vehicle.',
+                                    onConfirm: () => ref
+                                        .read(adminFleetControllerProvider.notifier)
+                                        .deactivateCarListing(c.id),
+                                  );
+                                },
                               ),
                             ],
-                          );
-                        }).toList(),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
+                    mobileCardBuilder: (ctx, c) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${c.make} ${c.model} (${c.year})',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                AdminStatusBadge(status: c.isAvailable ? 'AVAILABLE' : 'DEACTIVATED', compact: true),
+                              ],
+                            ),
+                            const Gap(4),
+                            Text(
+                              '${c.type} • ${c.seating} Seats • ${c.isAC ? "AC" : "Non-AC"}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                            const Gap(8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '₹${c.pricePerDay.toStringAsFixed(0)} / day',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () => _showDetailPanel(context, c.id),
+                                  child: const Text('Inspect Details', style: TextStyle(fontSize: 11.5)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

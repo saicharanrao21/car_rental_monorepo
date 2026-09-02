@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
+import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../providers/admin_booking_providers.dart';
 import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
+
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 
 class AdminBookingManagementPage extends ConsumerStatefulWidget {
   const AdminBookingManagementPage({super.key});
@@ -16,32 +20,12 @@ class AdminBookingManagementPage extends ConsumerStatefulWidget {
 
 class _AdminBookingManagementPageState extends ConsumerState<AdminBookingManagementPage> {
   void _showDetailPanel(BuildContext context, String bookingId) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 550,
-                height: double.infinity,
-                child: _BookingDetailPanel(bookingId: bookingId),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Booking Details',
+      subtitle: '#${bookingId.toUpperCase()}',
+      width: 550,
+      child: _BookingDetailPanel(bookingId: bookingId),
     );
   }
 
@@ -265,72 +249,119 @@ class _AdminBookingManagementPageState extends ConsumerState<AdminBookingManagem
             // ─── Bookings Data Table ───
             Expanded(
               child: bookingsAsync.when(
-                loading: () => const Center(child: AppLoader()),
-                error: (err, _) => ErrorStateWidget(
-                  message: 'Error loading bookings list',
+                loading: () => const AdminTableSkeleton(),
+                error: (err, _) => AdminErrorState(
+                  message: 'Error loading bookings list: $err',
                   onRetry: () => ref.invalidate(adminBookingsProvider),
                 ),
                 data: (bookings) {
-                  if (bookings.isEmpty) {
-                    return const Center(
-                      child: EmptyStateWidget(
-                        icon: Icons.receipt_long,
-                        title: 'No Bookings Found',
-                        subtitle: 'No bookings match the search criteria.',
+                  return AdminDataGrid<BookingModel>(
+                    items: bookings,
+                    emptyTitle: 'No Bookings Found',
+                    emptyMessage: 'No bookings match the selected filters or search criteria.',
+                    emptyIcon: Icons.receipt_long_outlined,
+                    onRowTap: (b) => _showDetailPanel(context, b.id),
+                    columns: [
+                      AdminDataColumn<BookingModel>(
+                        title: 'BOOKING ID',
+                        builder: (BookingModel b) => Text(
+                          '#${b.id.toUpperCase()}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 13),
+                        ),
                       ),
-                    );
-                  }
-
-                  return AppCard(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-                        columns: const [
-                          DataColumn(label: Text('Booking ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Vendor', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Car', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('City', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Trip Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Dates', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Fare', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Dispute', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: bookings.map((b) {
-                          final custName = 'Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}';
-                          final vendName = 'Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}';
-                          final carTitle = 'Vehicle #${b.carId.length > 6 ? b.carId.substring(0, 6) : b.carId}';
-
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                InkWell(
-                                  onTap: () => _showDetailPanel(context, b.id),
-                                  child: Text(
-                                    b.id.toUpperCase(),
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-                                  ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'CUSTOMER',
+                        builder: (BookingModel b) => Text('Customer #${b.customerId.length > 6 ? b.customerId.substring(0, 6) : b.customerId}'),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'VENDOR',
+                        builder: (BookingModel b) => Text('Vendor #${b.vendorId.length > 6 ? b.vendorId.substring(0, 6) : b.vendorId}'),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'VEHICLE',
+                        builder: (BookingModel b) => Text('Vehicle #${b.carId.length > 6 ? b.carId.substring(0, 6) : b.carId}'),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'PICKUP LOCATION',
+                        builder: (BookingModel b) => ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 160),
+                          child: Text(b.pickupLocation, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'TRIP TYPE',
+                        builder: (BookingModel b) => Text(b.tripType),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'DATES',
+                        builder: (BookingModel b) => Text(
+                          '${DateFormat('dd MMM').format(b.startDate)} - ${DateFormat('dd MMM yyyy').format(b.endDate)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'TOTAL FARE',
+                        numeric: true,
+                        builder: (BookingModel b) => Text(
+                          '₹${b.totalFare.toStringAsFixed(0)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'STATUS',
+                        builder: (BookingModel b) => AdminStatusBadge(status: b.status),
+                      ),
+                      AdminDataColumn<BookingModel>(
+                        title: 'DISPUTE',
+                        builder: (BookingModel b) => b.disputeFlag
+                            ? const Icon(Icons.flag, color: Colors.red, size: 18)
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                    mobileCardBuilder: (ctx, BookingModel b) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '#${b.id.toUpperCase()}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 13),
                                 ),
-                              ),
-                              DataCell(Text(custName)),
-                              DataCell(Text(vendName)),
-                              DataCell(Text(carTitle)),
-                              DataCell(Text(b.pickupLocation)),
-                              DataCell(Text(b.tripType)),
-                              DataCell(Text('${DateFormat('dd MMM').format(b.startDate)} - ${DateFormat('dd MMM yyyy').format(b.endDate)}')),
-                              DataCell(Text('₹${b.totalFare.toStringAsFixed(0)}')),
-                              DataCell(StatusBadge(status: b.status)),
-                              DataCell(
-                                b.disputeFlag
-                                    ? const Icon(Icons.flag, color: Colors.red, size: 20)
-                                    : const SizedBox.shrink(),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                                AdminStatusBadge(status: b.status, compact: true),
+                              ],
+                            ),
+                            const Gap(8),
+                            Text(
+                              '${b.tripType} • ${b.pickupLocation}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                            ),
+                            const Gap(4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${DateFormat('dd MMM').format(b.startDate)} - ${DateFormat('dd MMM yyyy').format(b.endDate)}',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                Text(
+                                  '₹${b.totalFare.toStringAsFixed(0)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   );
                 },
               ),

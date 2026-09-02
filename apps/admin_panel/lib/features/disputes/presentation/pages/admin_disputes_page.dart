@@ -6,6 +6,8 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
 import '../../domain/dispute_model.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
+import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_disputes_providers.dart';
 
 class AdminDisputesPage extends ConsumerStatefulWidget {
@@ -19,62 +21,22 @@ class _AdminDisputesPageState extends ConsumerState<AdminDisputesPage> {
   int _activeSection = 0; // 0: Booking Disputes, 1: Vehicle Damage Claims
 
   void _showDetailPanel(BuildContext context, String disputeId) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 540,
-                height: double.infinity,
-                child: _DisputeDetailPanel(disputeId: disputeId),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Dispute Case Review',
+      subtitle: 'Dispute ID: #${disputeId.toUpperCase()}',
+      width: 550,
+      child: _DisputeDetailPanel(disputeId: disputeId),
     );
   }
 
   void _showDamageClaimPanel(BuildContext context, DamageClaimModel claim) {
-    showGeneralDialog(
+    AdminDetailDrawer.show(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close details',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(anim1),
-            child: Material(
-              color: Colors.white,
-              elevation: 16,
-              child: SizedBox(
-                width: 560,
-                height: double.infinity,
-                child: _DamageClaimDetailPanel(claim: claim),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Damage Claim Review',
+      subtitle: 'Claim ID: #${claim.id.toUpperCase()}',
+      width: 560,
+      child: _DamageClaimDetailPanel(claim: claim),
     );
   }
 
@@ -215,84 +177,86 @@ class _AdminDisputesPageState extends ConsumerState<AdminDisputesPage> {
 
   Widget _buildDisputesTable(AsyncValue<List<DisputeModel>> disputesAsync) {
     return disputesAsync.when(
-      loading: () => const Center(child: AppLoader()),
-      error: (err, _) => ErrorStateWidget(
+      loading: () => const AdminTableSkeleton(),
+      error: (err, _) => AdminErrorState(
         message: 'Failed to load disputes: $err',
         onRetry: () => ref.invalidate(adminDisputesProvider),
       ),
       data: (disputes) {
-        if (disputes.isEmpty) {
-          return const Center(
-            child: EmptyStateWidget(
-              icon: Icons.gavel_outlined,
-              title: 'No Disputes Found',
-              subtitle: 'There are no active disputes matching the selected status.',
+        return AdminDataGrid<DisputeModel>(
+          items: disputes,
+          emptyTitle: 'No Disputes Found',
+          emptyMessage: 'There are no active disputes matching the selected status.',
+          emptyIcon: Icons.gavel_outlined,
+          onRowTap: (d) => _showDetailPanel(context, d.id),
+          columns: [
+            AdminDataColumn(
+              title: 'BOOKING ID',
+              builder: (d) => Text(
+                '#${d.bookingId.length > 8 ? d.bookingId.substring(d.bookingId.length - 8).toUpperCase() : d.bookingId}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+              ),
             ),
-          );
-        }
-
-        return AppCard(
-          child: SingleChildScrollView(
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-              columns: const [
-                DataColumn(label: Text('Booking ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Raised By', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Reason Claimed', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Evidence Attached', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Date Raised', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: disputes.whereType<DisputeModel>().map((d) {
+            AdminDataColumn(
+              title: 'RAISED BY',
+              builder: (d) {
                 final isCustomer = d.raisedByRole.toUpperCase() == 'CUSTOMER';
-                final reasonTruncated = d.reason.length > 38 ? '${d.reason.substring(0, 38)}...' : d.reason;
-
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Text(
-                        '#${d.bookingId.length > 8 ? d.bookingId.substring(d.bookingId.length - 8).toUpperCase() : d.bookingId}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
-                      ),
-                    ),
-                    DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(d.raisedByName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(
-                            isCustomer ? 'Customer' : 'Vendor Partner',
-                            style: TextStyle(fontSize: 11, color: isCustomer ? Colors.blue[700] : Colors.purple[700]),
-                          ),
-                        ],
-                      ),
-                    ),
-                    DataCell(Text(reasonTruncated, style: const TextStyle(fontSize: 13))),
-                    DataCell(
-                      Row(
-                        children: [
-                          const Icon(Icons.attach_file, size: 14, color: Colors.grey),
-                          const Gap(4),
-                          Text('${d.evidence.length} file(s)', style: const TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    DataCell(Text(DateFormat('dd MMM yyyy, HH:mm').format(d.createdAt), style: const TextStyle(fontSize: 12))),
-                    DataCell(StatusBadge(status: d.status.toLowerCase())),
-                    DataCell(
-                      OutlinedButton.icon(
-                        onPressed: () => _showDetailPanel(context, d.id),
-                        icon: const Icon(Icons.open_in_new, size: 14),
-                        label: const Text('Review', style: TextStyle(fontSize: 12)),
-                      ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(d.raisedByName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(
+                      isCustomer ? 'Customer' : 'Vendor Partner',
+                      style: TextStyle(fontSize: 11, color: isCustomer ? Colors.blue[700] : Colors.purple[700]),
                     ),
                   ],
                 );
-              }).toList(),
+              },
             ),
-          ),
+            AdminDataColumn(
+              title: 'CLAIM REASON',
+              builder: (d) => ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(
+                  d.reason,
+                  style: const TextStyle(fontSize: 12.5),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            AdminDataColumn(
+              title: 'EVIDENCE',
+              builder: (d) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.attach_file, size: 14, color: Colors.grey),
+                  const Gap(4),
+                  Text('${d.evidence.length} file(s)', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            AdminDataColumn(
+              title: 'DATE RAISED',
+              builder: (d) => Text(DateFormat('dd MMM yyyy, HH:mm').format(d.createdAt), style: const TextStyle(fontSize: 12)),
+            ),
+            AdminDataColumn(
+              title: 'STATUS',
+              builder: (d) => AdminStatusBadge(status: d.status),
+            ),
+            AdminDataColumn(
+              title: 'ACTIONS',
+              builder: (d) => OutlinedButton.icon(
+                onPressed: () => _showDetailPanel(context, d.id),
+                icon: const Icon(Icons.open_in_new, size: 14),
+                label: const Text('Review', style: TextStyle(fontSize: 11.5)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -300,141 +264,88 @@ class _AdminDisputesPageState extends ConsumerState<AdminDisputesPage> {
 
   Widget _buildDamageClaimsTable(AsyncValue<List<DamageClaimModel>> claimsAsync) {
     return claimsAsync.when(
-      loading: () => const Center(child: AppLoader()),
-      error: (err, _) => ErrorStateWidget(
+      loading: () => const AdminTableSkeleton(),
+      error: (err, _) => AdminErrorState(
         message: 'Failed to load damage claims: $err',
         onRetry: () => ref.invalidate(adminDamageClaimsProvider),
       ),
       data: (claims) {
-        if (claims.isEmpty) {
-          return const Center(
-            child: EmptyStateWidget(
-              icon: Icons.car_crash_outlined,
-              title: 'No Damage Claims Found',
-              subtitle: 'There are no active vehicle damage claims matching the selected status.',
+        return AdminDataGrid<DamageClaimModel>(
+          items: claims,
+          emptyTitle: 'No Damage Claims Found',
+          emptyMessage: 'There are no active vehicle damage claims matching the selected status.',
+          emptyIcon: Icons.car_crash_outlined,
+          onRowTap: (c) => _showDamageClaimPanel(context, c),
+          columns: [
+            AdminDataColumn(
+              title: 'CLAIM ID',
+              builder: (c) => Text(
+                '#${c.id.length > 8 ? c.id.substring(0, 8).toUpperCase() : c.id}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          );
-        }
-
-        return AppCard(
-          child: SingleChildScrollView(
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
-              columns: const [
-                DataColumn(label: Text('Claim ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Booking ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Claimed Repair', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Approved Deduction', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Evidence Photos', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Date Filed', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: claims.map((c) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Text(
-                        '#${c.id.length > 8 ? c.id.substring(0, 8).toUpperCase() : c.id}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '#${c.bookingId.length > 8 ? c.bookingId.substring(c.bookingId.length - 8).toUpperCase() : c.bookingId}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
-                      ),
-                    ),
-                    DataCell(
-                      PriceTag(
-                        amount: c.claimedAmount,
-                        amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
-                      ),
-                    ),
-                    DataCell(
-                      c.approvedAmount != null
-                          ? PriceTag(
-                              amount: c.approvedAmount!,
-                              amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
-                            )
-                          : const Text('—', style: TextStyle(color: Colors.grey)),
-                    ),
-                    DataCell(
-                      Row(
-                        children: [
-                          const Icon(Icons.photo_library_outlined, size: 14, color: Colors.grey),
-                          const Gap(4),
-                          Text('${c.damagePhotos.length} photo(s)', style: const TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    DataCell(Text(DateFormat('dd MMM yyyy, HH:mm').format(c.createdAt), style: const TextStyle(fontSize: 12))),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _claimStatusBg(c.status),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          c.status.name,
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _claimStatusFg(c.status)),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      ElevatedButton.icon(
-                        onPressed: () => _showDamageClaimPanel(context, c),
-                        icon: const Icon(Icons.gavel, size: 14),
-                        label: const Text('Adjudicate', style: TextStyle(fontSize: 12)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[700],
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+            AdminDataColumn(
+              title: 'BOOKING ID',
+              builder: (c) => Text(
+                '#${c.bookingId.length > 8 ? c.bookingId.substring(c.bookingId.length - 8).toUpperCase() : c.bookingId}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+              ),
             ),
-          ),
+            AdminDataColumn(
+              title: 'CLAIMED REPAIR',
+              numeric: true,
+              builder: (c) => PriceTag(
+                amount: c.claimedAmount,
+                amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+              ),
+            ),
+            AdminDataColumn(
+              title: 'APPROVED DEDUCTION',
+              numeric: true,
+              builder: (c) => c.approvedAmount != null
+                  ? PriceTag(
+                      amount: c.approvedAmount!,
+                      amountStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                    )
+                  : const Text('—', style: TextStyle(color: Colors.grey)),
+            ),
+            AdminDataColumn(
+              title: 'EVIDENCE',
+              builder: (c) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.photo_library_outlined, size: 14, color: Colors.grey),
+                  const Gap(4),
+                  Text('${c.damagePhotos.length} photo(s)', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            AdminDataColumn(
+              title: 'DATE FILED',
+              builder: (c) => Text(DateFormat('dd MMM yyyy, HH:mm').format(c.createdAt), style: const TextStyle(fontSize: 12)),
+            ),
+            AdminDataColumn(
+              title: 'STATUS',
+              builder: (c) => AdminStatusBadge(status: c.status.name),
+            ),
+            AdminDataColumn(
+              title: 'ACTIONS',
+              builder: (c) => ElevatedButton.icon(
+                onPressed: () => _showDamageClaimPanel(context, c),
+                icon: const Icon(Icons.gavel, size: 14),
+                label: const Text('Adjudicate', style: TextStyle(fontSize: 11.5)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
-  }
-
-  Color _claimStatusBg(DamageClaimStatus status) {
-    switch (status) {
-      case DamageClaimStatus.SUBMITTED:
-        return Colors.amber.withValues(alpha: 0.15);
-      case DamageClaimStatus.UNDER_REVIEW:
-        return Colors.blue.withValues(alpha: 0.15);
-      case DamageClaimStatus.APPROVED:
-        return Colors.green.withValues(alpha: 0.15);
-      case DamageClaimStatus.PARTIALLY_APPROVED:
-        return Colors.orange.withValues(alpha: 0.15);
-      case DamageClaimStatus.REJECTED:
-        return Colors.red.withValues(alpha: 0.15);
-      case DamageClaimStatus.SETTLED:
-        return Colors.purple.withValues(alpha: 0.15);
-    }
-  }
-
-  Color _claimStatusFg(DamageClaimStatus status) {
-    switch (status) {
-      case DamageClaimStatus.SUBMITTED:
-        return Colors.amber[900]!;
-      case DamageClaimStatus.UNDER_REVIEW:
-        return Colors.blue[900]!;
-      case DamageClaimStatus.APPROVED:
-        return Colors.green[900]!;
-      case DamageClaimStatus.PARTIALLY_APPROVED:
-        return Colors.orange[900]!;
-      case DamageClaimStatus.REJECTED:
-        return Colors.red[900]!;
-      case DamageClaimStatus.SETTLED:
-        return Colors.purple[900]!;
-    }
   }
 
   Widget _buildFilterPill(String statusKey, String label) {

@@ -4,15 +4,18 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../providers/admin_banners_providers.dart';
 
 class BannersPromotionsPage extends ConsumerWidget {
   const BannersPromotionsPage({super.key});
 
   void _showBannerForm(BuildContext context, WidgetRef ref, [BannerModel? banner]) {
-    AppBottomSheet.show(
-      context,
+    AdminDetailDrawer.show(
+      context: context,
       title: banner == null ? 'Add Promotional Banner' : 'Edit Promotional Banner',
+      subtitle: banner != null ? 'Banner ID: #${banner.id.toUpperCase()}' : 'Configure promotional campaign banner',
+      width: 480,
       child: _BannerFormModal(
         bannerToEdit: banner,
         onSave: ({required String title, required String ctaLink, required String imageUrl}) {
@@ -34,6 +37,7 @@ class BannersPromotionsPage extends ConsumerWidget {
             );
             ref.read(adminBannersProvider.notifier).updateBanner(updated);
           }
+          Navigator.of(context).pop();
         },
       ),
     );
