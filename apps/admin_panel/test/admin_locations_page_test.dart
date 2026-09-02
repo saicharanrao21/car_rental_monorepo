@@ -83,6 +83,44 @@ class TestMockLocationsRepo implements LocationsRepository {
       formattedDuration: '30 mins',
     );
   }
+
+  @override
+  Future<List<VendorLocationModel>> getPublicCatalog({String? city}) async {
+    return [
+      VendorLocationModel(
+        id: 'loc_hyd_1',
+        vendorId: 'vnd_1',
+        name: 'Royal Fleet Garage',
+        type: VendorLocationType.vendorYard,
+        status: VendorLocationStatus.active,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        address: 'Hitec City Main Road',
+        latitude: 17.4483,
+        longitude: 78.3915,
+        assignedCarCount: 10,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  @override
+  Future<void> updateLocationStatus(String locationId, String status) async {}
+
+  @override
+  Future<List<SupportedCityModel>> getSupportedCities({bool includeInactive = true}) async {
+    return [
+      const SupportedCityModel(
+        id: 'city_hyd',
+        name: 'Hyderabad',
+        state: 'Telangana',
+        latitude: 17.3850,
+        longitude: 78.4867,
+        isActive: true,
+      ),
+    ];
+  }
 }
 
 void main() {

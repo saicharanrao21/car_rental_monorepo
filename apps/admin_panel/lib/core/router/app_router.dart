@@ -25,6 +25,7 @@ import '../../features/referral/presentation/pages/admin_referral_campaigns_page
 import '../../features/loyalty/presentation/pages/admin_loyalty_page.dart';
 import '../../features/fraud/presentation/pages/admin_fraud_page.dart';
 import '../../features/locations/presentation/pages/operational_map_page.dart';
+import '../../features/locations/presentation/pages/location_governance_page.dart';
 import '../../features/whatsapp/presentation/pages/admin_whatsapp_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
@@ -145,6 +146,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/locations',
             builder: (context, state) => const OperationalMapPage(),
+          ),
+          GoRoute(
+            path: '/locations/governance',
+            builder: (context, state) => const LocationGovernancePage(),
           ),
           GoRoute(
             path: '/whatsapp',

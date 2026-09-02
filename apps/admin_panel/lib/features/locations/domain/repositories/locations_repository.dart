@@ -9,4 +9,7 @@ abstract class LocationsRepository {
     required double destLat,
     required double destLng,
   });
+  Future<List<VendorLocationModel>> getPublicCatalog({String? city});
+  Future<void> updateLocationStatus(String locationId, String status);
+  Future<List<SupportedCityModel>> getSupportedCities({bool includeInactive = true});
 }
