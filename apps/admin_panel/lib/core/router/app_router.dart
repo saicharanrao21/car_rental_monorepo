@@ -169,7 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.matchedLocation == '/login';
 
       if (!isAuthenticated) {
-        return '/login';
+        return isLoggingIn ? null : '/login';
       }
 
       // If authenticated and on login or root, redirect to dashboard

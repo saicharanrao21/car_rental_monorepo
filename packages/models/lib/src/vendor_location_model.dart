@@ -123,10 +123,14 @@ extension VendorLocationStatusExt on VendorLocationStatus {
       case 'ACTIVE':
         return VendorLocationStatus.active;
       case 'INACTIVE':
+      case 'ARCHIVED':
         return VendorLocationStatus.inactive;
       case 'TEMPORARILY_CLOSED':
+      case 'PAUSED':
         return VendorLocationStatus.temporarilyClosed;
       case 'PENDING_APPROVAL':
+      case 'PENDING_REVIEW':
+      case 'DRAFT':
         return VendorLocationStatus.pendingApproval;
       case 'SUSPENDED':
         return VendorLocationStatus.suspended;

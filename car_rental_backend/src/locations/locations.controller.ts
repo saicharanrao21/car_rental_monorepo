@@ -376,4 +376,35 @@ export class LocationsController {
   async getAdminOverview(@Query('city') city?: string) {
     return this.locationsService.getOperationalLocationsOverview(city);
   }
+
+  @Get('admin/locations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminGetLocations(
+    @Query('city') city?: string,
+    @Query('status') status?: string,
+    @Query('type') type?: string,
+  ) {
+    return this.locationsService.adminGetLocations({ city, status, type });
+  }
+
+  @Get('admin/locations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminGetLocationById(@Param('id') id: string) {
+    return this.locationsService.adminGetLocationById(id);
+  }
+
+  @Patch('admin/locations/:id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminUpdateLocationStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('status') status: VendorLocationStatusEnum,
+  ) {
+    const adminUserId = req.user?.userId || req.user?.id;
+    return this.locationsService.adminUpdateLocationStatus(adminUserId, id, status);
+  }
 }
+

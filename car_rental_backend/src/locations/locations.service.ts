@@ -1580,6 +1580,102 @@ export class LocationsService {
     };
   }
 
+  async adminGetLocations(query?: { city?: string; status?: string; type?: string }) {
+    const cityFilter = query?.city && query.city !== 'All' ? { city: { equals: query.city, mode: 'insensitive' as const } } : {};
+
+    const hubs = await this.prisma.pickupHub.findMany({
+      where: {
+        ...cityFilter,
+      },
+      include: {
+        cars: { select: { id: true, make: true, model: true, registrationNumber: true } },
+        vendor: { select: { id: true, businessName: true, ownerName: true, city: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let results = hubs.map((h) => this.parseLocationMetadata(h));
+
+    if (query?.status && query.status !== 'ALL') {
+      results = results.filter((r) => r.status === query.status);
+    }
+    if (query?.type && query.type !== 'ALL') {
+      results = results.filter((r) => r.type === query.type);
+    }
+
+    return results;
+  }
+
+  async adminGetLocationById(locationId: string) {
+    const hub = await this.prisma.pickupHub.findUnique({
+      where: { id: locationId },
+      include: {
+        cars: { select: { id: true, make: true, model: true, registrationNumber: true } },
+        exceptions: true,
+        vendor: { select: { id: true, businessName: true, ownerName: true, city: true } },
+      },
+    });
+    if (!hub) {
+      throw new NotFoundException('Location not found.');
+    }
+    return this.parseLocationMetadata(hub);
+  }
+
+  async adminUpdateLocationStatus(
+    adminUserId: string,
+    locationId: string,
+    status: VendorLocationStatusEnum,
+  ) {
+    const hub = await this.prisma.pickupHub.findUnique({
+      where: { id: locationId },
+      include: { cars: { select: { id: true } } },
+    });
+    if (!hub) {
+      throw new NotFoundException('Location not found.');
+    }
+
+    let existingMeta: any = {};
+    if (hub.operatingHours && hub.operatingHours.startsWith('{')) {
+      try {
+        existingMeta = JSON.parse(hub.operatingHours);
+      } catch (e) {
+        existingMeta = {};
+      }
+    }
+
+    const previousStatus = existingMeta.status || (hub.isActive ? VendorLocationStatusEnum.ACTIVE : VendorLocationStatusEnum.INACTIVE);
+    const updatedMeta = {
+      ...existingMeta,
+      status,
+    };
+
+    const updated = await this.prisma.pickupHub.update({
+      where: { id: locationId },
+      data: {
+        isActive: status === VendorLocationStatusEnum.ACTIVE,
+        operatingHours: JSON.stringify(updatedMeta),
+      },
+      include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
+    });
+
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:hubs:*');
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+    }
+
+    if (this.auditLogService && adminUserId) {
+      await this.auditLogService.log(
+        adminUserId,
+        'ADMIN_LOCATION_STATUS_UPDATE',
+        'PickupHub',
+        locationId,
+        { oldStatus: previousStatus, newStatus: status },
+      );
+    }
+
+    return this.parseLocationMetadata(updated);
+  }
+
   private validateCoordinates(lat: number, lng: number): void {
     if (
       isNaN(lat) ||

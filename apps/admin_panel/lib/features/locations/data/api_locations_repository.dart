@@ -59,19 +59,28 @@ class ApiLocationsRepository implements LocationsRepository {
       queryParams['city'] = city;
     }
 
-    final response = await _apiClient.dio.get(
-      '/locations/public/catalog',
-      queryParameters: queryParams,
-    );
+    try {
+      final response = await _apiClient.dio.get(
+        '/locations/admin/locations',
+        queryParameters: queryParams,
+      );
 
-    final List list = response.data is List ? response.data : (response.data['locations'] ?? []);
-    return list.map((item) => VendorLocationModel.fromJson(item as Map<String, dynamic>)).toList();
+      final List list = response.data is List ? response.data : (response.data['locations'] ?? []);
+      return list.map((item) => VendorLocationModel.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (_) {
+      final fallbackResponse = await _apiClient.dio.get(
+        '/locations/public/catalog',
+        queryParameters: queryParams,
+      );
+      final List list = fallbackResponse.data is List ? fallbackResponse.data : (fallbackResponse.data['locations'] ?? []);
+      return list.map((item) => VendorLocationModel.fromJson(item as Map<String, dynamic>)).toList();
+    }
   }
 
   @override
   Future<void> updateLocationStatus(String locationId, String status) async {
     await _apiClient.dio.patch(
-      '/locations/vendors/me/locations/$locationId',
+      '/locations/admin/locations/$locationId/status',
       data: {'status': status.toUpperCase()},
     );
   }
