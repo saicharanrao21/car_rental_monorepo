@@ -18,6 +18,8 @@ import '../../features/fleet/presentation/pages/add_edit_car_page.dart';
 import '../../features/fleet/presentation/pages/csv_bulk_upload_page.dart';
 import '../../features/bookings/presentation/pages/vendor_bookings_page.dart';
 import '../../features/bookings/presentation/pages/vendor_booking_detail_page.dart';
+import '../../features/bookings/presentation/pages/handover_inspection_page.dart';
+import '../../features/bookings/presentation/pages/return_inspection_page.dart';
 import '../../features/earnings/presentation/pages/earnings_page.dart';
 import '../../features/profile/presentation/pages/vendor_profile_page.dart';
 import '../../features/profile/presentation/pages/vendor_branches_page.dart';
@@ -166,6 +168,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return VendorBookingDetailPage(bookingId: id);
+        },
+      ),
+      GoRoute(
+        path: '/bookings/:id/handover',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return HandoverInspectionPage(bookingId: id);
+        },
+      ),
+      GoRoute(
+        path: '/bookings/:id/return',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return ReturnInspectionPage(bookingId: id);
         },
       ),
       GoRoute(

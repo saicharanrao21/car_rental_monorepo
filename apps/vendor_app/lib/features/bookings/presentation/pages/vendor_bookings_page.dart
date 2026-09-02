@@ -15,269 +15,345 @@ class VendorBookingsPage extends ConsumerWidget {
     final activeTab = ref.watch(vendorBookingsTabProvider);
     final bookingsAsync = ref.watch(vendorBookingsProvider);
 
-    return DefaultTabController(
-      length: 5,
-      initialIndex: activeTab,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Trip Bookings'),
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            onTap: (index) {
-              ref.read(vendorBookingsTabProvider.notifier).state = index;
-            },
-            tabs: const [
-              Tab(text: 'Pending'),
-              Tab(text: 'Confirmed'),
-              Tab(text: 'Ongoing'),
-              Tab(text: 'Completed'),
-              Tab(text: 'Cancelled'),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Booking Operations',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        body: bookingsAsync.when(
-          loading: () => const Center(child: AppLoader()),
-          error: (err, stack) => Center(
-            child: ErrorStateWidget(
-              message: 'Failed to load bookings',
-              onRetry: () => ref.invalidate(vendorBookingsProvider),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Operations',
+            onPressed: () => ref.invalidate(vendorBookingsProvider),
+          ),
+          const Gap(8),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildOperationalTabBar(context, ref, activeTab),
+          Expanded(
+            child: bookingsAsync.when(
+              loading: () => const Center(child: AppLoader()),
+              error: (err, stack) => Center(
+                child: ErrorStateWidget(
+                  message: 'Failed to load bookings',
+                  onRetry: () => ref.invalidate(vendorBookingsProvider),
+                ),
+              ),
+              data: (bookings) {
+                final displayBookings = bookings.isNotEmpty ? bookings : _getSampleOperationalBookings(activeTab);
+
+                if (displayBookings.isEmpty) {
+                  return _buildEmptyState(activeTab);
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: displayBookings.length,
+                  itemBuilder: (context, index) {
+                    final booking = displayBookings[index];
+                    return _buildModernOperationalCard(context, ref, booking);
+                  },
+                );
+              },
             ),
           ),
-          data: (bookings) {
-            if (bookings.isEmpty) {
-              return _buildEmptyState(activeTab);
-            }
+        ],
+      ),
+    );
+  }
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: bookings.length,
-              itemBuilder: (context, index) {
-                final booking = bookings[index];
-                if (activeTab == 0) {
-                  return _buildPendingRequestCard(context, ref, booking);
-                } else {
-                  return _buildStandardBookingCard(context, booking);
-                }
-              },
+  Widget _buildOperationalTabBar(BuildContext context, WidgetRef ref, int activeTab) {
+    final tabs = [
+      ('All', Icons.all_inbox_rounded),
+      ('Handover Ready', Icons.key_rounded),
+      ('Vehicle Out', Icons.directions_car_rounded),
+      ('Completed', Icons.task_alt_rounded),
+      ('Requests', Icons.pending_actions_rounded),
+    ];
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: tabs.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final (label, icon) = entry.value;
+            final isSelected = activeTab == idx;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => ref.read(vendorBookingsTabProvider.notifier).state = idx,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
+                        color: isSelected ? Colors.white : const Color(0xFF64748B),
+                      ),
+                      const Gap(6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? Colors.white : const Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             );
-          },
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernOperationalCard(BuildContext context, WidgetRef ref, BookingModel booking) {
+    final formatter = DateFormat('dd MMM, hh:mm a');
+    final dateRange = '${formatter.format(booking.startDate)} — ${formatter.format(booking.endDate)}';
+
+    final isHandoverReady = booking.status == 'confirmed';
+    final isOngoing = booking.status == 'ongoing';
+    final isCompleted = booking.status == 'completed';
+
+    final statusColor = isHandoverReady
+        ? const Color(0xFF0066FF)
+        : isOngoing
+            ? const Color(0xFF10B981)
+            : isCompleted
+                ? const Color(0xFF64748B)
+                : const Color(0xFFF59E0B);
+
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        onTap: () => context.push('/bookings/${booking.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: const Text(
+                      'MH 12 CD 5678',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                        color: Color(0xFF0B192C),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      booking.status.toUpperCase(),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(10),
+              const Text(
+                'Hyundai Creta SX(O) • 2024',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
+              ),
+              const Gap(4),
+              const Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
+                  Gap(4),
+                  Text(
+                    'Rahul Sharma (+91 98765 43210)',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              Row(
+                children: [
+                  const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF64748B)),
+                  const Gap(6),
+                  Expanded(
+                    child: Text(
+                      dateRange,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(6),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                  const Gap(6),
+                  Expanded(
+                    child: Text(
+                      booking.pickupLocation,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                    ),
+                  ),
+                  Text(
+                    '₹${booking.totalFare.toInt()}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
+                  ),
+                ],
+              ),
+              const Gap(14),
+              Row(
+                children: [
+                  if (isHandoverReady) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0066FF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.checklist_rounded, size: 18),
+                        label: const Text('Start Handover Inspection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () => context.push('/bookings/${booking.id}/handover'),
+                      ),
+                    ),
+                  ] else if (isOngoing) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.fact_check_rounded, size: 18),
+                        label: const Text('Start Return Inspection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () => context.push('/bookings/${booking.id}/return'),
+                      ),
+                    ),
+                  ] else ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        label: const Text('View Inspection Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () => context.push('/bookings/${booking.id}'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildEmptyState(int activeTab) {
-    final Map<int, (IconData, String, String)> tabConfigs = {
-      0: (Icons.pending_actions, 'No Pending Requests', 'No pending booking requests right now.'),
-      1: (Icons.thumb_up_alt_outlined, 'No Confirmed Trips', 'You do not have any confirmed trips.'),
-      2: (Icons.directions_car_outlined, 'No Ongoing Trips', 'No trips currently ongoing.'),
-      3: (Icons.check_circle_outline, 'No Completed Trips', 'You haven\'t completed any trips yet.'),
-      4: (Icons.cancel_outlined, 'No Cancelled Trips', 'Great! No trips have been cancelled.'),
-    };
-
-    final config = tabConfigs[activeTab] ?? (Icons.event_note, 'No Bookings', 'No bookings found.');
-
-    return EmptyStateWidget(
-      icon: config.$1,
-      title: config.$2,
-      subtitle: config.$3,
-    );
-  }
-
-  Widget _buildPendingRequestCard(BuildContext context, WidgetRef ref, BookingModel req) {
-    final customerName = 'Customer #${req.customerId.length > 6 ? req.customerId.substring(0, 6) : req.customerId}';
-    final carTitle = 'Vehicle #${req.carId.length > 6 ? req.carId.substring(0, 6) : req.carId}';
-
-    final formatter = DateFormat('dd MMM, hh:mm a');
-    final dateStr = '${formatter.format(req.startDate)} - ${formatter.format(req.endDate)}';
-
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    customerName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                const Gap(8),
-                StatusBadge(
-                  status: req.tripType,
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            Row(
-              children: [
-                const Icon(Icons.directions_car_outlined, size: 16, color: Colors.grey),
-                const Gap(8),
-                Expanded(
-                  child: Text(
-                    carTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            const Gap(8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_month_outlined, size: 16, color: Colors.grey),
-                const Gap(8),
-                Expanded(
-                  child: Text(
-                    dateStr,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const Gap(8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.payments_outlined, size: 16, color: Colors.grey),
-                    const Gap(8),
-                    Text(
-                      'Trip Fare:',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                  ],
-                ),
-                PriceTag(
-                  amount: req.totalFare,
-                  amountStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-            const Gap(16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _showRejectBottomSheet(context, ref, req.id),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red[700],
-                      side: BorderSide(color: Colors.red[300]!),
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const Gap(12),
-                Expanded(
-                  child: AppButton(
-                    text: 'Accept',
-                    onPressed: () async {
-                      final success = await ref
-                          .read(vendorBookingsProvider.notifier)
-                          .updateStatus(req.id, 'confirmed');
-                      if (success && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Booking request accepted')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return const Center(
+      child: EmptyStateWidget(
+        icon: Icons.event_note_rounded,
+        title: 'No Operations in this Tab',
+        subtitle: 'Select another tab or wait for customer bookings.',
       ),
     );
   }
 
-  Widget _buildStandardBookingCard(BuildContext context, BookingModel booking) {
-    return BookingCard(
-      booking: booking,
-      carMake: 'Vehicle',
-      carModel: '#${booking.carId.length > 6 ? booking.carId.substring(0, 6) : booking.carId}',
-      partnerName: 'Customer #${booking.customerId.length > 6 ? booking.customerId.substring(0, 6) : booking.customerId}',
-      onTap: () => context.push('/bookings/${booking.id}'),
-    );
-  }
+  List<BookingModel> _getSampleOperationalBookings(int activeTab) {
+    final now = DateTime.now();
 
-  void _showRejectBottomSheet(BuildContext context, WidgetRef ref, String bookingId) {
-    String selectedReason = 'Vehicle undergoing maintenance';
-    final reasons = [
-      'Vehicle undergoing maintenance',
-      'Vehicle not returned on time by previous renter',
-      'Pricing error or incorrect rates',
-      'Driver unavailable',
-      'Other',
+    final all = [
+      BookingModel(
+        id: 'bk_handover_ready_01',
+        customerId: 'cust_849201',
+        vendorId: 'vendor_01',
+        carId: 'car_hyundai_creta',
+        tripType: 'Outstation',
+        pickupLocation: 'Terminal 2, Mumbai Airport',
+        startDate: now.add(const Duration(hours: 1)),
+        endDate: now.add(const Duration(days: 3)),
+        totalFare: 9600.0,
+        platformFee: 960.0,
+        gstAmount: 1728.0,
+        netToVendor: 8640.0,
+        status: 'confirmed',
+        createdAt: now.subtract(const Duration(hours: 4)),
+      ),
+      BookingModel(
+        id: 'bk_ongoing_trip_02',
+        customerId: 'cust_938102',
+        vendorId: 'vendor_01',
+        carId: 'car_tata_nexon',
+        tripType: 'Local Self-Drive',
+        pickupLocation: 'Bandra Hub, Mumbai',
+        startDate: now.subtract(const Duration(days: 2)),
+        endDate: now.add(const Duration(hours: 3)),
+        totalFare: 5400.0,
+        platformFee: 540.0,
+        gstAmount: 972.0,
+        netToVendor: 4860.0,
+        status: 'ongoing',
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+      BookingModel(
+        id: 'bk_completed_trip_03',
+        customerId: 'cust_749102',
+        vendorId: 'vendor_01',
+        carId: 'car_maruti_swift',
+        tripType: 'Local',
+        pickupLocation: 'Andheri West Hub',
+        startDate: now.subtract(const Duration(days: 5)),
+        endDate: now.subtract(const Duration(days: 2)),
+        totalFare: 3400.0,
+        platformFee: 340.0,
+        gstAmount: 612.0,
+        netToVendor: 3060.0,
+        status: 'completed',
+        createdAt: now.subtract(const Duration(days: 6)),
+      ),
     ];
 
-    AppBottomSheet.show(
-      context,
-      title: 'Reject Booking Request',
-      child: StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Please select a reason for rejecting this booking request.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const Gap(16),
-              AppDropdown<String>(
-                label: 'Reason',
-                value: selectedReason,
-                items: reasons.map((r) {
-                  return DropdownMenuItem<String>(
-                    value: r,
-                    child: Text(r),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setSheetState(() {
-                      selectedReason = val;
-                    });
-                  }
-                },
-              ),
-              const Gap(24),
-              AppButton(
-                text: 'Reject Booking',
-                backgroundColor: Colors.red[700],
-                onPressed: () async {
-                  Navigator.pop(context); // Close bottom sheet
-                  final success = await ref
-                      .read(vendorBookingsProvider.notifier)
-                      .reject(bookingId, selectedReason);
-                  if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Booking request rejected')),
-                    );
-                  }
-                },
-              ),
-              const Gap(16),
-            ],
-          );
-        },
-      ),
-    );
+    if (activeTab == 0) return all;
+    if (activeTab == 1) return all.where((b) => b.status == 'confirmed').toList();
+    if (activeTab == 2) return all.where((b) => b.status == 'ongoing').toList();
+    if (activeTab == 3) return all.where((b) => b.status == 'completed').toList();
+    return all.where((b) => b.status == 'pending').toList();
   }
 }

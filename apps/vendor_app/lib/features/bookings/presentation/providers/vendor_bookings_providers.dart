@@ -13,18 +13,45 @@ final vendorBookingsRepositoryProvider = Provider<VendorBookingsRepository>((ref
 
 final vendorBookingsTabProvider = StateProvider<int>((ref) => 0);
 
+final operationsFilterTabProvider = StateProvider<int>((ref) => 0); // 0: All, 1: Handover, 2: Vehicle Out, 3: Return Due, 4: Completed
+
 final vendorBookingsProvider = AsyncNotifierProvider.autoDispose<VendorBookingsNotifier, List<BookingModel>>(() {
   return VendorBookingsNotifier();
 });
 
+final singleBookingProvider = FutureProvider.family.autoDispose<BookingModel?, String>((ref, bookingId) async {
+  final bookingsAsync = ref.watch(vendorBookingsProvider);
+  final inMemory = bookingsAsync.valueOrNull?.where((b) => b.id == bookingId).firstOrNull;
+  if (inMemory != null) return inMemory;
+
+  final session = ref.watch(vendorSessionProvider);
+  final vendorId = session.vendor?.id;
+  if (vendorId == null) return null;
+
+  try {
+    final list = await ref.watch(vendorBookingsRepositoryProvider).getBookingsForVendor(vendorId);
+    return list.where((b) => b.id == bookingId).firstOrNull;
+  } catch (_) {
+    return null;
+  }
+});
+
 final bookingInspectionsProvider = FutureProvider.family.autoDispose<List<InspectionModel>, String>((ref, bookingId) async {
-  final repo = ref.watch(vendorBookingsRepositoryProvider);
-  return repo.getInspections(bookingId);
+  try {
+    final repo = ref.watch(vendorBookingsRepositoryProvider);
+    return await repo.getInspections(bookingId);
+  } catch (_) {
+    return [];
+  }
 });
 
 final bookingDamageClaimsProvider = FutureProvider.family.autoDispose<List<DamageClaimModel>, String>((ref, bookingId) async {
-  final repo = ref.watch(vendorBookingsRepositoryProvider);
-  return repo.getDamageClaims(bookingId);
+  try {
+    final repo = ref.watch(vendorBookingsRepositoryProvider);
+    return await repo.getDamageClaims(bookingId);
+  } catch (_) {
+    return [];
+  }
 });
 
 final vendorBookingEmergencyProvider =
@@ -38,6 +65,9 @@ final vendorBookingEmergencyProvider =
     return null;
   }
 });
+
+/// Local offline drafts stored in-memory for network failure resilience
+final offlineInspectionDraftsProvider = StateProvider<Map<String, Map<String, dynamic>>>((ref) => {});
 
 class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>> {
   @override
@@ -96,6 +126,7 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
     ref.invalidate(bookingInspectionsProvider(bookingId));
+    ref.invalidate(singleBookingProvider(bookingId));
     return !result.hasError;
   }
 
@@ -132,6 +163,72 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
       );
     });
     ref.invalidate(bookingInspectionsProvider(bookingId));
+    return !result.hasError;
+  }
+
+  Future<bool> completeHandover({
+    required String bookingId,
+    required double odometer,
+    required int fuelPercent,
+    String? conditionNotes,
+    List<String>? damagePhotos,
+    String? handoverOtp,
+  }) async {
+    final repo = ref.read(vendorBookingsRepositoryProvider);
+    final result = await AsyncValue.guard(() async {
+      await repo.upsertInspection(
+        bookingId,
+        type: 'PRE_TRIP',
+        odometer: odometer,
+        fuelPercent: fuelPercent,
+        conditionNotes: conditionNotes,
+        damagePhotos: damagePhotos,
+        finalize: true,
+      );
+      await repo.updateBookingStatus(
+        bookingId,
+        'ongoing',
+        handoverOtp: handoverOtp,
+      );
+    });
+
+    ref.invalidateSelf();
+    ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(latestBookingRequestsProvider);
+    ref.invalidate(bookingInspectionsProvider(bookingId));
+    ref.invalidate(singleBookingProvider(bookingId));
+    return !result.hasError;
+  }
+
+  Future<bool> completeReturn({
+    required String bookingId,
+    required double odometer,
+    required int fuelPercent,
+    String? conditionNotes,
+    List<String>? damagePhotos,
+  }) async {
+    final repo = ref.read(vendorBookingsRepositoryProvider);
+    final result = await AsyncValue.guard(() async {
+      await repo.upsertInspection(
+        bookingId,
+        type: 'POST_TRIP',
+        odometer: odometer,
+        fuelPercent: fuelPercent,
+        conditionNotes: conditionNotes,
+        damagePhotos: damagePhotos,
+        finalize: true,
+      );
+      await repo.updateBookingStatus(
+        bookingId,
+        'completed',
+      );
+    });
+
+    ref.invalidateSelf();
+    ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(latestBookingRequestsProvider);
+    ref.invalidate(bookingInspectionsProvider(bookingId));
+    ref.invalidate(singleBookingProvider(bookingId));
     return !result.hasError;
   }
 

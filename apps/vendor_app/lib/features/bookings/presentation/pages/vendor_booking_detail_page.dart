@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import '../providers/vendor_bookings_providers.dart';
-import '../widgets/handover_inspection_sheet.dart';
 import '../widgets/inspection_history_card.dart';
 import '../widgets/damage_claim_submission_sheet.dart';
 
@@ -29,22 +29,6 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
   void dispose() {
     _otpCtrl.dispose();
     super.dispose();
-  }
-
-  void _openInspectionSheet(String type, double? minOdo) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => HandoverInspectionSheet(
-        bookingId: widget.bookingId,
-        type: type,
-        minOdometer: minOdo,
-        onSaved: () {
-          ref.invalidate(bookingInspectionsProvider(widget.bookingId));
-        },
-      ),
-    );
   }
 
   void _openDamageClaimSheet() {
@@ -153,13 +137,15 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
   @override
   Widget build(BuildContext context) {
     final bookingsVal = ref.watch(vendorBookingsProvider);
-    final booking = bookingsVal.maybeWhen(
+    final bookingFromList = bookingsVal.maybeWhen(
       data: (list) {
         final idx = list.indexWhere((b) => b.id == widget.bookingId);
         return idx != -1 ? list[idx] : null;
       },
       orElse: () => null,
     );
+    final bookingSingle = ref.watch(singleBookingProvider(widget.bookingId)).valueOrNull;
+    final booking = bookingFromList ?? bookingSingle;
 
     if (booking == null) {
       return Scaffold(
@@ -527,9 +513,9 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   ),
                   const Gap(10),
                   ElevatedButton.icon(
-                    onPressed: () => _openInspectionSheet('PRE_TRIP', null),
+                    onPressed: () => context.push('/bookings/${widget.bookingId}/handover'),
                     icon: const Icon(Icons.fact_check_outlined, size: 16),
-                    label: const Text('Record Pre-Trip Inspection'),
+                    label: const Text('Start 60s Handover Inspection'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[700],
                       foregroundColor: Colors.white,
@@ -578,14 +564,17 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   ],
                 ),
                 const Gap(8),
-                Text(
-                  'Customer receives a 6-digit OTP via SMS when you initiate handover.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                const Gap(10),
                 Row(
                   children: [
+                    Expanded(
+                      child: Text(
+                        'Request OTP from customer and enter below to confirm physical handover.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ),
+                    const Gap(8),
                     OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(120, 36)),
                       onPressed: _isSendingOtp ? null : () => _sendOtp('PICKUP'),
                       icon: _isSendingOtp
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
@@ -674,9 +663,9 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   ),
                   const Gap(10),
                   ElevatedButton.icon(
-                    onPressed: () => _openInspectionSheet('POST_TRIP', minOdometer),
+                    onPressed: () => context.push('/bookings/${widget.bookingId}/return'),
                     icon: const Icon(Icons.fact_check_outlined, size: 16),
-                    label: const Text('Record Post-Trip Inspection'),
+                    label: const Text('Start 60s Return Inspection'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple[700],
                       foregroundColor: Colors.white,
@@ -733,6 +722,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                 Row(
                   children: [
                     OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(120, 36)),
                       onPressed: _isSendingOtp ? null : () => _sendOtp('RETURN'),
                       icon: _isSendingOtp
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
