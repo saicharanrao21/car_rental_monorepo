@@ -132,6 +132,60 @@ describe('LocationsService - Vendor Operations Suite (Phase 29.11)', () => {
             car: {
               updateMany: jest.fn().mockResolvedValue({ count: 2 }),
             },
+            vendorDeliveryPolicy: {
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'pol_1',
+                vendorId: 'vendor_test_1',
+                deliveryEnabled: true,
+                maxDeliveryRadiusKm: 25.0,
+                pricingModel: 'FIXED',
+                baseDeliveryFee: 300.0,
+                perKmDeliveryFee: 20.0,
+                freeDeliveryWithinKm: 5.0,
+              }),
+              create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'pol_1', ...data })),
+              upsert: jest.fn().mockImplementation(({ create, update }) => Promise.resolve({ id: 'pol_1', ...update })),
+            },
+            vendorLocationMatrix: {
+              findMany: jest.fn().mockResolvedValue([]),
+              findUnique: jest.fn().mockResolvedValue(null),
+              upsert: jest.fn().mockResolvedValue({ id: 'mat_1' }),
+            },
+            publicTransportPoint: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'pub_hyd_rgia',
+                  name: 'Rajiv Gandhi International Airport (HYD)',
+                  type: 'AIRPORT',
+                  city: 'Hyderabad',
+                  state: 'Telangana',
+                  locality: 'Shamshabad',
+                  latitude: 17.2403,
+                  longitude: 78.4294,
+                  category: 'Airport Terminal',
+                  isApproved: true,
+                },
+                {
+                  id: 'pub_hyd_secunderabad_rail',
+                  name: 'Secunderabad Junction Railway Station',
+                  type: 'RAILWAY_STATION',
+                  city: 'Hyderabad',
+                  state: 'Telangana',
+                  locality: 'Secunderabad',
+                  latitude: 17.4338,
+                  longitude: 78.5044,
+                  category: 'Railway Station',
+                  isApproved: true,
+                },
+              ]),
+              upsert: jest.fn().mockResolvedValue({ id: 'pub_1' }),
+            },
+            locationException: {
+              findMany: jest.fn().mockResolvedValue([]),
+              findFirst: jest.fn().mockResolvedValue(null),
+              create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'exc_1', ...data })),
+              delete: jest.fn().mockResolvedValue({ id: 'exc_1' }),
+            },
             booking: {
               findMany: jest.fn().mockResolvedValue([
                 {
@@ -139,7 +193,7 @@ describe('LocationsService - Vendor Operations Suite (Phase 29.11)', () => {
                   pickupLocation: 'Hyderabad Main Yard',
                   dropLocation: 'RGIA Airport Hub',
                   status: 'CONFIRMED',
-                  deliveryType: 'NONE',
+                  deliveryType: 'DOORSTEP_DELIVERY',
                 },
               ]),
             },
@@ -231,7 +285,7 @@ describe('LocationsService - Vendor Operations Suite (Phase 29.11)', () => {
     it('5. Retrieves default delivery policy when none is persisted', async () => {
       const policy = await service.getVendorDeliveryPolicy('user_vendor_1');
       expect(policy.deliveryEnabled).toBe(true);
-      expect(policy.maxDeliveryRadiusKm).toBe(15.0);
+      expect(policy.maxDeliveryRadiusKm).toBe(25.0);
       expect(policy.pricingModel).toBe(DeliveryPricingModelEnum.FIXED);
       expect(policy.baseDeliveryFee).toBe(300.0);
     });

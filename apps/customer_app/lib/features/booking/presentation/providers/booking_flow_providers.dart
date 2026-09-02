@@ -61,6 +61,13 @@ class BookingDraft {
   final double couponDiscountAmount;
   final CouponValidationResultModel? appliedCoupon;
 
+  // Structured Location & Fulfillment snapshot fields
+  final String? pickupHubId;
+  final String? returnHubId;
+  final String? pickupName;
+  final String? dropName;
+  final double oneWayFee;
+
   const BookingDraft({
     this.carId = '',
     this.vendorId = '',
@@ -100,6 +107,11 @@ class BookingDraft {
     this.appliedCouponCode,
     this.couponDiscountAmount = 0.0,
     this.appliedCoupon,
+    this.pickupHubId,
+    this.returnHubId,
+    this.pickupName,
+    this.dropName,
+    this.oneWayFee = 0.0,
   });
 
   int get rentalDays {
@@ -146,6 +158,11 @@ class BookingDraft {
     String? appliedCouponCode,
     double? couponDiscountAmount,
     CouponValidationResultModel? appliedCoupon,
+    String? pickupHubId,
+    String? returnHubId,
+    String? pickupName,
+    String? dropName,
+    double? oneWayFee,
   }) {
     return BookingDraft(
       carId: carId ?? this.carId,
@@ -192,6 +209,11 @@ class BookingDraft {
       appliedCouponCode: appliedCouponCode ?? this.appliedCouponCode,
       couponDiscountAmount: couponDiscountAmount ?? this.couponDiscountAmount,
       appliedCoupon: appliedCoupon ?? this.appliedCoupon,
+      pickupHubId: pickupHubId ?? this.pickupHubId,
+      returnHubId: returnHubId ?? this.returnHubId,
+      pickupName: pickupName ?? this.pickupName,
+      dropName: dropName ?? this.dropName,
+      oneWayFee: oneWayFee ?? this.oneWayFee,
     );
   }
 }

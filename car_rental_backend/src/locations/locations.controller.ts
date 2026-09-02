@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -32,6 +33,7 @@ import {
   UpdateVendorDeliveryPolicyDto,
   CalculateDeliveryQuoteDto,
   UpdateLocationMatrixDto,
+  CreateLocationExceptionDto,
 } from './dto/vendor-location-operations.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -99,7 +101,7 @@ export class LocationsController {
     return this.locationsService.verifyDeliveryDistance(vendorId, lat, lng);
   }
 
-  // --- Phase 29.11 Vendor Location Operations & Delivery Endpoints ---
+  // --- Phase 29.11 & 29.12 Vendor Location Operations & Delivery Endpoints ---
 
   @Get('vendors/me/locations')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -122,6 +124,17 @@ export class LocationsController {
     return this.locationsService.getVendorLocationById(req.user.userId, id);
   }
 
+  @Put('vendors/me/locations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async putVendorLocation(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateVendorLocationDto,
+  ) {
+    return this.locationsService.updateVendorLocation(req.user.userId, id, dto);
+  }
+
   @Patch('vendors/me/locations/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
@@ -140,11 +153,76 @@ export class LocationsController {
     return this.locationsService.deleteVendorLocation(req.user.userId, id);
   }
 
+  // Location Exceptions Endpoints
+  @Post('vendors/me/locations/:id/exceptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async createLocationException(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateLocationExceptionDto,
+  ) {
+    return this.locationsService.createLocationException(req.user.userId, id, dto);
+  }
+
+  @Get('vendors/me/locations/:id/exceptions')
+  async getLocationExceptions(@Param('id') id: string) {
+    return this.locationsService.getLocationExceptions(id);
+  }
+
+  @Delete('vendors/me/exceptions/:exceptionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async deleteLocationException(
+    @Req() req: any,
+    @Param('exceptionId') exceptionId: string,
+  ) {
+    return this.locationsService.deleteLocationException(req.user.userId, exceptionId);
+  }
+
+  // Delivery Policy Endpoints (Supports both /policy and /delivery-policy, GET, PUT, PATCH)
+  @Get('vendors/me/policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorPolicy(@Req() req: any) {
+    return this.locationsService.getVendorDeliveryPolicy(req.user.userId);
+  }
+
   @Get('vendors/me/delivery-policy')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
   async getVendorDeliveryPolicy(@Req() req: any) {
     return this.locationsService.getVendorDeliveryPolicy(req.user.userId);
+  }
+
+  @Put('vendors/me/policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async putVendorPolicy(
+    @Req() req: any,
+    @Body() dto: UpdateVendorDeliveryPolicyDto,
+  ) {
+    return this.locationsService.updateVendorDeliveryPolicy(req.user.userId, dto);
+  }
+
+  @Patch('vendors/me/policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async patchVendorPolicy(
+    @Req() req: any,
+    @Body() dto: UpdateVendorDeliveryPolicyDto,
+  ) {
+    return this.locationsService.updateVendorDeliveryPolicy(req.user.userId, dto);
+  }
+
+  @Put('vendors/me/delivery-policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async putVendorDeliveryPolicy(
+    @Req() req: any,
+    @Body() dto: UpdateVendorDeliveryPolicyDto,
+  ) {
+    return this.locationsService.updateVendorDeliveryPolicy(req.user.userId, dto);
   }
 
   @Patch('vendors/me/delivery-policy')
@@ -157,11 +235,22 @@ export class LocationsController {
     return this.locationsService.updateVendorDeliveryPolicy(req.user.userId, dto);
   }
 
+  // Matrix Endpoints
   @Get('vendors/me/matrix')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
   async getVendorLocationMatrix(@Req() req: any) {
     return this.locationsService.getVendorLocationMatrix(req.user.userId);
+  }
+
+  @Put('vendors/me/matrix')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async putVendorLocationMatrix(
+    @Req() req: any,
+    @Body() dto: UpdateLocationMatrixDto,
+  ) {
+    return this.locationsService.updateVendorLocationMatrix(req.user.userId, dto);
   }
 
   @Patch('vendors/me/matrix')
@@ -181,9 +270,19 @@ export class LocationsController {
     return this.locationsService.getVendorLocationOperationsSummary(req.user.userId);
   }
 
+  @Get('public/catalog')
+  async getPublicCatalog(@Query('city') city?: string) {
+    return this.locationsService.getPublicLocationCatalog(city);
+  }
+
   @Get('public-catalog')
   async getPublicLocationCatalog(@Query('city') city?: string) {
     return this.locationsService.getPublicLocationCatalog(city);
+  }
+
+  @Post('quote')
+  async getQuote(@Body() dto: CalculateDeliveryQuoteDto) {
+    return this.locationsService.calculateDeliveryQuote(dto);
   }
 
   @Post('calculate-delivery-quote')

@@ -25,6 +25,12 @@ _$BookingModelImpl _$$BookingModelImplFromJson(Map<String, dynamic> json) =>
       createdAt: DateTime.parse(json['createdAt'] as String),
       disputeFlag: json['disputeFlag'] as bool? ?? false,
       disputeNote: json['disputeNote'] as String?,
+      pickupHubId: json['pickupHubId'] as String?,
+      returnHubId: json['returnHubId'] as String?,
+      pickupName: json['pickupName'] as String?,
+      dropName: json['dropName'] as String?,
+      returnFee: (json['returnFee'] as num?)?.toDouble(),
+      oneWayFee: (json['oneWayFee'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$$BookingModelImplToJson(_$BookingModelImpl instance) =>
@@ -46,4 +52,10 @@ Map<String, dynamic> _$$BookingModelImplToJson(_$BookingModelImpl instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'disputeFlag': instance.disputeFlag,
       'disputeNote': instance.disputeNote,
+      'pickupHubId': instance.pickupHubId,
+      'returnHubId': instance.returnHubId,
+      'pickupName': instance.pickupName,
+      'dropName': instance.dropName,
+      'returnFee': instance.returnFee,
+      'oneWayFee': instance.oneWayFee,
     };

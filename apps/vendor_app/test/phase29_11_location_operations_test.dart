@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vendor_app/features/locations/presentation/providers/locations_providers.dart';
 import 'package:vendor_app/features/locations/presentation/pages/vendor_location_settings_page.dart';
 import 'package:vendor_app/features/locations/presentation/pages/add_location_wizard_page.dart';
@@ -11,7 +10,6 @@ import 'package:vendor_app/features/locations/presentation/pages/location_detail
 void main() {
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
-    FlutterSecureStorage.setMockInitialValues({});
   });
 
   group('Phase 29.11: Domain Models & Logic Tests (1-17)', () {
@@ -153,7 +151,7 @@ void main() {
     });
 
     test('9. Location Matrix item model parses correctly', () {
-      final matrixItem = LocationMatrixItemModel(
+      const matrixItem = LocationMatrixItemModel(
         pickupLocationId: 'hub_1',
         returnLocationId: 'hub_2',
         pickupLocationName: 'Main Yard',
@@ -172,7 +170,7 @@ void main() {
     });
 
     test('10. Location operations summary parses today bookings counts', () {
-      final summary = LocationOperationsSummaryModel(
+      const summary = LocationOperationsSummaryModel(
         locations: [
           LocationOperationsItemSummary(
             locationId: 'l1',
@@ -230,7 +228,7 @@ void main() {
     });
 
     test('15. Surcharge is 0 for identical pickup and return location', () {
-      final matrixItem = LocationMatrixItemModel(
+      const matrixItem = LocationMatrixItemModel(
         pickupLocationId: 'hub_1',
         returnLocationId: 'hub_1',
         pickupLocationName: 'Main Yard',
@@ -282,7 +280,11 @@ void main() {
 
   group('Phase 29.11: State Providers & Riverpod Logic (18-22)', () {
     test('18. VendorLocationsNotifier adds and toggles location status', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+        ],
+      );
       addTearDown(container.dispose);
 
       final notifier = container.read(vendorLocationsProvider.notifier);
@@ -315,7 +317,11 @@ void main() {
     });
 
     test('19. VendorDeliveryPolicyNotifier updates policy parameters', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+        ],
+      );
       addTearDown(container.dispose);
 
       final notifier = container.read(vendorDeliveryPolicyProvider.notifier);
@@ -335,7 +341,20 @@ void main() {
     });
 
     test('20. VendorLocationMatrixProvider dynamically computes combinations', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          vendorLocationMatrixProvider.overrideWith((ref) async => [
+            const LocationMatrixItemModel(
+              pickupLocationId: 'loc_1',
+              returnLocationId: 'loc_2',
+              pickupLocationName: 'Main Yard',
+              returnLocationName: 'Airport Desk',
+              isSupported: true,
+              oneWaySurcharge: 250.0,
+            ),
+          ]),
+        ],
+      );
       addTearDown(container.dispose);
 
       final matrixAsync = await container.read(vendorLocationMatrixProvider.future);
@@ -344,7 +363,25 @@ void main() {
     });
 
     test('21. LocationOperationsSummaryProvider aggregates active operations', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          locationOperationsSummaryProvider.overrideWith((ref) async => const LocationOperationsSummaryModel(
+            locations: [
+              LocationOperationsItemSummary(
+                locationId: 'l1',
+                locationName: 'Main Yard',
+                locationType: 'VENDOR_YARD',
+                todayPickups: 3,
+                todayReturns: 2,
+                activeVehicles: 8,
+              ),
+            ],
+            totalTodayPickups: 3,
+            totalTodayReturns: 2,
+            totalDeliveryRequests: 1,
+          )),
+        ],
+      );
       addTearDown(container.dispose);
 
       final summary = await container.read(locationOperationsSummaryProvider.future);
@@ -354,7 +391,16 @@ void main() {
     });
 
     test('22. PublicLocationCatalogProvider loads approved transport points', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          publicLocationCatalogProvider.overrideWith((ref) async => [
+            {'id': '1', 'name': 'RGIA', 'type': 'AIRPORT'},
+            {'id': '2', 'name': 'Secunderabad', 'type': 'RAILWAY_STATION'},
+            {'id': '3', 'name': 'HITEC Metro', 'type': 'PUBLIC_POINT'},
+            {'id': '4', 'name': 'MGBS', 'type': 'BUS_TERMINAL'},
+          ]),
+        ],
+      );
       addTearDown(container.dispose);
 
       final catalog = await container.read(publicLocationCatalogProvider.future);
@@ -368,8 +414,13 @@ void main() {
     testWidgets('23. VendorLocationSettingsPage renders active locations and sections',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+            vendorLocationMatrixProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
             home: VendorLocationSettingsPage(),
           ),
         ),
@@ -389,6 +440,8 @@ void main() {
         ProviderScope(
           overrides: [
             vendorLocationsProvider.overrideWith((ref) => _EmptyLocationsNotifier(ref)),
+            vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+            vendorLocationMatrixProvider.overrideWith((ref) async => []),
           ],
           child: const MaterialApp(
             home: VendorLocationSettingsPage(),
@@ -404,8 +457,13 @@ void main() {
     testWidgets('25. Operating mode switch updates state in VendorLocationSettingsPage',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+            vendorLocationMatrixProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
             home: VendorLocationSettingsPage(),
           ),
         ),
@@ -421,8 +479,13 @@ void main() {
     testWidgets('26. Delivery Settings toggle controls radius and pricing chips',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+            vendorLocationMatrixProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
             home: VendorLocationSettingsPage(),
           ),
         ),
@@ -443,8 +506,11 @@ void main() {
     testWidgets('27. AddLocationWizardPage renders Step 1: Location Type',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: AddLocationWizardPage(),
           ),
         ),
@@ -461,8 +527,11 @@ void main() {
     testWidgets('28. AddLocationWizardPage navigates to Step 2: Location Details',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: AddLocationWizardPage(),
           ),
         ),
@@ -479,8 +548,11 @@ void main() {
     testWidgets('29. AddLocationWizardPage navigates through Steps 3, 4, 5, 6, 7 to Step 8',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: AddLocationWizardPage(),
           ),
         ),
@@ -526,8 +598,11 @@ void main() {
     testWidgets('30. AddLocationWizardPage activates location and shows success modal',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: AddLocationWizardPage(),
           ),
         ),
@@ -550,8 +625,11 @@ void main() {
     testWidgets('31. LocationDetailPage renders comprehensive location details',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: LocationDetailPage(locationId: 'loc_hyd_main_yard'),
           ),
         ),
@@ -567,8 +645,11 @@ void main() {
     testWidgets('32. LocationDetailPage shows confirmation dialog upon delete tap',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+          ],
+          child: const MaterialApp(
             home: LocationDetailPage(locationId: 'loc_hyd_main_yard'),
           ),
         ),
@@ -588,8 +669,13 @@ void main() {
     testWidgets('33. Save settings displays success feedback SnackBar',
         (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
+        ProviderScope(
+          overrides: [
+            vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            vendorDeliveryPolicyProvider.overrideWith((ref) => _MockVendorDeliveryPolicyNotifier(ref)),
+            vendorLocationMatrixProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
             home: VendorLocationSettingsPage(),
           ),
         ),
@@ -607,12 +693,141 @@ void main() {
   });
 }
 
+class _MockVendorLocationsNotifier extends VendorLocationsNotifier {
+  _MockVendorLocationsNotifier(super.ref) : super() {
+    state = AsyncValue.data(_mockLocations);
+  }
+
+  static final _mockLocations = [
+    VendorLocationModel(
+      id: 'loc_hyd_main_yard',
+      vendorId: 'v_1',
+      name: 'Hyderabad Main Yard',
+      type: VendorLocationType.vendorYard,
+      address: 'Plot 42, Silicon Valley, Madhapur',
+      locality: 'Madhapur',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      pincode: '500081',
+      latitude: 17.4483,
+      longitude: 78.3915,
+      contactPerson: 'Rahul Verma (Yard Mgr)',
+      contactPhone: '+91 98765 43210',
+      status: VendorLocationStatus.active,
+      allowsPickup: true,
+      allowsReturn: true,
+      allowsDelivery: true,
+      pickupFee: 0,
+      returnFee: 0,
+      oneWayFee: 0,
+      openingTime: '08:00',
+      closingTime: '22:00',
+      is24x7: false,
+      serviceRadiusKm: 25.0,
+      assignedCarCount: 8,
+      assignedCarIds: ['car_1', 'car_2', 'car_3'],
+      createdAt: DateTime(2026, 1, 15),
+      updatedAt: DateTime.now(),
+    ),
+    VendorLocationModel(
+      id: 'loc_hyd_airport',
+      vendorId: 'v_1',
+      name: 'Rajiv Gandhi International Airport (HYD)',
+      type: VendorLocationType.airport,
+      address: 'Terminal 1 Parking P4, RGIA Shamshabad',
+      locality: 'Shamshabad',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      pincode: '500409',
+      latitude: 17.2403,
+      longitude: 78.4294,
+      contactPerson: 'Airport Dispatch Desk',
+      contactPhone: '+91 98765 43211',
+      status: VendorLocationStatus.active,
+      allowsPickup: true,
+      allowsReturn: true,
+      allowsDelivery: false,
+      pickupFee: 300,
+      returnFee: 0,
+      oneWayFee: 250,
+      openingTime: '00:00',
+      closingTime: '23:59',
+      is24x7: true,
+      serviceRadiusKm: 15.0,
+      assignedCarCount: 4,
+      assignedCarIds: ['car_4', 'car_5'],
+      createdAt: DateTime(2026, 2, 10),
+      updatedAt: DateTime.now(),
+    ),
+  ];
+
+  @override
+  Future<void> loadLocations() async {
+    state = AsyncValue.data(_mockLocations);
+  }
+
+  @override
+  Future<VendorLocationModel> addLocation(VendorLocationModel newLocation) async {
+    final current = state.value ?? [];
+    state = AsyncValue.data([...current, newLocation]);
+    return newLocation;
+  }
+
+  @override
+  Future<VendorLocationModel> updateLocation(VendorLocationModel updated) async {
+    final current = state.value ?? [];
+    state = AsyncValue.data(
+      current.map((loc) => loc.id == updated.id ? updated : loc).toList(),
+    );
+    return updated;
+  }
+}
+
+class _MockVendorDeliveryPolicyNotifier extends VendorDeliveryPolicyNotifier {
+  _MockVendorDeliveryPolicyNotifier(super.ref) : super() {
+    state = const AsyncValue.data(
+      VendorDeliveryPolicyModel(
+        vendorId: 'v_1',
+        deliveryEnabled: true,
+        maxDeliveryRadiusKm: 15.0,
+        pricingModel: DeliveryPricingModel.fixed,
+        baseDeliveryFee: 300.0,
+        perKmDeliveryFee: 20.0,
+        freeDeliveryWithinKm: 5.0,
+      ),
+    );
+  }
+
+  @override
+  Future<void> loadPolicy() async {
+    state = const AsyncValue.data(
+      VendorDeliveryPolicyModel(
+        vendorId: 'v_1',
+        deliveryEnabled: true,
+        maxDeliveryRadiusKm: 15.0,
+        pricingModel: DeliveryPricingModel.fixed,
+        baseDeliveryFee: 300.0,
+        perKmDeliveryFee: 20.0,
+        freeDeliveryWithinKm: 5.0,
+      ),
+    );
+  }
+
+  @override
+  Future<void> updatePolicy(VendorDeliveryPolicyModel updated) async {
+    state = AsyncValue.data(updated);
+  }
+}
+
 class _EmptyLocationsNotifier extends VendorLocationsNotifier {
-  _EmptyLocationsNotifier(super.ref) : super();
+  _EmptyLocationsNotifier(super.ref) : super() {
+    state = const AsyncValue.data([]);
+  }
 
   @override
   Future<void> loadLocations() async {
     state = const AsyncValue.data([]);
   }
 }
+
 

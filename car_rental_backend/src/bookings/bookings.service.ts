@@ -227,9 +227,33 @@ export class BookingsService {
         car.monthlyDiscountPercent || 0,
       );
 
+      // Validate location exceptions / closures if pickupHubId is provided
+      if (dto.pickupHubId) {
+        const startDay = new Date(start);
+        startDay.setHours(0, 0, 0, 0);
+        const endDay = new Date(start);
+        endDay.setHours(23, 59, 59, 999);
+
+        const exception = await this.prisma.locationException.findFirst({
+          where: {
+            locationId: dto.pickupHubId,
+            date: { gte: startDay, lte: endDay },
+            isClosed: true,
+          },
+        });
+
+        if (exception) {
+          throw new ConflictException(
+            `Pickup location is closed on the selected date: ${exception.reason || 'Holiday/Closure'}.`,
+          );
+        }
+      }
+
       const deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
       const pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
-      const totalDeliveryAddons = deliveryFee.add(pickupFee);
+      const returnFee = dto.returnFee ? new Prisma.Decimal(dto.returnFee) : new Prisma.Decimal(0);
+      const oneWayFee = dto.oneWayFee ? new Prisma.Decimal(dto.oneWayFee) : new Prisma.Decimal(0);
+      const totalDeliveryAddons = deliveryFee.add(pickupFee).add(returnFee).add(oneWayFee);
 
       const baseTotalDecimal =
         fareDetails.total instanceof Prisma.Decimal
@@ -379,6 +403,12 @@ export class BookingsService {
               pickupLatitude: dto.pickupLatitude,
               pickupLongitude: dto.pickupLongitude,
               pickupFee,
+              returnFee,
+              oneWayFee,
+              pickupHubId: dto.pickupHubId,
+              returnHubId: dto.returnHubId,
+              pickupName: dto.pickupName,
+              dropName: dto.dropName,
               protectionPackageId: protectionPackage ? protectionPackage.id : null,
               protectionCode,
               protectionFee: protectionFeeDecimal,
@@ -417,6 +447,7 @@ export class BookingsService {
 
           return newBooking;
         },
+
         {
           timeout: 15000,
         },

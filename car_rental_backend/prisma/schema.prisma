@@ -80,6 +80,39 @@ enum DeliveryType {
   ROUND_TRIP_DELIVERY
 }
 
+enum VendorLocationType {
+  VENDOR_YARD
+  BRANCH
+  AIRPORT
+  RAILWAY_STATION
+  BUS_TERMINAL
+  PUBLIC_POINT
+  COMMERCIAL_OFFICE
+}
+
+enum LocationStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  ARCHIVED
+  INACTIVE
+}
+
+enum DeliveryPricingModel {
+  FREE
+  FIXED
+  DISTANCE_BASED
+}
+
+enum LocationExceptionType {
+  HOLIDAY
+  TEMPORARY_CLOSURE
+  EMERGENCY_CLOSURE
+  CUSTOM_HOURS
+}
+
 enum ExtensionStatus {
   PENDING_PAYMENT
   CONFIRMED
@@ -358,6 +391,8 @@ model Vendor {
   invoices           Invoice[]
   emergencyRequests  EmergencyRequest[]
   pickupHubs         PickupHub[]
+  deliveryPolicy     VendorDeliveryPolicy?
+  locationMatrices   VendorLocationMatrix[]
   sponsoredCampaigns SponsoredCampaign[]
 
   @@index([city])
@@ -369,9 +404,9 @@ model Vendor {
 }
 
 model PickupHub {
-  id              String    @id @default(cuid())
+  id              String             @id @default(cuid())
   vendorId        String
-  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor          Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   name            String
   address         String
   locality        String?
@@ -379,18 +414,100 @@ model PickupHub {
   state           String?
   latitude        Float
   longitude       Float
-  serviceRadiusKm Float     @default(25.0)
+  serviceRadiusKm Float              @default(25.0)
   operatingHours  String?
   contactPhone    String?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  isActive        Boolean            @default(true)
+  locationType    VendorLocationType @default(VENDOR_YARD)
+  status          LocationStatus     @default(ACTIVE)
+  allowsPickup    Boolean            @default(true)
+  allowsReturn    Boolean            @default(true)
+  allowsDelivery  Boolean            @default(true)
+  pickupFee       Decimal            @default(0) @db.Decimal(10, 2)
+  returnFee       Decimal            @default(0) @db.Decimal(10, 2)
+  oneWayFee       Decimal            @default(0) @db.Decimal(10, 2)
+  is24x7          Boolean            @default(false)
+  openingTime     String?            @default("08:00")
+  closingTime     String?            @default("22:00")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   cars            Car[]
+  exceptions      LocationException[]
 
   @@index([vendorId])
   @@index([city])
   @@index([city, isActive])
   @@index([isActive])
+  @@index([locationType])
+  @@index([status])
+}
+
+model LocationException {
+  id                String                @id @default(cuid())
+  locationId        String
+  location          PickupHub             @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  date              DateTime
+  exceptionType     LocationExceptionType @default(HOLIDAY)
+  isClosed          Boolean               @default(true)
+  customOpeningTime String?
+  customClosingTime String?
+  reason            String?
+  createdAt         DateTime              @default(now())
+
+  @@index([locationId])
+  @@index([date])
+}
+
+model VendorDeliveryPolicy {
+  id                   String               @id @default(cuid())
+  vendorId             String               @unique
+  vendor               Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  deliveryEnabled      Boolean              @default(true)
+  maxDeliveryRadiusKm  Float                @default(25.0)
+  pricingModel         DeliveryPricingModel @default(DISTANCE_BASED)
+  baseDeliveryFee      Decimal              @default(100.0) @db.Decimal(10, 2)
+  perKmDeliveryFee     Decimal              @default(20.0) @db.Decimal(10, 2)
+  freeDeliveryWithinKm Float                @default(5.0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([vendorId])
+}
+
+model VendorLocationMatrix {
+  id               String   @id @default(cuid())
+  vendorId         String
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  pickupLocationId String
+  returnLocationId String
+  isSupported      Boolean  @default(true)
+  oneWaySurcharge  Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([vendorId, pickupLocationId, returnLocationId])
+  @@index([vendorId])
+  @@index([pickupLocationId])
+  @@index([returnLocationId])
+}
+
+model PublicTransportPoint {
+  id         String             @id @default(cuid())
+  name       String
+  type       VendorLocationType @default(AIRPORT)
+  city       String
+  state      String?
+  locality   String?
+  latitude   Float
+  longitude  Float
+  category   String
+  isApproved Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([city])
+  @@index([type])
+  @@index([city, isApproved])
 }
 
 model Document {
@@ -495,6 +612,12 @@ model Booking {
   pickupLatitude     Float?
   pickupLongitude    Float?
   pickupFee          Decimal           @default(0) @db.Decimal(10, 2)
+  returnFee          Decimal           @default(0) @db.Decimal(10, 2)
+  oneWayFee          Decimal           @default(0) @db.Decimal(10, 2)
+  pickupHubId        String?
+  returnHubId        String?
+  pickupName         String?
+  dropName           String?
   protectionPackageId String?
   protectionPackage  ProtectionPackage? @relation(fields: [protectionPackageId], references: [id], onDelete: SetNull)
   protectionCode     String?

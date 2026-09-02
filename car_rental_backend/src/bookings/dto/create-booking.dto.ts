@@ -97,4 +97,31 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   mileagePackageId?: string;
+
+  @IsString()
+  @IsOptional()
+  pickupHubId?: string;
+
+  @IsString()
+  @IsOptional()
+  returnHubId?: string;
+
+  @IsString()
+  @IsOptional()
+  pickupName?: string;
+
+  @IsString()
+  @IsOptional()
+  dropName?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  returnFee?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  oneWayFee?: number;
 }
+

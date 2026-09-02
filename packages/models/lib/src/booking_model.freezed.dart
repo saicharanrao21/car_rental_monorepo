@@ -39,6 +39,12 @@ mixin _$BookingModel {
   DateTime get createdAt => throw _privateConstructorUsedError;
   bool get disputeFlag => throw _privateConstructorUsedError;
   String? get disputeNote => throw _privateConstructorUsedError;
+  String? get pickupHubId => throw _privateConstructorUsedError;
+  String? get returnHubId => throw _privateConstructorUsedError;
+  String? get pickupName => throw _privateConstructorUsedError;
+  String? get dropName => throw _privateConstructorUsedError;
+  double? get returnFee => throw _privateConstructorUsedError;
+  double? get oneWayFee => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -69,7 +75,13 @@ abstract class $BookingModelCopyWith<$Res> {
       String status,
       DateTime createdAt,
       bool disputeFlag,
-      String? disputeNote});
+      String? disputeNote,
+      String? pickupHubId,
+      String? returnHubId,
+      String? pickupName,
+      String? dropName,
+      double? returnFee,
+      double? oneWayFee});
 }
 
 /// @nodoc
@@ -102,6 +114,12 @@ class _$BookingModelCopyWithImpl<$Res, $Val extends BookingModel>
     Object? createdAt = null,
     Object? disputeFlag = null,
     Object? disputeNote = freezed,
+    Object? pickupHubId = freezed,
+    Object? returnHubId = freezed,
+    Object? pickupName = freezed,
+    Object? dropName = freezed,
+    Object? returnFee = freezed,
+    Object? oneWayFee = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -172,6 +190,30 @@ class _$BookingModelCopyWithImpl<$Res, $Val extends BookingModel>
           ? _value.disputeNote
           : disputeNote // ignore: cast_nullable_to_non_nullable
               as String?,
+      pickupHubId: freezed == pickupHubId
+          ? _value.pickupHubId
+          : pickupHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      returnHubId: freezed == returnHubId
+          ? _value.returnHubId
+          : returnHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      pickupName: freezed == pickupName
+          ? _value.pickupName
+          : pickupName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      dropName: freezed == dropName
+          ? _value.dropName
+          : dropName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      returnFee: freezed == returnFee
+          ? _value.returnFee
+          : returnFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      oneWayFee: freezed == oneWayFee
+          ? _value.oneWayFee
+          : oneWayFee // ignore: cast_nullable_to_non_nullable
+              as double?,
     ) as $Val);
   }
 }
@@ -201,7 +243,13 @@ abstract class _$$BookingModelImplCopyWith<$Res>
       String status,
       DateTime createdAt,
       bool disputeFlag,
-      String? disputeNote});
+      String? disputeNote,
+      String? pickupHubId,
+      String? returnHubId,
+      String? pickupName,
+      String? dropName,
+      double? returnFee,
+      double? oneWayFee});
 }
 
 /// @nodoc
@@ -232,6 +280,12 @@ class __$$BookingModelImplCopyWithImpl<$Res>
     Object? createdAt = null,
     Object? disputeFlag = null,
     Object? disputeNote = freezed,
+    Object? pickupHubId = freezed,
+    Object? returnHubId = freezed,
+    Object? pickupName = freezed,
+    Object? dropName = freezed,
+    Object? returnFee = freezed,
+    Object? oneWayFee = freezed,
   }) {
     return _then(_$BookingModelImpl(
       id: null == id
@@ -302,6 +356,30 @@ class __$$BookingModelImplCopyWithImpl<$Res>
           ? _value.disputeNote
           : disputeNote // ignore: cast_nullable_to_non_nullable
               as String?,
+      pickupHubId: freezed == pickupHubId
+          ? _value.pickupHubId
+          : pickupHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      returnHubId: freezed == returnHubId
+          ? _value.returnHubId
+          : returnHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      pickupName: freezed == pickupName
+          ? _value.pickupName
+          : pickupName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      dropName: freezed == dropName
+          ? _value.dropName
+          : dropName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      returnFee: freezed == returnFee
+          ? _value.returnFee
+          : returnFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      oneWayFee: freezed == oneWayFee
+          ? _value.oneWayFee
+          : oneWayFee // ignore: cast_nullable_to_non_nullable
+              as double?,
     ));
   }
 }
@@ -326,7 +404,13 @@ class _$BookingModelImpl implements _BookingModel {
       required this.status,
       required this.createdAt,
       this.disputeFlag = false,
-      this.disputeNote});
+      this.disputeNote,
+      this.pickupHubId,
+      this.returnHubId,
+      this.pickupName,
+      this.dropName,
+      this.returnFee,
+      this.oneWayFee});
 
   factory _$BookingModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$BookingModelImplFromJson(json);
@@ -368,10 +452,22 @@ class _$BookingModelImpl implements _BookingModel {
   final bool disputeFlag;
   @override
   final String? disputeNote;
+  @override
+  final String? pickupHubId;
+  @override
+  final String? returnHubId;
+  @override
+  final String? pickupName;
+  @override
+  final String? dropName;
+  @override
+  final double? returnFee;
+  @override
+  final double? oneWayFee;
 
   @override
   String toString() {
-    return 'BookingModel(id: $id, customerId: $customerId, vendorId: $vendorId, carId: $carId, tripType: $tripType, pickupLocation: $pickupLocation, dropLocation: $dropLocation, startDate: $startDate, endDate: $endDate, totalFare: $totalFare, platformFee: $platformFee, gstAmount: $gstAmount, netToVendor: $netToVendor, status: $status, createdAt: $createdAt, disputeFlag: $disputeFlag, disputeNote: $disputeNote)';
+    return 'BookingModel(id: $id, customerId: $customerId, vendorId: $vendorId, carId: $carId, tripType: $tripType, pickupLocation: $pickupLocation, dropLocation: $dropLocation, startDate: $startDate, endDate: $endDate, totalFare: $totalFare, platformFee: $platformFee, gstAmount: $gstAmount, netToVendor: $netToVendor, status: $status, createdAt: $createdAt, disputeFlag: $disputeFlag, disputeNote: $disputeNote, pickupHubId: $pickupHubId, returnHubId: $returnHubId, pickupName: $pickupName, dropName: $dropName, returnFee: $returnFee, oneWayFee: $oneWayFee)';
   }
 
   @override
@@ -408,30 +504,49 @@ class _$BookingModelImpl implements _BookingModel {
             (identical(other.disputeFlag, disputeFlag) ||
                 other.disputeFlag == disputeFlag) &&
             (identical(other.disputeNote, disputeNote) ||
-                other.disputeNote == disputeNote));
+                other.disputeNote == disputeNote) &&
+            (identical(other.pickupHubId, pickupHubId) ||
+                other.pickupHubId == pickupHubId) &&
+            (identical(other.returnHubId, returnHubId) ||
+                other.returnHubId == returnHubId) &&
+            (identical(other.pickupName, pickupName) ||
+                other.pickupName == pickupName) &&
+            (identical(other.dropName, dropName) ||
+                other.dropName == dropName) &&
+            (identical(other.returnFee, returnFee) ||
+                other.returnFee == returnFee) &&
+            (identical(other.oneWayFee, oneWayFee) ||
+                other.oneWayFee == oneWayFee));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      customerId,
-      vendorId,
-      carId,
-      tripType,
-      pickupLocation,
-      dropLocation,
-      startDate,
-      endDate,
-      totalFare,
-      platformFee,
-      gstAmount,
-      netToVendor,
-      status,
-      createdAt,
-      disputeFlag,
-      disputeNote);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        customerId,
+        vendorId,
+        carId,
+        tripType,
+        pickupLocation,
+        dropLocation,
+        startDate,
+        endDate,
+        totalFare,
+        platformFee,
+        gstAmount,
+        netToVendor,
+        status,
+        createdAt,
+        disputeFlag,
+        disputeNote,
+        pickupHubId,
+        returnHubId,
+        pickupName,
+        dropName,
+        returnFee,
+        oneWayFee
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -465,7 +580,13 @@ abstract class _BookingModel implements BookingModel {
       required final String status,
       required final DateTime createdAt,
       final bool disputeFlag,
-      final String? disputeNote}) = _$BookingModelImpl;
+      final String? disputeNote,
+      final String? pickupHubId,
+      final String? returnHubId,
+      final String? pickupName,
+      final String? dropName,
+      final double? returnFee,
+      final double? oneWayFee}) = _$BookingModelImpl;
 
   factory _BookingModel.fromJson(Map<String, dynamic> json) =
       _$BookingModelImpl.fromJson;
@@ -504,6 +625,18 @@ abstract class _BookingModel implements BookingModel {
   bool get disputeFlag;
   @override
   String? get disputeNote;
+  @override
+  String? get pickupHubId;
+  @override
+  String? get returnHubId;
+  @override
+  String? get pickupName;
+  @override
+  String? get dropName;
+  @override
+  double? get returnFee;
+  @override
+  double? get oneWayFee;
   @override
   @JsonKey(ignore: true)
   _$$BookingModelImplCopyWith<_$BookingModelImpl> get copyWith =>

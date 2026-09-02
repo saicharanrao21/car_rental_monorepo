@@ -103,6 +103,18 @@ class ApiBookingRepository implements BookingRepository {
           draftState.selectedMileagePackageId!.isNotEmpty) {
         data['mileagePackageId'] = draftState.selectedMileagePackageId;
       }
+      if (draftState.pickupHubId != null && draftState.pickupHubId!.isNotEmpty) {
+        data['pickupHubId'] = draftState.pickupHubId;
+      }
+      if (draftState.returnHubId != null && draftState.returnHubId!.isNotEmpty) {
+        data['returnHubId'] = draftState.returnHubId;
+      }
+      if (draftState.oneWayFee > 0) {
+        data['oneWayFee'] = draftState.oneWayFee;
+      }
+      if (draftState.returnPickupFee > 0) {
+        data['returnFee'] = draftState.returnPickupFee;
+      }
     }
 
     final response = await apiClient.dio.post(

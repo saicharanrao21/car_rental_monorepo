@@ -292,14 +292,61 @@ export class CalculateDeliveryQuoteDto {
   @IsNumber()
   @Min(-90)
   @Max(90)
+  @IsOptional()
   @Type(() => Number)
-  customerLatitude: number;
+  customerLatitude?: number;
 
   @IsNumber()
   @Min(-180)
   @Max(180)
+  @IsOptional()
   @Type(() => Number)
-  customerLongitude: number;
+  customerLongitude?: number;
+
+  @IsString()
+  @IsOptional()
+  pickupLocationId?: string;
+
+  @IsString()
+  @IsOptional()
+  returnLocationId?: string;
+
+  @IsString()
+  @IsOptional()
+  carId?: string;
+}
+
+export enum LocationExceptionTypeEnum {
+  HOLIDAY = 'HOLIDAY',
+  TEMPORARY_CLOSURE = 'TEMPORARY_CLOSURE',
+  EMERGENCY_CLOSURE = 'EMERGENCY_CLOSURE',
+  CUSTOM_HOURS = 'CUSTOM_HOURS',
+}
+
+export class CreateLocationExceptionDto {
+  @IsString()
+  @IsNotEmpty()
+  date: string;
+
+  @IsEnum(LocationExceptionTypeEnum)
+  @IsOptional()
+  exceptionType?: LocationExceptionTypeEnum = LocationExceptionTypeEnum.HOLIDAY;
+
+  @IsBoolean()
+  @IsOptional()
+  isClosed?: boolean = true;
+
+  @IsString()
+  @IsOptional()
+  customOpeningTime?: string;
+
+  @IsString()
+  @IsOptional()
+  customClosingTime?: string;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
 }
 
 export class LocationMatrixItemDto {
@@ -326,3 +373,4 @@ export class UpdateLocationMatrixDto {
   @IsArray()
   matrix: LocationMatrixItemDto[];
 }
+

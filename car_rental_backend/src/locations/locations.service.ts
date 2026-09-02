@@ -27,6 +27,7 @@ import {
   UpdateVendorDeliveryPolicyDto,
   CalculateDeliveryQuoteDto,
   UpdateLocationMatrixDto,
+  CreateLocationExceptionDto,
   VendorLocationTypeEnum,
   VendorLocationStatusEnum,
   DeliveryPricingModelEnum,
@@ -1045,21 +1046,44 @@ export class LocationsService {
     }
 
     const cacheKey = `vendor:delivery-policy:${vendor.id}`;
-    let policy: any = this.cacheService ? await this.cacheService.get(cacheKey) : null;
-
-    if (!policy) {
-      policy = {
-        vendorId: vendor.id,
-        deliveryEnabled: true,
-        maxDeliveryRadiusKm: 15.0,
-        pricingModel: DeliveryPricingModelEnum.FIXED,
-        baseDeliveryFee: 300.0,
-        perKmDeliveryFee: 20.0,
-        freeDeliveryWithinKm: 5.0,
-      };
+    if (this.cacheService) {
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
     }
 
-    return policy;
+    let policy = await this.prisma.vendorDeliveryPolicy.findUnique({
+      where: { vendorId: vendor.id },
+    });
+
+    if (!policy) {
+      policy = await this.prisma.vendorDeliveryPolicy.create({
+        data: {
+          vendorId: vendor.id,
+          deliveryEnabled: true,
+          maxDeliveryRadiusKm: 25.0,
+          pricingModel: 'DISTANCE_BASED',
+          baseDeliveryFee: 100.0,
+          perKmDeliveryFee: 20.0,
+          freeDeliveryWithinKm: 5.0,
+        },
+      });
+    }
+
+    const formatted = {
+      vendorId: policy.vendorId,
+      deliveryEnabled: policy.deliveryEnabled,
+      maxDeliveryRadiusKm: policy.maxDeliveryRadiusKm,
+      pricingModel: policy.pricingModel,
+      baseDeliveryFee: Number(policy.baseDeliveryFee),
+      perKmDeliveryFee: Number(policy.perKmDeliveryFee),
+      freeDeliveryWithinKm: policy.freeDeliveryWithinKm,
+    };
+
+    if (this.cacheService) {
+      await this.cacheService.set(cacheKey, formatted, DEFAULT_CACHE_TTLS.LONG_TERM);
+    }
+
+    return formatted;
   }
 
   async updateVendorDeliveryPolicy(userId: string, dto: UpdateVendorDeliveryPolicyDto) {
@@ -1071,22 +1095,53 @@ export class LocationsService {
     }
 
     const current = await this.getVendorDeliveryPolicy(userId);
-    const updated = {
-      ...current,
-      ...(dto.deliveryEnabled !== undefined ? { deliveryEnabled: dto.deliveryEnabled } : {}),
-      ...(dto.maxDeliveryRadiusKm !== undefined ? { maxDeliveryRadiusKm: dto.maxDeliveryRadiusKm } : {}),
-      ...(dto.pricingModel !== undefined ? { pricingModel: dto.pricingModel } : {}),
-      ...(dto.baseDeliveryFee !== undefined ? { baseDeliveryFee: dto.baseDeliveryFee } : {}),
-      ...(dto.perKmDeliveryFee !== undefined ? { perKmDeliveryFee: dto.perKmDeliveryFee } : {}),
-      ...(dto.freeDeliveryWithinKm !== undefined ? { freeDeliveryWithinKm: dto.freeDeliveryWithinKm } : {}),
+    const updated = await this.prisma.vendorDeliveryPolicy.upsert({
+      where: { vendorId: vendor.id },
+      update: {
+        ...(dto.deliveryEnabled !== undefined ? { deliveryEnabled: dto.deliveryEnabled } : {}),
+        ...(dto.maxDeliveryRadiusKm !== undefined ? { maxDeliveryRadiusKm: dto.maxDeliveryRadiusKm } : {}),
+        ...(dto.pricingModel !== undefined ? { pricingModel: dto.pricingModel as any } : {}),
+        ...(dto.baseDeliveryFee !== undefined ? { baseDeliveryFee: dto.baseDeliveryFee } : {}),
+        ...(dto.perKmDeliveryFee !== undefined ? { perKmDeliveryFee: dto.perKmDeliveryFee } : {}),
+        ...(dto.freeDeliveryWithinKm !== undefined ? { freeDeliveryWithinKm: dto.freeDeliveryWithinKm } : {}),
+      },
+      create: {
+        vendorId: vendor.id,
+        deliveryEnabled: dto.deliveryEnabled ?? true,
+        maxDeliveryRadiusKm: dto.maxDeliveryRadiusKm ?? 25.0,
+        pricingModel: (dto.pricingModel as any) ?? 'DISTANCE_BASED',
+        baseDeliveryFee: dto.baseDeliveryFee ?? 100.0,
+        perKmDeliveryFee: dto.perKmDeliveryFee ?? 20.0,
+        freeDeliveryWithinKm: dto.freeDeliveryWithinKm ?? 5.0,
+      },
+    });
+
+    const formatted = {
+      vendorId: updated.vendorId,
+      deliveryEnabled: updated.deliveryEnabled,
+      maxDeliveryRadiusKm: updated.maxDeliveryRadiusKm,
+      pricingModel: updated.pricingModel,
+      baseDeliveryFee: Number(updated.baseDeliveryFee),
+      perKmDeliveryFee: Number(updated.perKmDeliveryFee),
+      freeDeliveryWithinKm: updated.freeDeliveryWithinKm,
     };
 
     const cacheKey = `vendor:delivery-policy:${vendor.id}`;
     if (this.cacheService) {
-      await this.cacheService.set(cacheKey, updated, DEFAULT_CACHE_TTLS.LONG_TERM);
+      await this.cacheService.set(cacheKey, formatted, DEFAULT_CACHE_TTLS.LONG_TERM);
     }
 
-    return updated;
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'VENDOR_DELIVERY_POLICY_UPDATE',
+        'VendorDeliveryPolicy',
+        updated.id,
+        { before: current, after: formatted },
+      );
+    }
+
+    return formatted;
   }
 
   async getVendorLocationMatrix(userId: string) {
@@ -1100,17 +1155,30 @@ export class LocationsService {
     const locations = await this.getVendorLocations(userId);
     const activeLocations = locations.filter((l: any) => l.status === VendorLocationStatusEnum.ACTIVE);
 
+    const persisted = await this.prisma.vendorLocationMatrix.findMany({
+      where: { vendorId: vendor.id },
+    });
+
     const matrix: any[] = [];
     for (const pickup of activeLocations) {
       for (const returnLoc of activeLocations) {
         const isSame = pickup.id === returnLoc.id;
-        const oneWaySurcharge = isSame ? 0.0 : (returnLoc.oneWayFee || pickup.oneWayFee || 250.0);
+        const existing = persisted.find(
+          (p) => p.pickupLocationId === pickup.id && p.returnLocationId === returnLoc.id,
+        );
+        const oneWaySurcharge = isSame
+          ? 0.0
+          : existing
+            ? Number(existing.oneWaySurcharge)
+            : (returnLoc.oneWayFee || pickup.oneWayFee || 250.0);
+        const isSupported = isSame ? true : existing ? existing.isSupported : true;
+
         matrix.push({
           pickupLocationId: pickup.id,
           returnLocationId: returnLoc.id,
           pickupLocationName: pickup.name,
           returnLocationName: returnLoc.name,
-          isSupported: true,
+          isSupported,
           oneWaySurcharge,
         });
       }
@@ -1127,12 +1195,101 @@ export class LocationsService {
       throw new ForbiddenException('User is not registered as a vendor.');
     }
 
+    for (const item of dto.matrix) {
+      await this.prisma.vendorLocationMatrix.upsert({
+        where: {
+          vendorId_pickupLocationId_returnLocationId: {
+            vendorId: vendor.id,
+            pickupLocationId: item.pickupLocationId,
+            returnLocationId: item.returnLocationId,
+          },
+        },
+        update: {
+          isSupported: item.isSupported,
+          oneWaySurcharge: item.oneWaySurcharge ?? 0,
+        },
+        create: {
+          vendorId: vendor.id,
+          pickupLocationId: item.pickupLocationId,
+          returnLocationId: item.returnLocationId,
+          isSupported: item.isSupported,
+          oneWaySurcharge: item.oneWaySurcharge ?? 0,
+        },
+      });
+    }
+
     const cacheKey = `vendor:location-matrix:${vendor.id}`;
     if (this.cacheService) {
       await this.cacheService.set(cacheKey, dto.matrix, DEFAULT_CACHE_TTLS.LONG_TERM);
     }
 
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'VENDOR_LOCATION_MATRIX_UPDATE',
+        'VendorLocationMatrix',
+        vendor.id,
+        { matrixCount: dto.matrix.length },
+      );
+    }
+
     return { message: 'Location matrix updated successfully.', matrix: dto.matrix };
+  }
+
+  async createLocationException(userId: string, locationId: string, dto: CreateLocationExceptionDto) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new ForbiddenException('User is not registered as a vendor.');
+
+    const hub = await this.prisma.pickupHub.findUnique({ where: { id: locationId } });
+    if (!hub) throw new NotFoundException('Location not found.');
+    if (hub.vendorId !== vendor.id) throw new ForbiddenException('You do not own this location.');
+
+    const exceptionDate = new Date(dto.date);
+    const created = await this.prisma.locationException.create({
+      data: {
+        locationId,
+        date: exceptionDate,
+        exceptionType: (dto.exceptionType as any) || 'HOLIDAY',
+        isClosed: dto.isClosed ?? true,
+        customOpeningTime: dto.customOpeningTime,
+        customClosingTime: dto.customClosingTime,
+        reason: dto.reason,
+      },
+    });
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'LOCATION_EXCEPTION_CREATED',
+        'LocationException',
+        created.id,
+        { locationId, date: dto.date, reason: dto.reason },
+      );
+    }
+
+    return created;
+  }
+
+  async getLocationExceptions(locationId: string) {
+    return this.prisma.locationException.findMany({
+      where: { locationId },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  async deleteLocationException(userId: string, exceptionId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new ForbiddenException('User is not registered as a vendor.');
+
+    const exc = await this.prisma.locationException.findUnique({
+      where: { id: exceptionId },
+      include: { location: true },
+    });
+    if (!exc) throw new NotFoundException('Location exception not found.');
+    if (exc.location.vendorId !== vendor.id) throw new ForbiddenException('You do not own this location.');
+
+    await this.prisma.locationException.delete({ where: { id: exceptionId } });
+    return { message: 'Location exception deleted successfully.' };
   }
 
   async getVendorLocationOperationsSummary(userId: string) {
@@ -1180,15 +1337,15 @@ export class LocationsService {
         locationId: loc.id,
         locationName: loc.name,
         locationType: loc.type,
-        todayPickups: todayPickups || (loc.type === 'AIRPORT' ? 3 : loc.type === 'BRANCH' ? 2 : 8),
-        todayReturns: todayReturns || (loc.type === 'AIRPORT' ? 2 : loc.type === 'BRANCH' ? 1 : 5),
-        activeVehicles: loc.assignedCarCount || 4,
+        todayPickups: todayPickups,
+        todayReturns: todayReturns,
+        activeVehicles: loc.assignedCarCount || 0,
       };
     });
 
     const totalDeliveryRequests = todayBookings.filter(
       (b) => b.deliveryType && b.deliveryType !== 'NONE',
-    ).length || 4;
+    ).length;
 
     const totalTodayPickups = locationSummary.reduce((acc, l) => acc + l.todayPickups, 0);
     const totalTodayReturns = locationSummary.reduce((acc, l) => acc + l.todayReturns, 0);
@@ -1202,90 +1359,121 @@ export class LocationsService {
   }
 
   async getPublicLocationCatalog(city?: string) {
-    const catalog = [
-      {
-        id: 'pub_hyd_rgia',
-        name: 'Rajiv Gandhi International Airport (HYD)',
-        type: VendorLocationTypeEnum.AIRPORT,
-        city: 'Hyderabad',
-        state: 'Telangana',
-        locality: 'Shamshabad',
-        latitude: 17.2403,
-        longitude: 78.4294,
-        category: 'Airport Terminal',
+    let items = await this.prisma.publicTransportPoint.findMany({
+      where: {
         isApproved: true,
+        ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}),
       },
-      {
-        id: 'pub_hyd_secunderabad_rail',
-        name: 'Secunderabad Junction Railway Station',
-        type: VendorLocationTypeEnum.RAILWAY_STATION,
-        city: 'Hyderabad',
-        state: 'Telangana',
-        locality: 'Secunderabad',
-        latitude: 17.4338,
-        longitude: 78.5044,
-        category: 'Railway Station',
-        isApproved: true,
-      },
-      {
-        id: 'pub_hyd_hitec_metro',
-        name: 'HITEC City Metro Station Hub',
-        type: VendorLocationTypeEnum.PUBLIC_POINT,
-        city: 'Hyderabad',
-        state: 'Telangana',
-        locality: 'Madhapur',
-        latitude: 17.4474,
-        longitude: 78.3762,
-        category: 'Metro Station Hub',
-        isApproved: true,
-      },
-      {
-        id: 'pub_hyd_mgbs_bus',
-        name: 'Mahatma Gandhi Bus Station (MGBS)',
-        type: VendorLocationTypeEnum.BUS_TERMINAL,
-        city: 'Hyderabad',
-        state: 'Telangana',
-        locality: 'Gowliguda',
-        latitude: 17.3789,
-        longitude: 78.4812,
-        category: 'Bus Terminal',
-        isApproved: true,
-      },
-      {
-        id: 'pub_mum_csmia',
-        name: 'Chhatrapati Shivaji Maharaj International Airport (BOM)',
-        type: VendorLocationTypeEnum.AIRPORT,
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        locality: 'Andheri East',
-        latitude: 19.0896,
-        longitude: 72.8656,
-        category: 'Airport Terminal',
-        isApproved: true,
-      },
-      {
-        id: 'pub_mum_bandra_term',
-        name: 'Bandra Terminus Station',
-        type: VendorLocationTypeEnum.RAILWAY_STATION,
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        locality: 'Bandra East',
-        latitude: 19.0617,
-        longitude: 72.8427,
-        category: 'Railway Station',
-        isApproved: true,
-      },
-    ];
+    });
 
-    if (city) {
-      return catalog.filter((item) => item.city.toLowerCase() === city.toLowerCase());
+    if (items.length === 0) {
+      const seedPoints = [
+        {
+          id: 'pub_hyd_rgia',
+          name: 'Rajiv Gandhi International Airport (HYD)',
+          type: 'AIRPORT' as any,
+          city: 'Hyderabad',
+          state: 'Telangana',
+          locality: 'Shamshabad',
+          latitude: 17.2403,
+          longitude: 78.4294,
+          category: 'Airport Terminal',
+          isApproved: true,
+        },
+        {
+          id: 'pub_hyd_secunderabad_rail',
+          name: 'Secunderabad Junction Railway Station',
+          type: 'RAILWAY_STATION' as any,
+          city: 'Hyderabad',
+          state: 'Telangana',
+          locality: 'Secunderabad',
+          latitude: 17.4338,
+          longitude: 78.5044,
+          category: 'Railway Station',
+          isApproved: true,
+        },
+        {
+          id: 'pub_hyd_hitec_metro',
+          name: 'HITEC City Metro Station Hub',
+          type: 'PUBLIC_POINT' as any,
+          city: 'Hyderabad',
+          state: 'Telangana',
+          locality: 'Madhapur',
+          latitude: 17.4474,
+          longitude: 78.3762,
+          category: 'Metro Station Hub',
+          isApproved: true,
+        },
+        {
+          id: 'pub_hyd_mgbs_bus',
+          name: 'Mahatma Gandhi Bus Station (MGBS)',
+          type: 'BUS_TERMINAL' as any,
+          city: 'Hyderabad',
+          state: 'Telangana',
+          locality: 'Gowliguda',
+          latitude: 17.3789,
+          longitude: 78.4812,
+          category: 'Bus Terminal',
+          isApproved: true,
+        },
+        {
+          id: 'pub_mum_csmia',
+          name: 'Chhatrapati Shivaji Maharaj International Airport (BOM)',
+          type: 'AIRPORT' as any,
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          locality: 'Andheri East',
+          latitude: 19.0896,
+          longitude: 72.8656,
+          category: 'Airport Terminal',
+          isApproved: true,
+        },
+        {
+          id: 'pub_mum_bandra_term',
+          name: 'Bandra Terminus Station',
+          type: 'RAILWAY_STATION' as any,
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          locality: 'Bandra East',
+          latitude: 19.0617,
+          longitude: 72.8427,
+          category: 'Railway Station',
+          isApproved: true,
+        },
+        {
+          id: 'pub_blr_kia',
+          name: 'Kempegowda International Airport (BLR)',
+          type: 'AIRPORT' as any,
+          city: 'Bangalore',
+          state: 'Karnataka',
+          locality: 'Devanahalli',
+          latitude: 13.1986,
+          longitude: 77.7066,
+          category: 'Airport Terminal',
+          isApproved: true,
+        },
+      ];
+
+      for (const p of seedPoints) {
+        await this.prisma.publicTransportPoint.upsert({
+          where: { id: p.id },
+          update: {},
+          create: p,
+        });
+      }
+
+      items = await this.prisma.publicTransportPoint.findMany({
+        where: {
+          isApproved: true,
+          ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}),
+        },
+      });
     }
-    return catalog;
+
+    return items;
   }
 
   async calculateDeliveryQuote(dto: CalculateDeliveryQuoteDto) {
-    this.validateCoordinates(dto.customerLatitude, dto.customerLongitude);
-
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
       include: { pickupHubs: { where: { isActive: true } } },
@@ -1294,65 +1482,101 @@ export class LocationsService {
       throw new NotFoundException('Vendor not found.');
     }
 
-    let originLat = vendor.latitude;
-    let originLng = vendor.longitude;
-    if ((!originLat || !originLng) && vendor.pickupHubs.length > 0) {
-      originLat = vendor.pickupHubs[0].latitude;
-      originLng = vendor.pickupHubs[0].longitude;
+    const policy: any = await this.getVendorDeliveryPolicy(vendor.userId || vendor.id);
+
+    const hubs = vendor.pickupHubs || [];
+    let pickupHub: any = null;
+    if (dto.pickupLocationId) {
+      pickupHub = hubs.find((h: any) => h.id === dto.pickupLocationId);
+    }
+    if (!pickupHub && hubs.length > 0) {
+      pickupHub = hubs[0];
     }
 
-    if (!originLat || !originLng) {
-      originLat = 17.4483;
-      originLng = 78.3915;
+    let returnHub: any = null;
+    if (dto.returnLocationId) {
+      returnHub = hubs.find((h: any) => h.id === dto.returnLocationId);
+    }
+    if (!returnHub) {
+      returnHub = pickupHub;
     }
 
-    const distanceKm = this.geoService
-      ? this.geoService.calculateDistanceKm(originLat, originLng, dto.customerLatitude, dto.customerLongitude)
-      : this.calculateHaversine(originLat, originLng, dto.customerLatitude, dto.customerLongitude);
+    let originLat = pickupHub?.latitude || vendor.latitude || 17.4483;
+    let originLng = pickupHub?.longitude || vendor.longitude || 78.3915;
 
-    const roundedDistance = Math.round(distanceKm * 10) / 10;
+    let distanceKm = 0;
+    let deliveryFee = 0;
+    let isDeliveryAvailable = true;
+    let deliveryReason: string | undefined;
 
-    const policy = await this.getVendorDeliveryPolicy(vendor.userId || vendor.id);
+    if (dto.customerLatitude !== undefined && dto.customerLongitude !== undefined) {
+      this.validateCoordinates(dto.customerLatitude, dto.customerLongitude);
 
-    if (!policy.deliveryEnabled) {
-      return {
-        isAvailable: false,
-        distanceKm: roundedDistance,
-        deliveryFee: 0,
-        reason: 'Vendor does not currently offer customer address delivery.',
-      };
-    }
+      const rawDist = this.geoService
+        ? this.geoService.calculateDistanceKm(originLat, originLng, dto.customerLatitude, dto.customerLongitude)
+        : this.calculateHaversine(originLat, originLng, dto.customerLatitude, dto.customerLongitude);
+      distanceKm = Math.round(rawDist * 10) / 10;
 
-    if (roundedDistance > policy.maxDeliveryRadiusKm) {
-      return {
-        isAvailable: false,
-        distanceKm: roundedDistance,
-        deliveryFee: 0,
-        reason: `Customer address (${roundedDistance} km) exceeds vendor's maximum delivery radius of ${policy.maxDeliveryRadiusKm} km.`,
-      };
-    }
-
-    let calculatedFee = 0;
-    if (policy.pricingModel === DeliveryPricingModelEnum.FREE) {
-      calculatedFee = 0;
-    } else if (policy.pricingModel === DeliveryPricingModelEnum.FIXED) {
-      calculatedFee = policy.baseDeliveryFee || 300.0;
-    } else if (policy.pricingModel === DeliveryPricingModelEnum.DISTANCE_BASED) {
-      if (roundedDistance <= (policy.freeDeliveryWithinKm || 0)) {
-        calculatedFee = 0;
+      if (!policy.deliveryEnabled) {
+        isDeliveryAvailable = false;
+        deliveryReason = 'Vendor does not currently offer customer address delivery.';
+      } else if (distanceKm > policy.maxDeliveryRadiusKm) {
+        isDeliveryAvailable = false;
+        deliveryReason = `Customer address (${distanceKm} km) exceeds vendor's maximum delivery radius of ${policy.maxDeliveryRadiusKm} km.`;
       } else {
-        const extraKm = roundedDistance - (policy.freeDeliveryWithinKm || 0);
-        calculatedFee = (policy.baseDeliveryFee || 100.0) + extraKm * (policy.perKmDeliveryFee || 20.0);
+        if (policy.pricingModel === DeliveryPricingModelEnum.FREE) {
+          deliveryFee = 0;
+        } else if (policy.pricingModel === DeliveryPricingModelEnum.FIXED) {
+          deliveryFee = policy.baseDeliveryFee || 300.0;
+        } else if (policy.pricingModel === DeliveryPricingModelEnum.DISTANCE_BASED) {
+          if (distanceKm <= (policy.freeDeliveryWithinKm || 0)) {
+            deliveryFee = 0;
+          } else {
+            const extraKm = distanceKm - (policy.freeDeliveryWithinKm || 0);
+            deliveryFee = (policy.baseDeliveryFee || 100.0) + extraKm * (policy.perKmDeliveryFee || 20.0);
+          }
+        }
       }
     }
 
+    let oneWaySurcharge = 0;
+    const isDifferentLocation = dto.pickupLocationId && dto.returnLocationId && dto.pickupLocationId !== dto.returnLocationId;
+    if (isDifferentLocation) {
+      const matrixItem = await this.prisma.vendorLocationMatrix.findUnique({
+        where: {
+          vendorId_pickupLocationId_returnLocationId: {
+            vendorId: vendor.id,
+            pickupLocationId: dto.pickupLocationId!,
+            returnLocationId: dto.returnLocationId!,
+          },
+        },
+      });
+
+      if (matrixItem) {
+        oneWaySurcharge = matrixItem.isSupported ? Number(matrixItem.oneWaySurcharge) : 0;
+      } else if (returnHub?.oneWayFee) {
+        oneWaySurcharge = Number(returnHub.oneWayFee);
+      } else {
+        oneWaySurcharge = 250.0;
+      }
+    }
+
+    const pickupFee = pickupHub ? Number(pickupHub.pickupFee || 0) : 0;
+    const returnFee = returnHub ? Number(returnHub.returnFee || 0) : 0;
+    const totalFulfillmentFee = Math.round(deliveryFee + oneWaySurcharge + pickupFee + returnFee);
+
     return {
-      isAvailable: true,
-      distanceKm: roundedDistance,
-      deliveryFee: Math.round(calculatedFee),
+      isAvailable: isDeliveryAvailable,
+      distanceKm,
+      deliveryFee: Math.round(deliveryFee),
+      pickupFee,
+      returnFee,
+      oneWaySurcharge: Math.round(oneWaySurcharge),
+      totalFulfillmentFee,
       pricingModel: policy.pricingModel,
       maxDeliveryRadiusKm: policy.maxDeliveryRadiusKm,
-      estimatedMinutes: Math.round(roundedDistance * 2.5) + 15,
+      estimatedMinutes: distanceKm > 0 ? Math.round(distanceKm * 2.5) + 15 : 0,
+      reason: deliveryReason,
     };
   }
 
@@ -1371,3 +1595,4 @@ export class LocationsService {
     }
   }
 }
+

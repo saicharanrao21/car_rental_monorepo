@@ -23,6 +23,12 @@ class BookingModel with _$BookingModel {
     required DateTime createdAt,
     @Default(false) bool disputeFlag,
     String? disputeNote,
+    String? pickupHubId,
+    String? returnHubId,
+    String? pickupName,
+    String? dropName,
+    double? returnFee,
+    double? oneWayFee,
   }) = _BookingModel;
 
   factory BookingModel.fromJson(Map<String, dynamic> json) => _$BookingModelFromJson(json);
