@@ -103,6 +103,24 @@ class MockBookingRepositoryImpl with LatencySimulator implements BookingReposito
   }
 
   @override
+  Future<Map<String, dynamic>> calculateLocationQuote({
+    required String vendorId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? deliveryAddress,
+  }) async {
+    return {
+      'isAvailable': true,
+      'deliveryFee': 300.0,
+      'returnFee': 0.0,
+      'oneWayFee': 0.0,
+      'totalFulfillmentFee': 300.0,
+    };
+  }
+
+  @override
   CommissionConfigModel getCommissionConfig({
     required String city,
     required String carCategory,

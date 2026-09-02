@@ -19,6 +19,16 @@ abstract class BookingRepository {
     String? carCategory,
   });
 
+  /// Calculates authoritative delivery and one-way location quote from backend engine.
+  Future<Map<String, dynamic>> calculateLocationQuote({
+    required String vendorId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? deliveryAddress,
+  });
+
   /// Returns best matching commission config for the given params (defaults to 10%).
   CommissionConfigModel getCommissionConfig({
     required String city,

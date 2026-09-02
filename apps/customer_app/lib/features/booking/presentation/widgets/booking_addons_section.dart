@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
+import '../providers/booking_providers.dart';
 
 class BookingAddonsSection extends ConsumerWidget {
   const BookingAddonsSection({super.key});
@@ -129,12 +130,27 @@ class BookingAddonsSection extends ConsumerWidget {
                 ),
                 value: draft.hasDoorstepDelivery,
                 activeThumbColor: DDSColors.primaryBlue,
-                onChanged: (val) => ref
-                    .read(bookingDraftProvider.notifier)
-                    .update((d) => d.copyWith(
-                          hasDoorstepDelivery: val,
-                          deliveryFee: val ? 400.0 : 0.0,
-                        )),
+                onChanged: (val) async {
+                  ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+                        hasDoorstepDelivery: val,
+                        deliveryFee: val ? (d.deliveryFee > 0 ? d.deliveryFee : 300.0) : 0.0,
+                      ));
+                  if (val && draft.vendorId.isNotEmpty) {
+                    try {
+                      final repo = ref.read(bookingRepositoryProvider);
+                      final quote = await repo.calculateLocationQuote(
+                        vendorId: draft.vendorId,
+                        pickupLocationId: draft.pickupHubId,
+                        returnLocationId: draft.returnHubId,
+                        deliveryAddress: draft.deliveryAddress,
+                      );
+                      if (quote['deliveryFee'] != null) {
+                        final fee = (quote['deliveryFee'] as num).toDouble();
+                        ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(deliveryFee: fee));
+                      }
+                    } catch (_) {}
+                  }
+                },
               ),
               if (draft.hasDoorstepDelivery) ...[
                 const Gap(DDSSpacing.xs),
@@ -152,9 +168,24 @@ class BookingAddonsSection extends ConsumerWidget {
                     ),
                     isDense: true,
                   ),
-                  onChanged: (val) => ref
-                      .read(bookingDraftProvider.notifier)
-                      .update((d) => d.copyWith(deliveryAddress: val)),
+                  onChanged: (val) async {
+                    ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(deliveryAddress: val));
+                    if (draft.hasDoorstepDelivery && draft.vendorId.isNotEmpty && val.length > 5) {
+                      try {
+                        final repo = ref.read(bookingRepositoryProvider);
+                        final quote = await repo.calculateLocationQuote(
+                          vendorId: draft.vendorId,
+                          pickupLocationId: draft.pickupHubId,
+                          returnLocationId: draft.returnHubId,
+                          deliveryAddress: val,
+                        );
+                        if (quote['deliveryFee'] != null) {
+                          final fee = (quote['deliveryFee'] as num).toDouble();
+                          ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(deliveryFee: fee));
+                        }
+                      } catch (_) {}
+                    }
+                  },
                 ),
               ],
             ],

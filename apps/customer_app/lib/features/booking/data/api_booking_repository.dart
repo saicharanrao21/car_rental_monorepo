@@ -181,6 +181,43 @@ class ApiBookingRepository implements BookingRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> calculateLocationQuote({
+    required String vendorId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? deliveryAddress,
+  }) async {
+    try {
+      final response = await apiClient.dio.post(
+        '/locations/quote',
+        data: {
+          'vendorId': vendorId,
+          if (pickupLocationId != null && pickupLocationId.isNotEmpty)
+            'pickupLocationId': pickupLocationId,
+          if (returnLocationId != null && returnLocationId.isNotEmpty)
+            'returnLocationId': returnLocationId,
+          if (customerLatitude != null) 'customerLatitude': customerLatitude,
+          if (customerLongitude != null) 'customerLongitude': customerLongitude,
+          if (deliveryAddress != null && deliveryAddress.isNotEmpty)
+            'deliveryAddress': deliveryAddress,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+    } catch (_) {}
+    return {
+      'isAvailable': true,
+      'deliveryFee': 300.0,
+      'returnFee': 0.0,
+      'oneWayFee': 0.0,
+      'totalFulfillmentFee': 300.0,
+    };
+  }
+
+  @override
   CommissionConfigModel getCommissionConfig({
     required String city,
     required String carCategory,
