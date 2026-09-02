@@ -1302,7 +1302,7 @@ class DashboardPage extends ConsumerWidget {
                 'Branch Hubs',
                 Icons.store_mall_directory_outlined,
                 DDSColors.accentAmber,
-                () => context.push('/branches'),
+                () => context.push('/locations'),
               ),
             ),
           ],

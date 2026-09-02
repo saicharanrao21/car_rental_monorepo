@@ -27,3 +27,4 @@ export 'src/fraud_model.dart';
 export 'src/location_model.dart';
 export 'src/whatsapp_model.dart';
 export 'src/mileage_package_model.dart';
+export 'src/vendor_location_model.dart';

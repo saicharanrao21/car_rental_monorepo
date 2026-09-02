@@ -293,7 +293,7 @@ Mahindra,Thar,1998,SUV,DIESEL,4,true,,18,0,300,LOCAL''';
           pricePerDay: priceDay ?? 2000.0,
           pricePerHour: priceHour ?? 150.0,
           registrationNumber: regNum,
-          availableTripTypes: const ['Local', 'Outstation'],
+          availableTripTypes: tripTypes.isEmpty ? const ['Local', 'Outstation'] : tripTypes,
           isAvailable: true,
         );
       }

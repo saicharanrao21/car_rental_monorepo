@@ -322,17 +322,32 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildInfoRow(Icons.calendar_today, 'Start Date & Time', startStr),
-                        const Divider(height: 24),
+                        const Divider(height: 20),
                         _buildInfoRow(Icons.event, 'End Date & Time', endStr),
-                        const Divider(height: 24),
-                        _buildInfoRow(Icons.my_location, 'Pickup Location', booking.pickupLocation),
+                        const Divider(height: 20),
+                        _buildLocationActionCard(
+                          context,
+                          'PICKUP LOCATION',
+                          booking.pickupLocation,
+                          'Scheduled Handover',
+                          const Color(0xFF0066FF),
+                          Icons.trip_origin,
+                        ),
                         if (booking.dropLocation != null) ...[
-                          const Divider(height: 24),
-                          _buildInfoRow(Icons.location_on, 'Drop Location', booking.dropLocation!),
+                          const Gap(12),
+                          _buildLocationActionCard(
+                            context,
+                            'RETURN / DROP-OFF LOCATION',
+                            booking.dropLocation!,
+                            'Scheduled Vehicle Return',
+                            const Color(0xFF059669),
+                            Icons.location_on,
+                          ),
                         ],
-                        const Divider(height: 24),
+                        const Divider(height: 20),
                         _buildInfoRow(Icons.work_outline, 'Trip Type', booking.tripType),
                       ],
                     ),
@@ -1161,4 +1176,81 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
       ],
     );
   }
+
+  Widget _buildLocationActionCard(
+    BuildContext context,
+    String header,
+    String locationName,
+    String subtitle,
+    Color accentColor,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: accentColor),
+              const Gap(6),
+              Text(
+                header,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const Gap(6),
+          Text(
+            locationName,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
+          ),
+          const Gap(2),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+          ),
+          const Gap(10),
+          InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Opening GPS directions to $locationName')),
+              );
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.directions, size: 14, color: Color(0xFF0066FF)),
+                  Gap(4),
+                  Text(
+                    'NAVIGATE / DIRECTIONS',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

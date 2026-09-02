@@ -26,6 +26,13 @@ import {
   CreateSupportedCityDto,
   UpdateSupportedCityDto,
 } from './dto/city-admin.dto';
+import {
+  CreateVendorLocationDto,
+  UpdateVendorLocationDto,
+  UpdateVendorDeliveryPolicyDto,
+  CalculateDeliveryQuoteDto,
+  UpdateLocationMatrixDto,
+} from './dto/vendor-location-operations.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -92,7 +99,99 @@ export class LocationsController {
     return this.locationsService.verifyDeliveryDistance(vendorId, lat, lng);
   }
 
-  // --- Pickup Hubs Endpoints ---
+  // --- Phase 29.11 Vendor Location Operations & Delivery Endpoints ---
+
+  @Get('vendors/me/locations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorLocations(@Req() req: any) {
+    return this.locationsService.getVendorLocations(req.user.userId);
+  }
+
+  @Post('vendors/me/locations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async createVendorLocation(@Req() req: any, @Body() dto: CreateVendorLocationDto) {
+    return this.locationsService.createVendorLocation(req.user.userId, dto);
+  }
+
+  @Get('vendors/me/locations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorLocationById(@Req() req: any, @Param('id') id: string) {
+    return this.locationsService.getVendorLocationById(req.user.userId, id);
+  }
+
+  @Patch('vendors/me/locations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async updateVendorLocation(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateVendorLocationDto,
+  ) {
+    return this.locationsService.updateVendorLocation(req.user.userId, id, dto);
+  }
+
+  @Delete('vendors/me/locations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async deleteVendorLocation(@Req() req: any, @Param('id') id: string) {
+    return this.locationsService.deleteVendorLocation(req.user.userId, id);
+  }
+
+  @Get('vendors/me/delivery-policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorDeliveryPolicy(@Req() req: any) {
+    return this.locationsService.getVendorDeliveryPolicy(req.user.userId);
+  }
+
+  @Patch('vendors/me/delivery-policy')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async updateVendorDeliveryPolicy(
+    @Req() req: any,
+    @Body() dto: UpdateVendorDeliveryPolicyDto,
+  ) {
+    return this.locationsService.updateVendorDeliveryPolicy(req.user.userId, dto);
+  }
+
+  @Get('vendors/me/matrix')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorLocationMatrix(@Req() req: any) {
+    return this.locationsService.getVendorLocationMatrix(req.user.userId);
+  }
+
+  @Patch('vendors/me/matrix')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async updateVendorLocationMatrix(
+    @Req() req: any,
+    @Body() dto: UpdateLocationMatrixDto,
+  ) {
+    return this.locationsService.updateVendorLocationMatrix(req.user.userId, dto);
+  }
+
+  @Get('vendors/me/operations-summary')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  async getVendorOperationsSummary(@Req() req: any) {
+    return this.locationsService.getVendorLocationOperationsSummary(req.user.userId);
+  }
+
+  @Get('public-catalog')
+  async getPublicLocationCatalog(@Query('city') city?: string) {
+    return this.locationsService.getPublicLocationCatalog(city);
+  }
+
+  @Post('calculate-delivery-quote')
+  async calculateDeliveryQuote(@Body() dto: CalculateDeliveryQuoteDto) {
+    return this.locationsService.calculateDeliveryQuote(dto);
+  }
+
+  // --- Pickup Hubs Legacy Endpoints ---
 
   @Get('hubs')
   async getPickupHubs(@Query() query: PickupHubQueryDto) {

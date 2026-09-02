@@ -155,7 +155,7 @@ class VendorBookingsPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
@@ -166,21 +166,21 @@ class VendorBookingsPage extends ConsumerWidget {
                       style: TextStyle(
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 1,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
                         color: Color(0xFF0B192C),
                       ),
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       booking.status.toUpperCase(),
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor),
                     ),
                   ),
                 ],
@@ -195,9 +195,12 @@ class VendorBookingsPage extends ConsumerWidget {
                 children: [
                   Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
                   Gap(4),
-                  Text(
-                    'Rahul Sharma (+91 98765 43210)',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  Expanded(
+                    child: Text(
+                      'Rahul Sharma (+91 98765 43210)',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),

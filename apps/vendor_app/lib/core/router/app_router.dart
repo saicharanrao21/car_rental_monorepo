@@ -25,6 +25,9 @@ import '../../features/profile/presentation/pages/vendor_profile_page.dart';
 import '../../features/profile/presentation/pages/vendor_branches_page.dart';
 import '../../features/profile/presentation/pages/add_branch_page.dart';
 import '../../features/profile/presentation/pages/branch_detail_page.dart';
+import '../../features/locations/presentation/pages/vendor_location_settings_page.dart';
+import '../../features/locations/presentation/pages/add_location_wizard_page.dart';
+import '../../features/locations/presentation/pages/location_detail_page.dart';
 import '../widgets/vendor_app_shell.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_vendor');
@@ -207,6 +210,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final branchId = state.pathParameters['branchId'] ?? '';
           return BranchDetailPage(branchId: branchId);
+        },
+      ),
+      GoRoute(
+        path: '/locations',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const VendorLocationSettingsPage(),
+      ),
+      GoRoute(
+        path: '/locations/add',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AddLocationWizardPage(),
+      ),
+      GoRoute(
+        path: '/locations/:locationId',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final locationId = state.pathParameters['locationId'] ?? '';
+          return LocationDetailPage(locationId: locationId);
         },
       ),
     ],

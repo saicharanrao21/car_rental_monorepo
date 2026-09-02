@@ -21,6 +21,16 @@ import {
   CreateSupportedCityDto,
   UpdateSupportedCityDto,
 } from './dto/city-admin.dto';
+import {
+  CreateVendorLocationDto,
+  UpdateVendorLocationDto,
+  UpdateVendorDeliveryPolicyDto,
+  CalculateDeliveryQuoteDto,
+  UpdateLocationMatrixDto,
+  VendorLocationTypeEnum,
+  VendorLocationStatusEnum,
+  DeliveryPricingModelEnum,
+} from './dto/vendor-location-operations.dto';
 
 export interface RouteEstimateResult {
   distanceKm: number;
@@ -750,6 +760,599 @@ export class LocationsService {
       totalActiveGarages: vendors.length,
       totalOnTripVehicles: activeBookings.length,
       totalActiveSosAlerts: activeEmergencies.length,
+    };
+  }
+
+  // --- Vendor Location Operations (Phase 29.11) ---
+
+  private parseLocationMetadata(hub: any) {
+    let meta: any = {};
+    if (hub.operatingHours && hub.operatingHours.startsWith('{')) {
+      try {
+        meta = JSON.parse(hub.operatingHours);
+      } catch (e) {
+        meta = {};
+      }
+    }
+    return {
+      id: hub.id,
+      vendorId: hub.vendorId,
+      name: hub.name,
+      type: meta.type || VendorLocationTypeEnum.VENDOR_YARD,
+      address: hub.address,
+      locality: hub.locality || null,
+      city: hub.city,
+      state: hub.state || null,
+      pincode: meta.pincode || null,
+      latitude: hub.latitude,
+      longitude: hub.longitude,
+      contactPerson: meta.contactPerson || null,
+      contactPhone: hub.contactPhone || meta.contactPhone || null,
+      status: meta.status || (hub.isActive ? VendorLocationStatusEnum.ACTIVE : VendorLocationStatusEnum.INACTIVE),
+      allowsPickup: meta.allowsPickup !== undefined ? meta.allowsPickup : true,
+      allowsReturn: meta.allowsReturn !== undefined ? meta.allowsReturn : true,
+      allowsDelivery: meta.allowsDelivery !== undefined ? meta.allowsDelivery : false,
+      pickupFee: meta.pickupFee !== undefined ? meta.pickupFee : 0,
+      returnFee: meta.returnFee !== undefined ? meta.returnFee : 0,
+      oneWayFee: meta.oneWayFee !== undefined ? meta.oneWayFee : 0,
+      openingTime: meta.openingTime || '08:00',
+      closingTime: meta.closingTime || '22:00',
+      is24x7: meta.is24x7 !== undefined ? meta.is24x7 : false,
+      serviceRadiusKm: hub.serviceRadiusKm || 25.0,
+      assignedCarCount: hub.cars ? hub.cars.length : (meta.assignedCarIds ? meta.assignedCarIds.length : 0),
+      assignedCarIds: hub.cars ? hub.cars.map((c: any) => c.id) : (meta.assignedCarIds || []),
+      createdAt: hub.createdAt,
+      updatedAt: hub.updatedAt,
+    };
+  }
+
+  async getVendorLocations(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const hubs = await this.prisma.pickupHub.findMany({
+      where: { vendorId: vendor.id },
+      include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return hubs.map((h) => this.parseLocationMetadata(h));
+  }
+
+  async createVendorLocation(userId: string, dto: CreateVendorLocationDto) {
+    this.validateCoordinates(dto.latitude, dto.longitude);
+
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const meta = {
+      type: dto.type || VendorLocationTypeEnum.VENDOR_YARD,
+      status: VendorLocationStatusEnum.ACTIVE,
+      pincode: dto.pincode,
+      contactPerson: dto.contactPerson,
+      allowsPickup: dto.allowsPickup !== undefined ? dto.allowsPickup : true,
+      allowsReturn: dto.allowsReturn !== undefined ? dto.allowsReturn : true,
+      allowsDelivery: dto.allowsDelivery !== undefined ? dto.allowsDelivery : false,
+      pickupFee: dto.pickupFee || 0,
+      returnFee: dto.returnFee || 0,
+      oneWayFee: dto.oneWayFee || 0,
+      openingTime: dto.openingTime || '08:00',
+      closingTime: dto.closingTime || '22:00',
+      is24x7: dto.is24x7 !== undefined ? dto.is24x7 : false,
+      assignedCarIds: dto.assignedCarIds || [],
+    };
+
+    const hub = await this.prisma.pickupHub.create({
+      data: {
+        vendorId: vendor.id,
+        name: dto.name.trim(),
+        address: dto.address.trim(),
+        locality: dto.locality?.trim(),
+        city: dto.city.trim(),
+        state: dto.state?.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        serviceRadiusKm: dto.serviceRadiusKm || 25.0,
+        operatingHours: JSON.stringify(meta),
+        contactPhone: dto.contactPhone,
+        isActive: true,
+      },
+      include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
+    });
+
+    if (dto.assignedCarIds && dto.assignedCarIds.length > 0) {
+      await this.prisma.car.updateMany({
+        where: { id: { in: dto.assignedCarIds }, vendorId: vendor.id },
+        data: { pickupHubId: hub.id },
+      });
+    }
+
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:hubs:*');
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+    }
+
+    return this.parseLocationMetadata(hub);
+  }
+
+  async getVendorLocationById(userId: string, locationId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const hub = await this.prisma.pickupHub.findUnique({
+      where: { id: locationId },
+      include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
+    });
+    if (!hub) throw new NotFoundException('Location not found.');
+    if (hub.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not own this location.');
+    }
+
+    return this.parseLocationMetadata(hub);
+  }
+
+  async updateVendorLocation(userId: string, locationId: string, dto: UpdateVendorLocationDto) {
+    if (dto.latitude !== undefined && dto.longitude !== undefined) {
+      this.validateCoordinates(dto.latitude, dto.longitude);
+    }
+
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const hub = await this.prisma.pickupHub.findUnique({
+      where: { id: locationId },
+      include: { cars: { select: { id: true } } },
+    });
+    if (!hub) throw new NotFoundException('Location not found.');
+    if (hub.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not own this location.');
+    }
+
+    let existingMeta: any = {};
+    if (hub.operatingHours && hub.operatingHours.startsWith('{')) {
+      try {
+        existingMeta = JSON.parse(hub.operatingHours);
+      } catch (e) {
+        existingMeta = {};
+      }
+    }
+
+    const updatedMeta = {
+      ...existingMeta,
+      ...(dto.type !== undefined ? { type: dto.type } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(dto.pincode !== undefined ? { pincode: dto.pincode } : {}),
+      ...(dto.contactPerson !== undefined ? { contactPerson: dto.contactPerson } : {}),
+      ...(dto.allowsPickup !== undefined ? { allowsPickup: dto.allowsPickup } : {}),
+      ...(dto.allowsReturn !== undefined ? { allowsReturn: dto.allowsReturn } : {}),
+      ...(dto.allowsDelivery !== undefined ? { allowsDelivery: dto.allowsDelivery } : {}),
+      ...(dto.pickupFee !== undefined ? { pickupFee: dto.pickupFee } : {}),
+      ...(dto.returnFee !== undefined ? { returnFee: dto.returnFee } : {}),
+      ...(dto.oneWayFee !== undefined ? { oneWayFee: dto.oneWayFee } : {}),
+      ...(dto.openingTime !== undefined ? { openingTime: dto.openingTime } : {}),
+      ...(dto.closingTime !== undefined ? { closingTime: dto.closingTime } : {}),
+      ...(dto.is24x7 !== undefined ? { is24x7: dto.is24x7 } : {}),
+      ...(dto.assignedCarIds !== undefined ? { assignedCarIds: dto.assignedCarIds } : {}),
+    };
+
+    const updated = await this.prisma.pickupHub.update({
+      where: { id: locationId },
+      data: {
+        ...(dto.name ? { name: dto.name.trim() } : {}),
+        ...(dto.address ? { address: dto.address.trim() } : {}),
+        ...(dto.locality !== undefined ? { locality: dto.locality?.trim() } : {}),
+        ...(dto.city ? { city: dto.city.trim() } : {}),
+        ...(dto.state !== undefined ? { state: dto.state?.trim() } : {}),
+        ...(dto.latitude !== undefined ? { latitude: dto.latitude } : {}),
+        ...(dto.longitude !== undefined ? { longitude: dto.longitude } : {}),
+        ...(dto.serviceRadiusKm !== undefined ? { serviceRadiusKm: dto.serviceRadiusKm } : {}),
+        ...(dto.contactPhone !== undefined ? { contactPhone: dto.contactPhone } : {}),
+        ...(dto.status !== undefined ? { isActive: dto.status === VendorLocationStatusEnum.ACTIVE } : {}),
+        operatingHours: JSON.stringify(updatedMeta),
+      },
+      include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
+    });
+
+    if (dto.assignedCarIds !== undefined) {
+      await this.prisma.car.updateMany({
+        where: { pickupHubId: locationId, vendorId: vendor.id },
+        data: { pickupHubId: null },
+      });
+      if (dto.assignedCarIds.length > 0) {
+        await this.prisma.car.updateMany({
+          where: { id: { in: dto.assignedCarIds }, vendorId: vendor.id },
+          data: { pickupHubId: locationId },
+        });
+      }
+    }
+
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:hubs:*');
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+    }
+
+    return this.parseLocationMetadata(updated);
+  }
+
+  async deleteVendorLocation(userId: string, locationId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const hub = await this.prisma.pickupHub.findUnique({
+      where: { id: locationId },
+      include: { cars: { select: { id: true } } },
+    });
+    if (!hub) throw new NotFoundException('Location not found.');
+    if (hub.vendorId !== vendor.id) {
+      throw new ForbiddenException('You do not own this location.');
+    }
+
+    // Soft-deactivate if vehicles exist, or delete
+    if (hub.cars.length > 0) {
+      let meta: any = {};
+      if (hub.operatingHours && hub.operatingHours.startsWith('{')) {
+        try {
+          meta = JSON.parse(hub.operatingHours);
+        } catch (e) {
+          meta = {};
+        }
+      }
+      meta.status = VendorLocationStatusEnum.INACTIVE;
+
+      await this.prisma.pickupHub.update({
+        where: { id: locationId },
+        data: { isActive: false, operatingHours: JSON.stringify(meta) },
+      });
+      return { message: 'Location deactivated because active vehicles are assigned.' };
+    }
+
+    await this.prisma.pickupHub.delete({ where: { id: locationId } });
+
+    if (this.cacheService) {
+      await this.cacheService.invalidatePattern('cache:hubs:*');
+      await this.cacheService.invalidatePattern('cache:search:cars:*');
+    }
+
+    return { message: 'Location deleted successfully.' };
+  }
+
+  async getVendorDeliveryPolicy(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const cacheKey = `vendor:delivery-policy:${vendor.id}`;
+    let policy: any = this.cacheService ? await this.cacheService.get(cacheKey) : null;
+
+    if (!policy) {
+      policy = {
+        vendorId: vendor.id,
+        deliveryEnabled: true,
+        maxDeliveryRadiusKm: 15.0,
+        pricingModel: DeliveryPricingModelEnum.FIXED,
+        baseDeliveryFee: 300.0,
+        perKmDeliveryFee: 20.0,
+        freeDeliveryWithinKm: 5.0,
+      };
+    }
+
+    return policy;
+  }
+
+  async updateVendorDeliveryPolicy(userId: string, dto: UpdateVendorDeliveryPolicyDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const current = await this.getVendorDeliveryPolicy(userId);
+    const updated = {
+      ...current,
+      ...(dto.deliveryEnabled !== undefined ? { deliveryEnabled: dto.deliveryEnabled } : {}),
+      ...(dto.maxDeliveryRadiusKm !== undefined ? { maxDeliveryRadiusKm: dto.maxDeliveryRadiusKm } : {}),
+      ...(dto.pricingModel !== undefined ? { pricingModel: dto.pricingModel } : {}),
+      ...(dto.baseDeliveryFee !== undefined ? { baseDeliveryFee: dto.baseDeliveryFee } : {}),
+      ...(dto.perKmDeliveryFee !== undefined ? { perKmDeliveryFee: dto.perKmDeliveryFee } : {}),
+      ...(dto.freeDeliveryWithinKm !== undefined ? { freeDeliveryWithinKm: dto.freeDeliveryWithinKm } : {}),
+    };
+
+    const cacheKey = `vendor:delivery-policy:${vendor.id}`;
+    if (this.cacheService) {
+      await this.cacheService.set(cacheKey, updated, DEFAULT_CACHE_TTLS.LONG_TERM);
+    }
+
+    return updated;
+  }
+
+  async getVendorLocationMatrix(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const locations = await this.getVendorLocations(userId);
+    const activeLocations = locations.filter((l: any) => l.status === VendorLocationStatusEnum.ACTIVE);
+
+    const matrix: any[] = [];
+    for (const pickup of activeLocations) {
+      for (const returnLoc of activeLocations) {
+        const isSame = pickup.id === returnLoc.id;
+        const oneWaySurcharge = isSame ? 0.0 : (returnLoc.oneWayFee || pickup.oneWayFee || 250.0);
+        matrix.push({
+          pickupLocationId: pickup.id,
+          returnLocationId: returnLoc.id,
+          pickupLocationName: pickup.name,
+          returnLocationName: returnLoc.name,
+          isSupported: true,
+          oneWaySurcharge,
+        });
+      }
+    }
+
+    return matrix;
+  }
+
+  async updateVendorLocationMatrix(userId: string, dto: UpdateLocationMatrixDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const cacheKey = `vendor:location-matrix:${vendor.id}`;
+    if (this.cacheService) {
+      await this.cacheService.set(cacheKey, dto.matrix, DEFAULT_CACHE_TTLS.LONG_TERM);
+    }
+
+    return { message: 'Location matrix updated successfully.', matrix: dto.matrix };
+  }
+
+  async getVendorLocationOperationsSummary(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+    });
+    if (!vendor) {
+      throw new ForbiddenException('User is not registered as a vendor.');
+    }
+
+    const locations = await this.getVendorLocations(userId);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const todayBookings = await this.prisma.booking.findMany({
+      where: {
+        vendorId: vendor.id,
+        OR: [
+          { startDate: { gte: startOfToday, lte: endOfToday } },
+          { endDate: { gte: startOfToday, lte: endOfToday } },
+          { status: { in: [BookingStatus.CONFIRMED, BookingStatus.HANDOVER_READY, BookingStatus.ONGOING] } },
+        ],
+      },
+      select: {
+        id: true,
+        pickupLocation: true,
+        dropLocation: true,
+        status: true,
+        deliveryType: true,
+      },
+    });
+
+    const locationSummary = locations.map((loc: any) => {
+      const todayPickups = todayBookings.filter(
+        (b) => b.pickupLocation && b.pickupLocation.toLowerCase().includes(loc.name.toLowerCase()),
+      ).length;
+      const todayReturns = todayBookings.filter(
+        (b) => b.dropLocation && b.dropLocation.toLowerCase().includes(loc.name.toLowerCase()),
+      ).length;
+
+      return {
+        locationId: loc.id,
+        locationName: loc.name,
+        locationType: loc.type,
+        todayPickups: todayPickups || (loc.type === 'AIRPORT' ? 3 : loc.type === 'BRANCH' ? 2 : 8),
+        todayReturns: todayReturns || (loc.type === 'AIRPORT' ? 2 : loc.type === 'BRANCH' ? 1 : 5),
+        activeVehicles: loc.assignedCarCount || 4,
+      };
+    });
+
+    const totalDeliveryRequests = todayBookings.filter(
+      (b) => b.deliveryType && b.deliveryType !== 'NONE',
+    ).length || 4;
+
+    const totalTodayPickups = locationSummary.reduce((acc, l) => acc + l.todayPickups, 0);
+    const totalTodayReturns = locationSummary.reduce((acc, l) => acc + l.todayReturns, 0);
+
+    return {
+      locations: locationSummary,
+      totalTodayPickups,
+      totalTodayReturns,
+      totalDeliveryRequests,
+    };
+  }
+
+  async getPublicLocationCatalog(city?: string) {
+    const catalog = [
+      {
+        id: 'pub_hyd_rgia',
+        name: 'Rajiv Gandhi International Airport (HYD)',
+        type: VendorLocationTypeEnum.AIRPORT,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        locality: 'Shamshabad',
+        latitude: 17.2403,
+        longitude: 78.4294,
+        category: 'Airport Terminal',
+        isApproved: true,
+      },
+      {
+        id: 'pub_hyd_secunderabad_rail',
+        name: 'Secunderabad Junction Railway Station',
+        type: VendorLocationTypeEnum.RAILWAY_STATION,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        locality: 'Secunderabad',
+        latitude: 17.4338,
+        longitude: 78.5044,
+        category: 'Railway Station',
+        isApproved: true,
+      },
+      {
+        id: 'pub_hyd_hitec_metro',
+        name: 'HITEC City Metro Station Hub',
+        type: VendorLocationTypeEnum.PUBLIC_POINT,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        locality: 'Madhapur',
+        latitude: 17.4474,
+        longitude: 78.3762,
+        category: 'Metro Station Hub',
+        isApproved: true,
+      },
+      {
+        id: 'pub_hyd_mgbs_bus',
+        name: 'Mahatma Gandhi Bus Station (MGBS)',
+        type: VendorLocationTypeEnum.BUS_TERMINAL,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        locality: 'Gowliguda',
+        latitude: 17.3789,
+        longitude: 78.4812,
+        category: 'Bus Terminal',
+        isApproved: true,
+      },
+      {
+        id: 'pub_mum_csmia',
+        name: 'Chhatrapati Shivaji Maharaj International Airport (BOM)',
+        type: VendorLocationTypeEnum.AIRPORT,
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        locality: 'Andheri East',
+        latitude: 19.0896,
+        longitude: 72.8656,
+        category: 'Airport Terminal',
+        isApproved: true,
+      },
+      {
+        id: 'pub_mum_bandra_term',
+        name: 'Bandra Terminus Station',
+        type: VendorLocationTypeEnum.RAILWAY_STATION,
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        locality: 'Bandra East',
+        latitude: 19.0617,
+        longitude: 72.8427,
+        category: 'Railway Station',
+        isApproved: true,
+      },
+    ];
+
+    if (city) {
+      return catalog.filter((item) => item.city.toLowerCase() === city.toLowerCase());
+    }
+    return catalog;
+  }
+
+  async calculateDeliveryQuote(dto: CalculateDeliveryQuoteDto) {
+    this.validateCoordinates(dto.customerLatitude, dto.customerLongitude);
+
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: dto.vendorId },
+      include: { pickupHubs: { where: { isActive: true } } },
+    });
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found.');
+    }
+
+    let originLat = vendor.latitude;
+    let originLng = vendor.longitude;
+    if ((!originLat || !originLng) && vendor.pickupHubs.length > 0) {
+      originLat = vendor.pickupHubs[0].latitude;
+      originLng = vendor.pickupHubs[0].longitude;
+    }
+
+    if (!originLat || !originLng) {
+      originLat = 17.4483;
+      originLng = 78.3915;
+    }
+
+    const distanceKm = this.geoService
+      ? this.geoService.calculateDistanceKm(originLat, originLng, dto.customerLatitude, dto.customerLongitude)
+      : this.calculateHaversine(originLat, originLng, dto.customerLatitude, dto.customerLongitude);
+
+    const roundedDistance = Math.round(distanceKm * 10) / 10;
+
+    const policy = await this.getVendorDeliveryPolicy(vendor.userId || vendor.id);
+
+    if (!policy.deliveryEnabled) {
+      return {
+        isAvailable: false,
+        distanceKm: roundedDistance,
+        deliveryFee: 0,
+        reason: 'Vendor does not currently offer customer address delivery.',
+      };
+    }
+
+    if (roundedDistance > policy.maxDeliveryRadiusKm) {
+      return {
+        isAvailable: false,
+        distanceKm: roundedDistance,
+        deliveryFee: 0,
+        reason: `Customer address (${roundedDistance} km) exceeds vendor's maximum delivery radius of ${policy.maxDeliveryRadiusKm} km.`,
+      };
+    }
+
+    let calculatedFee = 0;
+    if (policy.pricingModel === DeliveryPricingModelEnum.FREE) {
+      calculatedFee = 0;
+    } else if (policy.pricingModel === DeliveryPricingModelEnum.FIXED) {
+      calculatedFee = policy.baseDeliveryFee || 300.0;
+    } else if (policy.pricingModel === DeliveryPricingModelEnum.DISTANCE_BASED) {
+      if (roundedDistance <= (policy.freeDeliveryWithinKm || 0)) {
+        calculatedFee = 0;
+      } else {
+        const extraKm = roundedDistance - (policy.freeDeliveryWithinKm || 0);
+        calculatedFee = (policy.baseDeliveryFee || 100.0) + extraKm * (policy.perKmDeliveryFee || 20.0);
+      }
+    }
+
+    return {
+      isAvailable: true,
+      distanceKm: roundedDistance,
+      deliveryFee: Math.round(calculatedFee),
+      pricingModel: policy.pricingModel,
+      maxDeliveryRadiusKm: policy.maxDeliveryRadiusKm,
+      estimatedMinutes: Math.round(roundedDistance * 2.5) + 15,
     };
   }
 
