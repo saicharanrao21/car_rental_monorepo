@@ -9,6 +9,17 @@ import '../../../../core/providers/recent_locations_provider.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../features/home/home_providers.dart';
 
+typedef StructuredLocationCallback = void Function({
+  required String name,
+  String? id,
+  String? address,
+  String? type,
+  double? lat,
+  double? lng,
+  double? fee,
+  String? operatingHours,
+});
+
 final publicTransportCatalogProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, city) async {
   try {
     final client = ref.read(apiClientProvider).dio;
@@ -22,12 +33,28 @@ final publicTransportCatalogProvider = FutureProvider.family<List<Map<String, dy
   return [];
 });
 
+final vendorPickupHubsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, vendorId) async {
+  if (vendorId.isEmpty) return [];
+  try {
+    final client = ref.read(apiClientProvider).dio;
+    final response = await client.get('/locations/hubs', queryParameters: {'vendorId': vendorId});
+    if (response.statusCode == 200 && response.data is List) {
+      return (response.data as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+  } catch (_) {}
+  return [];
+});
+
 class LocationSelectionSheet extends ConsumerStatefulWidget {
   final String title;
   final String? initialValue;
   final String city;
   final bool isDropLocation;
+  final String? vendorId;
   final void Function(String location, {double? lat, double? lng}) onLocationSelected;
+  final StructuredLocationCallback? onStructuredLocationSelected;
 
   const LocationSelectionSheet({
     super.key,
@@ -35,7 +62,9 @@ class LocationSelectionSheet extends ConsumerStatefulWidget {
     this.initialValue,
     required this.city,
     this.isDropLocation = false,
+    this.vendorId,
     required this.onLocationSelected,
+    this.onStructuredLocationSelected,
   });
 
   static Future<void> show({
@@ -44,7 +73,9 @@ class LocationSelectionSheet extends ConsumerStatefulWidget {
     String? initialValue,
     required String city,
     bool isDropLocation = false,
+    String? vendorId,
     required void Function(String location, {double? lat, double? lng}) onLocationSelected,
+    StructuredLocationCallback? onStructuredLocationSelected,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -55,7 +86,9 @@ class LocationSelectionSheet extends ConsumerStatefulWidget {
         initialValue: initialValue,
         city: city,
         isDropLocation: isDropLocation,
+        vendorId: vendorId,
         onLocationSelected: onLocationSelected,
+        onStructuredLocationSelected: onStructuredLocationSelected,
       ),
     );
   }
@@ -149,9 +182,28 @@ class _LocationSelectionSheetState extends ConsumerState<LocationSelectionSheet>
     });
   }
 
-  void _selectLocation(String location, {double? lat, double? lng}) {
+  void _selectLocation(
+    String location, {
+    double? lat,
+    double? lng,
+    String? id,
+    String? address,
+    String? type,
+    double? fee,
+    String? operatingHours,
+  }) {
     ref.read(recentLocationsProvider.notifier).addLocation(location);
     widget.onLocationSelected(location, lat: lat, lng: lng);
+    widget.onStructuredLocationSelected?.call(
+      name: location,
+      id: id,
+      address: address,
+      type: type,
+      lat: lat,
+      lng: lng,
+      fee: fee,
+      operatingHours: operatingHours,
+    );
     Navigator.of(context).pop();
   }
 
@@ -479,6 +531,86 @@ class _LocationSelectionSheetState extends ConsumerState<LocationSelectionSheet>
                         );
                       }),
                       const Gap(12),
+                    ],
+
+                    // Vendor Specific Yards & Branches
+                    if (widget.vendorId != null && widget.vendorId!.isNotEmpty) ...[
+                      Builder(
+                        builder: (context) {
+                          final vendorHubsAsync = ref.watch(vendorPickupHubsProvider(widget.vendorId!));
+                          return vendorHubsAsync.when(
+                            data: (hubs) {
+                              if (hubs.isEmpty) return const SizedBox.shrink();
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.storefront, size: 16, color: AppColors.primary),
+                                      Gap(6),
+                                      Text(
+                                        'Host Branches & Yards',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  const Gap(6),
+                                  ...hubs.map((hub) {
+                                    final name = hub['name'] as String? ?? 'Host Branch';
+                                    final address = hub['address'] as String? ?? hub['locality'] as String? ?? widget.city;
+                                    final hours = hub['operatingHours'] as String? ?? (hub['is24x7'] == true ? '24x7 Open' : '09:00 - 21:00');
+                                    final fee = (hub['pickupFee'] as num?)?.toDouble() ?? 0.0;
+                                    final lat = (hub['latitude'] as num?)?.toDouble();
+                                    final lng = (hub['longitude'] as num?)?.toDouble();
+                                    final hubId = hub['id'] as String?;
+                                    final type = hub['type'] as String? ?? 'YARD';
+
+                                    return ListTile(
+                                      dense: true,
+                                      leading: const Icon(Icons.location_city, color: AppColors.primary, size: 20),
+                                      title: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (fee > 0)
+                                            Text(
+                                              '+₹${fee.toInt()}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                            )
+                                          else
+                                            const Text(
+                                              'Free',
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                                            ),
+                                        ],
+                                      ),
+                                      subtitle: Text('$address • $hours', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      onTap: () => _selectLocation(
+                                        name,
+                                        lat: lat,
+                                        lng: lng,
+                                        id: hubId,
+                                        address: address,
+                                        type: type,
+                                        fee: fee,
+                                        operatingHours: hours,
+                                      ),
+                                    );
+                                  }),
+                                  const Gap(12),
+                                ],
+                              );
+                            },
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          );
+                        },
+                      ),
                     ],
 
                     // Popular Hubs in City Section (Live Catalog from Backend + Fallback)

@@ -45,6 +45,15 @@ mixin _$BookingModel {
   String? get dropName => throw _privateConstructorUsedError;
   double? get returnFee => throw _privateConstructorUsedError;
   double? get oneWayFee => throw _privateConstructorUsedError;
+  String? get pickupAddress => throw _privateConstructorUsedError;
+  String? get deliveryAddress => throw _privateConstructorUsedError;
+  double? get deliveryFee => throw _privateConstructorUsedError;
+  double? get pickupFee => throw _privateConstructorUsedError;
+  String? get deliveryType => throw _privateConstructorUsedError;
+  double? get deliveryLatitude => throw _privateConstructorUsedError;
+  double? get deliveryLongitude => throw _privateConstructorUsedError;
+  double? get pickupLatitude => throw _privateConstructorUsedError;
+  double? get pickupLongitude => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -81,7 +90,16 @@ abstract class $BookingModelCopyWith<$Res> {
       String? pickupName,
       String? dropName,
       double? returnFee,
-      double? oneWayFee});
+      double? oneWayFee,
+      String? pickupAddress,
+      String? deliveryAddress,
+      double? deliveryFee,
+      double? pickupFee,
+      String? deliveryType,
+      double? deliveryLatitude,
+      double? deliveryLongitude,
+      double? pickupLatitude,
+      double? pickupLongitude});
 }
 
 /// @nodoc
@@ -120,6 +138,15 @@ class _$BookingModelCopyWithImpl<$Res, $Val extends BookingModel>
     Object? dropName = freezed,
     Object? returnFee = freezed,
     Object? oneWayFee = freezed,
+    Object? pickupAddress = freezed,
+    Object? deliveryAddress = freezed,
+    Object? deliveryFee = freezed,
+    Object? pickupFee = freezed,
+    Object? deliveryType = freezed,
+    Object? deliveryLatitude = freezed,
+    Object? deliveryLongitude = freezed,
+    Object? pickupLatitude = freezed,
+    Object? pickupLongitude = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -214,6 +241,42 @@ class _$BookingModelCopyWithImpl<$Res, $Val extends BookingModel>
           ? _value.oneWayFee
           : oneWayFee // ignore: cast_nullable_to_non_nullable
               as double?,
+      pickupAddress: freezed == pickupAddress
+          ? _value.pickupAddress
+          : pickupAddress // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryAddress: freezed == deliveryAddress
+          ? _value.deliveryAddress
+          : deliveryAddress // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryFee: freezed == deliveryFee
+          ? _value.deliveryFee
+          : deliveryFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupFee: freezed == pickupFee
+          ? _value.pickupFee
+          : pickupFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      deliveryType: freezed == deliveryType
+          ? _value.deliveryType
+          : deliveryType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryLatitude: freezed == deliveryLatitude
+          ? _value.deliveryLatitude
+          : deliveryLatitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      deliveryLongitude: freezed == deliveryLongitude
+          ? _value.deliveryLongitude
+          : deliveryLongitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupLatitude: freezed == pickupLatitude
+          ? _value.pickupLatitude
+          : pickupLatitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupLongitude: freezed == pickupLongitude
+          ? _value.pickupLongitude
+          : pickupLongitude // ignore: cast_nullable_to_non_nullable
+              as double?,
     ) as $Val);
   }
 }
@@ -249,7 +312,16 @@ abstract class _$$BookingModelImplCopyWith<$Res>
       String? pickupName,
       String? dropName,
       double? returnFee,
-      double? oneWayFee});
+      double? oneWayFee,
+      String? pickupAddress,
+      String? deliveryAddress,
+      double? deliveryFee,
+      double? pickupFee,
+      String? deliveryType,
+      double? deliveryLatitude,
+      double? deliveryLongitude,
+      double? pickupLatitude,
+      double? pickupLongitude});
 }
 
 /// @nodoc
@@ -286,6 +358,15 @@ class __$$BookingModelImplCopyWithImpl<$Res>
     Object? dropName = freezed,
     Object? returnFee = freezed,
     Object? oneWayFee = freezed,
+    Object? pickupAddress = freezed,
+    Object? deliveryAddress = freezed,
+    Object? deliveryFee = freezed,
+    Object? pickupFee = freezed,
+    Object? deliveryType = freezed,
+    Object? deliveryLatitude = freezed,
+    Object? deliveryLongitude = freezed,
+    Object? pickupLatitude = freezed,
+    Object? pickupLongitude = freezed,
   }) {
     return _then(_$BookingModelImpl(
       id: null == id
@@ -380,6 +461,42 @@ class __$$BookingModelImplCopyWithImpl<$Res>
           ? _value.oneWayFee
           : oneWayFee // ignore: cast_nullable_to_non_nullable
               as double?,
+      pickupAddress: freezed == pickupAddress
+          ? _value.pickupAddress
+          : pickupAddress // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryAddress: freezed == deliveryAddress
+          ? _value.deliveryAddress
+          : deliveryAddress // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryFee: freezed == deliveryFee
+          ? _value.deliveryFee
+          : deliveryFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupFee: freezed == pickupFee
+          ? _value.pickupFee
+          : pickupFee // ignore: cast_nullable_to_non_nullable
+              as double?,
+      deliveryType: freezed == deliveryType
+          ? _value.deliveryType
+          : deliveryType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      deliveryLatitude: freezed == deliveryLatitude
+          ? _value.deliveryLatitude
+          : deliveryLatitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      deliveryLongitude: freezed == deliveryLongitude
+          ? _value.deliveryLongitude
+          : deliveryLongitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupLatitude: freezed == pickupLatitude
+          ? _value.pickupLatitude
+          : pickupLatitude // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pickupLongitude: freezed == pickupLongitude
+          ? _value.pickupLongitude
+          : pickupLongitude // ignore: cast_nullable_to_non_nullable
+              as double?,
     ));
   }
 }
@@ -410,7 +527,16 @@ class _$BookingModelImpl implements _BookingModel {
       this.pickupName,
       this.dropName,
       this.returnFee,
-      this.oneWayFee});
+      this.oneWayFee,
+      this.pickupAddress,
+      this.deliveryAddress,
+      this.deliveryFee,
+      this.pickupFee,
+      this.deliveryType,
+      this.deliveryLatitude,
+      this.deliveryLongitude,
+      this.pickupLatitude,
+      this.pickupLongitude});
 
   factory _$BookingModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$BookingModelImplFromJson(json);
@@ -464,10 +590,28 @@ class _$BookingModelImpl implements _BookingModel {
   final double? returnFee;
   @override
   final double? oneWayFee;
+  @override
+  final String? pickupAddress;
+  @override
+  final String? deliveryAddress;
+  @override
+  final double? deliveryFee;
+  @override
+  final double? pickupFee;
+  @override
+  final String? deliveryType;
+  @override
+  final double? deliveryLatitude;
+  @override
+  final double? deliveryLongitude;
+  @override
+  final double? pickupLatitude;
+  @override
+  final double? pickupLongitude;
 
   @override
   String toString() {
-    return 'BookingModel(id: $id, customerId: $customerId, vendorId: $vendorId, carId: $carId, tripType: $tripType, pickupLocation: $pickupLocation, dropLocation: $dropLocation, startDate: $startDate, endDate: $endDate, totalFare: $totalFare, platformFee: $platformFee, gstAmount: $gstAmount, netToVendor: $netToVendor, status: $status, createdAt: $createdAt, disputeFlag: $disputeFlag, disputeNote: $disputeNote, pickupHubId: $pickupHubId, returnHubId: $returnHubId, pickupName: $pickupName, dropName: $dropName, returnFee: $returnFee, oneWayFee: $oneWayFee)';
+    return 'BookingModel(id: $id, customerId: $customerId, vendorId: $vendorId, carId: $carId, tripType: $tripType, pickupLocation: $pickupLocation, dropLocation: $dropLocation, startDate: $startDate, endDate: $endDate, totalFare: $totalFare, platformFee: $platformFee, gstAmount: $gstAmount, netToVendor: $netToVendor, status: $status, createdAt: $createdAt, disputeFlag: $disputeFlag, disputeNote: $disputeNote, pickupHubId: $pickupHubId, returnHubId: $returnHubId, pickupName: $pickupName, dropName: $dropName, returnFee: $returnFee, oneWayFee: $oneWayFee, pickupAddress: $pickupAddress, deliveryAddress: $deliveryAddress, deliveryFee: $deliveryFee, pickupFee: $pickupFee, deliveryType: $deliveryType, deliveryLatitude: $deliveryLatitude, deliveryLongitude: $deliveryLongitude, pickupLatitude: $pickupLatitude, pickupLongitude: $pickupLongitude)';
   }
 
   @override
@@ -516,7 +660,25 @@ class _$BookingModelImpl implements _BookingModel {
             (identical(other.returnFee, returnFee) ||
                 other.returnFee == returnFee) &&
             (identical(other.oneWayFee, oneWayFee) ||
-                other.oneWayFee == oneWayFee));
+                other.oneWayFee == oneWayFee) &&
+            (identical(other.pickupAddress, pickupAddress) ||
+                other.pickupAddress == pickupAddress) &&
+            (identical(other.deliveryAddress, deliveryAddress) ||
+                other.deliveryAddress == deliveryAddress) &&
+            (identical(other.deliveryFee, deliveryFee) ||
+                other.deliveryFee == deliveryFee) &&
+            (identical(other.pickupFee, pickupFee) ||
+                other.pickupFee == pickupFee) &&
+            (identical(other.deliveryType, deliveryType) ||
+                other.deliveryType == deliveryType) &&
+            (identical(other.deliveryLatitude, deliveryLatitude) ||
+                other.deliveryLatitude == deliveryLatitude) &&
+            (identical(other.deliveryLongitude, deliveryLongitude) ||
+                other.deliveryLongitude == deliveryLongitude) &&
+            (identical(other.pickupLatitude, pickupLatitude) ||
+                other.pickupLatitude == pickupLatitude) &&
+            (identical(other.pickupLongitude, pickupLongitude) ||
+                other.pickupLongitude == pickupLongitude));
   }
 
   @JsonKey(ignore: true)
@@ -545,7 +707,16 @@ class _$BookingModelImpl implements _BookingModel {
         pickupName,
         dropName,
         returnFee,
-        oneWayFee
+        oneWayFee,
+        pickupAddress,
+        deliveryAddress,
+        deliveryFee,
+        pickupFee,
+        deliveryType,
+        deliveryLatitude,
+        deliveryLongitude,
+        pickupLatitude,
+        pickupLongitude
       ]);
 
   @JsonKey(ignore: true)
@@ -586,7 +757,16 @@ abstract class _BookingModel implements BookingModel {
       final String? pickupName,
       final String? dropName,
       final double? returnFee,
-      final double? oneWayFee}) = _$BookingModelImpl;
+      final double? oneWayFee,
+      final String? pickupAddress,
+      final String? deliveryAddress,
+      final double? deliveryFee,
+      final double? pickupFee,
+      final String? deliveryType,
+      final double? deliveryLatitude,
+      final double? deliveryLongitude,
+      final double? pickupLatitude,
+      final double? pickupLongitude}) = _$BookingModelImpl;
 
   factory _BookingModel.fromJson(Map<String, dynamic> json) =
       _$BookingModelImpl.fromJson;
@@ -637,6 +817,24 @@ abstract class _BookingModel implements BookingModel {
   double? get returnFee;
   @override
   double? get oneWayFee;
+  @override
+  String? get pickupAddress;
+  @override
+  String? get deliveryAddress;
+  @override
+  double? get deliveryFee;
+  @override
+  double? get pickupFee;
+  @override
+  String? get deliveryType;
+  @override
+  double? get deliveryLatitude;
+  @override
+  double? get deliveryLongitude;
+  @override
+  double? get pickupLatitude;
+  @override
+  double? get pickupLongitude;
   @override
   @JsonKey(ignore: true)
   _$$BookingModelImplCopyWith<_$BookingModelImpl> get copyWith =>

@@ -66,7 +66,19 @@ class BookingDraft {
   final String? returnHubId;
   final String? pickupName;
   final String? dropName;
+  final String? pickupAddress;
+  final double pickupFee;
+  final double returnFee;
   final double oneWayFee;
+  final String? deliveryType;
+  final double? deliveryLatitude;
+  final double? deliveryLongitude;
+  final double? pickupLatitude;
+  final double? pickupLongitude;
+  final bool isDifferentReturnLocation;
+  final bool isQuoteLoading;
+  final double quoteDistanceKm;
+  final String? quoteErrorReason;
 
   const BookingDraft({
     this.carId = '',
@@ -111,7 +123,19 @@ class BookingDraft {
     this.returnHubId,
     this.pickupName,
     this.dropName,
+    this.pickupAddress,
+    this.pickupFee = 0.0,
+    this.returnFee = 0.0,
     this.oneWayFee = 0.0,
+    this.deliveryType,
+    this.deliveryLatitude,
+    this.deliveryLongitude,
+    this.pickupLatitude,
+    this.pickupLongitude,
+    this.isDifferentReturnLocation = false,
+    this.isQuoteLoading = false,
+    this.quoteDistanceKm = 0.0,
+    this.quoteErrorReason,
   });
 
   int get rentalDays {
@@ -162,7 +186,19 @@ class BookingDraft {
     String? returnHubId,
     String? pickupName,
     String? dropName,
+    String? pickupAddress,
+    double? pickupFee,
+    double? returnFee,
     double? oneWayFee,
+    String? deliveryType,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
+    double? pickupLatitude,
+    double? pickupLongitude,
+    bool? isDifferentReturnLocation,
+    bool? isQuoteLoading,
+    double? quoteDistanceKm,
+    String? quoteErrorReason,
   }) {
     return BookingDraft(
       carId: carId ?? this.carId,
@@ -213,7 +249,20 @@ class BookingDraft {
       returnHubId: returnHubId ?? this.returnHubId,
       pickupName: pickupName ?? this.pickupName,
       dropName: dropName ?? this.dropName,
+      pickupAddress: pickupAddress ?? this.pickupAddress,
+      pickupFee: pickupFee ?? this.pickupFee,
+      returnFee: returnFee ?? this.returnFee,
       oneWayFee: oneWayFee ?? this.oneWayFee,
+      deliveryType: deliveryType ?? this.deliveryType,
+      deliveryLatitude: deliveryLatitude ?? this.deliveryLatitude,
+      deliveryLongitude: deliveryLongitude ?? this.deliveryLongitude,
+      pickupLatitude: pickupLatitude ?? this.pickupLatitude,
+      pickupLongitude: pickupLongitude ?? this.pickupLongitude,
+      isDifferentReturnLocation:
+          isDifferentReturnLocation ?? this.isDifferentReturnLocation,
+      isQuoteLoading: isQuoteLoading ?? this.isQuoteLoading,
+      quoteDistanceKm: quoteDistanceKm ?? this.quoteDistanceKm,
+      quoteErrorReason: quoteErrorReason ?? this.quoteErrorReason,
     );
   }
 }
@@ -302,6 +351,51 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
       commissionPercent: config.percentage,
     );
   }
+  /// Authoritatively quotes fulfillment costs from the backend
+  Future<void> refreshAuthoritativeQuote({
+    required BookingRepository repo,
+    String? vendorId,
+    String? carId,
+  }) async {
+    final vId = (vendorId != null && vendorId.isNotEmpty) ? vendorId : state.vendorId;
+    if (vId.isEmpty) return;
+
+    state = state.copyWith(isQuoteLoading: true, quoteErrorReason: null);
+
+    try {
+      final res = await repo.calculateLocationQuote(
+        vendorId: vId,
+        pickupLocationId: state.pickupHubId,
+        returnLocationId: state.isDifferentReturnLocation ? state.returnHubId : state.pickupHubId,
+        customerLatitude: state.deliveryLatitude,
+        customerLongitude: state.deliveryLongitude,
+        deliveryAddress: state.hasDoorstepDelivery ? state.deliveryAddress : null,
+      );
+
+      final isAvail = res['isAvailable'] as bool? ?? true;
+      final deliveryFee = (res['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+      final pickupFee = (res['pickupFee'] as num?)?.toDouble() ?? 0.0;
+      final returnFee = (res['returnFee'] as num?)?.toDouble() ?? 0.0;
+      final oneWayFee = ((res['oneWaySurcharge'] ?? res['oneWayFee']) as num?)?.toDouble() ?? 0.0;
+      final distKm = (res['distanceKm'] as num?)?.toDouble() ?? 0.0;
+      final reason = res['reason']?.toString();
+
+      state = state.copyWith(
+        isQuoteLoading: false,
+        deliveryFee: state.hasDoorstepDelivery ? deliveryFee : 0.0,
+        pickupFee: pickupFee,
+        returnFee: returnFee,
+        oneWayFee: state.isDifferentReturnLocation ? oneWayFee : 0.0,
+        quoteDistanceKm: distKm,
+        quoteErrorReason: isAvail ? null : (reason ?? 'Fulfillment option unavailable'),
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isQuoteLoading: false,
+        quoteErrorReason: e.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', ''),
+      );
+    }
+  }
 }
 
 final bookingDraftProvider =
@@ -346,6 +440,23 @@ class CreateBookingFlowNotifier
         netToVendor: draft.netToVendor,
         status: 'confirmed',
         createdAt: now,
+        pickupHubId: draft.pickupHubId,
+        returnHubId: draft.isDifferentReturnLocation ? draft.returnHubId : draft.pickupHubId,
+        pickupName: draft.pickupName,
+        dropName: draft.dropName,
+        pickupAddress: draft.pickupAddress,
+        deliveryAddress: draft.hasDoorstepDelivery ? draft.deliveryAddress : null,
+        deliveryFee: draft.hasDoorstepDelivery ? draft.deliveryFee : 0.0,
+        pickupFee: draft.pickupFee,
+        returnFee: draft.returnFee,
+        oneWayFee: draft.isDifferentReturnLocation ? draft.oneWayFee : 0.0,
+        deliveryType: draft.hasDoorstepDelivery
+            ? 'DOORSTEP_DELIVERY'
+            : (draft.pickupHubId != null ? 'HUB_PICKUP' : 'STANDARD'),
+        deliveryLatitude: draft.deliveryLatitude,
+        deliveryLongitude: draft.deliveryLongitude,
+        pickupLatitude: draft.pickupLatitude,
+        pickupLongitude: draft.pickupLongitude,
       );
       final created = await repo.createBooking(bookingDraft);
       state = AsyncValue.data(created);

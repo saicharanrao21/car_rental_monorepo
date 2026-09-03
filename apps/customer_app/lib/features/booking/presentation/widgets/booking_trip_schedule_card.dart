@@ -332,19 +332,28 @@ class BookingTripScheduleCard extends ConsumerWidget {
                             color: DDSColors.textSecondary,
                           ),
                           const Gap(6),
-                          Text(
-                            'Duration: ',
-                            style: DDSTypography.bodyMedium.copyWith(
-                              color: DDSColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            '${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}',
-                            style: DDSTypography.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: DDSColors.textPrimary,
-                              fontSize: 12,
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Duration: ',
+                                    style: DDSTypography.bodyMedium.copyWith(
+                                      color: DDSColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${draft.rentalDays} day${draft.rentalDays == 1 ? '' : 's'}',
+                                    style: DDSTypography.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: DDSColors.textPrimary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

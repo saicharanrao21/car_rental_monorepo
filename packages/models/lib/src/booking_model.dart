@@ -29,6 +29,15 @@ class BookingModel with _$BookingModel {
     String? dropName,
     double? returnFee,
     double? oneWayFee,
+    String? pickupAddress,
+    String? deliveryAddress,
+    double? deliveryFee,
+    double? pickupFee,
+    String? deliveryType,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
+    double? pickupLatitude,
+    double? pickupLongitude,
   }) = _BookingModel;
 
   factory BookingModel.fromJson(Map<String, dynamic> json) => _$BookingModelFromJson(json);

@@ -4,6 +4,7 @@ import 'package:models/models.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import '../providers/booking_flow_providers.dart';
+import 'fulfillment_selection_card.dart';
 import 'booking_trip_schedule_card.dart';
 import 'booking_mileage_package_selector.dart';
 
@@ -72,6 +73,13 @@ class _TripDetailsStepState extends ConsumerState<TripDetailsStep> {
 
           // ── Trip Schedule & Location Card ─────────────────────────
           BookingTripScheduleCard(
+            car: widget.car,
+            vendor: widget.vendor,
+          ),
+          const Gap(DDSSpacing.md),
+
+          // ── Fulfillment & Handover Location Card ───────────────────
+          FulfillmentSelectionCard(
             car: widget.car,
             vendor: widget.vendor,
           ),

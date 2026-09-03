@@ -176,10 +176,28 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
             _row('Doorstep Delivery', draft.deliveryFee),
           ],
 
-          // Doorstep Pickup
+          // Doorstep Return Pickup / Collection
           if (draft.returnPickupFee > 0) ...[
             const Gap(6),
-            _row('Doorstep Return Pickup', draft.returnPickupFee),
+            _row('Doorstep Collection', draft.returnPickupFee),
+          ],
+
+          // Pickup Location Fee
+          if (draft.pickupFee > 0) ...[
+            const Gap(6),
+            _row('Pickup Location Fee', draft.pickupFee),
+          ],
+
+          // Return Location Fee
+          if (draft.returnFee > 0) ...[
+            const Gap(6),
+            _row('Return Location Fee', draft.returnFee),
+          ],
+
+          // One-Way / Relocation Fee
+          if (draft.oneWayFee > 0) ...[
+            const Gap(6),
+            _row('One-Way Relocation Fee', draft.oneWayFee),
           ],
 
           // Additional Driver

@@ -32,6 +32,21 @@ class MockBookingRepositoryImpl with LatencySimulator implements BookingReposito
       netToVendor: draft.netToVendor,
       status: 'confirmed',
       createdAt: DateTime.now(),
+      pickupHubId: draft.pickupHubId,
+      returnHubId: draft.returnHubId,
+      pickupName: draft.pickupName,
+      dropName: draft.dropName,
+      pickupAddress: draft.pickupAddress,
+      deliveryAddress: draft.deliveryAddress,
+      deliveryFee: draft.deliveryFee,
+      pickupFee: draft.pickupFee,
+      returnFee: draft.returnFee,
+      oneWayFee: draft.oneWayFee,
+      deliveryType: draft.deliveryType,
+      deliveryLatitude: draft.deliveryLatitude,
+      deliveryLongitude: draft.deliveryLongitude,
+      pickupLatitude: draft.pickupLatitude,
+      pickupLongitude: draft.pickupLongitude,
     );
     _created.add(saved);
     return saved;

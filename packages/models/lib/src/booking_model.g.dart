@@ -31,6 +31,15 @@ _$BookingModelImpl _$$BookingModelImplFromJson(Map<String, dynamic> json) =>
       dropName: json['dropName'] as String?,
       returnFee: (json['returnFee'] as num?)?.toDouble(),
       oneWayFee: (json['oneWayFee'] as num?)?.toDouble(),
+      pickupAddress: json['pickupAddress'] as String?,
+      deliveryAddress: json['deliveryAddress'] as String?,
+      deliveryFee: (json['deliveryFee'] as num?)?.toDouble(),
+      pickupFee: (json['pickupFee'] as num?)?.toDouble(),
+      deliveryType: json['deliveryType'] as String?,
+      deliveryLatitude: (json['deliveryLatitude'] as num?)?.toDouble(),
+      deliveryLongitude: (json['deliveryLongitude'] as num?)?.toDouble(),
+      pickupLatitude: (json['pickupLatitude'] as num?)?.toDouble(),
+      pickupLongitude: (json['pickupLongitude'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$$BookingModelImplToJson(_$BookingModelImpl instance) =>
@@ -58,4 +67,13 @@ Map<String, dynamic> _$$BookingModelImplToJson(_$BookingModelImpl instance) =>
       'dropName': instance.dropName,
       'returnFee': instance.returnFee,
       'oneWayFee': instance.oneWayFee,
+      'pickupAddress': instance.pickupAddress,
+      'deliveryAddress': instance.deliveryAddress,
+      'deliveryFee': instance.deliveryFee,
+      'pickupFee': instance.pickupFee,
+      'deliveryType': instance.deliveryType,
+      'deliveryLatitude': instance.deliveryLatitude,
+      'deliveryLongitude': instance.deliveryLongitude,
+      'pickupLatitude': instance.pickupLatitude,
+      'pickupLongitude': instance.pickupLongitude,
     };

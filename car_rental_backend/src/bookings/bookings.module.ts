@@ -13,6 +13,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
 import { ReferralsModule } from '../referrals/referrals.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { FraudModule } from '../fraud/fraud.module';
+import { LocationsModule } from '../locations/locations.module';
 
 import { TripExtensionsService } from './trip-extensions.service';
 import { TripExtensionsController } from './trip-extensions.controller';
@@ -28,6 +29,7 @@ import { TripExtensionsController } from './trip-extensions.controller';
     ReferralsModule,
     LoyaltyModule,
     FraudModule,
+    LocationsModule,
   ],
   controllers: [BookingsController, TripExtensionsController],
   providers: [

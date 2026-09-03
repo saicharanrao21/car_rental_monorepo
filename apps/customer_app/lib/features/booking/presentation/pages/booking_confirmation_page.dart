@@ -290,17 +290,52 @@ class BookingConfirmationPage extends ConsumerWidget {
                       ),
                       const Gap(8),
                       _summaryRow(
-                        'Pickup Location',
-                        booking.pickupLocation,
+                        'Pickup',
+                        booking.pickupName != null
+                            ? '${booking.pickupName} (${booking.pickupAddress ?? booking.pickupLocation})'
+                            : (booking.deliveryAddress != null
+                                ? 'Doorstep: ${booking.deliveryAddress}'
+                                : booking.pickupLocation),
                         Icons.location_on_outlined,
                       ),
-                      if (booking.dropLocation != null &&
-                          booking.dropLocation!.isNotEmpty) ...[
+                      const Gap(8),
+                      _summaryRow(
+                        'Return',
+                        booking.dropName != null
+                            ? '${booking.dropName} (${booking.dropLocation ?? booking.pickupLocation})'
+                            : (booking.dropLocation != null && booking.dropLocation!.isNotEmpty
+                                ? booking.dropLocation!
+                                : 'Same as Pickup'),
+                        Icons.flag_outlined,
+                      ),
+                      if (booking.deliveryType != null && booking.deliveryType!.isNotEmpty) ...[
                         const Gap(8),
                         _summaryRow(
-                          'Drop Location',
-                          booking.dropLocation!,
-                          Icons.flag_outlined,
+                          'Fulfillment',
+                          booking.deliveryType == 'DOORSTEP_DELIVERY'
+                              ? 'Doorstep Delivery'
+                              : (booking.pickupHubId != null ? 'Host Yard / Hub Handover' : 'Standard Handover'),
+                          Icons.local_shipping_outlined,
+                        ),
+                      ],
+                      if ((booking.deliveryFee != null && booking.deliveryFee! > 0) ||
+                          (booking.pickupFee != null && booking.pickupFee! > 0) ||
+                          (booking.returnFee != null && booking.returnFee! > 0) ||
+                          (booking.oneWayFee != null && booking.oneWayFee! > 0)) ...[
+                        const Gap(8),
+                        _summaryRow(
+                          'Fulfillment Fees',
+                          [
+                            if (booking.deliveryFee != null && booking.deliveryFee! > 0)
+                              'Delivery: ₹${booking.deliveryFee!.toInt()}',
+                            if (booking.pickupFee != null && booking.pickupFee! > 0)
+                              'Pickup Hub: ₹${booking.pickupFee!.toInt()}',
+                            if (booking.returnFee != null && booking.returnFee! > 0)
+                              'Return Hub: ₹${booking.returnFee!.toInt()}',
+                            if (booking.oneWayFee != null && booking.oneWayFee! > 0)
+                              'One-Way: ₹${booking.oneWayFee!.toInt()}',
+                          ].join(' • '),
+                          Icons.receipt_outlined,
                         ),
                       ],
                       const Gap(8),

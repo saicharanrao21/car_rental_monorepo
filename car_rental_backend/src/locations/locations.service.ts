@@ -239,13 +239,30 @@ export class LocationsService {
       orderBy: { name: 'asc' },
     });
 
+    const enrichedHubs = hubs.map((hub) => {
+      const meta = this.parseLocationMetadata(hub);
+      return {
+        ...hub,
+        type: meta.type,
+        allowsPickup: meta.allowsPickup,
+        allowsReturn: meta.allowsReturn,
+        allowsDelivery: meta.allowsDelivery,
+        pickupFee: meta.pickupFee,
+        returnFee: meta.returnFee,
+        oneWayFee: meta.oneWayFee,
+        openingTime: meta.openingTime,
+        closingTime: meta.closingTime,
+        is24x7: meta.is24x7,
+      };
+    });
+
     if (query.lat !== undefined && query.lng !== undefined) {
       this.validateCoordinates(Number(query.lat), Number(query.lng));
       const userLat = Number(query.lat);
       const userLng = Number(query.lng);
       const maxRadius = query.radiusKm ? Number(query.radiusKm) : 100;
 
-      const scored = hubs.map((hub) => {
+      const scored = enrichedHubs.map((hub) => {
         const distanceKm = this.geoService
           ? this.geoService.calculateDistanceKm(userLat, userLng, hub.latitude, hub.longitude)
           : this.calculateHaversine(userLat, userLng, hub.latitude, hub.longitude);
@@ -257,7 +274,7 @@ export class LocationsService {
         .sort((a, b) => a.distanceKm - b.distanceKm);
     }
 
-    return hubs;
+    return enrichedHubs;
   }
 
   async getVendorPickupHubs(userId: string) {
@@ -1504,17 +1521,32 @@ export class LocationsService {
     let originLat = pickupHub?.latitude || vendor.latitude || 17.4483;
     let originLng = pickupHub?.longitude || vendor.longitude || 78.3915;
 
+    let customerLat = dto.customerLatitude;
+    let customerLng = dto.customerLongitude;
+
+    if ((customerLat === undefined || customerLng === undefined) && dto.deliveryAddress && dto.deliveryAddress.trim().length > 0) {
+      try {
+        const geocoded = await this.forwardGeocode(dto.deliveryAddress);
+        if (geocoded) {
+          customerLat = geocoded.latitude;
+          customerLng = geocoded.longitude;
+        }
+      } catch (err) {
+        // Non-fatal forward geocoding fallback
+      }
+    }
+
     let distanceKm = 0;
     let deliveryFee = 0;
     let isDeliveryAvailable = true;
     let deliveryReason: string | undefined;
 
-    if (dto.customerLatitude !== undefined && dto.customerLongitude !== undefined) {
-      this.validateCoordinates(dto.customerLatitude, dto.customerLongitude);
+    if (customerLat !== undefined && customerLng !== undefined) {
+      this.validateCoordinates(customerLat, customerLng);
 
       const rawDist = this.geoService
-        ? this.geoService.calculateDistanceKm(originLat, originLng, dto.customerLatitude, dto.customerLongitude)
-        : this.calculateHaversine(originLat, originLng, dto.customerLatitude, dto.customerLongitude);
+        ? this.geoService.calculateDistanceKm(originLat, originLng, customerLat, customerLng)
+        : this.calculateHaversine(originLat, originLng, customerLat, customerLng);
       distanceKm = Math.round(rawDist * 10) / 10;
 
       if (!policy.deliveryEnabled) {

@@ -314,6 +314,14 @@ export class CalculateDeliveryQuoteDto {
   @IsString()
   @IsOptional()
   carId?: string;
+
+  @IsString()
+  @IsOptional()
+  deliveryAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  pickupAddress?: string;
 }
 
 export enum LocationExceptionTypeEnum {

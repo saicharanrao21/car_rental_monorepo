@@ -36,6 +36,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { FraudService, RiskAction } from '../fraud/fraud.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 import { REDIS_NAMESPACES } from '../redis/redis-namespace.constants';
+import { LocationsService } from '../locations/locations.service';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 
@@ -60,6 +61,7 @@ export class BookingsService {
     @Optional() private readonly loyaltyService?: LoyaltyService,
     @Optional() private readonly fraudService?: FraudService,
     @Optional() private readonly cacheService?: RedisCacheService,
+    @Optional() private readonly locationsService?: LocationsService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -249,10 +251,40 @@ export class BookingsService {
         }
       }
 
-      const deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
-      const pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
-      const returnFee = dto.returnFee ? new Prisma.Decimal(dto.returnFee) : new Prisma.Decimal(0);
-      const oneWayFee = dto.oneWayFee ? new Prisma.Decimal(dto.oneWayFee) : new Prisma.Decimal(0);
+      let deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
+      let pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
+      let returnFee = dto.returnFee ? new Prisma.Decimal(dto.returnFee) : new Prisma.Decimal(0);
+      let oneWayFee = dto.oneWayFee ? new Prisma.Decimal(dto.oneWayFee) : new Prisma.Decimal(0);
+
+      // Authoritative fulfillment quotation & availability validation
+      if (this.locationsService && (dto.pickupHubId || dto.returnHubId || dto.deliveryLatitude !== undefined || dto.deliveryAddress)) {
+        try {
+          const quote = await this.locationsService.calculateDeliveryQuote({
+            vendorId: car.vendorId,
+            customerLatitude: dto.deliveryLatitude,
+            customerLongitude: dto.deliveryLongitude,
+            deliveryAddress: dto.deliveryAddress,
+            pickupLocationId: dto.pickupHubId,
+            returnLocationId: dto.returnHubId,
+            carId: dto.carId,
+          });
+
+          if (!quote.isAvailable && dto.deliveryType && dto.deliveryType !== 'NONE') {
+            throw new BadRequestException(quote.reason || 'Requested fulfillment delivery is unavailable.');
+          }
+
+          deliveryFee = new Prisma.Decimal(quote.deliveryFee);
+          pickupFee = new Prisma.Decimal(quote.pickupFee);
+          returnFee = new Prisma.Decimal(quote.returnFee);
+          oneWayFee = new Prisma.Decimal(quote.oneWaySurcharge);
+        } catch (err: any) {
+          if (err instanceof BadRequestException || err instanceof ConflictException) {
+            throw err;
+          }
+          this.logger.warn(`Fulfillment quote resolution warning: ${err.message}`);
+        }
+      }
+
       const totalDeliveryAddons = deliveryFee.add(pickupFee).add(returnFee).add(oneWayFee);
 
       const baseTotalDecimal =

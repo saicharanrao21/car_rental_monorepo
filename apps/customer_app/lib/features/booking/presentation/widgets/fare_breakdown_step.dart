@@ -145,6 +145,9 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
     final totalAddons = draft.protectionFee +
         draft.deliveryFee +
         draft.returnPickupFee +
+        draft.pickupFee +
+        draft.returnFee +
+        draft.oneWayFee +
         draft.additionalDriverFee;
     final finalPayable = (result.total +
             totalAddons -

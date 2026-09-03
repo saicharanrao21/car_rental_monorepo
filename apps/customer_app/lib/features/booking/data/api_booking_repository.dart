@@ -82,18 +82,63 @@ class ApiBookingRepository implements BookingRepository {
       'distanceKm': distanceKm,
     };
 
+    // Forward complete structured fulfillment fields
+    final pickupHubId = draft.pickupHubId ?? draftState?.pickupHubId;
+    if (pickupHubId != null && pickupHubId.isNotEmpty) {
+      data['pickupHubId'] = pickupHubId;
+    }
+    final returnHubId = draft.returnHubId ?? draftState?.returnHubId;
+    if (returnHubId != null && returnHubId.isNotEmpty) {
+      data['returnHubId'] = returnHubId;
+    }
+    final pickupName = draft.pickupName ?? draftState?.pickupName;
+    if (pickupName != null && pickupName.isNotEmpty) {
+      data['pickupName'] = pickupName;
+    }
+    final dropName = draft.dropName ?? draftState?.dropName;
+    if (dropName != null && dropName.isNotEmpty) {
+      data['dropName'] = dropName;
+    }
+    final pickupAddress = draft.pickupAddress ?? draftState?.pickupAddress;
+    if (pickupAddress != null && pickupAddress.isNotEmpty) {
+      data['pickupAddress'] = pickupAddress;
+    }
+    final deliveryAddress = draft.deliveryAddress ?? draftState?.deliveryAddress;
+    if (deliveryAddress != null && deliveryAddress.isNotEmpty) {
+      data['deliveryAddress'] = deliveryAddress;
+    }
+    final deliveryType = draft.deliveryType ?? draftState?.deliveryType;
+    if (deliveryType != null && deliveryType.isNotEmpty) {
+      data['deliveryType'] = deliveryType;
+    }
+    final deliveryFee = draft.deliveryFee ?? draftState?.deliveryFee;
+    if (deliveryFee != null && deliveryFee > 0) {
+      data['deliveryFee'] = deliveryFee;
+    }
+    final pickupFee = draft.pickupFee ?? draftState?.pickupFee;
+    if (pickupFee != null && pickupFee > 0) {
+      data['pickupFee'] = pickupFee;
+    }
+    final returnFee = draft.returnFee ?? draftState?.returnFee;
+    if (returnFee != null && returnFee > 0) {
+      data['returnFee'] = returnFee;
+    }
+    final oneWayFee = draft.oneWayFee ?? draftState?.oneWayFee;
+    if (oneWayFee != null && oneWayFee > 0) {
+      data['oneWayFee'] = oneWayFee;
+    }
+    final delLat = draft.deliveryLatitude ?? draftState?.deliveryLatitude;
+    if (delLat != null) data['deliveryLatitude'] = delLat;
+    final delLng = draft.deliveryLongitude ?? draftState?.deliveryLongitude;
+    if (delLng != null) data['deliveryLongitude'] = delLng;
+    final pickLat = draft.pickupLatitude ?? draftState?.pickupLatitude;
+    if (pickLat != null) data['pickupLatitude'] = pickLat;
+    final pickLng = draft.pickupLongitude ?? draftState?.pickupLongitude;
+    if (pickLng != null) data['pickupLongitude'] = pickLng;
+
     if (draftState != null) {
       if (draftState.appliedCouponCode != null && draftState.appliedCouponCode!.isNotEmpty) {
         data['couponCode'] = draftState.appliedCouponCode;
-      }
-      if (draftState.hasDoorstepDelivery) {
-        data['deliveryType'] = 'DOORSTEP_DELIVERY';
-        data['deliveryAddress'] = draftState.deliveryAddress;
-        data['deliveryFee'] = draftState.deliveryFee;
-      }
-      if (draftState.hasDoorstepPickup) {
-        data['pickupAddress'] = draftState.returnPickupAddress;
-        data['pickupFee'] = draftState.returnPickupFee;
       }
       if (draftState.selectedProtectionPackageId != null &&
           draftState.selectedProtectionPackageId!.isNotEmpty) {
@@ -102,18 +147,6 @@ class ApiBookingRepository implements BookingRepository {
       if (draftState.selectedMileagePackageId != null &&
           draftState.selectedMileagePackageId!.isNotEmpty) {
         data['mileagePackageId'] = draftState.selectedMileagePackageId;
-      }
-      if (draftState.pickupHubId != null && draftState.pickupHubId!.isNotEmpty) {
-        data['pickupHubId'] = draftState.pickupHubId;
-      }
-      if (draftState.returnHubId != null && draftState.returnHubId!.isNotEmpty) {
-        data['returnHubId'] = draftState.returnHubId;
-      }
-      if (draftState.oneWayFee > 0) {
-        data['oneWayFee'] = draftState.oneWayFee;
-      }
-      if (draftState.returnPickupFee > 0) {
-        data['returnFee'] = draftState.returnPickupFee;
       }
     }
 
@@ -137,19 +170,27 @@ class ApiBookingRepository implements BookingRepository {
   }) async {
     final data = <String, dynamic>{
       'code': code,
+      if (carId != null) 'carId': carId,
+      if (subtotal != null) 'subtotal': subtotal,
+      if (city != null) 'city': city,
+      if (tripType != null) 'tripType': _mapTripTypeToBackend(tripType),
+      if (carCategory != null) 'carCategory': carCategory,
     };
-    if (carId != null) data['carId'] = carId;
-    if (subtotal != null) data['subtotal'] = subtotal;
-    if (city != null) data['city'] = city;
-    if (tripType != null) data['tripType'] = _mapTripTypeToBackend(tripType);
-    if (carCategory != null) data['carCategory'] = carCategory.toUpperCase();
 
     final response = await apiClient.dio.post(
       '/coupons/validate',
       data: data,
     );
 
-    return CouponValidationResultModel.fromJson(Map<String, dynamic>.from(response.data));
+    final resData = response.data;
+    if (resData is Map<String, dynamic>) {
+      if (resData.containsKey('valid')) {
+        return CouponValidationResultModel.fromJson(resData);
+      } else if (resData.containsKey('data') && resData['data'] is Map<String, dynamic>) {
+        return CouponValidationResultModel.fromJson(resData['data']);
+      }
+    }
+    throw Exception('Invalid coupon response from server');
   }
 
   @override
@@ -163,10 +204,9 @@ class ApiBookingRepository implements BookingRepository {
   }
 
   @override
-  Future<BookingModel?> getBookingById(String bookingId) async {
-    final response = await apiClient.dio.get('/bookings/$bookingId');
-    if (response.data == null) return null;
-    final normalized = _normalizeBookingJson(Map<String, dynamic>.from(response.data));
+  Future<BookingModel> getBookingById(String id) async {
+    final response = await apiClient.dio.get('/bookings/$id');
+    final normalized = _normalizeBookingJson(response.data);
     return BookingModel.fromJson(normalized);
   }
 
@@ -205,15 +245,40 @@ class ApiBookingRepository implements BookingRepository {
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return Map<String, dynamic>.from(response.data as Map);
+        final data = Map<String, dynamic>.from(response.data as Map);
+        return {
+          'isAvailable': data['isAvailable'] ?? true,
+          'distanceKm': (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+          'deliveryFee': (data['deliveryFee'] as num?)?.toDouble() ?? 0.0,
+          'pickupFee': (data['pickupFee'] as num?)?.toDouble() ?? 0.0,
+          'returnFee': (data['returnFee'] as num?)?.toDouble() ?? 0.0,
+          'oneWayFee': ((data['oneWaySurcharge'] ?? data['oneWayFee']) as num?)?.toDouble() ?? 0.0,
+          'totalFulfillmentFee': (data['totalFulfillmentFee'] as num?)?.toDouble() ?? 0.0,
+          'reason': data['reason']?.toString(),
+          'pricingModel': data['pricingModel']?.toString(),
+          'maxDeliveryRadiusKm': (data['maxDeliveryRadiusKm'] as num?)?.toDouble(),
+        };
       }
-    } catch (_) {}
+    } catch (err) {
+      return {
+        'isAvailable': false,
+        'distanceKm': 0.0,
+        'deliveryFee': 0.0,
+        'pickupFee': 0.0,
+        'returnFee': 0.0,
+        'oneWayFee': 0.0,
+        'totalFulfillmentFee': 0.0,
+        'reason': err.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', ''),
+      };
+    }
     return {
       'isAvailable': true,
-      'deliveryFee': 300.0,
+      'distanceKm': 0.0,
+      'deliveryFee': 0.0,
+      'pickupFee': 0.0,
       'returnFee': 0.0,
       'oneWayFee': 0.0,
-      'totalFulfillmentFee': 300.0,
+      'totalFulfillmentFee': 0.0,
     };
   }
 
