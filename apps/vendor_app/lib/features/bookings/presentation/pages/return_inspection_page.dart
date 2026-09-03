@@ -338,6 +338,15 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
         ? Icons.alt_route_outlined
         : (isDoorstepReturn ? Icons.local_shipping_outlined : Icons.location_on_outlined);
 
+    final contextNote = isOneWay
+        ? 'Vehicle scheduled for return at alternate branch (Relocation).'
+        : (isDoorstepReturn
+            ? 'Vehicle scheduled for doorstep collection from customer.'
+            : 'Vehicle return scheduled at vendor\'s primary operating yard.');
+
+    final lat = booking.deliveryLatitude ?? booking.pickupLatitude;
+    final lng = booking.deliveryLongitude ?? booking.pickupLongitude;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -404,6 +413,41 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                   Text(
                     locationAddress,
                     style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                  ),
+                ],
+                const Gap(2),
+                Text(
+                  contextNote,
+                  style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: titleColor.withValues(alpha: 0.8)),
+                ),
+                if (lat != null && lng != null) ...[
+                  const Gap(8),
+                  InkWell(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Opening GPS navigation to (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})')),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: bannerBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.directions, size: 14, color: titleColor),
+                          const Gap(4),
+                          Text(
+                            'NAVIGATE GPS (${lat.toStringAsFixed(3)}, ${lng.toStringAsFixed(3)})',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: titleColor),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ],

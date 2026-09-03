@@ -130,6 +130,54 @@ void main() {
     oneWayFee: 250.0,
   );
 
+  final hostYardBooking = BookingModel(
+    id: 'BK_HOST_YARD_03',
+    customerId: 'cust_103',
+    vendorId: 'v1',
+    carId: 'car_123',
+    tripType: 'Self-Drive',
+    pickupLocation: 'Primary Operating Yard, Andheri',
+    dropLocation: 'Primary Operating Yard, Andheri',
+    pickupName: 'Primary Operating Yard, Andheri',
+    dropName: 'Primary Operating Yard, Andheri',
+    pickupAddress: 'Plot 12, MIDC, Andheri East, Mumbai',
+    pickupLatitude: 19.1136,
+    pickupLongitude: 72.8697,
+    startDate: DateTime(2026, 9, 10, 10, 0),
+    endDate: DateTime(2026, 9, 12, 10, 0),
+    totalFare: 4000.0,
+    platformFee: 400.0,
+    gstAmount: 720.0,
+    netToVendor: 2880.0,
+    status: 'confirmed',
+    createdAt: DateTime.now(),
+    deliveryType: 'HUB_PICKUP',
+    pickupHubId: 'hub_andheri_yard',
+    returnHubId: 'hub_andheri_yard',
+    deliveryFee: 0.0,
+    pickupFee: 0.0,
+    returnFee: 0.0,
+    oneWayFee: 0.0,
+  );
+
+  final legacyBooking = BookingModel(
+    id: 'BK_LEGACY_04',
+    customerId: 'cust_104',
+    vendorId: 'v1',
+    carId: 'car_123',
+    tripType: 'Local',
+    pickupLocation: 'Mumbai Central',
+    dropLocation: 'Mumbai Central',
+    startDate: DateTime(2026, 9, 10, 10, 0),
+    endDate: DateTime(2026, 9, 12, 10, 0),
+    totalFare: 2500.0,
+    platformFee: 250.0,
+    gstAmount: 450.0,
+    netToVendor: 1800.0,
+    status: 'completed',
+    createdAt: DateTime.now(),
+  );
+
   Widget createSubject({
     required Widget child,
     required BookingModel booking,
@@ -139,7 +187,13 @@ void main() {
       overrides: [
         vendorBookingsRepositoryProvider.overrideWithValue(
           MockFulfillmentVendorBookingsRepository(
-            bookingsMap: {booking.id: booking},
+            bookingsMap: {
+              doorstepBooking.id: doorstepBooking,
+              relocationBooking.id: relocationBooking,
+              hostYardBooking.id: hostYardBooking,
+              legacyBooking.id: legacyBooking,
+              booking.id: booking,
+            },
             inspectionsMap: {booking.id: inspections},
           ),
         ),
@@ -152,8 +206,7 @@ void main() {
   }
 
   group('Phase 29.14: Vendor Booking Fulfillment & Handover/Return Operational Tests', () {
-    testWidgets('1. Vendor Booking Detail renders Doorstep Delivery destination and GPS coordinates',
-        (tester) async {
+    testWidgets('1. Doorstep fulfillment operational card renders correctly', (tester) async {
       tester.view.physicalSize = const Size(1080, 2424);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -165,26 +218,52 @@ void main() {
           child: const VendorBookingDetailPage(bookingId: 'BK_DOORSTEP_01'),
         ),
       );
-
       await tester.pumpAndSettle();
 
-      // Verified fulfillment header and badge
       expect(find.text('Trip Schedule & Fulfillment'), findsOneWidget);
       expect(find.text('DOORSTEP DELIVERY'), findsOneWidget);
-
-      // Verified delivery destination and full address
       expect(find.text('DOORSTEP DELIVERY DESTINATION'), findsOneWidget);
-      expect(find.text('Flat 402, Sea Green Apts, Worli Sea Face, Mumbai'), findsWidgets);
-
-      // Verified GPS action button with coordinates
-      expect(find.textContaining('GPS: 19.018, 72.818'), findsOneWidget);
-
-      // Verified itemized delivery earnings row
-      expect(find.text('Doorstep Delivery (Earned)'), findsOneWidget);
     });
 
-    testWidgets('2. Vendor Booking Detail renders Branch Relocation with surcharge badge',
-        (tester) async {
+    testWidgets('2. Doorstep address is displayed', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: doorstepBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_DOORSTEP_01'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Flat 402, Sea Green Apts, Worli Sea Face, Mumbai'), findsWidgets);
+    });
+
+    testWidgets('3. GPS navigation action uses persisted coordinates', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: doorstepBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_DOORSTEP_01'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('GPS: 19.018, 72.818'), findsOneWidget);
+
+      await tester.tap(find.textContaining('GPS: 19.018, 72.818'));
+      await tester.pump();
+      expect(find.textContaining('Opening GPS navigation'), findsOneWidget);
+    });
+
+    testWidgets('4. Multi-branch return location is displayed', (tester) async {
       tester.view.physicalSize = const Size(1080, 2424);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -196,25 +275,70 @@ void main() {
           child: const VendorBookingDetailPage(bookingId: 'BK_RELOC_02'),
         ),
       );
-
       await tester.pumpAndSettle();
 
-      // Verified relocation fulfillment badge
-      expect(find.text('BRANCH RELOCATION'), findsOneWidget);
-
-      // Verified pickup and return branch cards
-      expect(find.text('Andheri East Main Yard'), findsWidgets);
+      expect(find.text('DIFFERENT RETURN BRANCH'), findsWidgets);
       expect(find.text('Bandra Kurla Complex Branch'), findsOneWidget);
-      expect(find.text('+₹250 Relocation'), findsOneWidget);
-
-      // Verified itemized earnings
-      expect(find.text('One-Way Relocation (Earned)'), findsOneWidget);
-      expect(find.text('Pickup Hub Fee (Earned)'), findsOneWidget);
-      expect(find.text('Return Hub Fee (Earned)'), findsOneWidget);
     });
 
-    testWidgets('3. HandoverInspectionPage renders Authoritative Handover Location Banner',
-        (tester) async {
+    testWidgets('5. One-way relocation fee is rendered correctly', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: relocationBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_RELOC_02'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('+₹250 Relocation'), findsOneWidget);
+      expect(find.text('One-Way Relocation Fee'), findsOneWidget);
+    });
+
+    testWidgets('6. Fulfillment payout itemization is rendered correctly', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: doorstepBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_DOORSTEP_01'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('FULFILLMENT REVENUE BREAKDOWN'), findsOneWidget);
+      expect(find.text('Delivery Fee'), findsOneWidget);
+      expect(find.text('+₹350 Earned'), findsOneWidget);
+      expect(find.text('Doorstep Delivery (Earned)'), findsOneWidget);
+    });
+
+    testWidgets('7. Host Yard handover context renders correctly', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: hostYardBooking,
+          child: const HandoverInspectionPage(bookingId: 'BK_HOST_YARD_03'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('HANDOVER LOCATION'), findsOneWidget);
+      expect(find.text('HOST YARD'), findsOneWidget);
+      expect(find.text('Vehicle handover at the vendor\'s selected operating yard.'), findsOneWidget);
+    });
+
+    testWidgets('8. Doorstep handover context renders correctly', (tester) async {
       tester.view.physicalSize = const Size(1080, 2424);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -226,17 +350,14 @@ void main() {
           child: const HandoverInspectionPage(bookingId: 'BK_DOORSTEP_01'),
         ),
       );
-
       await tester.pumpAndSettle();
 
-      // Step 0 Identity renders handover location banner
       expect(find.text('HANDOVER LOCATION'), findsOneWidget);
       expect(find.text('DOORSTEP DISPATCH'), findsOneWidget);
-      expect(find.text('Flat 402, Sea Green Apts, Worli Sea Face, Mumbai'), findsOneWidget);
+      expect(find.text('Vehicle is being handed over at the customer\'s persisted delivery address.'), findsOneWidget);
     });
 
-    testWidgets('4. ReturnInspectionPage renders Authoritative Return Destination Banner',
-        (tester) async {
+    testWidgets('9. Return inspection displays authoritative destination', (tester) async {
       tester.view.physicalSize = const Size(1080, 2424);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -248,13 +369,129 @@ void main() {
           child: const ReturnInspectionPage(bookingId: 'BK_RELOC_02'),
         ),
       );
-
       await tester.pumpAndSettle();
 
-      // Step 0 Odometer/Fuel renders return destination banner
       expect(find.text('RETURN DESTINATION'), findsOneWidget);
       expect(find.text('RELOCATION BRANCH'), findsOneWidget);
       expect(find.text('Bandra Kurla Complex Branch'), findsOneWidget);
+      expect(find.text('Vehicle scheduled for return at alternate branch (Relocation).'), findsOneWidget);
+    });
+
+    testWidgets('10. Booking without fulfillment remains backward compatible', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: legacyBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_LEGACY_04'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Trip Schedule & Fulfillment'), findsOneWidget);
+      expect(find.text('HOST YARD'), findsOneWidget);
+      expect(find.text('Mumbai Central'), findsWidgets);
+      expect(find.text('Total Customer Fare'), findsOneWidget);
+    });
+
+    testWidgets('11. Null/absent optional fulfillment fields do not crash the UI', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final emptyFulfillmentBooking = BookingModel(
+        id: 'BK_EMPTY_05',
+        customerId: 'cust_empty',
+        vendorId: 'v1',
+        carId: 'car_empty',
+        tripType: 'Outstation',
+        pickupLocation: 'Pune City Yard',
+        startDate: DateTime(2026, 10, 1),
+        endDate: DateTime(2026, 10, 3),
+        totalFare: 8000.0,
+        platformFee: 800.0,
+        gstAmount: 1440.0,
+        netToVendor: 5760.0,
+        status: 'confirmed',
+        createdAt: DateTime.now(),
+        deliveryType: null,
+        pickupHubId: null,
+        returnHubId: null,
+        pickupName: null,
+        dropName: null,
+        pickupAddress: null,
+        deliveryAddress: null,
+        deliveryFee: null,
+        pickupFee: null,
+        returnFee: null,
+        oneWayFee: null,
+        deliveryLatitude: null,
+        deliveryLongitude: null,
+      );
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: emptyFulfillmentBooking,
+          child: const VendorBookingDetailPage(bookingId: 'BK_EMPTY_05'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pune City Yard'), findsWidgets);
+      expect(find.text('HOST YARD'), findsOneWidget);
+    });
+
+    testWidgets('12. Confirmed booking renders active pickup handover workflow', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: doorstepBooking, // confirmed
+          child: const VendorBookingDetailPage(bookingId: 'BK_DOORSTEP_01'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Vehicle Handover & Pickup Flow'), findsOneWidget);
+    });
+
+    testWidgets('13. Ongoing booking renders active return handover workflow', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: relocationBooking, // ongoing
+          child: const VendorBookingDetailPage(bookingId: 'BK_RELOC_02'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Vehicle Return & Handover Flow'), findsOneWidget);
+    });
+
+    testWidgets('14. Completed booking does not render active inspection workflow actions', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2424);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        createSubject(
+          booking: legacyBooking, // completed
+          child: const VendorBookingDetailPage(bookingId: 'BK_LEGACY_04'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Vehicle Handover & Pickup Flow'), findsNothing);
+      expect(find.text('Vehicle Return & Handover Flow'), findsNothing);
     });
   });
 }

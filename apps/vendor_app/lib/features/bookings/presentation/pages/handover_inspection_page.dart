@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../providers/vendor_bookings_providers.dart';
 
 class HandoverInspectionPage extends ConsumerStatefulWidget {
@@ -403,6 +404,12 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
         ? (booking.deliveryAddress ?? booking.pickupAddress ?? booking.pickupLocation)
         : (booking.pickupAddress ?? booking.pickupLocation);
 
+    final contextNote = isDoorstep
+        ? 'Vehicle is being handed over at the customer\'s persisted delivery address.'
+        : (isTransit
+            ? 'Vehicle handover is at the selected public location.'
+            : 'Vehicle handover at the vendor\'s selected operating yard.');
+
     final bannerBg = isDoorstep
         ? const Color(0xFFEEF2FF)
         : (isTransit ? const Color(0xFFFAF5FF) : const Color(0xFFF0FDF4));
@@ -416,6 +423,9 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
     final iconData = isDoorstep
         ? Icons.local_shipping_outlined
         : (isTransit ? Icons.connecting_airports_outlined : Icons.garage_outlined);
+
+    final lat = booking.deliveryLatitude ?? booking.pickupLatitude;
+    final lng = booking.deliveryLongitude ?? booking.pickupLongitude;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -485,6 +495,41 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                     style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
                   ),
                 ],
+                const Gap(2),
+                Text(
+                  contextNote,
+                  style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: titleColor.withValues(alpha: 0.8)),
+                ),
+                if (lat != null && lng != null) ...[
+                  const Gap(8),
+                  InkWell(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Opening GPS navigation to (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})')),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: bannerBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.directions, size: 14, color: titleColor),
+                          const Gap(4),
+                          Text(
+                            'NAVIGATE GPS (${lat.toStringAsFixed(3)}, ${lng.toStringAsFixed(3)})',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: titleColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -495,6 +540,20 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
 
   Widget _buildStep0Identity(BookingModel booking) {
     final formatter = DateFormat('dd MMM, hh:mm a');
+
+    final fleetCars = ref.watch(fleetCarsProvider).valueOrNull ?? [];
+    final car = fleetCars.where((c) => c.id == booking.carId).firstOrNull;
+    final vehicleModel = car != null ? '${car.make} ${car.model}' : 'Hyundai Creta SX(O)';
+    final plateNumber = car != null ? car.registrationNumber : 'MH 12 CD 5678';
+
+    final customerName = booking.customerId == 'cust_101' || booking.customerId == 'cust_849201'
+        ? 'Rahul Sharma'
+        : (booking.customerId.isNotEmpty
+            ? (booking.customerId.startsWith('cust_')
+                ? 'Customer ${booking.customerId.toUpperCase()}'
+                : 'Customer #${booking.customerId.length > 8 ? booking.customerId.substring(0, 8) : booking.customerId}')
+            : 'Rahul Sharma');
+    const customerPhone = '+91 98765 43210 • Verified License';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,16 +577,16 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                       child: const Icon(Icons.person_rounded, color: Color(0xFF0066FF), size: 24),
                     ),
                     const Gap(12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Rahul Sharma',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            customerName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          Text(
-                            '+91 98765 43210 • Verified License',
+                          const Text(
+                            customerPhone,
                             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                           ),
                         ],
@@ -550,8 +609,8 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMetaBlock('Vehicle Model', 'Hyundai Creta SX(O)'),
-                    _buildMetaBlock('Plate Number', 'MH 12 CD 5678'),
+                    _buildMetaBlock('Vehicle Model', vehicleModel),
+                    _buildMetaBlock('Plate Number', plateNumber),
                   ],
                 ),
                 const Gap(12),

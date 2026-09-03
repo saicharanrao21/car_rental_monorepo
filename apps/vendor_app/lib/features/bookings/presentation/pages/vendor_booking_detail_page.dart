@@ -345,6 +345,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                           const Gap(12),
                           _buildDropoffLocationCard(context, booking),
                         ],
+                        _buildFulfillmentPayoutCard(booking),
                         const Divider(height: 20),
                         _buildInfoRow(Icons.work_outline, 'Trip Type', booking.tripType),
                       ],
@@ -1191,6 +1192,116 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     );
   }
 
+  Widget _buildFulfillmentPayoutCard(BookingModel booking) {
+    final deliveryFee = booking.deliveryFee ?? 0.0;
+    final pickupFee = booking.pickupFee ?? 0.0;
+    final returnFee = booking.returnFee ?? 0.0;
+    final oneWayFee = booking.oneWayFee ?? 0.0;
+
+    final hasFulfillmentFees = deliveryFee > 0 || pickupFee > 0 || returnFee > 0 || oneWayFee > 0;
+    if (!hasFulfillmentFees) {
+      return const SizedBox.shrink();
+    }
+
+    final totalFulfillmentRevenue = deliveryFee + pickupFee + returnFee + oneWayFee;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.monetization_on_outlined, size: 16, color: Color(0xFF166534)),
+                  Gap(6),
+                  Text(
+                    'FULFILLMENT REVENUE BREAKDOWN',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF166534),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Text(
+                  '+₹${totalFulfillmentRevenue.toInt()} Earned',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF166534),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Gap(8),
+          if (deliveryFee > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  Text('+₹${deliveryFee.toInt()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                ],
+              ),
+            ),
+          if (pickupFee > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Collection Fee / Pickup Fee', style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  Text('+₹${pickupFee.toInt()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                ],
+              ),
+            ),
+          if (oneWayFee > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('One-Way Relocation Fee', style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  Text('+₹${oneWayFee.toInt()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                ],
+              ),
+            ),
+          if (returnFee > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Hub Fee / Return Fee', style: TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                  Text('+₹${returnFee.toInt()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFulfillmentBadge(BookingModel booking) {
     final isDoorstep = booking.deliveryType == 'DOORSTEP_DELIVERY' || booking.deliveryAddress != null;
     final isTransit = booking.deliveryType == 'PUBLIC_LOCATION' ||
@@ -1208,12 +1319,12 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
       fg = const Color(0xFF3730A3);
       icon = Icons.local_shipping_outlined;
     } else if (isTransit) {
-      label = 'TRANSIT HUB';
+      label = 'TRANSIT HUB / PUBLIC LOCATION';
       bg = const Color(0xFFF3E8FF);
       fg = const Color(0xFF6B21A8);
       icon = Icons.connecting_airports_outlined;
     } else if (isDiffReturn) {
-      label = 'BRANCH RELOCATION';
+      label = 'DIFFERENT RETURN BRANCH';
       bg = const Color(0xFFFEF3C7);
       fg = const Color(0xFF92400E);
       icon = Icons.alt_route_outlined;
