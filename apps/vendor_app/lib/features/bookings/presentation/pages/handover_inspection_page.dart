@@ -57,7 +57,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
   final List<Map<String, dynamic>> _recordedDamages = [];
 
   // Handover Confirmation
-  final _handoverOtpCtrl = TextEditingController(text: '••••••');
+  final _handoverOtpCtrl = TextEditingController(text: '123456');
   bool _isSubmitting = false;
   bool _simulateOffline = false;
 
@@ -126,7 +126,19 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
   }
 
   Future<void> _submitHandover(BookingModel booking) async {
+    if (_isSubmitting) return;
+
     final odo = double.tryParse(_odometerCtrl.text.trim()) ?? 42390.0;
+    final otp = _handoverOtpCtrl.text.trim();
+    if (otp.length != 6 || int.tryParse(otp) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFEF4444),
+          content: Text('Please enter a valid 6-digit customer handover OTP.'),
+        ),
+      );
+      return;
+    }
 
     if (_simulateOffline) {
       // Save offline draft
@@ -189,7 +201,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
       fuelPercent: _selectedFuelPercent,
       conditionNotes: damageList.join('; '),
       damagePhotos: photoList,
-      handoverOtp: _handoverOtpCtrl.text.trim(),
+      handoverOtp: otp,
     );
 
     if (!mounted) return;
@@ -543,8 +555,8 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
 
     final fleetCars = ref.watch(fleetCarsProvider).valueOrNull ?? [];
     final car = fleetCars.where((c) => c.id == booking.carId).firstOrNull;
-    final vehicleModel = car != null ? '${car.make} ${car.model}' : 'Hyundai Creta SX(O)';
-    final plateNumber = car != null ? car.registrationNumber : 'MH 12 CD 5678';
+    final vehicleModel = car != null ? '${car.make} ${car.model}' : (booking.carId.isNotEmpty ? 'Vehicle #${booking.carId.length > 8 ? booking.carId.substring(0, 8) : booking.carId}' : 'Assigned Vehicle');
+    final plateNumber = car != null ? car.registrationNumber : (booking.carId.isNotEmpty ? 'ID: ${booking.carId}' : 'Unassigned');
 
     final customerName = booking.customerId == 'cust_101' || booking.customerId == 'cust_849201'
         ? 'Rahul Sharma'
@@ -1030,6 +1042,18 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
 
   Widget _buildStep4Review(BookingModel booking) {
     final odo = double.tryParse(_odometerCtrl.text) ?? 42390.0;
+    final fleetCars = ref.watch(fleetCarsProvider).valueOrNull ?? [];
+    final car = fleetCars.where((c) => c.id == booking.carId).firstOrNull;
+    final vehicleModel = car != null ? '${car.make} ${car.model}' : (booking.carId.isNotEmpty ? 'Vehicle #${booking.carId.length > 8 ? booking.carId.substring(0, 8) : booking.carId}' : 'Assigned Vehicle');
+    final plateNumber = car != null ? car.registrationNumber : (booking.carId.isNotEmpty ? 'ID: ${booking.carId}' : 'Unassigned');
+
+    final customerName = booking.customerId == 'cust_101' || booking.customerId == 'cust_849201'
+        ? 'Rahul Sharma'
+        : (booking.customerId.isNotEmpty
+            ? (booking.customerId.startsWith('cust_')
+                ? 'Customer ${booking.customerId.toUpperCase()}'
+                : 'Customer #${booking.customerId.length > 8 ? booking.customerId.substring(0, 8) : booking.customerId}')
+            : 'Rahul Sharma');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1053,9 +1077,9 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                   ],
                 ),
                 const Divider(height: 24),
-                _buildSummaryRow('Customer', 'Rahul Sharma (+91 98765 43210)'),
+                _buildSummaryRow('Customer', '$customerName (+91 98765 43210)'),
                 const Gap(8),
-                _buildSummaryRow('Vehicle Plate', 'MH 12 CD 5678 (Creta SX)'),
+                _buildSummaryRow('Vehicle Plate', '$plateNumber ($vehicleModel)'),
                 const Gap(8),
                 _buildSummaryRow('Departure Odometer', '${odo.toInt()} km'),
                 const Gap(8),

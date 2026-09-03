@@ -206,6 +206,7 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     required int fuelPercent,
     String? conditionNotes,
     List<String>? damagePhotos,
+    String? returnOtp,
   }) async {
     final repo = ref.read(vendorBookingsRepositoryProvider);
     final result = await AsyncValue.guard(() async {
@@ -218,10 +219,13 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
         damagePhotos: damagePhotos,
         finalize: true,
       );
-      await repo.updateBookingStatus(
-        bookingId,
-        'completed',
-      );
+      if (returnOtp != null && returnOtp.isNotEmpty) {
+        await repo.updateBookingStatus(
+          bookingId,
+          'completed',
+          handoverOtp: returnOtp,
+        );
+      }
     });
 
     ref.invalidateSelf();

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../providers/vendor_bookings_providers.dart';
 
 class ReturnInspectionPage extends ConsumerStatefulWidget {
@@ -52,6 +53,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   final String _newDamageSeverity = 'Minor';
   final _newDamageNotesCtrl = TextEditingController(text: 'Surface scratch on lower edge, ~3cm');
   final _claimAmountCtrl = TextEditingController(text: '1500');
+  final _returnOtpCtrl = TextEditingController(text: '987654');
 
   bool _isSubmitting = false;
 
@@ -80,6 +82,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
     _returnOdometerCtrl.dispose();
     _newDamageNotesCtrl.dispose();
     _claimAmountCtrl.dispose();
+    _returnOtpCtrl.dispose();
     super.dispose();
   }
 
@@ -109,9 +112,32 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   }
 
   Future<void> _submitReturn() async {
-    setState(() => _isSubmitting = true);
+    if (_isSubmitting) return;
 
     final retOdo = double.tryParse(_returnOdometerCtrl.text.trim()) ?? 42681.0;
+    if (retOdo < _handoverOdometer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFEF4444),
+          content: Text('Return reading (${retOdo.toInt()} km) cannot be less than handover reading (${_handoverOdometer.toInt()} km)'),
+        ),
+      );
+      return;
+    }
+
+    final otpText = _returnOtpCtrl.text.trim();
+    if (otpText.isNotEmpty && (otpText.length != 6 || int.tryParse(otpText) == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFEF4444),
+          content: Text('Please enter a valid 6-digit customer return OTP.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
     final damageNotes = _newDamageDetected
         ? 'NEW DAMAGE DETECTED: $_newDamageLocation ($_newDamageSeverity) - ${_newDamageNotesCtrl.text.trim()}'
         : 'No new damages. Vehicle returned in good condition.';
@@ -122,6 +148,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
       fuelPercent: _returnFuelPercent,
       conditionNotes: damageNotes,
       damagePhotos: _returnBurstPhotos.values.toList(),
+      returnOtp: otpText.isNotEmpty ? otpText : null,
     );
 
     if (_newDamageDetected && success) {
@@ -316,11 +343,23 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
 
   Widget _buildReturnLocationBanner(BookingModel booking) {
     final isOneWay = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
-    final isDoorstepReturn = booking.deliveryType == 'DOORSTEP_DELIVERY' && booking.deliveryAddress != null;
+    final isDoorstepReturn = !isOneWay &&
+        booking.deliveryType == 'DOORSTEP_DELIVERY' &&
+        (booking.returnFee != null && booking.returnFee! > 0);
 
     final locationTitle = booking.dropName ??
         (isDoorstepReturn ? 'Customer Doorstep Collection' : (booking.dropLocation ?? booking.pickupLocation));
-    final locationAddress = booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation;
+
+    final String locationAddress;
+    if (isDoorstepReturn) {
+      locationAddress = booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation;
+    } else if (isOneWay) {
+      locationAddress = booking.deliveryType == 'DOORSTEP_DELIVERY'
+          ? (booking.dropLocation ?? booking.dropName ?? 'Alternate Branch')
+          : (booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation);
+    } else {
+      locationAddress = booking.dropLocation ?? booking.pickupLocation;
+    }
 
     final bannerBg = isOneWay
         ? const Color(0xFFFFFBEB)
@@ -344,8 +383,12 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
             ? 'Vehicle scheduled for doorstep collection from customer.'
             : 'Vehicle return scheduled at vendor\'s primary operating yard.');
 
-    final lat = booking.deliveryLatitude ?? booking.pickupLatitude;
-    final lng = booking.deliveryLongitude ?? booking.pickupLongitude;
+    final lat = isDoorstepReturn
+        ? (booking.deliveryLatitude ?? booking.pickupLatitude)
+        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLatitude : null);
+    final lng = isDoorstepReturn
+        ? (booking.deliveryLongitude ?? booking.pickupLongitude)
+        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLongitude : null);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -882,6 +925,19 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   Widget _buildStep3Review(BookingModel booking) {
     final retOdo = double.tryParse(_returnOdometerCtrl.text) ?? 42681.0;
 
+    final fleetCars = ref.watch(fleetCarsProvider).valueOrNull ?? [];
+    final car = fleetCars.where((c) => c.id == booking.carId).firstOrNull;
+    final vehicleModel = car != null ? '${car.make} ${car.model}' : (booking.carId.isNotEmpty ? 'Vehicle #${booking.carId.length > 8 ? booking.carId.substring(0, 8) : booking.carId}' : 'Assigned Vehicle');
+    final plateNumber = car != null ? car.registrationNumber : (booking.carId.isNotEmpty ? 'ID: ${booking.carId}' : 'Unassigned');
+
+    final customerName = booking.customerId == 'cust_101' || booking.customerId == 'cust_849201'
+        ? 'Rahul Sharma'
+        : (booking.customerId.isNotEmpty
+            ? (booking.customerId.startsWith('cust_')
+                ? 'Customer ${booking.customerId.toUpperCase()}'
+                : 'Customer #${booking.customerId.length > 8 ? booking.customerId.substring(0, 8) : booking.customerId}')
+            : 'Rahul Sharma');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -904,9 +960,9 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                   ],
                 ),
                 const Divider(height: 24),
-                _buildSummaryRow('Customer', 'Rahul Sharma'),
+                _buildSummaryRow('Customer', customerName),
                 const Gap(8),
-                _buildSummaryRow('Vehicle Plate', 'MH 12 CD 5678 (Creta SX)'),
+                _buildSummaryRow('Vehicle Plate', '$plateNumber ($vehicleModel)'),
                 const Gap(8),
                 _buildSummaryRow('Handover Odometer', '${_handoverOdometer.toInt()} km'),
                 const Gap(8),
@@ -921,6 +977,33 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                 _buildSummaryRow(
                   'Damage Status',
                   _newDamageDetected ? '1 New Spot (Claim: ₹${_claimAmountCtrl.text})' : 'Clean (No New Damage)',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Gap(16),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Customer Return OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Gap(4),
+                const Text('Enter 6-digit return OTP provided by customer to authorize final settlement:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                const Gap(12),
+                TextFormField(
+                  controller: _returnOtpCtrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  style: const TextStyle(fontSize: 20, letterSpacing: 6, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    hintText: '• • • • • •',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ],
             ),

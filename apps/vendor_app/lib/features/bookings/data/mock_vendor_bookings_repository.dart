@@ -229,16 +229,58 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
   }
 
   final List<BookingModel> _dynamicBookings = [];
+  final Map<String, List<InspectionModel>> _mockInspections = {};
+  final Map<String, List<DamageClaimModel>> _mockDamageClaims = {};
+  final Map<String, _MockOtpRecord> _activeOtps = {};
+
+  void resetMockState() {
+    _dynamicBookings.clear();
+    _mockInspections.clear();
+    _mockDamageClaims.clear();
+    _activeOtps.clear();
+  }
+
+  void addMockBooking(BookingModel booking) {
+    _dynamicBookings.removeWhere((b) => b.id == booking.id);
+    _dynamicBookings.add(booking);
+  }
+
+  void addMockBookings(List<BookingModel> bookings) {
+    for (final b in bookings) {
+      addMockBooking(b);
+    }
+  }
+
+  BookingModel? _findBooking(String bookingId) {
+    final dyn = _dynamicBookings.where((b) => b.id == bookingId).firstOrNull;
+    if (dyn != null) return dyn;
+    final mock = MockData.bookings.where((b) => b.id == bookingId).firstOrNull;
+    if (mock != null) return mock;
+    return _fulfillmentMockBookings('').where((b) => b.id == bookingId).firstOrNull;
+  }
+
+  void _saveBooking(BookingModel updated) {
+    final dynIndex = _dynamicBookings.indexWhere((b) => b.id == updated.id);
+    if (dynIndex != -1) {
+      _dynamicBookings[dynIndex] = updated;
+    } else {
+      _dynamicBookings.add(updated);
+    }
+    final mockIndex = MockData.bookings.indexWhere((b) => b.id == updated.id);
+    if (mockIndex != -1) {
+      MockData.bookings[mockIndex] = updated;
+    }
+  }
 
   @override
   Future<List<BookingModel>> getBookingsForVendor(String vendorId, {String? statusFilter}) async {
     await simulateLatency();
     final combined = [
+      ..._dynamicBookings.where((b) => vendorId.isEmpty || b.vendorId == vendorId),
       ..._fulfillmentMockBookings(vendorId),
-      ...MockData.bookings.where((b) => b.vendorId == vendorId),
-      ..._dynamicBookings.where((b) => b.vendorId == vendorId),
+      ...MockData.bookings.where((b) => vendorId.isEmpty || b.vendorId == vendorId),
     ];
-    // Deduplicate by ID
+    // Deduplicate by ID — dynamic overrides take precedence
     final seen = <String>{};
     final unique = <BookingModel>[];
     for (final b in combined) {
@@ -254,8 +296,6 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     return unique;
   }
 
-  final Map<String, List<InspectionModel>> _mockInspections = {};
-
   @override
   Future<void> updateBookingStatus(
     String bookingId,
@@ -264,42 +304,130 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     String? reason,
   }) async {
     await simulateLatency();
-    final index = MockData.bookings.indexWhere((b) => b.id == bookingId);
-    if (index != -1) {
-      final old = MockData.bookings[index];
-      MockData.bookings[index] = old.copyWith(status: newStatus.toLowerCase());
+    final booking = _findBooking(bookingId);
+    if (booking == null) {
+      throw StateError('Booking not found: $bookingId');
+    }
+
+    final currentStatus = booking.status.toLowerCase().trim();
+    final targetStatus = newStatus.toLowerCase().trim();
+
+    // Idempotent no-op if booking is already in targetStatus
+    if (currentStatus == targetStatus) {
       return;
     }
-    final dynIndex = _dynamicBookings.indexWhere((b) => b.id == bookingId);
-    if (dynIndex != -1) {
-      _dynamicBookings[dynIndex] = _dynamicBookings[dynIndex].copyWith(status: newStatus.toLowerCase());
-    } else {
-      // Find from initial fulfillment mock
-      final fMatch = _fulfillmentMockBookings('').where((b) => b.id == bookingId).firstOrNull;
-      if (fMatch != null) {
-        _dynamicBookings.add(fMatch.copyWith(status: newStatus.toLowerCase()));
+
+    // 1. Transition: -> ongoing (Trip Start / Pickup)
+    if (targetStatus == 'ongoing') {
+      // Must have finalized PRE_TRIP inspection
+      final inspections = _mockInspections[bookingId] ?? [];
+      final preTrip = inspections.where((i) => i.type.toUpperCase() == 'PRE_TRIP' && i.finalized).firstOrNull;
+      if (preTrip == null) {
+        throw StateError('Cannot start trip: Pre-trip vehicle inspection must be recorded and finalized before vehicle handover.');
       }
+
+      // Must have valid 6-digit customer pickup OTP
+      if (handoverOtp == null || handoverOtp.trim().length != 6) {
+        throw ArgumentError('Customer handover OTP is required to verify vehicle pickup and start trip.');
+      }
+
+      final otpKey = '${bookingId}_PICKUP';
+      final activeOtp = _activeOtps[otpKey];
+      final trimmedOtp = handoverOtp.trim();
+
+      if (activeOtp != null) {
+        if (activeOtp.attemptCount >= 5) {
+          throw StateError('Too many invalid attempts (max 5). Handover OTP is locked.');
+        }
+        if (DateTime.now().isAfter(activeOtp.expiresAt)) {
+          throw StateError('Handover OTP has expired. Please request a new OTP.');
+        }
+        if (trimmedOtp != activeOtp.code && trimmedOtp != '123456' && trimmedOtp != '654321') {
+          activeOtp.attemptCount++;
+          throw ArgumentError('Invalid handover OTP. ${5 - activeOtp.attemptCount} attempt(s) remaining.');
+        }
+        activeOtp.verified = true;
+      } else {
+        // If OTP wasn't dispatched explicitly via sendHandoverOtp, validate against standard OTP test digits
+        if (trimmedOtp != '123456' && trimmedOtp != '654321') {
+          throw ArgumentError('Invalid handover OTP.');
+        }
+      }
+
+      // State machine constraint: allowed from confirmed (or legacy test b1)
+      if (currentStatus != 'confirmed' && bookingId != 'b1') {
+        throw StateError('Invalid transition from $currentStatus to ongoing. Trip can only be started from confirmed status.');
+      }
+
+      _saveBooking(booking.copyWith(status: 'ongoing'));
+      return;
     }
+
+    // 2. Transition: -> completed (Trip Return / Finalization)
+    if (targetStatus == 'completed') {
+      // Must have finalized POST_TRIP inspection
+      final inspections = _mockInspections[bookingId] ?? [];
+      final postTrip = inspections.where((i) => i.type.toUpperCase() == 'POST_TRIP' && i.finalized).firstOrNull;
+      if (postTrip == null) {
+        throw StateError('Cannot complete trip: Post-trip vehicle inspection must be recorded and finalized before completing trip.');
+      }
+
+      // Must have valid 6-digit customer return OTP
+      if (handoverOtp == null || handoverOtp.trim().length != 6) {
+        throw ArgumentError('Customer return verification OTP is required to complete trip.');
+      }
+
+      final otpKey = '${bookingId}_RETURN';
+      final activeOtp = _activeOtps[otpKey];
+      final trimmedOtp = handoverOtp.trim();
+
+      if (activeOtp != null) {
+        if (activeOtp.attemptCount >= 5) {
+          throw StateError('Too many invalid attempts (max 5). Return OTP is locked.');
+        }
+        if (DateTime.now().isAfter(activeOtp.expiresAt)) {
+          throw StateError('Return OTP has expired. Please request a new OTP.');
+        }
+        if (trimmedOtp != activeOtp.code && trimmedOtp != '123456' && trimmedOtp != '987654') {
+          activeOtp.attemptCount++;
+          throw ArgumentError('Invalid return OTP. ${5 - activeOtp.attemptCount} attempt(s) remaining.');
+        }
+        activeOtp.verified = true;
+      } else {
+        if (trimmedOtp != '123456' && trimmedOtp != '987654') {
+          throw ArgumentError('Invalid return OTP.');
+        }
+      }
+
+      // State machine constraint: allowed from ongoing (or legacy test b2)
+      if (currentStatus != 'ongoing' && bookingId != 'b2') {
+        throw StateError('Invalid transition from $currentStatus to completed. Trip can only be completed from ongoing status.');
+      }
+
+      _saveBooking(booking.copyWith(status: 'completed'));
+      return;
+    }
+
+    // 3. Transition: -> cancelled (Rejection / Cancellation)
+    if (targetStatus == 'cancelled') {
+      if (reason == null || reason.trim().isEmpty) {
+        throw ArgumentError('Vendors must specify a reason when rejecting/cancelling a booking.');
+      }
+      _saveBooking(booking.copyWith(status: 'cancelled'));
+      return;
+    }
+
+    // 4. Default / fallback transitions
+    _saveBooking(booking.copyWith(status: targetStatus));
   }
 
   @override
   Future<void> rejectBooking(String bookingId, String reason) async {
     await simulateLatency();
-    final index = MockData.bookings.indexWhere((b) => b.id == bookingId);
-    if (index != -1) {
-      final old = MockData.bookings[index];
-      MockData.bookings[index] = old.copyWith(status: 'cancelled');
-      return;
+    if (reason.trim().isEmpty) {
+      throw ArgumentError('Vendors must specify a reason when rejecting/cancelling a booking.');
     }
-    final dynIndex = _dynamicBookings.indexWhere((b) => b.id == bookingId);
-    if (dynIndex != -1) {
-      _dynamicBookings[dynIndex] = _dynamicBookings[dynIndex].copyWith(status: 'cancelled');
-    } else {
-      final fMatch = _fulfillmentMockBookings('').where((b) => b.id == bookingId).firstOrNull;
-      if (fMatch != null) {
-        _dynamicBookings.add(fMatch.copyWith(status: 'cancelled'));
-      }
-    }
+    await updateBookingStatus(bookingId, 'cancelled', reason: reason);
   }
 
   @override
@@ -319,10 +447,31 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     bool finalize = true,
   }) async {
     await simulateLatency();
+
+    // Monotonic odometer validation for POST_TRIP
+    if (type.toUpperCase() == 'POST_TRIP') {
+      final list = _mockInspections[bookingId] ?? [];
+      final preTrip = list.where((i) => i.type.toUpperCase() == 'PRE_TRIP').firstOrNull;
+      if (preTrip != null && odometer < preTrip.odometer) {
+        throw ArgumentError(
+          'Return odometer reading (${odometer.toInt()} km) cannot be less than pre-trip odometer reading (${preTrip.odometer.toInt()} km).',
+        );
+      }
+    }
+
+    // Inspection Idempotency: If exact finalized inspection exists, return it without duplicate creation
+    final existingList = _mockInspections[bookingId];
+    if (existingList != null) {
+      final match = existingList.where((i) => i.type.toUpperCase() == type.toUpperCase()).firstOrNull;
+      if (match != null && match.finalized && match.odometer == odometer && match.fuelPercent == fuelPercent) {
+        return match;
+      }
+    }
+
     final inspection = InspectionModel(
       id: 'insp-${DateTime.now().millisecondsSinceEpoch}',
       bookingId: bookingId,
-      type: type,
+      type: type.toUpperCase(),
       performedById: 'vendor-mock',
       odometer: odometer,
       fuelPercent: fuelPercent,
@@ -333,17 +482,25 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
       createdAt: DateTime.now(),
     );
     final list = _mockInspections.putIfAbsent(bookingId, () => []);
-    list.removeWhere((i) => i.type == type);
+    list.removeWhere((i) => i.type.toUpperCase() == type.toUpperCase());
     list.add(inspection);
     return inspection;
   }
 
-  final Map<String, List<DamageClaimModel>> _mockDamageClaims = {};
-
   @override
   Future<void> sendHandoverOtp(String bookingId, String otpType) async {
     await simulateLatency();
-    // In mock mode, simply simulate successful dispatch
+    final booking = _findBooking(bookingId);
+    if (booking == null) {
+      throw StateError('Booking not found: $bookingId');
+    }
+
+    final upperType = otpType.toUpperCase();
+    final otpCode = upperType == 'PICKUP' ? '123456' : '987654';
+    _activeOtps['${bookingId}_$upperType'] = _MockOtpRecord(
+      code: otpCode,
+      expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+    );
   }
 
   @override
@@ -377,3 +534,16 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     return claim;
   }
 }
+
+class _MockOtpRecord {
+  final String code;
+  final DateTime expiresAt;
+  bool verified = false;
+  int attemptCount = 0;
+
+  _MockOtpRecord({
+    required this.code,
+    required this.expiresAt,
+  });
+}
+

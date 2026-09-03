@@ -93,8 +93,10 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     required String targetStatus,
     required String successMessage,
   }) async {
+    if (_isLoadingAction) return;
+
     final otp = _otpCtrl.text.trim();
-    if (otp.length != 6) {
+    if (otp.length != 6 || int.tryParse(otp) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter the complete 6-digit customer handover OTP')),
       );
@@ -126,8 +128,9 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Handover verification failed. Please ensure the inspection is finalized and OTP is correct.'),
+          SnackBar(
+            backgroundColor: Colors.red[800],
+            content: Text('${targetStatus == 'ongoing' ? 'Pickup' : 'Return'} verification failed. Please ensure the inspection is finalized and OTP is correct.'),
           ),
         );
       }
@@ -1377,14 +1380,39 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
   }
 
   Widget _buildDropoffLocationCard(BuildContext context, BookingModel booking) {
-    final isOneWay = (booking.oneWayFee ?? 0) > 0;
-    final dropName = booking.dropName ?? booking.dropLocation ?? 'Same Location';
-    final header = isOneWay ? 'DIFFERENT RETURN BRANCH' : 'RETURN / DROP-OFF LOCATION';
-    final address = booking.deliveryAddress ?? booking.dropLocation;
-    final subtitle = isOneWay ? 'Vehicle will be returned at alternate branch' : 'Scheduled vehicle return';
+    final isOneWay = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
+    final isDoorstepReturn = !isOneWay &&
+        booking.deliveryType == 'DOORSTEP_DELIVERY' &&
+        (booking.returnFee != null && booking.returnFee! > 0);
+    final dropName = booking.dropName ?? (isDoorstepReturn ? 'Customer Doorstep Collection' : (booking.dropLocation ?? 'Same Location'));
+    final header = isOneWay
+        ? 'DIFFERENT RETURN BRANCH'
+        : (isDoorstepReturn ? 'DOORSTEP RETURN DESTINATION' : 'RETURN / DROP-OFF LOCATION');
+
+    final String? address;
+    if (isDoorstepReturn) {
+      address = booking.deliveryAddress ?? booking.dropLocation;
+    } else if (isOneWay) {
+      address = booking.deliveryType == 'DOORSTEP_DELIVERY'
+          ? (booking.dropLocation ?? booking.dropName ?? 'Alternate Return Branch')
+          : (booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation);
+    } else {
+      address = booking.dropLocation ?? booking.pickupLocation;
+    }
+
+    final subtitle = isOneWay
+        ? 'Vehicle will be returned at alternate branch'
+        : (isDoorstepReturn ? 'Vehicle collection from customer address' : 'Scheduled vehicle return');
     final feeBadge = isOneWay
         ? '+₹${booking.oneWayFee!.toInt()} Relocation'
         : ((booking.returnFee ?? 0) > 0 ? '+₹${booking.returnFee!.toInt()} Return Fee' : null);
+
+    final double? lat = isDoorstepReturn
+        ? booking.deliveryLatitude
+        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLatitude : null);
+    final double? lng = isDoorstepReturn
+        ? booking.deliveryLongitude
+        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLongitude : null);
 
     return _buildLocationActionCard(
       context,
@@ -1392,8 +1420,10 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
       dropName,
       subtitle,
       const Color(0xFF059669),
-      isOneWay ? Icons.alt_route_outlined : Icons.location_on,
+      isOneWay ? Icons.alt_route_outlined : (isDoorstepReturn ? Icons.local_shipping_outlined : Icons.location_on),
       address: address,
+      latitude: lat,
+      longitude: lng,
       feeBadge: feeBadge,
     );
   }
