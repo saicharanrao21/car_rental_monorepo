@@ -283,6 +283,15 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
     DateTime? endDate,
     String contactName = '',
     String contactPhone = '',
+    String? pickupHubId,
+    String? returnHubId,
+    String? pickupAddress,
+    double? pickupLatitude,
+    double? pickupLongitude,
+    double pickupFee = 0.0,
+    double returnFee = 0.0,
+    String? pickupName,
+    String? dropName,
   }) {
     MileagePackageModel? defaultPackage;
     if (car.rawMileagePackages.isNotEmpty) {
@@ -310,6 +319,15 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
       selectedMileagePackage: defaultPackage,
       contactName: contactName,
       contactPhone: contactPhone,
+      pickupHubId: pickupHubId,
+      returnHubId: returnHubId,
+      pickupAddress: pickupAddress,
+      pickupLatitude: pickupLatitude,
+      pickupLongitude: pickupLongitude,
+      pickupFee: pickupFee,
+      returnFee: returnFee,
+      pickupName: pickupName ?? (pickupLocation.isNotEmpty ? pickupLocation : null),
+      dropName: dropName ?? (dropLocation.isNotEmpty ? dropLocation : null),
     );
   }
 

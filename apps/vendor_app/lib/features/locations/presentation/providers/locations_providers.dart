@@ -127,7 +127,13 @@ class VendorDeliveryPolicyNotifier extends StateNotifier<AsyncValue<VendorDelive
     state = const AsyncValue.loading();
     try {
       final client = ref.read(apiClientProvider).dio;
-      final response = await client.get('/locations/vendors/me/policy');
+      // Canonical endpoint with fallback to legacy policy alias
+      dynamic response;
+      try {
+        response = await client.get('/locations/vendors/me/delivery-policy');
+      } catch (_) {
+        response = await client.get('/locations/vendors/me/policy');
+      }
       if (response.statusCode == 200) {
         state = AsyncValue.data(
           VendorDeliveryPolicyModel.fromJson(response.data as Map<String, dynamic>),
@@ -139,12 +145,22 @@ class VendorDeliveryPolicyNotifier extends StateNotifier<AsyncValue<VendorDelive
   }
 
   Future<void> updatePolicy(VendorDeliveryPolicyModel updated) async {
-    final client = ref.read(apiClientProvider).dio;
-    final response = await client.put('/locations/vendors/me/policy', data: updated.toJson());
-    if (response.statusCode == 200) {
-      state = AsyncValue.data(
-        VendorDeliveryPolicyModel.fromJson(response.data as Map<String, dynamic>),
-      );
+    try {
+      final client = ref.read(apiClientProvider).dio;
+      dynamic response;
+      try {
+        response = await client.put('/locations/vendors/me/delivery-policy', data: updated.toJson());
+      } catch (_) {
+        response = await client.put('/locations/vendors/me/policy', data: updated.toJson());
+      }
+      if (response.statusCode == 200) {
+        state = AsyncValue.data(
+          VendorDeliveryPolicyModel.fromJson(response.data as Map<String, dynamic>),
+        );
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 }
@@ -157,26 +173,22 @@ final vendorDeliveryPolicyProvider =
 final vendorLocationMatrixProvider =
     FutureProvider.autoDispose<List<LocationMatrixItemModel>>((ref) async {
   final client = ref.read(apiClientProvider).dio;
-  try {
-    final response = await client.get('/locations/vendors/me/matrix');
-    if (response.statusCode == 200) {
-      return (response.data as List<dynamic>)
-          .map((json) => LocationMatrixItemModel.fromJson(json as Map<String, dynamic>))
-          .toList();
-    }
-  } catch (_) {}
+  final response = await client.get('/locations/vendors/me/matrix');
+  if (response.statusCode == 200 && response.data is List) {
+    return (response.data as List<dynamic>)
+        .map((json) => LocationMatrixItemModel.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
   return [];
 });
 
 final locationOperationsSummaryProvider =
     FutureProvider.autoDispose<LocationOperationsSummaryModel>((ref) async {
   final client = ref.read(apiClientProvider).dio;
-  try {
-    final response = await client.get('/locations/vendors/me/operations-summary');
-    if (response.statusCode == 200) {
-      return LocationOperationsSummaryModel.fromJson(response.data as Map<String, dynamic>);
-    }
-  } catch (_) {}
+  final response = await client.get('/locations/vendors/me/operations-summary');
+  if (response.statusCode == 200 && response.data is Map) {
+    return LocationOperationsSummaryModel.fromJson(response.data as Map<String, dynamic>);
+  }
   return const LocationOperationsSummaryModel(
     locations: [],
     totalTodayPickups: 0,
@@ -188,14 +200,12 @@ final locationOperationsSummaryProvider =
 final publicLocationCatalogProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final client = ref.read(apiClientProvider).dio;
-  try {
-    final response = await client.get('/locations/public/catalog');
-    if (response.statusCode == 200) {
-      return (response.data as List<dynamic>)
-          .map((json) => json as Map<String, dynamic>)
-          .toList();
-    }
-  } catch (_) {}
+  final response = await client.get('/locations/public/catalog');
+  if (response.statusCode == 200 && response.data is List) {
+    return (response.data as List<dynamic>)
+        .map((json) => json as Map<String, dynamic>)
+        .toList();
+  }
   return [];
 });
 

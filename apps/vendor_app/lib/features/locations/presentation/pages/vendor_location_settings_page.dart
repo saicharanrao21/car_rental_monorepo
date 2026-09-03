@@ -78,14 +78,10 @@ class _VendorLocationSettingsPageState
             return _buildEmptyState();
           }
 
-          final policy = policyAsync.value ??
-              const VendorDeliveryPolicyModel(
-                vendorId: 'v_1',
-                deliveryEnabled: true,
-                maxDeliveryRadiusKm: 15.0,
-                pricingModel: DeliveryPricingModel.fixed,
-                baseDeliveryFee: 300.0,
-              );
+          final policy = policyAsync.value;
+          if (policy == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           return SingleChildScrollView(
             controller: _scrollController,
@@ -687,16 +683,30 @@ class _VendorLocationSettingsPageState
   }
 
   Future<void> _saveSettings() async {
+    final policy = ref.read(vendorDeliveryPolicyProvider).value;
+    if (policy == null) return;
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location & delivery settings saved successfully!'),
-          backgroundColor: Color(0xFF059669),
-        ),
-      );
+    try {
+      await ref.read(vendorDeliveryPolicyProvider.notifier).updatePolicy(policy);
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location & delivery settings saved successfully!'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+      }
+    } catch (err) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save settings: ${err.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
     }
   }
 }

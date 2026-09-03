@@ -257,6 +257,28 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                           widget.pickupController.text = loc;
                         });
                       },
+                      onStructuredLocationSelected: ({
+                        required name,
+                        id,
+                        address,
+                        type,
+                        lat,
+                        lng,
+                        fee,
+                        operatingHours,
+                      }) {
+                        ref.read(structuredPickupLocationProvider.notifier).state =
+                            StructuredLocationData(
+                          name: name,
+                          id: id,
+                          address: address,
+                          type: type,
+                          lat: lat,
+                          lng: lng,
+                          fee: fee,
+                          operatingHours: operatingHours,
+                        );
+                      },
                     );
                   },
                   child: AbsorbPointer(
@@ -291,6 +313,28 @@ class _SearchTripDetailsFormState extends ConsumerState<SearchTripDetailsForm> {
                           setState(() {
                             widget.dropController.text = loc;
                           });
+                        },
+                        onStructuredLocationSelected: ({
+                          required name,
+                          id,
+                          address,
+                          type,
+                          lat,
+                          lng,
+                          fee,
+                          operatingHours,
+                        }) {
+                          ref.read(structuredDropLocationProvider.notifier).state =
+                              StructuredLocationData(
+                            name: name,
+                            id: id,
+                            address: address,
+                            type: type,
+                            lat: lat,
+                            lng: lng,
+                            fee: fee,
+                            operatingHours: operatingHours,
+                          );
                         },
                       );
                     },

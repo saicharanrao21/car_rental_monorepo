@@ -105,57 +105,7 @@ class _LocationSelectionSheetState extends ConsumerState<LocationSelectionSheet>
   String? _statusError;
   LocationDetectionStatus? _lastStatus;
 
-  // Curated fallback popular hubs for major cities
-  static const Map<String, List<String>> _cityPopularHubs = {
-    'Mumbai': [
-      'Chhatrapati Shivaji Maharaj Airport (T2)',
-      'Domestic Airport (T1), Vile Parle',
-      'Bandra Kurla Complex (BKC)',
-      'Andheri West Metro Hub',
-      'Dadar Western Railway Station',
-      'Hiranandani Gardens, Powai',
-      'Lower Parel Business District',
-      'Vashi Sector 17, Navi Mumbai',
-    ],
-    'Delhi': [
-      'Indira Gandhi International Airport (T3)',
-      'Connaught Place Inner Circle',
-      'Cyber City, Gurugram',
-      'Noida Sector 18 Commercial Hub',
-      'New Delhi Railway Station (NDLS)',
-      'Aerocity Hospitality District',
-    ],
-    'Bangalore': [
-      'Kempegowda International Airport',
-      'Indiranagar 100ft Road',
-      'Koramangala 5th Block',
-      'Whitefield ITPL Main Road',
-      'Electronic City Phase 1',
-      'MG Road Metro Station',
-    ],
-    'Pune': [
-      'Pune International Airport, Lohegaon',
-      'Koregaon Park North Main Road',
-      'Hinjawadi IT Park Phase 1',
-      'Viman Nagar Phoenix Mall',
-      'Pune Junction Railway Station',
-      'Baner High Street',
-    ],
-    'Hyderabad': [
-      'Rajiv Gandhi International Airport, Shamshabad',
-      'Hitec City Cyber Towers',
-      'Gachibowli Financial District',
-      'Jubilee Hills Check Post',
-      'Secunderabad Railway Station',
-    ],
-    'Goa': [
-      'Dabolim International Airport (GOI)',
-      'Manohar International Airport (MOPA)',
-      'Panjim City Centre',
-      'Candolim Beach Road',
-      'Madgaon Railway Station',
-    ],
-  };
+
 
   @override
   void initState() {
@@ -613,55 +563,56 @@ class _LocationSelectionSheetState extends ConsumerState<LocationSelectionSheet>
                       ),
                     ],
 
-                    // Popular Hubs in City Section (Live Catalog from Backend + Fallback)
+                    // Popular Hubs in City Section (Live Catalog from Backend)
                     Text(
                       'Popular Hubs in ${widget.city}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
                     ),
                     const Gap(6),
-                    Builder(
-                      builder: (context) {
-                        final items = catalogAsync.valueOrNull;
-                        if (items != null && items.isNotEmpty) {
-                          return Column(
-                            children: items.map((point) {
-                              final name = point['name'] as String? ?? 'Hub';
-                              final category = point['category'] as String? ?? widget.city;
-                              final type = point['type'] as String? ?? '';
-                              final lat = (point['latitude'] as num?)?.toDouble();
-                              final lng = (point['longitude'] as num?)?.toDouble();
-
-                              final isAirport = type == 'AIRPORT' || name.toLowerCase().contains('airport');
-                              final isRailway = type == 'RAILWAY_STATION' || name.toLowerCase().contains('station');
-                              final icon = isAirport
-                                  ? Icons.flight_takeoff_outlined
-                                  : isRailway
-                                      ? Icons.train_outlined
-                                      : Icons.business_outlined;
-
-                              return ListTile(
-                                dense: true,
-                                leading: Icon(icon, color: AppColors.primary, size: 20),
-                                title: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                                subtitle: Text('$category • ${widget.city}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                onTap: () => _selectLocation('$name, ${widget.city}', lat: lat, lng: lng),
-                              );
-                            }).toList(),
+                    catalogAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      error: (err, _) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'Unable to load hubs: $err',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                      data: (items) {
+                        if (items.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: Text(
+                                'No transit hubs listed for ${widget.city}',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ),
                           );
                         }
 
-                        // Fallback to static list if database has not returned or during load
-                        final popularHubs = _cityPopularHubs[widget.city] ??
-                            [
-                              '${widget.city} Central Airport',
-                              '${widget.city} Central Railway Station',
-                              '${widget.city} Downtown Hub',
-                            ];
-
                         return Column(
-                          children: popularHubs.map((hub) {
-                            final isAirport = hub.toLowerCase().contains('airport');
-                            final isRailway = hub.toLowerCase().contains('railway') || hub.toLowerCase().contains('station');
+                          children: items.map((point) {
+                            final name = point['name'] as String? ?? 'Hub';
+                            final category = point['category'] as String? ?? widget.city;
+                            final type = point['type'] as String? ?? '';
+                            final lat = (point['latitude'] as num?)?.toDouble();
+                            final lng = (point['longitude'] as num?)?.toDouble();
+                            final hubId = point['id'] as String?;
+                            final address = point['address'] as String?;
+                            final fee = (point['pickupFee'] as num?)?.toDouble();
+
+                            final isAirport = type == 'AIRPORT' || name.toLowerCase().contains('airport');
+                            final isRailway = type == 'RAILWAY_STATION' || name.toLowerCase().contains('station');
                             final icon = isAirport
                                 ? Icons.flight_takeoff_outlined
                                 : isRailway
@@ -671,9 +622,17 @@ class _LocationSelectionSheetState extends ConsumerState<LocationSelectionSheet>
                             return ListTile(
                               dense: true,
                               leading: Icon(icon, color: AppColors.primary, size: 20),
-                              title: Text(hub, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                              subtitle: Text(widget.city, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                              onTap: () => _selectLocation('$hub, ${widget.city}'),
+                              title: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                              subtitle: Text('$category • ${widget.city}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              onTap: () => _selectLocation(
+                                '$name, ${widget.city}',
+                                lat: lat,
+                                lng: lng,
+                                id: hubId,
+                                address: address,
+                                type: type,
+                                fee: fee,
+                              ),
                             );
                           }).toList(),
                         );

@@ -286,6 +286,11 @@ export class LocationsController {
     return this.locationsService.calculateDeliveryQuote(dto);
   }
 
+  @Post('eligibility')
+  async checkEligibility(@Body() dto: CalculateDeliveryQuoteDto) {
+    return this.locationsService.calculateDeliveryQuote(dto);
+  }
+
   @Post('calculate-delivery-quote')
   async calculateDeliveryQuote(@Body() dto: CalculateDeliveryQuoteDto) {
     return this.locationsService.calculateDeliveryQuote(dto);

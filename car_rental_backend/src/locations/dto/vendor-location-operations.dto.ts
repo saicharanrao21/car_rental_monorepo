@@ -322,6 +322,22 @@ export class CalculateDeliveryQuoteDto {
   @IsString()
   @IsOptional()
   pickupAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  pickupDate?: string;
+
+  @IsString()
+  @IsOptional()
+  returnDate?: string;
+
+  @IsString()
+  @IsOptional()
+  startDate?: string;
+
+  @IsString()
+  @IsOptional()
+  endDate?: string;
 }
 
 export enum LocationExceptionTypeEnum {

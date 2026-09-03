@@ -115,6 +115,28 @@ class HomeTripConfigCard extends ConsumerWidget {
                 onLocationSelected: (loc, {lat, lng}) {
                   ref.read(pickupLocationProvider.notifier).state = loc;
                 },
+                onStructuredLocationSelected: ({
+                  required name,
+                  id,
+                  address,
+                  type,
+                  lat,
+                  lng,
+                  fee,
+                  operatingHours,
+                }) {
+                  ref.read(structuredPickupLocationProvider.notifier).state =
+                      StructuredLocationData(
+                    name: name,
+                    id: id,
+                    address: address,
+                    type: type,
+                    lat: lat,
+                    lng: lng,
+                    fee: fee,
+                    operatingHours: operatingHours,
+                  );
+                },
               );
             },
           ),
@@ -143,6 +165,28 @@ class HomeTripConfigCard extends ConsumerWidget {
                   isDropLocation: true,
                   onLocationSelected: (loc, {lat, lng}) {
                     ref.read(dropLocationProvider.notifier).state = loc;
+                  },
+                  onStructuredLocationSelected: ({
+                    required name,
+                    id,
+                    address,
+                    type,
+                    lat,
+                    lng,
+                    fee,
+                    operatingHours,
+                  }) {
+                    ref.read(structuredDropLocationProvider.notifier).state =
+                        StructuredLocationData(
+                      name: name,
+                      id: id,
+                      address: address,
+                      type: type,
+                      lat: lat,
+                      lng: lng,
+                      fee: fee,
+                      operatingHours: operatingHours,
+                    );
                   },
                 );
               },

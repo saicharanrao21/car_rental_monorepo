@@ -95,6 +95,8 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                   ref.read(searchPickupLocationProvider);
               final drop = ref.read(dropLocationProvider) ??
                   ref.read(searchDropLocationProvider);
+              final structuredPickup = ref.read(structuredPickupLocationProvider);
+              final structuredDrop = ref.read(structuredDropLocationProvider);
 
               ref.read(bookingDraftProvider.notifier).init(
                     car: detail.car,
@@ -106,6 +108,15 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                     endDate: dateRange?.end ?? searchDates?.end,
                     contactName: session.user?.name ?? '',
                     contactPhone: session.user?.phone ?? '',
+                    pickupHubId: structuredPickup?.id,
+                    returnHubId: structuredDrop?.id,
+                    pickupAddress: structuredPickup?.address,
+                    pickupLatitude: structuredPickup?.lat,
+                    pickupLongitude: structuredPickup?.lng,
+                    pickupFee: structuredPickup?.fee ?? 0.0,
+                    returnFee: structuredDrop?.fee ?? 0.0,
+                    pickupName: structuredPickup?.name,
+                    dropName: structuredDrop?.name,
                   );
             });
           }

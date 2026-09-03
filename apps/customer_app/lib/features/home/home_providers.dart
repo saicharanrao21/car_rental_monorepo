@@ -55,3 +55,29 @@ final selectedDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 final pickupLocationProvider = StateProvider<String?>((ref) => null);
 
 final dropLocationProvider = StateProvider<String?>((ref) => null);
+
+class StructuredLocationData {
+  final String name;
+  final String? id;
+  final String? address;
+  final String? type;
+  final double? lat;
+  final double? lng;
+  final double? fee;
+  final String? operatingHours;
+
+  const StructuredLocationData({
+    required this.name,
+    this.id,
+    this.address,
+    this.type,
+    this.lat,
+    this.lng,
+    this.fee,
+    this.operatingHours,
+  });
+}
+
+final structuredPickupLocationProvider = StateProvider<StructuredLocationData?>((ref) => null);
+
+final structuredDropLocationProvider = StateProvider<StructuredLocationData?>((ref) => null);

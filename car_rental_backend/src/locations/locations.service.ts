@@ -796,7 +796,7 @@ export class LocationsService {
       id: hub.id,
       vendorId: hub.vendorId,
       name: hub.name,
-      type: meta.type || VendorLocationTypeEnum.VENDOR_YARD,
+      type: hub.locationType || meta.type || VendorLocationTypeEnum.VENDOR_YARD,
       address: hub.address,
       locality: hub.locality || null,
       city: hub.city,
@@ -806,16 +806,16 @@ export class LocationsService {
       longitude: hub.longitude,
       contactPerson: meta.contactPerson || null,
       contactPhone: hub.contactPhone || meta.contactPhone || null,
-      status: meta.status || (hub.isActive ? VendorLocationStatusEnum.ACTIVE : VendorLocationStatusEnum.INACTIVE),
-      allowsPickup: meta.allowsPickup !== undefined ? meta.allowsPickup : true,
-      allowsReturn: meta.allowsReturn !== undefined ? meta.allowsReturn : true,
-      allowsDelivery: meta.allowsDelivery !== undefined ? meta.allowsDelivery : false,
-      pickupFee: meta.pickupFee !== undefined ? meta.pickupFee : 0,
-      returnFee: meta.returnFee !== undefined ? meta.returnFee : 0,
-      oneWayFee: meta.oneWayFee !== undefined ? meta.oneWayFee : 0,
-      openingTime: meta.openingTime || '08:00',
-      closingTime: meta.closingTime || '22:00',
-      is24x7: meta.is24x7 !== undefined ? meta.is24x7 : false,
+      status: hub.status || meta.status || (hub.isActive ? VendorLocationStatusEnum.ACTIVE : VendorLocationStatusEnum.INACTIVE),
+      allowsPickup: hub.allowsPickup !== undefined ? hub.allowsPickup : (meta.allowsPickup !== undefined ? meta.allowsPickup : true),
+      allowsReturn: hub.allowsReturn !== undefined ? hub.allowsReturn : (meta.allowsReturn !== undefined ? meta.allowsReturn : true),
+      allowsDelivery: hub.allowsDelivery !== undefined ? hub.allowsDelivery : (meta.allowsDelivery !== undefined ? meta.allowsDelivery : false),
+      pickupFee: hub.pickupFee !== undefined ? Number(hub.pickupFee) : (meta.pickupFee !== undefined ? meta.pickupFee : 0),
+      returnFee: hub.returnFee !== undefined ? Number(hub.returnFee) : (meta.returnFee !== undefined ? meta.returnFee : 0),
+      oneWayFee: hub.oneWayFee !== undefined ? Number(hub.oneWayFee) : (meta.oneWayFee !== undefined ? meta.oneWayFee : 0),
+      openingTime: hub.openingTime || meta.openingTime || '08:00',
+      closingTime: hub.closingTime || meta.closingTime || '22:00',
+      is24x7: hub.is24x7 !== undefined ? hub.is24x7 : (meta.is24x7 !== undefined ? meta.is24x7 : false),
       serviceRadiusKm: hub.serviceRadiusKm || 25.0,
       assignedCarCount: hub.cars ? hub.cars.length : (meta.assignedCarIds ? meta.assignedCarIds.length : 0),
       assignedCarIds: hub.cars ? hub.cars.map((c: any) => c.id) : (meta.assignedCarIds || []),
@@ -878,6 +878,17 @@ export class LocationsService {
         state: dto.state?.trim(),
         latitude: dto.latitude,
         longitude: dto.longitude,
+        locationType: (dto.type as any) || 'VENDOR_YARD',
+        status: 'ACTIVE',
+        allowsPickup: dto.allowsPickup !== undefined ? dto.allowsPickup : true,
+        allowsReturn: dto.allowsReturn !== undefined ? dto.allowsReturn : true,
+        allowsDelivery: dto.allowsDelivery !== undefined ? dto.allowsDelivery : false,
+        pickupFee: dto.pickupFee || 0,
+        returnFee: dto.returnFee || 0,
+        oneWayFee: dto.oneWayFee || 0,
+        openingTime: dto.openingTime || '08:00',
+        closingTime: dto.closingTime || '22:00',
+        is24x7: dto.is24x7 !== undefined ? dto.is24x7 : false,
         serviceRadiusKm: dto.serviceRadiusKm || 25.0,
         operatingHours: JSON.stringify(meta),
         contactPhone: dto.contactPhone,
@@ -981,7 +992,17 @@ export class LocationsService {
         ...(dto.longitude !== undefined ? { longitude: dto.longitude } : {}),
         ...(dto.serviceRadiusKm !== undefined ? { serviceRadiusKm: dto.serviceRadiusKm } : {}),
         ...(dto.contactPhone !== undefined ? { contactPhone: dto.contactPhone } : {}),
-        ...(dto.status !== undefined ? { isActive: dto.status === VendorLocationStatusEnum.ACTIVE } : {}),
+        ...(dto.status !== undefined ? { isActive: dto.status === VendorLocationStatusEnum.ACTIVE, status: (dto.status as any) || 'ACTIVE' } : {}),
+        ...(dto.type !== undefined ? { locationType: dto.type as any } : {}),
+        ...(dto.allowsPickup !== undefined ? { allowsPickup: dto.allowsPickup } : {}),
+        ...(dto.allowsReturn !== undefined ? { allowsReturn: dto.allowsReturn } : {}),
+        ...(dto.allowsDelivery !== undefined ? { allowsDelivery: dto.allowsDelivery } : {}),
+        ...(dto.pickupFee !== undefined ? { pickupFee: dto.pickupFee } : {}),
+        ...(dto.returnFee !== undefined ? { returnFee: dto.returnFee } : {}),
+        ...(dto.oneWayFee !== undefined ? { oneWayFee: dto.oneWayFee } : {}),
+        ...(dto.openingTime !== undefined ? { openingTime: dto.openingTime } : {}),
+        ...(dto.closingTime !== undefined ? { closingTime: dto.closingTime } : {}),
+        ...(dto.is24x7 !== undefined ? { is24x7: dto.is24x7 } : {}),
         operatingHours: JSON.stringify(updatedMeta),
       },
       include: { cars: { select: { id: true, make: true, model: true, registrationNumber: true } } },
@@ -1585,11 +1606,74 @@ export class LocationsService {
       });
 
       if (matrixItem) {
+        if (!matrixItem.isSupported) {
+          isDeliveryAvailable = false;
+          deliveryReason = 'One-way return between these locations is not supported.';
+        }
         oneWaySurcharge = matrixItem.isSupported ? Number(matrixItem.oneWaySurcharge) : 0;
       } else if (returnHub?.oneWayFee) {
         oneWaySurcharge = Number(returnHub.oneWayFee);
       } else {
         oneWaySurcharge = 250.0;
+      }
+    }
+
+    // Check hub pickup & return permissions
+    if (pickupHub && pickupHub.allowsPickup === false) {
+      isDeliveryAvailable = false;
+      deliveryReason = 'Selected location does not allow vehicle pickup.';
+    }
+    if (returnHub && returnHub.allowsReturn === false) {
+      isDeliveryAvailable = false;
+      deliveryReason = 'Selected return location does not allow vehicle return.';
+    }
+
+    // Check location date-based exceptions (holiday / closures)
+    const pickupDateStr = dto.pickupDate || dto.startDate;
+    if (dto.pickupLocationId && pickupDateStr && isDeliveryAvailable) {
+      const pDate = new Date(pickupDateStr);
+      if (!isNaN(pDate.getTime())) {
+        const pStart = new Date(pDate);
+        pStart.setHours(0, 0, 0, 0);
+        const pEnd = new Date(pDate);
+        pEnd.setHours(23, 59, 59, 999);
+
+        const exc = await this.prisma.locationException.findFirst({
+          where: {
+            locationId: dto.pickupLocationId,
+            date: { gte: pStart, lte: pEnd },
+            isClosed: true,
+          },
+        });
+
+        if (exc) {
+          isDeliveryAvailable = false;
+          deliveryReason = `Pickup location is closed on this date: ${exc.reason || 'Holiday/Closure'}.`;
+        }
+      }
+    }
+
+    const returnDateStr = dto.returnDate || dto.endDate;
+    if (dto.returnLocationId && returnDateStr && isDeliveryAvailable) {
+      const rDate = new Date(returnDateStr);
+      if (!isNaN(rDate.getTime())) {
+        const rStart = new Date(rDate);
+        rStart.setHours(0, 0, 0, 0);
+        const rEnd = new Date(rDate);
+        rEnd.setHours(23, 59, 59, 999);
+
+        const exc = await this.prisma.locationException.findFirst({
+          where: {
+            locationId: dto.returnLocationId,
+            date: { gte: rStart, lte: rEnd },
+            isClosed: true,
+          },
+        });
+
+        if (exc) {
+          isDeliveryAvailable = false;
+          deliveryReason = `Return location is closed on this date: ${exc.reason || 'Holiday/Closure'}.`;
+        }
       }
     }
 

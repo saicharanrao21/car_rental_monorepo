@@ -229,7 +229,7 @@ export class BookingsService {
         car.monthlyDiscountPercent || 0,
       );
 
-      // Validate location exceptions / closures if pickupHubId is provided
+      // Validate location exceptions / closures if pickupHubId or returnHubId is provided
       if (dto.pickupHubId) {
         const startDay = new Date(start);
         startDay.setHours(0, 0, 0, 0);
@@ -251,6 +251,27 @@ export class BookingsService {
         }
       }
 
+      if (dto.returnHubId && dto.returnHubId !== dto.pickupHubId) {
+        const returnStartDay = new Date(end);
+        returnStartDay.setHours(0, 0, 0, 0);
+        const returnEndDay = new Date(end);
+        returnEndDay.setHours(23, 59, 59, 999);
+
+        const returnException = await this.prisma.locationException.findFirst({
+          where: {
+            locationId: dto.returnHubId,
+            date: { gte: returnStartDay, lte: returnEndDay },
+            isClosed: true,
+          },
+        });
+
+        if (returnException) {
+          throw new ConflictException(
+            `Return location is closed on the selected return date: ${returnException.reason || 'Holiday/Closure'}.`,
+          );
+        }
+      }
+
       let deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
       let pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
       let returnFee = dto.returnFee ? new Prisma.Decimal(dto.returnFee) : new Prisma.Decimal(0);
@@ -267,6 +288,10 @@ export class BookingsService {
             pickupLocationId: dto.pickupHubId,
             returnLocationId: dto.returnHubId,
             carId: dto.carId,
+            startDate: dto.startDate,
+            endDate: dto.endDate,
+            pickupDate: dto.startDate,
+            returnDate: dto.endDate,
           });
 
           if (!quote.isAvailable && dto.deliveryType && dto.deliveryType !== 'NONE') {
