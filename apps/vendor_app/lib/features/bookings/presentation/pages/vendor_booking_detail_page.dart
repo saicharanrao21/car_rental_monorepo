@@ -316,7 +316,19 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                 const Gap(24),
 
                 // Trip Duration & Route Card
-                const Text('Trip Schedule', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Trip Schedule & Fulfillment',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const Gap(8),
+                    _buildFulfillmentBadge(booking),
+                  ],
+                ),
                 const Gap(12),
                 AppCard(
                   child: Padding(
@@ -328,24 +340,10 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                         const Divider(height: 20),
                         _buildInfoRow(Icons.event, 'End Date & Time', endStr),
                         const Divider(height: 20),
-                        _buildLocationActionCard(
-                          context,
-                          'PICKUP LOCATION',
-                          booking.pickupLocation,
-                          'Scheduled Handover',
-                          const Color(0xFF0066FF),
-                          Icons.trip_origin,
-                        ),
-                        if (booking.dropLocation != null) ...[
+                        _buildPickupLocationCard(context, booking),
+                        if (booking.dropLocation != null || booking.dropName != null) ...[
                           const Gap(12),
-                          _buildLocationActionCard(
-                            context,
-                            'RETURN / DROP-OFF LOCATION',
-                            booking.dropLocation!,
-                            'Scheduled Vehicle Return',
-                            const Color(0xFF059669),
-                            Icons.location_on,
-                          ),
+                          _buildDropoffLocationCard(context, booking),
                         ],
                         const Divider(height: 20),
                         _buildInfoRow(Icons.work_outline, 'Trip Type', booking.tripType),
@@ -444,6 +442,22 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                       children: [
                         _buildFareRow('Total Customer Fare', booking.totalFare, isBold: true),
                         const Gap(10),
+                        if ((booking.deliveryFee ?? 0) > 0) ...[
+                          _buildFareRow('Doorstep Delivery (Earned)', booking.deliveryFee ?? 0, color: const Color(0xFF3730A3)),
+                          const Gap(6),
+                        ],
+                        if ((booking.oneWayFee ?? 0) > 0) ...[
+                          _buildFareRow('One-Way Relocation (Earned)', booking.oneWayFee ?? 0, color: const Color(0xFF92400E)),
+                          const Gap(6),
+                        ],
+                        if ((booking.pickupFee ?? 0) > 0) ...[
+                          _buildFareRow('Pickup Hub Fee (Earned)', booking.pickupFee ?? 0, color: const Color(0xFF0066FF)),
+                          const Gap(6),
+                        ],
+                        if ((booking.returnFee ?? 0) > 0) ...[
+                          _buildFareRow('Return Hub Fee (Earned)', booking.returnFee ?? 0, color: const Color(0xFF059669)),
+                          const Gap(6),
+                        ],
                         _buildFareRow('Platform Fee (Subtracted)', -booking.platformFee, color: Colors.red[700]),
                         const Gap(6),
                         _buildFareRow('GST/Taxes (Subtracted)', -booking.gstAmount, color: Colors.red[700]),
@@ -1177,14 +1191,115 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     );
   }
 
+  Widget _buildFulfillmentBadge(BookingModel booking) {
+    final isDoorstep = booking.deliveryType == 'DOORSTEP_DELIVERY' || booking.deliveryAddress != null;
+    final isTransit = booking.deliveryType == 'PUBLIC_LOCATION' ||
+        (booking.pickupHubId != null && booking.pickupHubId!.startsWith('pub_'));
+    final isDiffReturn = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
+
+    String label = 'HOST YARD';
+    Color bg = const Color(0xFFDCFCE7);
+    Color fg = const Color(0xFF166534);
+    IconData icon = Icons.garage_outlined;
+
+    if (isDoorstep) {
+      label = 'DOORSTEP DELIVERY';
+      bg = const Color(0xFFE0E7FF);
+      fg = const Color(0xFF3730A3);
+      icon = Icons.local_shipping_outlined;
+    } else if (isTransit) {
+      label = 'TRANSIT HUB';
+      bg = const Color(0xFFF3E8FF);
+      fg = const Color(0xFF6B21A8);
+      icon = Icons.connecting_airports_outlined;
+    } else if (isDiffReturn) {
+      label = 'BRANCH RELOCATION';
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFF92400E);
+      icon = Icons.alt_route_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const Gap(4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg, letterSpacing: 0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickupLocationCard(BuildContext context, BookingModel booking) {
+    final isDoorstep = booking.deliveryType == 'DOORSTEP_DELIVERY' || booking.deliveryAddress != null;
+    final header = isDoorstep ? 'DOORSTEP DELIVERY DESTINATION' : 'PICKUP / HANDOVER LOCATION';
+    final name = booking.pickupName ?? (isDoorstep ? 'Customer Delivery Address' : booking.pickupLocation);
+    final address = isDoorstep
+        ? (booking.deliveryAddress ?? booking.pickupAddress)
+        : (booking.pickupAddress ?? booking.pickupLocation);
+    final subtitle = isDoorstep ? 'Deliver & handover car at customer doorstep' : 'Customer picks up car at branch/hub';
+    final feeBadge = (booking.deliveryFee ?? 0) > 0
+        ? '+₹${booking.deliveryFee!.toInt()} Delivery'
+        : ((booking.pickupFee ?? 0) > 0 ? '+₹${booking.pickupFee!.toInt()} Hub Fee' : 'Free');
+
+    return _buildLocationActionCard(
+      context,
+      header,
+      name,
+      subtitle,
+      const Color(0xFF0066FF),
+      isDoorstep ? Icons.local_shipping_outlined : Icons.trip_origin,
+      address: address,
+      latitude: booking.deliveryLatitude ?? booking.pickupLatitude,
+      longitude: booking.deliveryLongitude ?? booking.pickupLongitude,
+      feeBadge: feeBadge,
+    );
+  }
+
+  Widget _buildDropoffLocationCard(BuildContext context, BookingModel booking) {
+    final isOneWay = (booking.oneWayFee ?? 0) > 0;
+    final dropName = booking.dropName ?? booking.dropLocation ?? 'Same Location';
+    final header = isOneWay ? 'DIFFERENT RETURN BRANCH' : 'RETURN / DROP-OFF LOCATION';
+    final address = booking.deliveryAddress ?? booking.dropLocation;
+    final subtitle = isOneWay ? 'Vehicle will be returned at alternate branch' : 'Scheduled vehicle return';
+    final feeBadge = isOneWay
+        ? '+₹${booking.oneWayFee!.toInt()} Relocation'
+        : ((booking.returnFee ?? 0) > 0 ? '+₹${booking.returnFee!.toInt()} Return Fee' : null);
+
+    return _buildLocationActionCard(
+      context,
+      header,
+      dropName,
+      subtitle,
+      const Color(0xFF059669),
+      isOneWay ? Icons.alt_route_outlined : Icons.location_on,
+      address: address,
+      feeBadge: feeBadge,
+    );
+  }
+
   Widget _buildLocationActionCard(
     BuildContext context,
     String header,
     String locationName,
     String subtitle,
     Color accentColor,
-    IconData icon,
-  ) {
+    IconData icon, {
+    String? address,
+    double? latitude,
+    double? longitude,
+    String? feeBadge,
+  }) {
+    final hasCoordinates = latitude != null && longitude != null;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1196,18 +1311,39 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 14, color: accentColor),
-              const Gap(6),
-              Text(
-                header,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: accentColor,
-                  letterSpacing: 0.5,
-                ),
+              Row(
+                children: [
+                  Icon(icon, size: 14, color: accentColor),
+                  const Gap(6),
+                  Text(
+                    header,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
+              if (feeBadge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    feeBadge,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
             ],
           ),
           const Gap(6),
@@ -1215,6 +1351,13 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
             locationName,
             style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
           ),
+          if (address != null && address.isNotEmpty && address != locationName) ...[
+            const Gap(2),
+            Text(
+              address,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+            ),
+          ],
           const Gap(2),
           Text(
             subtitle,
@@ -1223,8 +1366,11 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
           const Gap(10),
           InkWell(
             onTap: () {
+              final navTarget = hasCoordinates
+                  ? '(${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)})'
+                  : locationName;
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Opening GPS directions to $locationName')),
+                SnackBar(content: Text('Opening GPS navigation to $navTarget')),
               );
             },
             borderRadius: BorderRadius.circular(6),
@@ -1235,14 +1381,16 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.directions, size: 14, color: Color(0xFF0066FF)),
-                  Gap(4),
+                  Icon(Icons.directions, size: 14, color: accentColor),
+                  const Gap(4),
                   Text(
-                    'NAVIGATE / DIRECTIONS',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
+                    hasCoordinates
+                        ? 'GPS: ${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)}'
+                        : 'NAVIGATE / DIRECTIONS',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: accentColor),
                   ),
                 ],
               ),

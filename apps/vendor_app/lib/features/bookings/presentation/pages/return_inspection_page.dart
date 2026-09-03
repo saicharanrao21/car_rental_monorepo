@@ -245,7 +245,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      if (_currentStep == 0) _buildStep0OdometerFuel(),
+                      if (_currentStep == 0) _buildStep0OdometerFuel(fallbackBooking),
                       if (_currentStep == 1) _buildStep1PhotoBurst(),
                       if (_currentStep == 2) _buildStep2BeforeAfterDamage(),
                       if (_currentStep == 3) _buildStep3Review(fallbackBooking),
@@ -314,10 +314,112 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
     );
   }
 
-  Widget _buildStep0OdometerFuel() {
+  Widget _buildReturnLocationBanner(BookingModel booking) {
+    final isOneWay = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
+    final isDoorstepReturn = booking.deliveryType == 'DOORSTEP_DELIVERY' && booking.deliveryAddress != null;
+
+    final locationTitle = booking.dropName ??
+        (isDoorstepReturn ? 'Customer Doorstep Collection' : (booking.dropLocation ?? booking.pickupLocation));
+    final locationAddress = booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation;
+
+    final bannerBg = isOneWay
+        ? const Color(0xFFFFFBEB)
+        : (isDoorstepReturn ? const Color(0xFFEEF2FF) : const Color(0xFFF0FDF4));
+    final bannerBorder = isOneWay
+        ? const Color(0xFFFDE68A)
+        : (isDoorstepReturn ? const Color(0xFFC7D2FE) : const Color(0xFFBBF7D0));
+    final titleColor = isOneWay
+        ? const Color(0xFF92400E)
+        : (isDoorstepReturn ? const Color(0xFF3730A3) : const Color(0xFF166534));
+    final badgeLabel = isOneWay
+        ? 'RELOCATION BRANCH'
+        : (isDoorstepReturn ? 'DOORSTEP COLLECTION' : 'RETURN YARD');
+    final iconData = isOneWay
+        ? Icons.alt_route_outlined
+        : (isDoorstepReturn ? Icons.local_shipping_outlined : Icons.location_on_outlined);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: bannerBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(iconData, size: 20, color: titleColor),
+          ),
+          const Gap(12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'RETURN DESTINATION',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const Gap(6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: bannerBorder),
+                      ),
+                      child: Text(
+                        badgeLabel,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(4),
+                Text(
+                  locationTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                ),
+                if (locationAddress != locationTitle) ...[
+                  const Gap(2),
+                  Text(
+                    locationAddress,
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep0OdometerFuel(BookingModel booking) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildReturnLocationBanner(booking),
+        const Gap(14),
         AppCard(
           child: Padding(
             padding: const EdgeInsets.all(16),

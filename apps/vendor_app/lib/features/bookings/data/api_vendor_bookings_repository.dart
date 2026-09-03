@@ -31,7 +31,20 @@ class ApiVendorBookingsRepository implements VendorBookingsRepository {
     }
 
     // Parse decimal/numeric values to double
-    for (final field in ['totalFare', 'platformFee', 'gstAmount', 'netToVendor']) {
+    for (final field in [
+      'totalFare',
+      'platformFee',
+      'gstAmount',
+      'netToVendor',
+      'deliveryFee',
+      'pickupFee',
+      'returnFee',
+      'oneWayFee',
+      'deliveryLatitude',
+      'deliveryLongitude',
+      'pickupLatitude',
+      'pickupLongitude',
+    ]) {
       if (copy[field] != null) {
         copy[field] = double.tryParse(copy[field].toString()) ?? 0.0;
       }

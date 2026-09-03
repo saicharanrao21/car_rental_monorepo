@@ -264,9 +264,9 @@ void main() {
                     actions: [
                       ElevatedButton(onPressed: () {}, child: const Text('Edit Car Details')),
                     ],
-                    child: Column(
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         AdminDrawerSection(
                           title: 'Engine & Telemetry',
                           icon: Icons.speed,
