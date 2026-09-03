@@ -440,38 +440,90 @@ class _BookingDetailPanel extends ConsumerWidget {
     );
   }
 
+  Widget _buildFulfillmentBadge(BookingModel b) {
+    final isDoorstep = b.deliveryType == 'DOORSTEP_DELIVERY' || b.deliveryAddress != null;
+    final isTransit = b.deliveryType == 'PUBLIC_LOCATION' ||
+        (b.pickupHubId != null && b.pickupHubId!.startsWith('pub_'));
+    final isDiffReturn = (b.oneWayFee ?? 0) > 0 || (b.dropName != null && b.dropName != b.pickupName);
+
+    String label = 'HOST YARD';
+    Color bg = const Color(0xFFDCFCE7);
+    Color fg = const Color(0xFF166534);
+    IconData icon = Icons.garage_outlined;
+
+    if (isDoorstep) {
+      label = 'DOORSTEP DELIVERY';
+      bg = const Color(0xFFE0E7FF);
+      fg = const Color(0xFF3730A3);
+      icon = Icons.local_shipping_outlined;
+    } else if (isTransit) {
+      label = 'TRANSIT HUB';
+      bg = const Color(0xFFF3E8FF);
+      fg = const Color(0xFF6B21A8);
+      icon = Icons.connecting_airports_outlined;
+    } else if (isDiffReturn) {
+      label = 'BRANCH RELOCATION';
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFF92400E);
+      icon = Icons.alt_route_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const Gap(4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: fg, letterSpacing: 0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bundleAsync = ref.watch(bookingDetailBundleProvider(bookingId));
     final controllerState = ref.watch(adminBookingControllerProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Booking Details - ${bookingId.toUpperCase()}'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
+    return bundleAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: AppLoader(),
         ),
       ),
-      body: bundleAsync.when(
-        loading: () => const Center(child: AppLoader()),
-        error: (err, _) => Center(child: Text('Error: $err')),
-        data: (bundle) {
-          final b = bundle.booking;
-          final car = bundle.car;
-          final vendor = bundle.vendor;
-          final customer = bundle.customer;
+      error: (err, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Error: $err'),
+        ),
+      ),
+      data: (bundle) {
+        final b = bundle.booking;
+        final car = bundle.car;
+        final vendor = bundle.vendor;
+        final customer = bundle.customer;
 
-          final baseFare = b.totalFare - b.platformFee - b.gstAmount;
+        final fulfillmentTotal = (b.deliveryFee ?? 0) + (b.oneWayFee ?? 0) + (b.pickupFee ?? 0) + (b.returnFee ?? 0);
+        final baseFare = (b.totalFare - b.platformFee - b.gstAmount - fulfillmentTotal).clamp(0.0, double.infinity);
 
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Status Header
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (controllerState.isLoading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: LinearProgressIndicator(),
+              ),
+            // Status Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -517,15 +569,42 @@ class _BookingDetailPanel extends ConsumerWidget {
                     _DetailRow(label: 'Seats', value: '${car.seating} Seater'),
                     const Divider(height: 32),
 
-                    // Trip Information
-                    const SectionHeader(title: 'Trip Details'),
+                    // Fulfillment & Trip Snapshot
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(child: SectionHeader(title: 'Fulfillment & Trip Snapshot')),
+                        _buildFulfillmentBadge(b),
+                      ],
+                    ),
                     const Gap(12),
                     _DetailRow(label: 'Trip Type', value: b.tripType),
-                    _DetailRow(label: 'Pickup Location', value: b.pickupLocation),
-                    if (b.dropLocation != null) _DetailRow(label: 'Drop Location', value: b.dropLocation!),
                     _DetailRow(
-                      label: 'Dates',
-                      value: '${DateFormat('dd MMM yyyy').format(b.startDate)} to ${DateFormat('dd MMM yyyy').format(b.endDate)}',
+                      label: 'Handover Location',
+                      value: b.pickupName ?? (b.deliveryAddress != null ? 'Customer Doorstep' : b.pickupLocation),
+                    ),
+                    if (b.deliveryAddress != null)
+                      _DetailRow(label: 'Delivery Address', value: b.deliveryAddress!),
+                    if (b.pickupAddress != null && b.pickupAddress != b.deliveryAddress && b.pickupAddress != b.pickupLocation)
+                      _DetailRow(label: 'Pickup Address', value: b.pickupAddress!),
+                    if (b.deliveryLatitude != null && b.deliveryLongitude != null)
+                      _DetailRow(
+                        label: 'GPS Coordinates',
+                        value: '${b.deliveryLatitude!.toStringAsFixed(4)}, ${b.deliveryLongitude!.toStringAsFixed(4)}',
+                      ),
+                    _DetailRow(
+                      label: 'Return Destination',
+                      value: b.dropName ?? b.dropLocation ?? 'Same Location',
+                    ),
+                    if ((b.oneWayFee ?? 0) > 0)
+                      _DetailRow(
+                        label: 'Relocation Surcharge',
+                        value: '₹${b.oneWayFee!.toInt()}',
+                        valueColor: const Color(0xFF92400E),
+                      ),
+                    _DetailRow(
+                      label: 'Trip Schedule',
+                      value: '${DateFormat('dd MMM yyyy, hh:mm a').format(b.startDate)} to ${DateFormat('dd MMM yyyy, hh:mm a').format(b.endDate)}',
                     ),
                     const Divider(height: 32),
 
@@ -549,9 +628,33 @@ class _BookingDetailPanel extends ConsumerWidget {
                     ],
 
                     // Fare Breakdown
-                    const SectionHeader(title: 'Fare Breakdown'),
+                    const SectionHeader(title: 'Fare Breakdown & Fulfillment'),
                     const Gap(12),
                     _DetailRow(label: 'Base Ride Fare', value: '₹${baseFare.toStringAsFixed(2)}'),
+                    if ((b.deliveryFee ?? 0) > 0)
+                      _DetailRow(
+                        label: 'Doorstep Delivery Fee',
+                        value: '₹${b.deliveryFee!.toStringAsFixed(2)}',
+                        valueColor: const Color(0xFF3730A3),
+                      ),
+                    if ((b.oneWayFee ?? 0) > 0)
+                      _DetailRow(
+                        label: 'One-Way Relocation Fee',
+                        value: '₹${b.oneWayFee!.toStringAsFixed(2)}',
+                        valueColor: const Color(0xFF92400E),
+                      ),
+                    if ((b.pickupFee ?? 0) > 0)
+                      _DetailRow(
+                        label: 'Pickup Hub Fee',
+                        value: '₹${b.pickupFee!.toStringAsFixed(2)}',
+                        valueColor: const Color(0xFF0066FF),
+                      ),
+                    if ((b.returnFee ?? 0) > 0)
+                      _DetailRow(
+                        label: 'Return Hub Fee',
+                        value: '₹${b.returnFee!.toStringAsFixed(2)}',
+                        valueColor: const Color(0xFF059669),
+                      ),
                     _DetailRow(label: 'Platform Fee (10%)', value: '₹${b.platformFee.toStringAsFixed(2)}'),
                     _DetailRow(label: 'GST (18% on platform fee)', value: '₹${b.gstAmount.toStringAsFixed(2)}'),
                     const Divider(height: 8),
@@ -632,20 +735,9 @@ class _BookingDetailPanel extends ConsumerWidget {
                       ),
                     const Gap(32),
                   ],
-                ),
-              ),
-              if (controllerState.isLoading)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black12,
-                    child: const Center(child: AppLoader()),
-                  ),
-                ),
-            ],
-          );
+                );
         },
-      ),
-    );
+      );
   }
 }
 
@@ -668,6 +760,7 @@ class _DetailRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
@@ -677,12 +770,16 @@ class _DetailRow extends StatelessWidget {
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              color: valueColor ?? (isBold ? Colors.black87 : Colors.black87),
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          const Gap(12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 13,
+                color: valueColor ?? (isBold ? Colors.black87 : Colors.black87),
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
           ),
         ],

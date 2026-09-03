@@ -16,7 +16,22 @@ class ApiAdminBookingRepository implements AdminBookingRepository {
 
   Map<String, dynamic> _normalizeBookingJson(Map<String, dynamic> json) {
     final copy = Map<String, dynamic>.from(json);
-    for (final field in ['baseFare', 'platformFee', 'gstAmount', 'totalFare', 'netToVendor', 'distanceKm']) {
+    for (final field in [
+      'baseFare',
+      'platformFee',
+      'gstAmount',
+      'totalFare',
+      'netToVendor',
+      'distanceKm',
+      'deliveryFee',
+      'pickupFee',
+      'returnFee',
+      'oneWayFee',
+      'deliveryLatitude',
+      'deliveryLongitude',
+      'pickupLatitude',
+      'pickupLongitude',
+    ]) {
       if (copy[field] != null) {
         copy[field] = _toDouble(copy[field]);
       }
