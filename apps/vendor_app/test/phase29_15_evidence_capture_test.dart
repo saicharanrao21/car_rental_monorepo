@@ -6,14 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import 'package:vendor_app/features/bookings/data/mock_vendor_bookings_repository.dart';
-import 'package:vendor_app/features/bookings/domain/repositories/vendor_bookings_repository.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/vendor_booking_detail_page.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/handover_inspection_page.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/return_inspection_page.dart';
 import 'package:vendor_app/features/bookings/presentation/providers/vendor_bookings_providers.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vendor_app/core/providers/vendor_session_provider.dart';
 import 'package:vendor_app/features/fleet/presentation/providers/fleet_providers.dart';
+import 'package:core/core.dart';
 
 class FastSessionNotifier extends VendorSessionNotifier {
   final VendorModel _vendor;
@@ -53,9 +52,8 @@ Future<void> saveScreenshot(WidgetTester tester, GlobalKey key, String filename)
 }
 
 void main() {
-  setUpAll(() {
-    GoogleFonts.config.allowRuntimeFetching = false;
-  });
+  TestWidgetsFlutterBinding.ensureInitialized();
+  DDSTypography.useSystemFallbackInTests = true;
 
   final now = DateTime.now();
 

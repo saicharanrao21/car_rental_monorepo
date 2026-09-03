@@ -225,6 +225,161 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         returnFee: 200.0,
         oneWayFee: 400.0,
       ),
+
+      // 8. Handover Ready / Staged for Pickup
+      BookingModel(
+        id: 'bk_mock_handover_ready',
+        customerId: 'cust_hr_08',
+        vendorId: vendorId,
+        carId: 'car_hr_08',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Main Operating Yard, Andheri East',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Main Operating Yard, Andheri East',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        startDate: now.add(const Duration(hours: 1)),
+        endDate: now.add(const Duration(days: 3)),
+        totalFare: 5600.0,
+        platformFee: 500.0,
+        gstAmount: 950.0,
+        netToVendor: 4150.0,
+        status: 'handover_ready',
+        createdAt: now.subtract(const Duration(hours: 4)),
+        deliveryType: 'HUB_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        returnHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 0.0,
+        oneWayFee: 0.0,
+      ),
+
+      // 9. Active Rental in Progress
+      BookingModel(
+        id: 'bk_mock_active_rental',
+        customerId: 'cust_ar_09',
+        vendorId: vendorId,
+        carId: 'car_ar_09',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Main Operating Yard, Andheri East',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Main Operating Yard, Andheri East',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        startDate: now.subtract(const Duration(days: 1)),
+        endDate: now.add(const Duration(days: 2)),
+        totalFare: 6800.0,
+        platformFee: 600.0,
+        gstAmount: 1100.0,
+        netToVendor: 5100.0,
+        status: 'ongoing',
+        createdAt: now.subtract(const Duration(days: 2)),
+        deliveryType: 'HUB_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        returnHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 0.0,
+        oneWayFee: 0.0,
+      ),
+
+      // 10. Return Pending / Return Initiated
+      BookingModel(
+        id: 'bk_mock_return_pending',
+        customerId: 'cust_rp_10',
+        vendorId: vendorId,
+        carId: 'car_rp_10',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Main Operating Yard, Andheri East',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Main Operating Yard, Andheri East',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        startDate: now.subtract(const Duration(days: 3)),
+        endDate: now,
+        totalFare: 7200.0,
+        platformFee: 650.0,
+        gstAmount: 1200.0,
+        netToVendor: 5350.0,
+        status: 'return_pending',
+        createdAt: now.subtract(const Duration(days: 4)),
+        deliveryType: 'HUB_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        returnHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 0.0,
+        oneWayFee: 0.0,
+      ),
+
+      // 11. Return Inspection Completed / Awaiting Customer Return OTP
+      BookingModel(
+        id: 'bk_mock_return_inspected',
+        customerId: 'cust_ri_11',
+        vendorId: vendorId,
+        carId: 'car_ri_11',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Main Operating Yard, Andheri East',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Main Operating Yard, Andheri East',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        startDate: now.subtract(const Duration(days: 2)),
+        endDate: now,
+        totalFare: 5100.0,
+        platformFee: 450.0,
+        gstAmount: 850.0,
+        netToVendor: 3800.0,
+        status: 'return_pending',
+        createdAt: now.subtract(const Duration(days: 3)),
+        deliveryType: 'HUB_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        returnHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 0.0,
+        oneWayFee: 0.0,
+      ),
+
+      // 12. Damage Claim / Vehicle Locked in Maintenance
+      BookingModel(
+        id: 'bk_mock_damage_claim',
+        customerId: 'cust_dc_12',
+        vendorId: vendorId,
+        carId: 'car_dc_12',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Main Operating Yard, Andheri East',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Main Operating Yard, Andheri East',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        startDate: now.subtract(const Duration(days: 4)),
+        endDate: now.subtract(const Duration(days: 1)),
+        totalFare: 8400.0,
+        platformFee: 750.0,
+        gstAmount: 1350.0,
+        netToVendor: 6300.0,
+        status: 'completed',
+        createdAt: now.subtract(const Duration(days: 5)),
+        deliveryType: 'HUB_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        returnHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 0.0,
+        oneWayFee: 0.0,
+      ),
     ];
   }
 
@@ -233,11 +388,265 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
   final Map<String, List<DamageClaimModel>> _mockDamageClaims = {};
   final Map<String, _MockOtpRecord> _activeOtps = {};
 
+  MockVendorBookingsRepository() {
+    _seedDefaultOperationalData();
+  }
+
+  void _seedDefaultOperationalData() {
+    final now = DateTime.now();
+
+    // 1. Seed inspections for bk_mock_active_rental
+    _mockInspections['bk_mock_active_rental'] = [
+      InspectionModel(
+        id: 'insp_ar_pre',
+        bookingId: 'bk_mock_active_rental',
+        type: 'PRE_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 24500.0,
+        fuelPercent: 100,
+        conditionNotes: 'Clean condition at vehicle dispatch',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    // 2. Seed inspections for bk_mock_return_pending
+    _mockInspections['bk_mock_return_pending'] = [
+      InspectionModel(
+        id: 'insp_rp_pre',
+        bookingId: 'bk_mock_return_pending',
+        type: 'PRE_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 31200.0,
+        fuelPercent: 100,
+        conditionNotes: 'All clear at handover',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+    ];
+
+    // 3. Seed inspections for bk_mock_return_inspected
+    _mockInspections['bk_mock_return_inspected'] = [
+      InspectionModel(
+        id: 'insp_ri_pre',
+        bookingId: 'bk_mock_return_inspected',
+        type: 'PRE_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 18000.0,
+        fuelPercent: 100,
+        conditionNotes: 'Good condition at handover',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+      InspectionModel(
+        id: 'insp_ri_post',
+        bookingId: 'bk_mock_return_inspected',
+        type: 'POST_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 18450.0,
+        fuelPercent: 90,
+        conditionNotes: 'Vehicle returned in clean condition. No damage detected.',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now,
+      ),
+    ];
+
+    // 4. Seed inspections and claims for bk_mock_damage_claim
+    _mockInspections['bk_mock_damage_claim'] = [
+      InspectionModel(
+        id: 'insp_dc_pre',
+        bookingId: 'bk_mock_damage_claim',
+        type: 'PRE_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 42000.0,
+        fuelPercent: 100,
+        conditionNotes: 'Vehicle intact at handover',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now.subtract(const Duration(days: 4)),
+      ),
+      InspectionModel(
+        id: 'insp_dc_post',
+        bookingId: 'bk_mock_damage_claim',
+        type: 'POST_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 42380.0,
+        fuelPercent: 80,
+        conditionNotes: 'Deep dent and paint scratch on rear bumper during return',
+        damagePhotos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        finalized: true,
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    _mockDamageClaims['bk_mock_damage_claim'] = [
+      DamageClaimModel(
+        id: 'claim_dc_01',
+        bookingId: 'bk_mock_damage_claim',
+        vendorId: 'v1',
+        claimedAmount: 4500.0,
+        status: DamageClaimStatus.SUBMITTED,
+        description: 'Rear bumper scratch and dent assessment',
+        damagePhotos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        vendorNotes: 'Awaiting repair cost deduction from security deposit',
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    // Ensure mock cars exist in MockData.cars
+    _ensureMockCarsExist();
+  }
+
+  void _ensureMockCarsExist() {
+    final defaultCars = [
+      const CarModel(
+        id: 'car_hy_01',
+        vendorId: 'v1',
+        make: 'Hyundai',
+        model: 'Creta SX(O)',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Petrol',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 16.0,
+        pricePerDay: 2800.0,
+        pricePerHour: 220.0,
+        registrationNumber: 'MH 02 EE 9876',
+        isAvailable: true,
+      ),
+      const CarModel(
+        id: 'car_ds_02',
+        vendorId: 'v1',
+        make: 'Tata',
+        model: 'Nexon EV Max',
+        year: 2023,
+        type: 'Compact SUV',
+        fuelType: 'Electric',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 18.0,
+        pricePerDay: 3200.0,
+        pricePerHour: 260.0,
+        registrationNumber: 'MH 01 DX 4321',
+        isAvailable: true,
+      ),
+      const CarModel(
+        id: 'car_hr_08',
+        vendorId: 'v1',
+        make: 'Kia',
+        model: 'Seltos GTX+',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Diesel',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 17.0,
+        pricePerDay: 3000.0,
+        pricePerHour: 240.0,
+        registrationNumber: 'MH 02 KL 1122',
+        isAvailable: false,
+      ),
+      const CarModel(
+        id: 'car_ar_09',
+        vendorId: 'v1',
+        make: 'Mahindra',
+        model: 'Thar 4x4',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Diesel',
+        seating: 4,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 22.0,
+        pricePerDay: 4200.0,
+        pricePerHour: 360.0,
+        registrationNumber: 'MH 03 TH 4455',
+        isAvailable: false,
+      ),
+      const CarModel(
+        id: 'car_rp_10',
+        vendorId: 'v1',
+        make: 'Maruti Suzuki',
+        model: 'Grand Vitara',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Hybrid',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 15.0,
+        pricePerDay: 2600.0,
+        pricePerHour: 210.0,
+        registrationNumber: 'MH 04 GV 7788',
+        isAvailable: false,
+      ),
+      const CarModel(
+        id: 'car_ri_11',
+        vendorId: 'v1',
+        make: 'Toyota',
+        model: 'Urban Cruiser',
+        year: 2023,
+        type: 'Compact SUV',
+        fuelType: 'Petrol',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 16.0,
+        pricePerDay: 2700.0,
+        pricePerHour: 215.0,
+        registrationNumber: 'MH 01 UC 3344',
+        isAvailable: false,
+      ),
+      const CarModel(
+        id: 'car_dc_12',
+        vendorId: 'v1',
+        make: 'Honda',
+        model: 'City ZX',
+        year: 2023,
+        type: 'Sedan',
+        fuelType: 'Petrol',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 17.0,
+        pricePerDay: 2900.0,
+        pricePerHour: 230.0,
+        registrationNumber: 'MH 02 HC 9900',
+        isAvailable: false, // Remains unavailable due to damage claim
+      ),
+    ];
+
+    for (final car in defaultCars) {
+      final idx = MockData.cars.indexWhere((c) => c.id == car.id);
+      if (idx != -1) {
+        MockData.cars[idx] = car;
+      } else {
+        MockData.cars.add(car);
+      }
+    }
+  }
+
+  void _syncVehicleAvailability(String carId, bool isAvailable) {
+    final idx = MockData.cars.indexWhere((c) => c.id == carId);
+    if (idx != -1) {
+      MockData.cars[idx] = MockData.cars[idx].copyWith(isAvailable: isAvailable);
+    }
+  }
+
   void resetMockState() {
     _dynamicBookings.clear();
     _mockInspections.clear();
     _mockDamageClaims.clear();
     _activeOtps.clear();
+    _seedDefaultOperationalData();
   }
 
   void addMockBooking(BookingModel booking) {
@@ -249,6 +658,18 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
     for (final b in bookings) {
       addMockBooking(b);
     }
+  }
+
+  void addMockDamageClaim(DamageClaimModel claim) {
+    final list = _mockDamageClaims.putIfAbsent(claim.bookingId, () => []);
+    list.removeWhere((c) => c.id == claim.id);
+    list.add(claim);
+  }
+
+  void addMockInspection(InspectionModel inspection) {
+    final list = _mockInspections.putIfAbsent(inspection.bookingId, () => []);
+    list.removeWhere((i) => i.id == inspection.id);
+    list.add(inspection);
   }
 
   BookingModel? _findBooking(String bookingId) {
@@ -317,7 +738,26 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
       return;
     }
 
-    // 1. Transition: -> ongoing (Trip Start / Pickup)
+    // 1. Transition: -> confirmed
+    if (targetStatus == 'confirmed') {
+      if (currentStatus != 'pending' && currentStatus != 'confirmed') {
+        throw StateError('Invalid transition from $currentStatus to confirmed. Booking can only be confirmed from pending status.');
+      }
+      _saveBooking(booking.copyWith(status: 'confirmed'));
+      return;
+    }
+
+    // 2. Transition: -> handover_ready
+    if (targetStatus == 'handover_ready') {
+      if (currentStatus != 'confirmed' && currentStatus != 'handover_ready') {
+        throw StateError('Invalid transition from $currentStatus to handover_ready. Handover staging is only allowed from confirmed status.');
+      }
+      _syncVehicleAvailability(booking.carId, false);
+      _saveBooking(booking.copyWith(status: 'handover_ready'));
+      return;
+    }
+
+    // 3. Transition: -> ongoing (Trip Start / Pickup)
     if (targetStatus == 'ongoing') {
       // Must have finalized PRE_TRIP inspection
       final inspections = _mockInspections[bookingId] ?? [];
@@ -354,16 +794,27 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         }
       }
 
-      // State machine constraint: allowed from confirmed (or legacy test b1)
-      if (currentStatus != 'confirmed' && bookingId != 'b1') {
-        throw StateError('Invalid transition from $currentStatus to ongoing. Trip can only be started from confirmed status.');
+      // State machine constraint: allowed from confirmed or handover_ready (or legacy test b1)
+      if (currentStatus != 'confirmed' && currentStatus != 'handover_ready' && bookingId != 'b1') {
+        throw StateError('Invalid transition from $currentStatus to ongoing. Trip can only be started from confirmed or handover_ready status.');
       }
 
+      _syncVehicleAvailability(booking.carId, false);
       _saveBooking(booking.copyWith(status: 'ongoing'));
       return;
     }
 
-    // 2. Transition: -> completed (Trip Return / Finalization)
+    // 4. Transition: -> return_pending (Trip Return Initiated)
+    if (targetStatus == 'return_pending') {
+      if (currentStatus != 'ongoing' && currentStatus != 'return_pending') {
+        throw StateError('Invalid transition from $currentStatus to return_pending. Return can only be initiated from active ongoing rental.');
+      }
+      _syncVehicleAvailability(booking.carId, false);
+      _saveBooking(booking.copyWith(status: 'return_pending'));
+      return;
+    }
+
+    // 5. Transition: -> completed (Trip Return / Finalization)
     if (targetStatus == 'completed') {
       // Must have finalized POST_TRIP inspection
       final inspections = _mockInspections[bookingId] ?? [];
@@ -399,26 +850,53 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         }
       }
 
-      // State machine constraint: allowed from ongoing (or legacy test b2)
-      if (currentStatus != 'ongoing' && bookingId != 'b2') {
-        throw StateError('Invalid transition from $currentStatus to completed. Trip can only be completed from ongoing status.');
+      // State machine constraint: allowed from ongoing or return_pending (or legacy test b2)
+      if (currentStatus != 'ongoing' && currentStatus != 'return_pending' && bookingId != 'b2') {
+        throw StateError('Invalid transition from $currentStatus to completed. Trip can only be completed from ongoing or return_pending status.');
+      }
+
+      // Fleet Availability Rule:
+      // If damages exist or claims were filed, vehicle remains unavailable for maintenance/claims.
+      // If clean, vehicle is restored to available.
+      final damageClaims = _mockDamageClaims[bookingId] ?? [];
+      final notesLower = postTrip.conditionNotes?.toLowerCase() ?? '';
+      final isCleanReport = notesLower.contains('no damage') ||
+          notesLower.contains('no new damage') ||
+          notesLower.contains('clean condition') ||
+          notesLower.contains('clean return') ||
+          notesLower.contains('all clear');
+      final hasDamageKeyword = (notesLower.contains('dent') ||
+              notesLower.contains('scratch') ||
+              notesLower.contains('damage') ||
+              notesLower.contains('broken')) &&
+          !isCleanReport;
+
+      final hasDamage = damageClaims.isNotEmpty ||
+          (postTrip.damagePhotos.isNotEmpty) ||
+          hasDamageKeyword;
+
+      if (hasDamage) {
+        _syncVehicleAvailability(booking.carId, false);
+      } else {
+        _syncVehicleAvailability(booking.carId, true);
       }
 
       _saveBooking(booking.copyWith(status: 'completed'));
       return;
     }
 
-    // 3. Transition: -> cancelled (Rejection / Cancellation)
+    // 6. Transition: -> cancelled (Rejection / Cancellation)
     if (targetStatus == 'cancelled') {
       if (reason == null || reason.trim().isEmpty) {
         throw ArgumentError('Vendors must specify a reason when rejecting/cancelling a booking.');
       }
+      _syncVehicleAvailability(booking.carId, true);
       _saveBooking(booking.copyWith(status: 'cancelled'));
       return;
     }
 
-    // 4. Default / fallback transitions
-    _saveBooking(booking.copyWith(status: targetStatus));
+    // Any unrecognized transition
+    throw StateError('Invalid transition from $currentStatus to $targetStatus.');
   }
 
   @override

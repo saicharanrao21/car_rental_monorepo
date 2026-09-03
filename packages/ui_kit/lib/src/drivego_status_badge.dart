@@ -36,6 +36,8 @@ class DriveGoStatusBadge extends StatelessWidget {
       case 'pending':
       case 'under review':
       case 'review':
+      case 'return_pending':
+      case 'return pending':
         return DriveGoBadgeVariant.warning;
 
       case 'cancelled':
@@ -48,6 +50,8 @@ class DriveGoStatusBadge extends StatelessWidget {
       case 'ongoing':
       case 'in transit':
       case 'info':
+      case 'handover_ready':
+      case 'handover ready':
         return DriveGoBadgeVariant.info;
 
       case 'sponsored':

@@ -270,12 +270,16 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                     StatusBadge(status: booking.status),
                   ],
                 ),
-                // Active Handover Workflow Card (Pending / Pickup / Return)
+                // Active Handover Workflow Card (Pending / Confirmed / Staged / Active / Return)
                 if (statusLower == 'pending')
                   _buildPendingDecisionCard(booking.id)
                 else if (statusLower == 'confirmed')
-                  _buildPickupWorkflowCard(preTrip)
+                  _buildPickupWorkflowCard(booking, preTrip)
+                else if (statusLower == 'handover_ready')
+                  _buildHandoverReadyWorkflowCard(booking, preTrip)
                 else if (statusLower == 'ongoing')
+                  _buildActiveRentalWorkflowCard(booking, preTrip, postTrip)
+                else if (statusLower == 'return_pending')
                   _buildReturnWorkflowCard(preTrip, postTrip),
 
                 // Vehicle Details Card
@@ -503,7 +507,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     );
   }
 
-  Widget _buildPickupWorkflowCard(InspectionModel? preTrip) {
+  Widget _buildPickupWorkflowCard(BookingModel booking, InspectionModel? preTrip) {
     final hasFinalizedPreTrip = preTrip != null && preTrip.finalized;
 
     return Column(
@@ -575,6 +579,29 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                       ],
                     ),
                   ),
+                  const Gap(10),
+                  OutlinedButton.icon(
+                    onPressed: _isLoadingAction
+                        ? null
+                        : () async {
+                            setState(() => _isLoadingAction = true);
+                            final ok = await ref.read(vendorBookingsProvider.notifier).markHandoverReady(booking.id);
+                            if (mounted) {
+                              setState(() => _isLoadingAction = false);
+                              if (ok) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Vehicle marked ready and staged for customer handover.')),
+                                );
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.verified_outlined, size: 16),
+                    label: const Text('Mark Ready for Handover'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue[800],
+                      side: BorderSide(color: Colors.blue[300]!),
+                    ),
+                  ),
                 ],
                 const Divider(height: 24),
 
@@ -643,6 +670,311 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                     style: TextStyle(fontSize: 11, color: Colors.orange[800], fontWeight: FontWeight.w500),
                   ),
                 ],
+              ],
+            ),
+          ),
+        ),
+        const Gap(24),
+      ],
+    );
+  }
+
+  Widget _buildHandoverReadyWorkflowCard(BookingModel booking, InspectionModel? preTrip) {
+    final hasFinalizedPreTrip = preTrip != null && preTrip.finalized;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Vehicle Handover & Pickup Flow',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const Gap(12),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, color: Color(0xFF1D4ED8), size: 20),
+                      const Gap(10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'HANDOVER READY / STAGED',
+                              style: TextStyle(
+                                color: Color(0xFF1D4ED8),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Gap(2),
+                            Text(
+                              'Vehicle is inspected, sanitized, and staged for customer handover.',
+                              style: TextStyle(color: Colors.blue[900], fontSize: 11.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(16),
+
+                // Pre-Trip Inspection Status
+                if (hasFinalizedPreTrip) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green[700], size: 18),
+                        const Gap(8),
+                        Expanded(
+                          child: Text(
+                            'Pre-Trip Finalized: ${preTrip.odometer.toStringAsFixed(1)} km | Fuel: ${preTrip.fuelPercent}%',
+                            style: TextStyle(color: Colors.green[900], fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  ElevatedButton.icon(
+                    onPressed: () => context.push('/bookings/${widget.bookingId}/handover'),
+                    icon: const Icon(Icons.fact_check_outlined, size: 16),
+                    label: const Text('Complete Handover Inspection'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+                const Divider(height: 24),
+
+                // Step 2: Customer Handover OTP
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: hasFinalizedPreTrip ? Colors.blue : Colors.grey,
+                      child: const Text(
+                        '2',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const Gap(10),
+                    const Text(
+                      'Customer Handover OTP',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Request OTP from customer and enter below to confirm physical handover.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ),
+                    const Gap(8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(120, 36)),
+                      onPressed: _isSendingOtp ? null : () => _sendOtp('PICKUP'),
+                      icon: _isSendingOtp
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send_outlined, size: 16),
+                      label: Text(_isSendingOtp ? 'Sending...' : 'Send Pickup OTP'),
+                    ),
+                  ],
+                ),
+                const Gap(12),
+                AppTextField(
+                  label: '6-Digit Customer Pickup OTP',
+                  controller: _otpCtrl,
+                  keyboardType: TextInputType.number,
+                  hint: 'Enter OTP provided by customer',
+                ),
+                const Gap(16),
+
+                // Start Trip Button
+                AppButton(
+                  text: 'Verify OTP & Start Trip',
+                  onPressed: !hasFinalizedPreTrip
+                      ? null
+                      : () => _verifyAndTransition(
+                            targetStatus: 'ongoing',
+                            successMessage: 'Pickup verified and trip started successfully!',
+                          ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Gap(24),
+      ],
+    );
+  }
+
+  Widget _buildActiveRentalWorkflowCard(BookingModel booking, InspectionModel? preTrip, InspectionModel? postTrip) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Vehicle Return & Handover Flow',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            Text(
+              'Active Rental Operations',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
+            ),
+          ],
+        ),
+        const Gap(12),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Active Rental Banner
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.directions_car, color: Color(0xFF2563EB), size: 22),
+                      const Gap(10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'TRIP IN PROGRESS (ACTIVE RENTAL)',
+                              style: TextStyle(
+                                color: Color(0xFF1D4ED8),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Gap(2),
+                            Text(
+                              'Vehicle has been handed over to customer. Expected return on ${booking.endDate.day}/${booking.endDate.month}/${booking.endDate.year} at ${booking.endDate.hour.toString().padLeft(2, '0')}:${booking.endDate.minute.toString().padLeft(2, '0')}.',
+                              style: TextStyle(color: Colors.blue[900], fontSize: 11.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(16),
+
+                // Departure Handover Stats
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          const Text('Handover Odometer', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          const Gap(4),
+                          Text(
+                            preTrip != null ? '${preTrip.odometer.toStringAsFixed(1)} km' : 'Recorded',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      Container(height: 24, width: 1, color: const Color(0xFFCBD5E1)),
+                      Column(
+                        children: [
+                          const Text('Departure Fuel', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          const Gap(4),
+                          Text(
+                            preTrip != null ? '${preTrip.fuelPercent}%' : '100%',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      Container(height: 24, width: 1, color: const Color(0xFFCBD5E1)),
+                      const Column(
+                        children: [
+                          Text('Operational Status', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          Gap(4),
+                          Text(
+                            'On Road',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(16),
+
+                // Primary Operational Actions
+                AppButton(
+                  text: 'Initiate Vehicle Return',
+                  backgroundColor: const Color(0xFF7C3AED),
+                  onPressed: _isLoadingAction
+                      ? null
+                      : () async {
+                          setState(() => _isLoadingAction = true);
+                          final success = await ref
+                              .read(vendorBookingsProvider.notifier)
+                              .initiateReturn(booking.id);
+                          if (mounted) {
+                            setState(() => _isLoadingAction = false);
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Vehicle return initiated! Status moved to Return Pending.'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                ),
+                const Gap(10),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/bookings/${widget.bookingId}/return'),
+                  icon: const Icon(Icons.fact_check_outlined, size: 16),
+                  label: const Text('Start Return Inspection Directly'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF7C3AED),
+                    side: const BorderSide(color: Color(0xFF7C3AED)),
+                  ),
+                ),
               ],
             ),
           ),

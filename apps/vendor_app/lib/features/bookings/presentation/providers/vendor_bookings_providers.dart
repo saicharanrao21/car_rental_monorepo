@@ -6,6 +6,7 @@ import '../../data/api_vendor_bookings_repository.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 
 final vendorBookingsRepositoryProvider = Provider<VendorBookingsRepository>((ref) {
   return ApiVendorBookingsRepository(apiClient: ref.watch(apiClientProvider));
@@ -126,8 +127,16 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
     ref.invalidate(bookingInspectionsProvider(bookingId));
-    ref.invalidate(singleBookingProvider(bookingId));
+    ref.invalidate(fleetCarsProvider);
     return !result.hasError;
+  }
+
+  Future<bool> markHandoverReady(String bookingId) async {
+    return updateStatus(bookingId, 'handover_ready');
+  }
+
+  Future<bool> initiateReturn(String bookingId) async {
+    return updateStatus(bookingId, 'return_pending');
   }
 
   Future<bool> reject(String bookingId, String reason) async {
@@ -138,6 +147,7 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidateSelf();
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
+    ref.invalidate(fleetCarsProvider);
     return !result.hasError;
   }
 
@@ -196,7 +206,7 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
     ref.invalidate(bookingInspectionsProvider(bookingId));
-    ref.invalidate(singleBookingProvider(bookingId));
+    ref.invalidate(fleetCarsProvider);
     return !result.hasError;
   }
 
@@ -232,7 +242,7 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     ref.invalidate(dashboardStatsProvider);
     ref.invalidate(latestBookingRequestsProvider);
     ref.invalidate(bookingInspectionsProvider(bookingId));
-    ref.invalidate(singleBookingProvider(bookingId));
+    ref.invalidate(fleetCarsProvider);
     return !result.hasError;
   }
 
