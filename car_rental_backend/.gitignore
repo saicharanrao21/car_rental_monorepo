@@ -78,4 +78,6 @@ query_*.ts
 list_all_bookings.js
 scratch_*.js
 scratch_*.ts
+.latest_otp.json
+*.latest_otp.json
 
