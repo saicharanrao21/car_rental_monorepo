@@ -664,3 +664,165 @@ class BookingLocationSnapshotModel {
     };
   }
 }
+
+enum LocationExceptionType {
+  holiday,
+  temporaryClosure,
+  emergencyClosure,
+  customHours,
+}
+
+extension LocationExceptionTypeExt on LocationExceptionType {
+  String get displayName {
+    switch (this) {
+      case LocationExceptionType.holiday:
+        return 'Holiday';
+      case LocationExceptionType.temporaryClosure:
+        return 'Temporary Closure';
+      case LocationExceptionType.emergencyClosure:
+        return 'Emergency Closure';
+      case LocationExceptionType.customHours:
+        return 'Custom Hours';
+    }
+  }
+
+  String toApiString() {
+    switch (this) {
+      case LocationExceptionType.holiday:
+        return 'HOLIDAY';
+      case LocationExceptionType.temporaryClosure:
+        return 'TEMPORARY_CLOSURE';
+      case LocationExceptionType.emergencyClosure:
+        return 'EMERGENCY_CLOSURE';
+      case LocationExceptionType.customHours:
+        return 'CUSTOM_HOURS';
+    }
+  }
+
+  static LocationExceptionType fromString(String? val) {
+    if (val == null) return LocationExceptionType.holiday;
+    final upper = val.toUpperCase().replaceAll('-', '_');
+    switch (upper) {
+      case 'HOLIDAY':
+        return LocationExceptionType.holiday;
+      case 'TEMPORARY_CLOSURE':
+      case 'TEMPORARY':
+        return LocationExceptionType.temporaryClosure;
+      case 'EMERGENCY_CLOSURE':
+      case 'EMERGENCY':
+        return LocationExceptionType.emergencyClosure;
+      case 'CUSTOM_HOURS':
+      case 'CUSTOM':
+        return LocationExceptionType.customHours;
+      default:
+        return LocationExceptionType.holiday;
+    }
+  }
+
+  static LocationExceptionType fromApiString(String? val) => fromString(val);
+}
+
+class LocationExceptionModel {
+  final String id;
+  final String locationId;
+  final DateTime date;
+  final LocationExceptionType exceptionType;
+  final bool isClosed;
+  final String? specialOpeningTime;
+  final String? specialClosingTime;
+  final String? reason;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const LocationExceptionModel({
+    required this.id,
+    required this.locationId,
+    required this.date,
+    this.exceptionType = LocationExceptionType.holiday,
+    this.isClosed = true,
+    this.specialOpeningTime,
+    this.specialClosingTime,
+    this.reason,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  String get dateString =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  String? get customOpeningTime => specialOpeningTime;
+  String? get customClosingTime => specialClosingTime;
+  LocationExceptionType get type => exceptionType;
+
+  String get displaySummary {
+    if (isClosed) {
+      return '$dateString: Closed (${reason ?? exceptionType.displayName})';
+    }
+    return '$dateString: $specialOpeningTime - $specialClosingTime (${reason ?? exceptionType.displayName})';
+  }
+
+  LocationExceptionModel copyWith({
+    String? id,
+    String? locationId,
+    DateTime? date,
+    LocationExceptionType? exceptionType,
+    bool? isClosed,
+    String? specialOpeningTime,
+    String? specialClosingTime,
+    String? reason,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return LocationExceptionModel(
+      id: id ?? this.id,
+      locationId: locationId ?? this.locationId,
+      date: date ?? this.date,
+      exceptionType: exceptionType ?? this.exceptionType,
+      isClosed: isClosed ?? this.isClosed,
+      specialOpeningTime: specialOpeningTime ?? this.specialOpeningTime,
+      specialClosingTime: specialClosingTime ?? this.specialClosingTime,
+      reason: reason ?? this.reason,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  factory LocationExceptionModel.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate;
+    if (json['date'] is String) {
+      parsedDate = DateTime.tryParse(json['date'] as String) ?? DateTime.now();
+    } else {
+      parsedDate = DateTime.now();
+    }
+    return LocationExceptionModel(
+      id: json['id'] as String? ?? '',
+      locationId: json['locationId'] as String? ?? '',
+      date: parsedDate,
+      exceptionType: LocationExceptionTypeExt.fromString(json['exceptionType'] as String?),
+      isClosed: json['isClosed'] as bool? ?? true,
+      specialOpeningTime: json['customOpeningTime'] as String? ?? json['specialOpeningTime'] as String?,
+      specialClosingTime: json['customClosingTime'] as String? ?? json['specialClosingTime'] as String?,
+      reason: json['reason'] as String?,
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'] as String) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'locationId': locationId,
+      'date': date.toIso8601String(),
+      'exceptionType': exceptionType.toApiString(),
+      'isClosed': isClosed,
+      'customOpeningTime': specialOpeningTime,
+      'specialOpeningTime': specialOpeningTime,
+      'customClosingTime': specialClosingTime,
+      'specialClosingTime': specialClosingTime,
+      'reason': reason,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+    };
+  }
+}
+

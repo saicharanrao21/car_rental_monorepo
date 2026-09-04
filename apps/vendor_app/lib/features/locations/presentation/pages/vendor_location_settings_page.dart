@@ -443,6 +443,37 @@ class _VendorLocationSettingsPageState
                 ],
               ),
             ],
+            Consumer(
+              builder: (context, ref, _) {
+                final excAsync = ref.watch(locationExceptionsProvider(loc.id));
+                final exceptions = excAsync.valueOrNull ?? [];
+                if (exceptions.isEmpty) return const SizedBox.shrink();
+                final closed = exceptions.where((e) => e.isClosed).toList();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        closed.isNotEmpty ? Icons.event_busy : Icons.event_note,
+                        size: 14,
+                        color: closed.isNotEmpty ? Colors.red.shade700 : Colors.amber.shade800,
+                      ),
+                      const Gap(4),
+                      Text(
+                        closed.isNotEmpty
+                            ? '${closed.length} Upcoming Closure${closed.length > 1 ? 's' : ''}'
+                            : '${exceptions.length} Scheduled Exception${exceptions.length > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: closed.isNotEmpty ? Colors.red.shade700 : Colors.amber.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
