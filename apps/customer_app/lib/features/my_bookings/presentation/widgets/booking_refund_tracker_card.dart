@@ -28,16 +28,22 @@ class BookingRefundTrackerCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.history_outlined, size: 18, color: Colors.red),
-                  Gap(8),
-                  Text(
-                    'Cancellation & Refund Details',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.history_outlined, size: 18, color: Colors.red),
+                    Gap(8),
+                    Expanded(
+                      child: Text(
+                        'Cancellation & Refund Details',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(

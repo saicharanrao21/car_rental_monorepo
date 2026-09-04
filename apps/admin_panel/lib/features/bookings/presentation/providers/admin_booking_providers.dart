@@ -44,6 +44,12 @@ final bookingDetailBundleProvider = FutureProvider.family<BookingDetailBundle, S
   return repo.getBookingDetail(bookingId);
 });
 
+// Family Provider for payment & refund details
+final bookingPaymentDetailProvider = FutureProvider.family<PaymentOrderModel?, String>((ref, bookingId) async {
+  final repo = ref.watch(adminBookingRepositoryProvider);
+  return repo.getBookingPayment(bookingId);
+});
+
 // Action controller for booking mutations (e.g. override status, dispute)
 class AdminBookingController extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
@@ -71,6 +77,30 @@ class AdminBookingController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> issueAdminRefund({
+    required String bookingId,
+    required double amount,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(adminBookingRepositoryProvider).issueAdminRefund(
+        bookingId: bookingId,
+        amount: amount,
+        reason: reason,
+        idempotencyKey: idempotencyKey,
+      );
+      _ref.invalidate(adminBookingsProvider);
+      _ref.invalidate(bookingDetailBundleProvider(bookingId));
+      _ref.invalidate(bookingPaymentDetailProvider(bookingId));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      rethrow;
     }
   }
 }

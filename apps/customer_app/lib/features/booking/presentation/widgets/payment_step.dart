@@ -452,26 +452,29 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
           ),
           const Gap(DDSSpacing.md),
 
-          // ── Error Banner ──────────────────────────────────────────
-          if (_errorMessage != null)
+          // ── Processing & Verification Banner ──────────────────────
+          if (_isProcessingPayment)
             Container(
               padding: const EdgeInsets.all(DDSSpacing.sm),
               margin: const EdgeInsets.only(bottom: DDSSpacing.md),
               decoration: BoxDecoration(
-                color: DDSColors.errorRedBg,
+                color: DDSColors.infoBlueBg,
                 borderRadius: DDSRadius.mediumBorderRadius,
-                border: Border.all(color: DDSColors.errorRed.withValues(alpha: 0.3)),
+                border: Border.all(color: DDSColors.primaryBlue.withValues(alpha: 0.3)),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, size: 18, color: DDSColors.errorRed),
-                  const Gap(DDSSpacing.xs),
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: DDSColors.primaryBlue),
+                  ),
+                  const Gap(DDSSpacing.sm),
                   Expanded(
                     child: Text(
-                      _errorMessage!,
+                      'Reconciliation in progress... Verifying payment state with gateway.',
                       style: DDSTypography.bodyMedium.copyWith(
-                        color: DDSColors.errorRed,
+                        color: DDSColors.primaryBlue,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -481,7 +484,56 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
               ),
             ),
 
+          // ── Error Banner & Safe Reconciliation Action ─────────────
+          if (_errorMessage != null)
+            Container(
+              padding: const EdgeInsets.all(DDSSpacing.sm),
+              margin: const EdgeInsets.only(bottom: DDSSpacing.md),
+              decoration: BoxDecoration(
+                color: DDSColors.errorRedBg,
+                borderRadius: DDSRadius.mediumBorderRadius,
+                border: Border.all(color: DDSColors.errorRed.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline, size: 18, color: DDSColors.errorRed),
+                      const Gap(DDSSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: DDSTypography.bodyMedium.copyWith(
+                            color: DDSColors.errorRed,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_currentBookingId != null && !_isProcessingPayment) ...[
+                    const Gap(8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.sync, size: 14, color: DDSColors.primaryBlue),
+                        label: const Text(
+                          'Check Gateway Status',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: DDSColors.primaryBlue),
+                        ),
+                        onPressed: () => _pollBookingConfirmation(_currentBookingId!),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
           // Action button for standalone invocation & test integration
+
           SizedBox(
             height: 48,
             child: ElevatedButton(

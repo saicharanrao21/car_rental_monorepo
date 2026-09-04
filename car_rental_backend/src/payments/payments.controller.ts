@@ -12,6 +12,7 @@ import {
 import { PaymentsService } from './payments.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { AdminRefundDto } from './dto/admin-refund.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -63,7 +64,7 @@ export class PaymentsController {
       throw new BadRequestException('Webhook signature is missing');
     }
 
-    return this.paymentsService.handleWebhook(rawBody, signature);
+    return this.paymentsService.handleWebhook(rawBody, signature, req.headers);
   }
 
   // 4. GET /payments/:bookingId (CUSTOMER who owns it, ADMIN, or SUPPORT_AGENT)
@@ -75,5 +76,17 @@ export class PaymentsController {
     @Param('bookingId') bookingId: string,
   ) {
     return this.paymentsService.getPaymentByBookingId(bookingId, req.user);
+  }
+
+  // 5. POST /payments/:bookingId/refund (ADMIN only)
+  @Post(':bookingId/refund')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminRefund(
+    @Req() req: any,
+    @Param('bookingId') bookingId: string,
+    @Body() dto: AdminRefundDto,
+  ) {
+    return this.paymentsService.adminRefund(bookingId, dto, req.user);
   }
 }

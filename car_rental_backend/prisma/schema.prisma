@@ -146,13 +146,19 @@ enum PayoutStatus {
 
 enum PaymentStatus {
   CREATED
+  PENDING
+  AUTHORIZED
+  CAPTURED
   PAID
   FAILED
+  CANCELLED
+  PARTIALLY_REFUNDED
   REFUNDED
 }
 
 enum RefundStatus {
   NONE
+  REQUESTED
   PENDING
   PROCESSED
   FAILED
@@ -863,23 +869,75 @@ model ReconciliationException {
 }
 
 model Payment {
-  id                String        @id @default(cuid())
-  bookingId         String        @unique
-  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  razorpayOrderId   String?       @unique
+  id                String          @id @default(cuid())
+  bookingId         String          @unique
+  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  razorpayOrderId   String?         @unique
   razorpayPaymentId String?
-  razorpayRefundId  String?       @unique
-  amount            Decimal       @db.Decimal(10, 2)
-  refundAmount      Decimal?      @db.Decimal(10, 2)
-  status            PaymentStatus @default(CREATED)
-  refundStatus      RefundStatus  @default(NONE)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  razorpayRefundId  String?         @unique
+  amount            Decimal         @db.Decimal(10, 2)
+  refundAmount      Decimal?        @db.Decimal(10, 2)
+  currency          String          @default("INR")
+  status            PaymentStatus   @default(CREATED)
+  refundStatus      RefundStatus    @default(NONE)
+  gatewayProvider   String          @default("RAZORPAY")
+  gatewaySignature  String?
+  capturedAt        DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  idempotencyKey    String?         @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  refunds           PaymentRefund[]
 
   @@index([razorpayRefundId])
   @@index([razorpayOrderId])
   @@index([status, createdAt])
   @@index([bookingId, status])
+  @@index([gatewayProvider])
+  @@index([idempotencyKey])
+}
+
+model PaymentRefund {
+  id                String        @id @default(cuid())
+  paymentId         String
+  payment           Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bookingId         String
+  gatewayRefundId   String?       @unique
+  idempotencyKey    String        @unique
+  requestedAmount   Decimal       @db.Decimal(10, 2)
+  processedAmount   Decimal?      @db.Decimal(10, 2)
+  currency          String        @default("INR")
+  reason            String?
+  requestedByUserId String?
+  status            RefundStatus  @default(REQUESTED)
+  failureReason     String?
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([paymentId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([idempotencyKey])
+  @@index([gatewayRefundId])
+}
+
+model WebhookEvent {
+  id            String    @id @default(cuid())
+  gateway       String    @default("RAZORPAY")
+  eventId       String    @unique
+  eventType     String
+  payload       Json
+  signature     String?
+  status        String    @default("PROCESSED") // RECEIVED, PROCESSED, FAILED, DUPLICATE
+  processedAt   DateTime?
+  failureReason String?
+  createdAt     DateTime  @default(now())
+
+  @@index([gateway, eventType])
+  @@index([eventId])
+  @@index([createdAt])
 }
 
 model Banner {

@@ -28,6 +28,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { InvoicesService } from '../invoices/invoices.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { AuditLogService } from '../admin/audit-log.service';
+import { AdminRefundDto } from './dto/admin-refund.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class PaymentsService {
@@ -46,6 +49,7 @@ export class PaymentsService {
     @Optional()
     @Inject(forwardRef(() => WalletsService))
     private readonly walletsService?: WalletsService,
+    @Optional() private readonly auditLogService?: AuditLogService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -617,9 +621,9 @@ export class PaymentsService {
   }
 
   /**
-   * Verifies signature and handles webhook events from Razorpay.
+   * Verifies signature and handles webhook events from Razorpay with persistent WebhookEvent deduplication.
    */
-  async handleWebhook(rawBody: string, signature: string) {
+  async handleWebhook(rawBody: string, signature: string, headers?: any) {
     if (this.useMock && signature === 'mock_signature') {
       this.logger.log(
         '[RAZORPAY-MOCK] Skipping signature verification for mock_signature',
@@ -640,6 +644,40 @@ export class PaymentsService {
 
     const payload = JSON.parse(rawBody);
     const event = payload.event;
+
+    // Persistent deduplication & idempotency via WebhookEvent table
+    const eventId =
+      (headers && (headers['x-razorpay-event-id'] || headers['x-event-id'])) ||
+      payload.event_id ||
+      payload.id ||
+      crypto.createHash('sha256').update(rawBody).digest('hex');
+
+    if (this.prisma.webhookEvent) {
+      try {
+        await this.prisma.webhookEvent.create({
+          data: {
+            gateway: 'RAZORPAY',
+            eventId: String(eventId),
+            eventType: String(event),
+            payload: payload,
+            signature,
+            status: 'RECEIVED',
+          },
+        });
+      } catch (err: any) {
+        if (
+          err.code === 'P2002' ||
+          err.message?.includes('Unique constraint') ||
+          err.message?.includes('duplicate key')
+        ) {
+          this.logger.log(
+            `[WEBHOOK-DEDUPLICATION] Duplicate webhook event ${eventId} already received. Skipping.`,
+          );
+          return { received: true, duplicate: true, alreadyProcessed: true };
+        }
+        this.logger.warn(`Failed to insert WebhookEvent: ${err.message}`);
+      }
+    }
 
     if (event === 'payment.captured' || event === 'order.paid') {
       const paymentEntity = payload.payload?.payment?.entity;
@@ -690,6 +728,14 @@ export class PaymentsService {
         this.logger.log(
           `Payment for order ${orderId} already marked PAID (idempotent skip)`,
         );
+        if (this.prisma.webhookEvent) {
+          try {
+            await this.prisma.webhookEvent.update({
+              where: { eventId: String(eventId) },
+              data: { status: 'PROCESSED', processedAt: new Date() },
+            });
+          } catch (_) {}
+        }
         return { received: true, alreadyProcessed: true };
       }
 
@@ -708,6 +754,15 @@ export class PaymentsService {
 
         return b;
       });
+
+      if (this.prisma.webhookEvent) {
+        try {
+          await this.prisma.webhookEvent.update({
+            where: { eventId: String(eventId) },
+            data: { status: 'PROCESSED', processedAt: new Date() },
+          });
+        } catch (_) {}
+      }
 
       if (booking) {
         this.notificationsService
@@ -877,10 +932,14 @@ export class PaymentsService {
     refundAmountInPaise: number,
     reason?: string,
     cancellationTier?: string,
+    idempotencyKeyParam?: string,
+    requestedByUserId?: string,
   ): Promise<{
     refundId: string | null;
     refundAmount: Decimal;
     refundStatus: RefundStatus;
+    paymentRefundId?: string;
+    isDuplicate?: boolean;
   }> {
     const payment = await this.prisma.payment.findUnique({
       where: { bookingId },
@@ -961,7 +1020,30 @@ export class PaymentsService {
     const walletRefundRupees = totalRefundRupees.sub(gatewayRefundRupees);
 
     const gatewayRefundInPaise = Math.round(gatewayRefundRupees.toNumber() * 100);
-    const idempotencyKey = `refund_${bookingId}_${payment.id}`;
+    const idempotencyKey = idempotencyKeyParam || `refund_${bookingId}_${payment.id}`;
+
+    // Persistent deduplication check via PaymentRefund table
+    if (this.prisma.paymentRefund) {
+      try {
+        const existingRefund = await this.prisma.paymentRefund.findUnique({
+          where: { idempotencyKey },
+        });
+        if (existingRefund) {
+          this.logger.log(
+            `[REFUND-IDEMPOTENT] Existing refund record found for key ${idempotencyKey}. Returning idempotently.`,
+          );
+          return {
+            refundId: existingRefund.gatewayRefundId,
+            refundAmount:
+              existingRefund.processedAmount || existingRefund.requestedAmount,
+            refundStatus: existingRefund.status,
+            paymentRefundId: existingRefund.id,
+            isDuplicate: true,
+          };
+        }
+      } catch (_) {}
+    }
+
     let refundId: string | null = null;
     let initialRefundStatus: RefundStatus = RefundStatus.PROCESSED;
 
@@ -1101,15 +1183,125 @@ export class PaymentsService {
       },
     });
 
+    let paymentRefundId: string | undefined;
+    if (this.prisma.paymentRefund) {
+      try {
+        const pr = await this.prisma.paymentRefund.create({
+          data: {
+            paymentId: payment.id,
+            bookingId,
+            gatewayRefundId: refundId,
+            idempotencyKey,
+            requestedAmount: refundAmountInRupees,
+            processedAmount:
+              initialRefundStatus === RefundStatus.PROCESSED
+                ? refundAmountInRupees
+                : null,
+            currency: 'INR',
+            reason: reason || 'Booking cancellation',
+            requestedByUserId,
+            status: initialRefundStatus,
+          },
+        });
+        paymentRefundId = pr.id;
+      } catch (err: any) {
+        this.logger.warn(`Failed to persist PaymentRefund record: ${err.message}`);
+      }
+    }
+
     return {
       refundId,
       refundAmount: totalRefundRupees,
       refundStatus: initialRefundStatus,
+      paymentRefundId,
+      isDuplicate: false,
     };
   }
 
   /**
-   * Retrieves payment details for customer/admin lookup.
+   * Administrative override for issuing manual refunds with full audit logging.
+   */
+  async adminRefund(
+    bookingId: string,
+    dto: AdminRefundDto,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    if (requestingUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only administrators can issue manual refunds.');
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { bookingId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found for booking.');
+    }
+
+    if (
+      payment.status !== PaymentStatus.PAID &&
+      payment.status !== PaymentStatus.REFUNDED &&
+      payment.status !== PaymentStatus.PARTIALLY_REFUNDED
+    ) {
+      throw new BadRequestException(`Cannot refund payment in ${payment.status} status.`);
+    }
+
+    const currentRefunded = payment.refundAmount || new Decimal(0);
+    const maxRefundable = payment.amount.sub(currentRefunded);
+
+    if (maxRefundable.lte(0)) {
+      throw new BadRequestException('Payment has already been fully refunded.');
+    }
+
+    const maxRefundablePaise = Math.round(maxRefundable.toNumber() * 100);
+    const targetRefundPaise = dto.amountInPaise || maxRefundablePaise;
+
+    if (targetRefundPaise > maxRefundablePaise) {
+      throw new BadRequestException(
+        `Requested refund amount (${targetRefundPaise} paise) exceeds remaining refundable amount (${maxRefundablePaise} paise).`,
+      );
+    }
+
+    const effectiveKey =
+      dto.idempotencyKey || `admin_rfnd_${bookingId}_${targetRefundPaise}_${Date.now()}`;
+
+    const result = await this.refund(
+      bookingId,
+      targetRefundPaise,
+      dto.reason,
+      'ADMIN_MANUAL_OVERRIDE',
+      effectiveKey,
+      requestingUser.userId,
+    );
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        requestingUser.userId,
+        'ADMIN_PAYMENT_REFUND',
+        'Payment',
+        payment.id,
+        {
+          bookingId,
+          refundAmountPaise: targetRefundPaise,
+          reason: dto.reason,
+          refundId: result.refundId,
+          status: result.refundStatus,
+        },
+      );
+    }
+
+    return {
+      success: true,
+      bookingId,
+      paymentId: payment.id,
+      refundId: result.refundId,
+      refundAmount: result.refundAmount,
+      refundStatus: result.refundStatus,
+    };
+  }
+
+  /**
+   * Retrieves payment details for customer/admin lookup with refund history and gateway timeline.
    */
   async getPaymentByBookingId(
     bookingId: string,
@@ -1136,6 +1328,11 @@ export class PaymentsService {
 
     const payment = await this.prisma.payment.findUnique({
       where: { bookingId },
+      include: {
+        refunds: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!payment) {
@@ -1147,6 +1344,7 @@ export class PaymentsService {
       keyId: this.keyId,
       currency: 'INR',
       amountInPaise: Math.round(payment.amount.toNumber() * 100),
+      refunds: (payment as any).refunds || [],
     };
   }
 }

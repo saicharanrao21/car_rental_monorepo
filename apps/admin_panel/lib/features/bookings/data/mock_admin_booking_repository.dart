@@ -131,4 +131,32 @@ class MockAdminBookingRepository implements AdminBookingRepository {
       }
     }
   }
+
+  @override
+  Future<PaymentOrderModel?> getBookingPayment(String bookingId) async {
+    await _delay();
+    return PaymentOrderModel(
+      id: 'pay_$bookingId',
+      bookingId: bookingId,
+      amount: 4500.0,
+      amountInPaise: 450000,
+      currency: 'INR',
+      keyId: 'rzp_test_mock',
+      status: 'PAID',
+      razorpayOrderId: 'order_mock_$bookingId',
+      razorpayPaymentId: 'pay_mock_$bookingId',
+      gatewayProvider: 'razorpay',
+    );
+  }
+
+
+  @override
+  Future<void> issueAdminRefund({
+    required String bookingId,
+    required double amount,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    await _delay();
+  }
 }

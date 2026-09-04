@@ -39,10 +39,14 @@ class BookingDetailPricingCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Payment & Fare Breakdown',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              const Expanded(
+                child: Text(
+                  'Payment & Fare Breakdown',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               _paymentStatusBadge(context),
             ],
           ),
@@ -125,9 +129,15 @@ class BookingDetailPricingCard extends StatelessWidget {
 
     switch (status) {
       case 'PAID':
+      case 'CAPTURED':
         bg = Colors.green.withValues(alpha: 0.12);
         fg = Colors.green[800]!;
-        label = 'PAID IN FULL';
+        label = 'PAID & CAPTURED';
+        break;
+      case 'AUTHORIZED':
+        bg = Colors.blue.withValues(alpha: 0.12);
+        fg = Colors.blue[800]!;
+        label = 'AUTHORIZED';
         break;
       case 'PENDING':
       case 'CREATED':
@@ -135,15 +145,37 @@ class BookingDetailPricingCard extends StatelessWidget {
         fg = Colors.amber[900]!;
         label = 'PAYMENT PENDING';
         break;
+      case 'VERIFYING':
+      case 'PROCESSING':
+        bg = Colors.purple.withValues(alpha: 0.12);
+        fg = Colors.purple[800]!;
+        label = 'RECONCILING PAYMENT';
+        break;
+      case 'PARTIALLY_REFUNDED':
+        bg = Colors.orange.withValues(alpha: 0.15);
+        fg = Colors.orange[900]!;
+        label = 'PARTIALLY REFUNDED';
+        break;
       case 'REFUNDED':
         bg = Colors.blue.withValues(alpha: 0.12);
         fg = Colors.blue[800]!;
         label = 'REFUNDED';
         break;
+      case 'REFUND_PENDING':
+      case 'REQUESTED':
+        bg = Colors.amber.withValues(alpha: 0.15);
+        fg = Colors.amber[900]!;
+        label = 'REFUND PENDING';
+        break;
       case 'FAILED':
         bg = Colors.red.withValues(alpha: 0.12);
         fg = Colors.red[800]!;
-        label = 'FAILED';
+        label = 'PAYMENT FAILED';
+        break;
+      case 'CANCELLED':
+        bg = Colors.grey.withValues(alpha: 0.15);
+        fg = Colors.grey[800]!;
+        label = 'CANCELLED';
         break;
       default:
         bg = Colors.green.withValues(alpha: 0.12);
@@ -162,6 +194,7 @@ class BookingDetailPricingCard extends StatelessWidget {
         style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
+
   }
 
   Widget _fareRow(BuildContext context, String label, double amount) {
@@ -171,7 +204,14 @@ class BookingDetailPricingCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             IndianCurrencyFormatter.format(amount, showDecimals: false),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),

@@ -440,6 +440,107 @@ class _BookingDetailPanel extends ConsumerWidget {
     );
   }
 
+  void _showRefundDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required BookingModel booking,
+    required PaymentOrderModel? payment,
+  }) {
+    final amountController = TextEditingController(
+      text: (payment?.refundableAmount ?? booking.totalFare).toStringAsFixed(0),
+    );
+    final reasonController = TextEditingController(text: 'Admin authorized refund');
+    final idempotencyController = TextEditingController(
+      text: 'ref_${booking.id.substring(0, booking.id.length > 8 ? 8 : booking.id.length)}_${DateTime.now().millisecondsSinceEpoch}',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.currency_exchange, color: Colors.deepOrange),
+            Gap(8),
+            Text('Issue Gateway Refund', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Initiate an authoritative gateway refund. Idempotency key protects against duplicate gateway charges.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const Gap(16),
+              AppTextField(
+                label: 'Refund Amount (INR)',
+                controller: amountController,
+                keyboardType: TextInputType.number,
+              ),
+              const Gap(12),
+              AppTextField(
+                label: 'Refund Reason',
+                controller: reasonController,
+                hint: 'e.g. Customer cancellation fee dispute',
+              ),
+              const Gap(12),
+              AppTextField(
+                label: 'Idempotency Key',
+                controller: idempotencyController,
+                hint: 'Unique idempotency key',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            text: 'Process Refund',
+            backgroundColor: Colors.deepOrange,
+            onPressed: () async {
+              final amt = double.tryParse(amountController.text.trim()) ?? 0;
+              final reason = reasonController.text.trim();
+              final ikey = idempotencyController.text.trim();
+              if (amt <= 0 || reason.isEmpty || ikey.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await ref.read(adminBookingControllerProvider.notifier).issueAdminRefund(
+                  bookingId: booking.id,
+                  amount: amt,
+                  reason: reason,
+                  idempotencyKey: ikey,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Refund processed successfully via Payment Gateway'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Refund failed: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildFulfillmentBadge(BookingModel b) {
     final isDoorstep = b.deliveryType == 'DOORSTEP_DELIVERY' || b.deliveryAddress != null;
     final isTransit = b.deliveryType == 'PUBLIC_LOCATION' ||
@@ -491,6 +592,7 @@ class _BookingDetailPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bundleAsync = ref.watch(bookingDetailBundleProvider(bookingId));
+    final paymentAsync = ref.watch(bookingPaymentDetailProvider(bookingId));
     final controllerState = ref.watch(adminBookingControllerProvider);
 
     return bundleAsync.when(
@@ -670,9 +772,129 @@ class _BookingDetailPanel extends ConsumerWidget {
                       isBold: true,
                       valueColor: Colors.green[700],
                     ),
-                    const Gap(40),
+                    const Divider(height: 32),
+
+                    // Payment Integrity & Gateway Governance
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(child: SectionHeader(title: 'Payment Integrity & Escrow')),
+                        paymentAsync.maybeWhen(
+
+                          data: (p) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (p?.isPaid ?? false)
+                                  ? const Color(0xFFDCFCE7)
+                                  : ((p?.isFailed ?? false) ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              (p?.status ?? (b.status == 'pending' ? 'PENDING' : 'PAID')).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: (p?.isPaid ?? false)
+                                    ? const Color(0xFF166534)
+                                    : ((p?.isFailed ?? false) ? const Color(0xFF991B1B) : const Color(0xFF92400E)),
+                              ),
+                            ),
+                          ),
+                          orElse: () => const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                    const Gap(12),
+                    paymentAsync.when(
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: AppLoader())),
+                      error: (err, _) => Text('Payment details unavailable: $err', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      data: (payment) {
+                        final orderId = payment?.razorpayOrderId ?? payment?.id ?? 'N/A';
+                        final paymentId = payment?.razorpayPaymentId ?? 'N/A';
+                        final provider = payment != null ? payment.gatewayProvider.toUpperCase() : 'RAZORPAY';
+                        final isDisputed = b.disputeFlag;
+                        final isCompleted = b.status == 'completed';
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _DetailRow(label: 'Gateway Provider', value: provider),
+                              _DetailRow(label: 'Gateway Order ID', value: orderId),
+                              _DetailRow(label: 'Gateway Payment ID', value: paymentId),
+                              _DetailRow(
+                                label: 'Escrow Status',
+                                value: isDisputed
+                                    ? 'HOLD (Disputed / Claim Lock)'
+                                    : (isCompleted ? 'ELIGIBLE FOR VENDOR PAYOUT' : 'PLATFORM ESCROW (In Progress)'),
+                                valueColor: isDisputed
+                                    ? Colors.red[700]
+                                    : (isCompleted ? Colors.green[700] : Colors.blue[700]),
+                                isBold: true,
+                              ),
+                              if (payment?.refunds.isNotEmpty ?? false) ...[
+                                const Divider(height: 16),
+                                const Text(
+                                  'Refund Records:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                const Gap(6),
+                                ...payment!.refunds.map((r) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '₹${(r.processedAmount ?? r.requestedAmount).toStringAsFixed(0)} • ${r.status}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: r.status == 'PROCESSED' ? Colors.green[800] : Colors.amber[900],
+                                            ),
+                                          ),
+                                          Text(
+                                            r.gatewayRefundId ?? r.reason ?? 'N/A',
+                                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    )),
+                              ],
+
+                              const Gap(12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.currency_exchange, size: 16),
+                                  label: const Text('Issue Authoritative Refund', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.deepOrange,
+                                    side: const BorderSide(color: Colors.deepOrange),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  onPressed: () => _showRefundDialog(
+                                    context: context,
+                                    ref: ref,
+                                    booking: b,
+                                    payment: payment,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const Gap(24),
 
                     // Admin Action Buttons
+
                     Row(
                       children: [
                         if (b.status != 'cancelled')

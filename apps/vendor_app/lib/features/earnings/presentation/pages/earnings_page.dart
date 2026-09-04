@@ -285,7 +285,31 @@ class _BookingEarningsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formatter = DateFormat('dd MMM yyyy');
-    final commissionPct = ((booking.platformFee / booking.totalFare) * 100).toStringAsFixed(0);
+    final commissionPct = booking.totalFare > 0
+        ? ((booking.platformFee / booking.totalFare) * 100).toStringAsFixed(0)
+        : '0';
+    final isDisputed = booking.disputeFlag;
+    final isCompleted = booking.status.toLowerCase() == 'completed';
+    final isCancelled = booking.status.toLowerCase() == 'cancelled' ||
+        booking.status.toLowerCase() == 'refunded';
+
+    String escrowLabel = 'IN PLATFORM ESCROW';
+    Color escrowBg = const Color(0xFFEFF6FF);
+    Color escrowFg = const Color(0xFF1D4ED8);
+
+    if (isDisputed) {
+      escrowLabel = 'ESCROW HOLD (DISPUTED)';
+      escrowBg = const Color(0xFFFEF2F2);
+      escrowFg = const Color(0xFFB91C1C);
+    } else if (isCancelled) {
+      escrowLabel = 'REFUNDED TO CUSTOMER';
+      escrowBg = const Color(0xFFF3F4F6);
+      escrowFg = const Color(0xFF4B5563);
+    } else if (isCompleted) {
+      escrowLabel = 'SETTLEMENT ELIGIBLE';
+      escrowBg = const Color(0xFFF0FDF4);
+      escrowFg = const Color(0xFF15803D);
+    }
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: 10),
@@ -303,9 +327,21 @@ class _BookingEarningsRow extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
-                Text(
-                  formatter.format(booking.startDate),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: escrowBg,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    escrowLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: escrowFg,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -313,7 +349,21 @@ class _BookingEarningsRow extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Trip Fare:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(
+                  'Trip Date: ${formatter.format(booking.startDate)}',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+                Text(
+                  'Status: ${booking.status.toUpperCase()}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            const Gap(6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Customer Paid (Escrow):', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 PriceTag(
                   amount: booking.totalFare,
                   amountStyle: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500),
@@ -326,9 +376,13 @@ class _BookingEarningsRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Platform deducted $commissionPct% (₹${booking.platformFee.toStringAsFixed(0)}) from this booking',
-                    style: TextStyle(color: Colors.orange[700], fontSize: 11, fontStyle: FontStyle.italic),
+                    'Platform Fee ($commissionPct% deducted):',
+                    style: TextStyle(color: Colors.orange[700], fontSize: 11),
                   ),
+                ),
+                Text(
+                  '-₹${booking.platformFee.toStringAsFixed(0)}',
+                  style: TextStyle(color: Colors.orange[700], fontSize: 11, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -338,11 +392,13 @@ class _BookingEarningsRow extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Your Payout:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text('Net Vendor Settlement:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 PriceTag(
-                  amount: booking.netToVendor,
-                  amountStyle: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green,
+                  amount: isCancelled ? 0.0 : booking.netToVendor,
+                  amountStyle: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isCancelled ? Colors.grey : (isDisputed ? Colors.deepOrange : Colors.green),
                   ),
                 ),
               ],
@@ -353,6 +409,7 @@ class _BookingEarningsRow extends StatelessWidget {
     );
   }
 }
+
 
 // ─── Payout History List ────────────────────────────────────────────────────
 

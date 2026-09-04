@@ -96,15 +96,42 @@ export class PayoutsService {
         status: 'COMPLETED',
         payment: { status: PaymentStatus.PAID },
       },
+      include: {
+        damageClaims: true,
+      },
     })) || [];
 
-    const totalEarnings = completedBookings.reduce(
+    // Filter out disputed bookings and open damage claims for escrow security
+    const disputedBookings = completedBookings.filter(
+      (b: any) =>
+        b.disputeFlag === true ||
+        (b.damageClaims &&
+          b.damageClaims.some(
+            (dc: any) =>
+              dc.status === 'OPEN' || dc.status === 'UNDER_REVIEW',
+          )),
+    );
+    const cleanCompletedBookings = completedBookings.filter(
+      (b: any) =>
+        !b.disputeFlag &&
+        (!b.damageClaims ||
+          !b.damageClaims.some(
+            (dc: any) =>
+              dc.status === 'OPEN' || dc.status === 'UNDER_REVIEW',
+          )),
+    );
+
+    const totalEarnings = cleanCompletedBookings.reduce(
       (sum, b) => sum.add(b.netToVendor),
+      new Prisma.Decimal(0),
+    );
+    const disputedEarnings = disputedBookings.reduce(
+      (sum, b: any) => sum.add(b.netToVendor),
       new Prisma.Decimal(0),
     );
 
     // 2. Identify bookings within settlement hold window
-    const heldBookings = completedBookings.filter(
+    const heldBookings = cleanCompletedBookings.filter(
       (b) => b.updatedAt && b.updatedAt > holdCutoff,
     );
     const heldEarnings = heldBookings.reduce(
@@ -302,8 +329,23 @@ export class PayoutsService {
           status: 'COMPLETED',
           payment: { status: PaymentStatus.PAID },
         },
+        include: {
+          damageClaims: true,
+        },
       })) || [];
-      const totalEarned = completed.reduce(
+
+      // Exclude disputed bookings and open damage claims from payout eligibility
+      const cleanCompleted = completed.filter(
+        (b: any) =>
+          !b.disputeFlag &&
+          (!b.damageClaims ||
+            !b.damageClaims.some(
+              (dc: any) =>
+                dc.status === 'OPEN' || dc.status === 'UNDER_REVIEW',
+            )),
+      );
+
+      const totalEarned = cleanCompleted.reduce(
         (sum, b) => sum.add(b.netToVendor),
         new Prisma.Decimal(0),
       );

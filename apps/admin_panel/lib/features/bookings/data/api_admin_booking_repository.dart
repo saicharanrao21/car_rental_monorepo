@@ -143,4 +143,29 @@ class ApiAdminBookingRepository implements AdminBookingRepository {
       });
     }
   }
+
+  @override
+  Future<PaymentOrderModel?> getBookingPayment(String bookingId) async {
+    try {
+      final res = await apiClient.dio.get('/payments/$bookingId');
+      if (res.data == null) return null;
+      return PaymentOrderModel.fromJson(Map<String, dynamic>.from(res.data));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> issueAdminRefund({
+    required String bookingId,
+    required double amount,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    await apiClient.dio.post('/payments/$bookingId/refund', data: {
+      'amount': amount,
+      'reason': reason,
+      'idempotencyKey': idempotencyKey,
+    });
+  }
 }

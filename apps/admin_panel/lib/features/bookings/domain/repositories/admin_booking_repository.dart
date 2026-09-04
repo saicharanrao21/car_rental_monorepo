@@ -30,4 +30,13 @@ abstract class AdminBookingRepository {
   Future<void> overrideBookingStatus(String bookingId, String newStatus);
 
   Future<void> flagBookingDispute(String bookingId, String note);
+
+  Future<PaymentOrderModel?> getBookingPayment(String bookingId);
+
+  Future<void> issueAdminRefund({
+    required String bookingId,
+    required double amount,
+    required String reason,
+    required String idempotencyKey,
+  });
 }
