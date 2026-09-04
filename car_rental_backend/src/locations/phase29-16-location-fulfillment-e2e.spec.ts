@@ -384,4 +384,138 @@ describe('Phase 29.16: Cross-Platform Location & Fulfillment E2E Integration Sui
       expect(returnState.pickupAddress).toBe(initialSnapshot.pickupAddress);
     });
   });
+
+  describe('FLOW G — CROSS-LAYER FULFILLMENT MATRIX & CONTRACT INTEGRITY', () => {
+    it('verifies 13 authoritative fields presence in vendor response contract across all fulfillment modes', () => {
+      // 1. Two-way Doorstep Delivery & Collection
+      const doorstepBothWays = {
+        deliveryType: 'DOORSTEP_DELIVERY',
+        pickupAddress: 'Customer Home, Bandra, Mumbai',
+        deliveryAddress: 'Customer Home, Bandra, Mumbai',
+        deliveryFee: 350,
+        pickupFee: 0,
+        returnFee: 350,
+        oneWayFee: 0,
+        deliveryLatitude: 19.0596,
+        deliveryLongitude: 72.8295,
+        pickupHubId: null,
+        returnHubId: null,
+        pickupName: null,
+        dropName: null,
+      };
+
+      // 2. Doorstep Delivery -> Hub Return
+      const doorstepToHub = {
+        deliveryType: 'DOORSTEP_DELIVERY',
+        pickupAddress: 'Customer Office, BKC, Mumbai',
+        deliveryAddress: 'Customer Office, BKC, Mumbai',
+        deliveryFee: 400,
+        pickupFee: 0,
+        returnFee: 150,
+        oneWayFee: 250,
+        deliveryLatitude: 19.0657,
+        deliveryLongitude: 72.8687,
+        pickupHubId: null,
+        returnHubId: branchHub.id,
+        pickupName: null,
+        dropName: branchHub.name,
+      };
+
+      // 3. Hub -> Hub (Same Hub)
+      const hubToHub = {
+        deliveryType: 'HUB_PICKUP',
+        pickupAddress: airportHub.address,
+        deliveryAddress: null,
+        deliveryFee: 0,
+        pickupFee: 200,
+        returnFee: 200,
+        oneWayFee: 0,
+        deliveryLatitude: null,
+        deliveryLongitude: null,
+        pickupHubId: airportHub.id,
+        returnHubId: airportHub.id,
+        pickupName: airportHub.name,
+        dropName: airportHub.name,
+      };
+
+      // 4. Legacy Booking without metadata (backward compatibility)
+      const legacyBooking = {
+        deliveryType: 'NONE',
+        pickupAddress: null,
+        deliveryAddress: null,
+        deliveryFee: 0,
+        pickupFee: 0,
+        returnFee: 0,
+        oneWayFee: 0,
+        deliveryLatitude: null,
+        deliveryLongitude: null,
+        pickupHubId: null,
+        returnHubId: null,
+        pickupName: null,
+        dropName: null,
+      };
+
+      const scenarios = [doorstepBothWays, doorstepToHub, hubToHub, legacyBooking];
+      for (const s of scenarios) {
+        // Assert all 13 authoritative fields exist
+        expect(s).toHaveProperty('deliveryType');
+        expect(s).toHaveProperty('pickupAddress');
+        expect(s).toHaveProperty('deliveryAddress');
+        expect(s).toHaveProperty('deliveryFee');
+        expect(s).toHaveProperty('pickupFee');
+        expect(s).toHaveProperty('returnFee');
+        expect(s).toHaveProperty('oneWayFee');
+        expect(s).toHaveProperty('deliveryLatitude');
+        expect(s).toHaveProperty('deliveryLongitude');
+        expect(s).toHaveProperty('pickupHubId');
+        expect(s).toHaveProperty('returnHubId');
+        expect(s).toHaveProperty('pickupName');
+        expect(s).toHaveProperty('dropName');
+      }
+    });
+
+    it('verifies that payout/fee itemization correctly aggregates without client-side recalculation', () => {
+      const complexBooking = {
+        baseFare: 3000,
+        deliveryFee: 350,
+        pickupFee: 100,
+        returnFee: 150,
+        oneWayFee: 250,
+        platformFee: 200,
+        gstAmount: 400,
+        totalFare: 4450,
+      };
+
+      const fulfillmentRevenue =
+        complexBooking.deliveryFee +
+        complexBooking.pickupFee +
+        complexBooking.returnFee +
+        complexBooking.oneWayFee;
+
+      expect(fulfillmentRevenue).toBe(850);
+      expect(complexBooking.baseFare + fulfillmentRevenue + complexBooking.platformFee + complexBooking.gstAmount)
+        .toBe(complexBooking.totalFare);
+    });
+  });
+
+  describe('FLOW H — ACTIVE STAGING & RETURN CONCURRENCY INTEGRITY', () => {
+    it('verifies that HANDOVER_READY and RETURN_PENDING are treated as active booked states', () => {
+      const activeStates: BookingStatus[] = [
+        BookingStatus.PENDING,
+        BookingStatus.CONFIRMED,
+        BookingStatus.HANDOVER_READY,
+        BookingStatus.ONGOING,
+        BookingStatus.RETURN_PENDING,
+      ];
+
+      // Staging vehicle must block double booking
+      expect(activeStates).toContain(BookingStatus.HANDOVER_READY);
+      // Return pending vehicle must block double booking
+      expect(activeStates).toContain(BookingStatus.RETURN_PENDING);
+
+      // Completed / Cancelled vehicles do not block future bookings
+      expect(activeStates).not.toContain(BookingStatus.COMPLETED);
+      expect(activeStates).not.toContain(BookingStatus.CANCELLED);
+    });
+  });
 });

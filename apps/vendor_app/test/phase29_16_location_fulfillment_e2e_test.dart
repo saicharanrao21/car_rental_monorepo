@@ -395,4 +395,223 @@ void main() {
       expect(find.text('Bandra Kurla Complex Branch'), findsOneWidget);
     });
   });
+
+  group('Phase 29.16: Cross-Layer API Model Parsing & JSON Serialization Integrity', () {
+    test('Roundtrip serialization preserves all 13 authoritative fulfillment fields exactly', () {
+      final now = DateTime.now();
+      final original = BookingModel(
+        id: 'bk_test_roundtrip',
+        customerId: 'c_test_01',
+        vendorId: 'v_test',
+        carId: 'car_creta_01',
+        tripType: 'SELF_DRIVE',
+        pickupLocation: 'Mumbai Central',
+        dropLocation: 'Bandra Kurla Complex',
+        startDate: now.add(const Duration(days: 1)),
+        endDate: now.add(const Duration(days: 3)),
+        totalFare: 5500.0,
+        platformFee: 250.0,
+        gstAmount: 495.0,
+        netToVendor: 4755.0,
+        status: 'confirmed',
+        createdAt: now,
+        deliveryType: 'DOORSTEP_DELIVERY',
+        pickupAddress: 'Customer Residence, Worli Sea Face',
+        deliveryAddress: 'Customer Residence, Worli Sea Face',
+        deliveryFee: 400.0,
+        pickupFee: 0.0,
+        returnFee: 250.0,
+        oneWayFee: 350.0,
+        deliveryLatitude: 19.0178,
+        deliveryLongitude: 72.8178,
+        pickupLatitude: 19.0178,
+        pickupLongitude: 72.8178,
+        pickupHubId: 'hub_worli',
+        returnHubId: 'hub_bkc',
+        pickupName: 'Worli Hub',
+        dropName: 'BKC Relocation Hub',
+      );
+
+      final json = original.toJson();
+      final deserialized = BookingModel.fromJson(json);
+
+      expect(deserialized.id, original.id);
+      expect(deserialized.deliveryType, 'DOORSTEP_DELIVERY');
+      expect(deserialized.pickupAddress, 'Customer Residence, Worli Sea Face');
+      expect(deserialized.deliveryAddress, 'Customer Residence, Worli Sea Face');
+      expect(deserialized.deliveryFee, 400.0);
+      expect(deserialized.pickupFee, 0.0);
+      expect(deserialized.returnFee, 250.0);
+      expect(deserialized.oneWayFee, 350.0);
+      expect(deserialized.deliveryLatitude, 19.0178);
+      expect(deserialized.deliveryLongitude, 72.8178);
+      expect(deserialized.pickupHubId, 'hub_worli');
+      expect(deserialized.returnHubId, 'hub_bkc');
+      expect(deserialized.pickupName, 'Worli Hub');
+      expect(deserialized.dropName, 'BKC Relocation Hub');
+    });
+
+    test('Legacy booking JSON without fulfillment metadata parses safely without crash', () {
+      final legacyJson = {
+        'id': 'bk_legacy_json',
+        'customerId': 'c_legacy',
+        'vendorId': 'v_test',
+        'carId': 'car_creta_01',
+        'tripType': 'SELF_DRIVE',
+        'pickupLocation': 'Mumbai Central Yard',
+        'dropLocation': 'Mumbai Central Yard',
+        'startDate': DateTime.now().toIso8601String(),
+        'endDate': DateTime.now().add(const Duration(days: 2)).toIso8601String(),
+        'totalFare': 3000.0,
+        'platformFee': 150.0,
+        'gstAmount': 270.0,
+        'netToVendor': 2580.0,
+        'status': 'confirmed',
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      final parsed = BookingModel.fromJson(legacyJson);
+      expect(parsed.id, 'bk_legacy_json');
+      expect(parsed.deliveryType, isNull);
+      expect(parsed.pickupAddress, isNull);
+      expect(parsed.deliveryAddress, isNull);
+      expect(parsed.deliveryFee, isNull);
+      expect(parsed.pickupFee, isNull);
+      expect(parsed.returnFee, isNull);
+      expect(parsed.oneWayFee, isNull);
+      expect(parsed.deliveryLatitude, isNull);
+      expect(parsed.deliveryLongitude, isNull);
+      expect(parsed.pickupHubId, isNull);
+      expect(parsed.returnHubId, isNull);
+      expect(parsed.pickupLocation, 'Mumbai Central Yard');
+      expect(parsed.dropLocation, 'Mumbai Central Yard');
+    });
+  });
+
+  group('Phase 29.16: Multi-Scenario Lifecycle Progression & Snapshot Parity', () {
+    test('Doorstep Delivery booking retains identical snapshot across every lifecycle transition', () async {
+      final initial = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == 'bk_mock_doorstep');
+      
+      // Step 1: confirmed -> handover_ready
+      await repo.updateBookingStatus(initial.id, 'handover_ready');
+      var b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == initial.id);
+      expect(b.deliveryType, initial.deliveryType);
+      expect(b.deliveryAddress, initial.deliveryAddress);
+      expect(b.deliveryFee, initial.deliveryFee);
+      expect(b.returnFee, initial.returnFee);
+      expect(b.oneWayFee, initial.oneWayFee);
+
+      // Step 2: pre-trip & OTP -> ongoing
+      await repo.upsertInspection(initial.id, type: 'PRE_TRIP', odometer: 10000.0, fuelPercent: 100, finalize: true);
+      await repo.sendHandoverOtp(initial.id, 'PICKUP');
+      final pOtp = repo.getMockOtp(initial.id, 'PICKUP')!;
+      await repo.updateBookingStatus(initial.id, 'ongoing', handoverOtp: pOtp);
+      b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == initial.id);
+      expect(b.status, 'ongoing');
+      expect(b.deliveryType, initial.deliveryType);
+      expect(b.deliveryAddress, initial.deliveryAddress);
+
+      // Step 3: ongoing -> return_pending
+      await repo.updateBookingStatus(initial.id, 'return_pending');
+      b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == initial.id);
+      expect(b.status, 'return_pending');
+      expect(b.deliveryFee, initial.deliveryFee);
+
+      // Step 4: post-trip & OTP -> completed
+      await repo.upsertInspection(initial.id, type: 'POST_TRIP', odometer: 10250.0, fuelPercent: 95, conditionNotes: 'Clean', finalize: true);
+      await repo.sendHandoverOtp(initial.id, 'RETURN');
+      final rOtp = repo.getMockOtp(initial.id, 'RETURN')!;
+      await repo.updateBookingStatus(initial.id, 'completed', handoverOtp: rOtp);
+      b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == initial.id);
+      expect(b.status, 'completed');
+      expect(b.deliveryType, initial.deliveryType);
+      expect(b.deliveryAddress, initial.deliveryAddress);
+      expect(b.deliveryFee, initial.deliveryFee);
+      expect(b.returnFee, initial.returnFee);
+      expect(b.oneWayFee, initial.oneWayFee);
+    });
+
+    test('Legacy booking completes full lifecycle safely without null fulfillment crashes', () async {
+      final initial = BookingModel(
+        id: 'bk_legacy_lifecycle',
+        customerId: 'c_legacy',
+        vendorId: 'v_test',
+        carId: 'car_creta_01',
+        tripType: 'SELF_DRIVE',
+        pickupLocation: 'Mumbai Central Yard',
+        dropLocation: 'Mumbai Central Yard',
+        startDate: DateTime.now().add(const Duration(days: 1)),
+        endDate: DateTime.now().add(const Duration(days: 3)),
+        totalFare: 3000.0,
+        platformFee: 150.0,
+        gstAmount: 270.0,
+        netToVendor: 2580.0,
+        status: 'confirmed',
+        createdAt: DateTime.now(),
+      );
+      // Register in repo
+      repo.addMockBooking(initial);
+
+      await repo.updateBookingStatus(initial.id, 'handover_ready');
+      await repo.upsertInspection(initial.id, type: 'PRE_TRIP', odometer: 50000.0, fuelPercent: 100, finalize: true);
+      await repo.sendHandoverOtp(initial.id, 'PICKUP');
+      final pOtp = repo.getMockOtp(initial.id, 'PICKUP')!;
+      await repo.updateBookingStatus(initial.id, 'ongoing', handoverOtp: pOtp);
+
+      await repo.updateBookingStatus(initial.id, 'return_pending');
+      await repo.upsertInspection(initial.id, type: 'POST_TRIP', odometer: 50150.0, fuelPercent: 90, conditionNotes: 'Clean return', finalize: true);
+      await repo.sendHandoverOtp(initial.id, 'RETURN');
+      final rOtp = repo.getMockOtp(initial.id, 'RETURN')!;
+      await repo.updateBookingStatus(initial.id, 'completed', handoverOtp: rOtp);
+
+      final completed = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == initial.id);
+      expect(completed.status, 'completed');
+      expect(completed.pickupLocation, initial.pickupLocation);
+      expect(completed.dropLocation, initial.dropLocation);
+      expect(completed.deliveryType, isNull);
+    });
+  });
+
+  group('Phase 29.16: Transaction Safety & Error Recovery Invariants', () {
+    test('Failed OTP leaves booking status and fleet availability intact', () async {
+      final b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == 'bk_mock_handover_ready');
+      final initialCar = MockData.cars.firstWhere((c) => c.id == b.carId);
+      expect(initialCar.isAvailable, false);
+
+      // Record pre-trip inspection so that inspection gate passes
+      await repo.upsertInspection(b.id, type: 'PRE_TRIP', odometer: 15000.0, fuelPercent: 100, finalize: true);
+      await repo.sendHandoverOtp(b.id, 'PICKUP');
+
+      // Attempt transition with invalid OTP
+      expect(
+        () => repo.updateBookingStatus(b.id, 'ongoing', handoverOtp: '999999'),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      final refreshed = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == b.id);
+      expect(refreshed.status, 'handover_ready');
+      final refreshedCar = MockData.cars.firstWhere((c) => c.id == b.carId);
+      expect(refreshedCar.isAvailable, false);
+    });
+
+    test('Non-monotonic post-trip odometer blocks completion and preserves return_pending', () async {
+      final b = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == 'bk_mock_return_pending');
+
+      // Attempt post-trip inspection with odometer LESS than pre-trip (20,000 km)
+      expect(
+        () => repo.upsertInspection(
+          b.id,
+          type: 'POST_TRIP',
+          odometer: 19000.0, // Regressed odometer
+          fuelPercent: 80,
+          finalize: true,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      final refreshed = (await repo.getBookingsForVendor('v_test')).firstWhere((x) => x.id == b.id);
+      expect(refreshed.status, 'return_pending');
+    });
+  });
 }
+

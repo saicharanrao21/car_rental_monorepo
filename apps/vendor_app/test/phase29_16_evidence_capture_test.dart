@@ -112,7 +112,7 @@ void main() {
     );
   }
 
-  testWidgets('01_host_yard_lifecycle.png', (tester) async {
+  testWidgets('01_host_yard_booking.png', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -127,10 +127,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '01_host_yard_lifecycle.png');
+    await saveScreenshot(tester, key, '01_host_yard_booking.png');
   });
 
-  testWidgets('02_doorstep_dispatch.png', (tester) async {
+  testWidgets('02_doorstep_fulfillment.png', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -145,46 +145,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '02_doorstep_dispatch.png');
+    await saveScreenshot(tester, key, '02_doorstep_fulfillment.png');
   });
 
-  testWidgets('03_doorstep_collection_return.png', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      createSubject(
-        bookingId: 'bk_mock_host_pickup_doorstep_return',
-        key: key,
-        child: const VendorBookingDetailPage(bookingId: 'bk_mock_host_pickup_doorstep_return'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '03_doorstep_collection_return.png');
-  });
-
-  testWidgets('04_transit_hub_lifecycle.png', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      createSubject(
-        bookingId: 'bk_mock_transit_hub',
-        key: key,
-        child: const VendorBookingDetailPage(bookingId: 'bk_mock_transit_hub'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '04_transit_hub_lifecycle.png');
-  });
-
-  testWidgets('05_branch_relocation_return.png', (tester) async {
+  testWidgets('03_different_return_branch.png', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -199,28 +163,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '05_branch_relocation_return.png');
+    await saveScreenshot(tester, key, '03_different_return_branch.png');
   });
 
-  testWidgets('06_combined_doorstep_branch_return.png', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      createSubject(
-        bookingId: 'bk_mock_combined',
-        key: key,
-        child: const VendorBookingDetailPage(bookingId: 'bk_mock_combined'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '06_combined_doorstep_branch_return.png');
-  });
-
-  testWidgets('07_handover_location_banner.png', (tester) async {
+  testWidgets('04_handover_location.png', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -235,10 +181,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '07_handover_location_banner.png');
+    await saveScreenshot(tester, key, '04_handover_location.png');
   });
 
-  testWidgets('08_return_location_banner.png', (tester) async {
+  testWidgets('05_return_destination.png', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -253,6 +199,97 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await saveScreenshot(tester, key, '08_return_location_banner.png');
+    await saveScreenshot(tester, key, '05_return_destination.png');
+  });
+
+  testWidgets('06_legacy_booking_no_fulfillment.png', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      createSubject(
+        bookingId: 'bk_mock_no_fulfillment',
+        key: key,
+        child: const VendorBookingDetailPage(bookingId: 'bk_mock_no_fulfillment'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveScreenshot(tester, key, '06_legacy_booking_no_fulfillment.png');
+  });
+
+  testWidgets('07_completed_booking_preserved_fulfillment.png', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      createSubject(
+        bookingId: 'bk_mock_damage_claim',
+        key: key,
+        child: const VendorBookingDetailPage(bookingId: 'bk_mock_damage_claim'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveScreenshot(tester, key, '07_completed_booking_preserved_fulfillment.png');
+  });
+
+  testWidgets('08_doorstep_collection_return.png', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      createSubject(
+        bookingId: 'bk_mock_host_pickup_doorstep_return',
+        key: key,
+        child: const VendorBookingDetailPage(bookingId: 'bk_mock_host_pickup_doorstep_return'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveScreenshot(tester, key, '08_doorstep_collection_return.png');
+  });
+
+  testWidgets('09_transit_hub_lifecycle.png', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      createSubject(
+        bookingId: 'bk_mock_transit_hub',
+        key: key,
+        child: const VendorBookingDetailPage(bookingId: 'bk_mock_transit_hub'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveScreenshot(tester, key, '09_transit_hub_lifecycle.png');
+  });
+
+  testWidgets('10_combined_doorstep_branch_return.png', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      createSubject(
+        bookingId: 'bk_mock_combined',
+        key: key,
+        child: const VendorBookingDetailPage(bookingId: 'bk_mock_combined'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveScreenshot(tester, key, '10_combined_doorstep_branch_return.png');
   });
 }
+

@@ -418,7 +418,9 @@ export class BookingsService {
                 in: [
                   BookingStatus.PENDING,
                   BookingStatus.CONFIRMED,
+                  BookingStatus.HANDOVER_READY,
                   BookingStatus.ONGOING,
+                  BookingStatus.RETURN_PENDING,
                 ],
               },
               AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
