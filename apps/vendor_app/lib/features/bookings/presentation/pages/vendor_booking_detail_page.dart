@@ -1714,8 +1714,8 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
   Widget _buildDropoffLocationCard(BuildContext context, BookingModel booking) {
     final isOneWay = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
     final isDoorstepReturn = !isOneWay &&
-        booking.deliveryType == 'DOORSTEP_DELIVERY' &&
-        (booking.returnFee != null && booking.returnFee! > 0);
+        (booking.deliveryType == 'DOORSTEP_PICKUP' ||
+            (booking.deliveryType == 'DOORSTEP_DELIVERY' && (booking.returnFee ?? 0) > 0));
     final dropName = booking.dropName ?? (isDoorstepReturn ? 'Customer Doorstep Collection' : (booking.dropLocation ?? 'Same Location'));
     final header = isOneWay
         ? 'DIFFERENT RETURN BRANCH'
@@ -1725,9 +1725,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
     if (isDoorstepReturn) {
       address = booking.deliveryAddress ?? booking.dropLocation;
     } else if (isOneWay) {
-      address = booking.deliveryType == 'DOORSTEP_DELIVERY'
-          ? (booking.dropLocation ?? booking.dropName ?? 'Alternate Return Branch')
-          : (booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation);
+      address = booking.dropLocation ?? booking.dropName ?? 'Alternate Return Branch';
     } else {
       address = booking.dropLocation ?? booking.pickupLocation;
     }
@@ -1739,12 +1737,8 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
         ? '+₹${booking.oneWayFee!.toInt()} Relocation'
         : ((booking.returnFee ?? 0) > 0 ? '+₹${booking.returnFee!.toInt()} Return Fee' : null);
 
-    final double? lat = isDoorstepReturn
-        ? booking.deliveryLatitude
-        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLatitude : null);
-    final double? lng = isDoorstepReturn
-        ? booking.deliveryLongitude
-        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLongitude : null);
+    final double? lat = isDoorstepReturn ? booking.deliveryLatitude : null;
+    final double? lng = isDoorstepReturn ? booking.deliveryLongitude : null;
 
     return _buildLocationActionCard(
       context,

@@ -344,8 +344,8 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   Widget _buildReturnLocationBanner(BookingModel booking) {
     final isOneWay = (booking.oneWayFee ?? 0) > 0 || (booking.dropName != null && booking.dropName != booking.pickupName);
     final isDoorstepReturn = !isOneWay &&
-        booking.deliveryType == 'DOORSTEP_DELIVERY' &&
-        (booking.returnFee != null && booking.returnFee! > 0);
+        (booking.deliveryType == 'DOORSTEP_PICKUP' ||
+            (booking.deliveryType == 'DOORSTEP_DELIVERY' && (booking.returnFee ?? 0) > 0));
 
     final locationTitle = booking.dropName ??
         (isDoorstepReturn ? 'Customer Doorstep Collection' : (booking.dropLocation ?? booking.pickupLocation));
@@ -354,9 +354,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
     if (isDoorstepReturn) {
       locationAddress = booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation;
     } else if (isOneWay) {
-      locationAddress = booking.deliveryType == 'DOORSTEP_DELIVERY'
-          ? (booking.dropLocation ?? booking.dropName ?? 'Alternate Branch')
-          : (booking.deliveryAddress ?? booking.dropLocation ?? booking.pickupLocation);
+      locationAddress = booking.dropLocation ?? booking.dropName ?? 'Alternate Branch';
     } else {
       locationAddress = booking.dropLocation ?? booking.pickupLocation;
     }
@@ -383,12 +381,8 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
             ? 'Vehicle scheduled for doorstep collection from customer.'
             : 'Vehicle return scheduled at vendor\'s primary operating yard.');
 
-    final lat = isDoorstepReturn
-        ? (booking.deliveryLatitude ?? booking.pickupLatitude)
-        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLatitude : null);
-    final lng = isDoorstepReturn
-        ? (booking.deliveryLongitude ?? booking.pickupLongitude)
-        : (isOneWay && booking.deliveryType != 'DOORSTEP_DELIVERY' ? booking.deliveryLongitude : null);
+    final lat = isDoorstepReturn ? booking.deliveryLatitude : null;
+    final lng = isDoorstepReturn ? booking.deliveryLongitude : null;
 
     return Container(
       padding: const EdgeInsets.all(12),

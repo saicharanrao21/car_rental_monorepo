@@ -380,6 +380,70 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         returnFee: 0.0,
         oneWayFee: 0.0,
       ),
+
+      // 13. Host Yard Pickup -> Doorstep Return Collection (Scenario C)
+      BookingModel(
+        id: 'bk_mock_host_pickup_doorstep_return',
+        customerId: 'cust_hdr_13',
+        vendorId: vendorId,
+        carId: 'car_hdr_13',
+        tripType: 'Self-Drive',
+        pickupLocation: 'Main Operating Yard, Andheri East',
+        dropLocation: 'Customer Doorstep Collection',
+        pickupName: 'Main Operating Yard, Andheri East',
+        dropName: 'Customer Doorstep Collection',
+        pickupAddress: 'Sector 4, Andheri East, Mumbai, Maharashtra 400069',
+        pickupLatitude: 19.1136,
+        pickupLongitude: 72.8697,
+        deliveryAddress: 'Penthouse 1401, Oberoi Sky Heights, Lokhandwala, Andheri West, Mumbai',
+        deliveryLatitude: 19.1350,
+        deliveryLongitude: 72.8260,
+        startDate: now.add(const Duration(hours: 3)),
+        endDate: now.add(const Duration(days: 2)),
+        totalFare: 5200.0,
+        platformFee: 500.0,
+        gstAmount: 900.0,
+        netToVendor: 4200.0,
+        status: 'confirmed',
+        createdAt: now.subtract(const Duration(hours: 2)),
+        deliveryType: 'DOORSTEP_PICKUP',
+        pickupHubId: 'hub_main_yard',
+        deliveryFee: 0.0,
+        pickupFee: 0.0,
+        returnFee: 350.0,
+        oneWayFee: 0.0,
+      ),
+
+      // 14. Transit Hub Pickup -> Different Return Hub (Scenario F)
+      BookingModel(
+        id: 'bk_mock_transit_pickup_diff_return',
+        customerId: 'cust_tdr_14',
+        vendorId: vendorId,
+        carId: 'car_tdr_14',
+        tripType: 'Airport Transfer',
+        pickupLocation: 'CSMIA Terminal 2 (BOM)',
+        dropLocation: 'Bandra Kurla Complex Branch',
+        pickupName: 'Chhatrapati Shivaji Maharaj International Airport (BOM)',
+        dropName: 'BKC Premium Relocation Branch',
+        pickupAddress: 'Terminal 2 Arrivals, Level 1 Pick-up Zone, Andheri East, Mumbai',
+        pickupLatitude: 19.0896,
+        pickupLongitude: 72.8656,
+        startDate: now.subtract(const Duration(hours: 4)),
+        endDate: now.add(const Duration(days: 1)),
+        totalFare: 6100.0,
+        platformFee: 600.0,
+        gstAmount: 1000.0,
+        netToVendor: 4500.0,
+        status: 'ongoing',
+        createdAt: now.subtract(const Duration(hours: 6)),
+        deliveryType: 'PUBLIC_LOCATION',
+        pickupHubId: 'pub_mum_csmia',
+        returnHubId: 'hub_bkc',
+        deliveryFee: 0.0,
+        pickupFee: 200.0,
+        returnFee: 150.0,
+        oneWayFee: 300.0,
+      ),
     ];
   }
 
@@ -480,6 +544,22 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         damagePhotos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
         finalized: true,
         createdAt: now.subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    // 5. Seed inspections for bk_mock_transit_pickup_diff_return
+    _mockInspections['bk_mock_transit_pickup_diff_return'] = [
+      InspectionModel(
+        id: 'insp_tdr_pre',
+        bookingId: 'bk_mock_transit_pickup_diff_return',
+        type: 'PRE_TRIP',
+        performedById: 'vendor-ops',
+        odometer: 14200.0,
+        fuelPercent: 100,
+        conditionNotes: 'Airport transit handover complete. Baseline verified.',
+        damagePhotos: [],
+        finalized: true,
+        createdAt: now.subtract(const Duration(hours: 4)),
       ),
     ];
 
@@ -622,6 +702,40 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
         registrationNumber: 'MH 02 HC 9900',
         isAvailable: false, // Remains unavailable due to damage claim
       ),
+      const CarModel(
+        id: 'car_hdr_13',
+        vendorId: 'v1',
+        make: 'Skoda',
+        model: 'Kushaq Style',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Petrol',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 18.0,
+        pricePerDay: 3200.0,
+        pricePerHour: 260.0,
+        registrationNumber: 'MH 02 SK 4488',
+        isAvailable: false,
+      ),
+      const CarModel(
+        id: 'car_tdr_14',
+        vendorId: 'v1',
+        make: 'Volkswagen',
+        model: 'Taigun GT',
+        year: 2023,
+        type: 'SUV',
+        fuelType: 'Petrol',
+        seating: 5,
+        isAC: true,
+        photos: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341'],
+        pricePerKm: 19.0,
+        pricePerDay: 3400.0,
+        pricePerHour: 280.0,
+        registrationNumber: 'MH 01 VW 5599',
+        isAvailable: false,
+      ),
     ];
 
     for (final car in defaultCars) {
@@ -681,15 +795,23 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
   }
 
   void _saveBooking(BookingModel updated) {
-    final dynIndex = _dynamicBookings.indexWhere((b) => b.id == updated.id);
-    if (dynIndex != -1) {
-      _dynamicBookings[dynIndex] = updated;
-    } else {
-      _dynamicBookings.add(updated);
+    var toSave = updated;
+    if (toSave.vendorId.isEmpty) {
+      final existing = _dynamicBookings.where((b) => b.id == updated.id).firstOrNull ??
+          MockData.bookings.where((b) => b.id == updated.id).firstOrNull;
+      if (existing != null && existing.vendorId.isNotEmpty) {
+        toSave = toSave.copyWith(vendorId: existing.vendorId);
+      }
     }
-    final mockIndex = MockData.bookings.indexWhere((b) => b.id == updated.id);
+    final dynIndex = _dynamicBookings.indexWhere((b) => b.id == toSave.id);
+    if (dynIndex != -1) {
+      _dynamicBookings[dynIndex] = toSave;
+    } else {
+      _dynamicBookings.add(toSave);
+    }
+    final mockIndex = MockData.bookings.indexWhere((b) => b.id == toSave.id);
     if (mockIndex != -1) {
-      MockData.bookings[mockIndex] = updated;
+      MockData.bookings[mockIndex] = toSave;
     }
   }
 
@@ -697,7 +819,7 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
   Future<List<BookingModel>> getBookingsForVendor(String vendorId, {String? statusFilter}) async {
     await simulateLatency();
     final combined = [
-      ..._dynamicBookings.where((b) => vendorId.isEmpty || b.vendorId == vendorId),
+      ..._dynamicBookings.where((b) => vendorId.isEmpty || b.vendorId.isEmpty || b.vendorId == vendorId),
       ..._fulfillmentMockBookings(vendorId),
       ...MockData.bookings.where((b) => vendorId.isEmpty || b.vendorId == vendorId),
     ];
@@ -979,6 +1101,10 @@ class MockVendorBookingsRepository with LatencySimulator implements VendorBookin
       code: otpCode,
       expiresAt: DateTime.now().add(const Duration(minutes: 15)),
     );
+  }
+
+  String? getMockOtp(String bookingId, [String otpType = 'PICKUP']) {
+    return _activeOtps['${bookingId}_${otpType.toUpperCase()}']?.code;
   }
 
   @override
