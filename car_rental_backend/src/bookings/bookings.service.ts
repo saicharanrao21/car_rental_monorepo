@@ -879,6 +879,12 @@ export class BookingsService {
     }
 
     if (newStatus === BookingStatus.COMPLETED) {
+      if (booking.disputeFlag && !isAdmin) {
+        throw new BadRequestException(
+          'Cannot complete trip: Booking is flagged with an active dispute or damage claim. Dispute must be resolved prior to completion.',
+        );
+      }
+
       // 1. Enforce finalized POST_TRIP inspection
       const postTrip = await this.prisma.inspection.findUnique({
         where: {
