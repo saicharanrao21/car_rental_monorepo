@@ -29,6 +29,26 @@ abstract class BookingRepository {
     String? deliveryAddress,
   });
 
+  /// Checks server-authoritative availability for a vehicle and interval.
+  Future<VehicleAvailabilityResult> checkVehicleAvailability({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? hubId,
+  });
+
+  /// Creates a temporary checkout hold on a vehicle.
+  Future<VehicleHoldModel> createVehicleHold({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    int ttlSeconds = 900,
+    String? idempotencyKey,
+  });
+
+  /// Releases an active vehicle hold.
+  Future<bool> releaseVehicleHold(String holdId);
+
   /// Returns best matching commission config for the given params (defaults to 10%).
   CommissionConfigModel getCommissionConfig({
     required String city,

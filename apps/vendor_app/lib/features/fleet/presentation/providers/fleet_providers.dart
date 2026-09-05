@@ -155,8 +155,55 @@ class FleetController extends AutoDisposeAsyncNotifier<void> {
     state = result;
     return !result.hasError;
   }
+
+  Future<bool> createBlock({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String blockType,
+    String? reason,
+  }) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).createVehicleBlock(
+            carId: carId,
+            startDate: startDate,
+            endDate: endDate,
+            blockType: blockType,
+            reason: reason,
+          );
+      ref.invalidate(vehicleBlocksProvider(carId));
+      ref.invalidate(vehicleTimelineProvider(carId));
+      ref.invalidate(fleetCarsProvider);
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> deleteBlock({required String blockId, required String carId}) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).deleteVehicleBlock(blockId);
+      ref.invalidate(vehicleBlocksProvider(carId));
+      ref.invalidate(vehicleTimelineProvider(carId));
+      ref.invalidate(fleetCarsProvider);
+    });
+    state = result;
+    return !result.hasError;
+  }
 }
 
 final fleetControllerProvider = AutoDisposeAsyncNotifierProvider<FleetController, void>(() {
   return FleetController();
+});
+
+final vehicleTimelineProvider = FutureProvider.family.autoDispose<List<AvailabilityTimelineEntry>, String>((ref, carId) async {
+  final now = DateTime.now();
+  final start = now.subtract(const Duration(days: 7));
+  final end = now.add(const Duration(days: 30));
+  return ref.watch(fleetRepositoryProvider).getVehicleAvailabilityTimeline(carId, start, end);
+});
+
+final vehicleBlocksProvider = FutureProvider.family.autoDispose<List<VehicleBlockModel>, String>((ref, carId) async {
+  return ref.watch(fleetRepositoryProvider).getVehicleBlocks(carId);
 });

@@ -150,4 +150,54 @@ class ApiFleetRepository implements FleetRepository {
   Future<void> deleteMileagePackage(String carId, String packageId) async {
     await apiClient.dio.delete('/vendors/me/cars/$carId/mileage-packages/$packageId');
   }
+
+  @override
+  Future<List<AvailabilityTimelineEntry>> getVehicleAvailabilityTimeline(
+    String carId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final response = await apiClient.dio.get(
+      '/cars/$carId/availability-timeline',
+      queryParameters: {
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+      },
+    );
+    final List<dynamic> list = response.data is List ? response.data : [];
+    return list.map((e) => AvailabilityTimelineEntry.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  @override
+  Future<List<VehicleBlockModel>> getVehicleBlocks(String carId) async {
+    final response = await apiClient.dio.get('/cars/$carId/blocks');
+    final List<dynamic> list = response.data is List ? response.data : [];
+    return list.map((e) => VehicleBlockModel.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  @override
+  Future<VehicleBlockModel> createVehicleBlock({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String blockType,
+    String? reason,
+  }) async {
+    final response = await apiClient.dio.post(
+      '/cars/$carId/blocks',
+      data: {
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+        'blockType': blockType,
+        if (reason != null) 'reason': reason,
+      },
+    );
+    return VehicleBlockModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  @override
+  Future<bool> deleteVehicleBlock(String blockId) async {
+    final response = await apiClient.dio.delete('/cars/blocks/$blockId');
+    return response.data?['success'] == true;
+  }
 }

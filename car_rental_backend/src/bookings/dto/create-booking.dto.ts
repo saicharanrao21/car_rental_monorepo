@@ -123,5 +123,9 @@ export class CreateBookingDto {
   @Min(0)
   @IsOptional()
   oneWayFee?: number;
+
+  @IsString()
+  @IsOptional()
+  holdId?: string;
 }
 

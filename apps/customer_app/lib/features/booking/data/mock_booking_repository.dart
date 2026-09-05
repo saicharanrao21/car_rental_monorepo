@@ -154,4 +154,48 @@ class MockBookingRepositoryImpl with LatencySimulator implements BookingReposito
       percentage: 10.0, effectiveFrom: DateTime(2026, 1, 1),
     );
   }
+
+  @override
+  Future<VehicleAvailabilityResult> checkVehicleAvailability({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? hubId,
+  }) async {
+    await simulateLatency();
+    return VehicleAvailabilityResult(
+      available: true,
+      carId: carId,
+      startDate: startDate.toIso8601String(),
+      endDate: endDate.toIso8601String(),
+    );
+  }
+
+  @override
+  Future<VehicleHoldModel> createVehicleHold({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    int ttlSeconds = 900,
+    String? idempotencyKey,
+  }) async {
+    await simulateLatency();
+    return VehicleHoldModel(
+      id: 'hold_mock_${DateTime.now().millisecondsSinceEpoch}',
+      carId: carId,
+      customerId: 'mock_customer',
+      vendorId: 'mock_vendor',
+      startDate: startDate,
+      endDate: endDate,
+      expiresAt: DateTime.now().add(Duration(seconds: ttlSeconds)),
+      status: 'ACTIVE',
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  @override
+  Future<bool> releaseVehicleHold(String holdId) async {
+    await simulateLatency();
+    return true;
+  }
 }

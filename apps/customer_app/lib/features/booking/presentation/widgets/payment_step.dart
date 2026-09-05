@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:models/models.dart';
@@ -221,6 +222,29 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
           _isProcessingPayment = false;
           _errorMessage = msg;
         });
+
+        if (e is DioException && e.response?.statusCode == 409) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Vehicle No Longer Available'),
+              content: Text(msg.isNotEmpty ? msg : 'Another customer or maintenance window has reserved this vehicle. Please choose another vehicle or different dates.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Dismiss'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.go('/search');
+                  },
+                  child: const Text('Browse Other Vehicles'),
+                ),
+              ],
+            ),
+          );
+        }
       }
     }
   }

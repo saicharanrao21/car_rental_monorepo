@@ -78,4 +78,49 @@ class MockFleetRepository with LatencySimulator implements FleetRepository {
   Future<void> deleteMileagePackage(String carId, String packageId) async {
     await simulateLatency();
   }
+
+  @override
+  Future<List<AvailabilityTimelineEntry>> getVehicleAvailabilityTimeline(
+    String carId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    await simulateLatency();
+    return [];
+  }
+
+  @override
+  Future<List<VehicleBlockModel>> getVehicleBlocks(String carId) async {
+    await simulateLatency();
+    return [];
+  }
+
+  @override
+  Future<VehicleBlockModel> createVehicleBlock({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String blockType,
+    String? reason,
+  }) async {
+    await simulateLatency();
+    return VehicleBlockModel(
+      id: 'mock_block_${DateTime.now().millisecondsSinceEpoch}',
+      carId: carId,
+      vendorId: 'mock_vendor',
+      startDate: startDate,
+      endDate: endDate,
+      blockType: blockType,
+      reason: reason,
+      actorId: 'mock_vendor_user',
+      actorRole: 'VENDOR',
+      createdAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<bool> deleteVehicleBlock(String blockId) async {
+    await simulateLatency();
+    return true;
+  }
 }

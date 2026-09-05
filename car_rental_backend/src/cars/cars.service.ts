@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerificationStatus, Role, Prisma, TripType, BookingStatus } from '@prisma/client';
+import { VerificationStatus, Role, Prisma, TripType, BookingStatus, VehicleHoldStatus } from '@prisma/client';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
@@ -236,9 +236,36 @@ export class CarsService {
         distinct: ['carId'],
       });
 
-      const bookedCarIds = overlappingBookings.map((b) => b.carId);
-      if (bookedCarIds.length > 0) {
-        where.id = { notIn: bookedCarIds };
+      const overlappingBlocks = await this.prisma.vehicleBlock.findMany({
+        where: {
+          startDate: { lt: reqEnd },
+          endDate: { gt: reqStart },
+        },
+        select: { carId: true },
+        distinct: ['carId'],
+      });
+
+      const overlappingHolds = await this.prisma.vehicleHold.findMany({
+        where: {
+          status: VehicleHoldStatus.ACTIVE,
+          expiresAt: { gt: new Date() },
+          startDate: { lt: reqEnd },
+          endDate: { gt: reqStart },
+        },
+        select: { carId: true },
+        distinct: ['carId'],
+      });
+
+      const excludedCarIds = Array.from(
+        new Set([
+          ...overlappingBookings.map((b) => b.carId),
+          ...overlappingBlocks.map((b) => b.carId),
+          ...overlappingHolds.map((h) => h.carId),
+        ]),
+      );
+
+      if (excludedCarIds.length > 0) {
+        where.id = { notIn: excludedCarIds };
       }
     }
 

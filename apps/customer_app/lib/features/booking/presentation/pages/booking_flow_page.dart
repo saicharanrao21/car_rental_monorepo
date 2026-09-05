@@ -299,6 +299,10 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
         );
         return;
       }
+      if (draft.startDate != null && draft.endDate != null) {
+        _checkAvailabilityAndProceed(ref, car, draft);
+        return;
+      }
       _next(ref);
     } else if (step == 1) {
       _next(ref);
@@ -319,6 +323,53 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
       _next(ref);
     } else if (step == 4) {
       _paymentKey.currentState?.startPaymentFlow();
+    }
+  }
+
+  Future<void> _checkAvailabilityAndProceed(
+    WidgetRef ref,
+    CarModel car,
+    BookingDraft draft,
+  ) async {
+    final repo = ref.read(bookingRepositoryProvider);
+    try {
+      final res = await repo.checkVehicleAvailability(
+        carId: car.id,
+        startDate: draft.startDate!,
+        endDate: draft.endDate!,
+        hubId: draft.pickupHubId,
+      );
+
+      if (!mounted) return;
+
+      if (!res.available) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Vehicle Not Available'),
+            content: Text(res.reason ?? 'This vehicle is not available for the selected dates.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Change Dates'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/search');
+                },
+                child: const Text('Find Other Cars'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      _next(ref);
+    } catch (e) {
+      // Proceed on network timeout to let checkout transaction perform authoritative check
+      if (mounted) _next(ref);
     }
   }
 

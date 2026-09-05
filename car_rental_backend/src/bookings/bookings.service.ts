@@ -19,6 +19,7 @@ import {
   VerificationStatus,
   InspectionType,
   HandoverOtpType,
+  VehicleHoldStatus,
   Prisma,
 } from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
@@ -40,6 +41,8 @@ import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
 import { BookingLifecycleService } from './booking-lifecycle.service';
 import { BookingOutboxService } from './booking-outbox.service';
+import { LocationsService } from '../locations/locations.service';
+import { VehicleAvailabilityService } from '../cars/vehicle-availability.service';
 
 @Injectable()
 export class BookingsService {
@@ -65,6 +68,7 @@ export class BookingsService {
     @Optional() private readonly locationsService?: LocationsService,
     @Optional() private readonly lifecycleService?: BookingLifecycleService,
     @Optional() private readonly outboxService?: BookingOutboxService,
+    @Optional() private readonly availabilityService?: VehicleAvailabilityService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -436,6 +440,43 @@ export class BookingsService {
             );
           }
 
+          // Check overlapping operational blocks & maintenance windows
+          if ((tx as any).vehicleBlock) {
+            const overlappingBlock = await (tx as any).vehicleBlock.findFirst({
+              where: {
+                carId: dto.carId,
+                startDate: { lt: end },
+                endDate: { gt: start },
+              },
+            });
+
+            if (overlappingBlock) {
+              throw new ConflictException(
+                overlappingBlock.reason || 'This car has a scheduled maintenance or operational block during the selected date range.',
+              );
+            }
+          }
+
+          // Check overlapping active temporary holds by other customers
+          if ((tx as any).vehicleHold) {
+            const overlappingHold = await (tx as any).vehicleHold.findFirst({
+              where: {
+                carId: dto.carId,
+                customerId: { not: customerId },
+                status: VehicleHoldStatus.ACTIVE,
+                expiresAt: { gt: new Date() },
+                startDate: { lt: end },
+                endDate: { gt: start },
+              },
+            });
+
+            if (overlappingHold) {
+              throw new ConflictException(
+                'This car is currently on temporary hold by another customer during checkout.',
+              );
+            }
+          }
+
           // 5. Create booking row with dynamic security deposit and delivery options
           const newBooking = await tx.booking.create({
             data: {
@@ -506,6 +547,20 @@ export class BookingsService {
               securityDeposit: true,
             },
           });
+
+          // Phase 34: Atomically convert any active holds for this customer and car to CONVERTED
+          if ((tx as any).vehicleHold) {
+            await (tx as any).vehicleHold.updateMany({
+              where: {
+                carId: dto.carId,
+                customerId,
+                status: VehicleHoldStatus.ACTIVE,
+              },
+              data: {
+                status: VehicleHoldStatus.CONVERTED,
+              },
+            });
+          }
 
           // Phase 33: Atomically create BookingOutboxEvent in same database transaction
           if ((tx as any).bookingOutboxEvent) {

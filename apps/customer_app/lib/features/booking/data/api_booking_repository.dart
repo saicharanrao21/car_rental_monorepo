@@ -297,4 +297,44 @@ class ApiBookingRepository implements BookingRepository {
       effectiveFrom: DateTime(2026, 1, 1),
     );
   }
+
+  @override
+  Future<VehicleAvailabilityResult> checkVehicleAvailability({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? hubId,
+  }) async {
+    final queryParams = {
+      'startDate': startDate.toUtc().toIso8601String(),
+      'endDate': endDate.toUtc().toIso8601String(),
+      if (hubId != null) 'hubId': hubId,
+    };
+    final response = await apiClient.dio.get('/cars/$carId/availability', queryParameters: queryParams);
+    return VehicleAvailabilityResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<VehicleHoldModel> createVehicleHold({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    int ttlSeconds = 900,
+    String? idempotencyKey,
+  }) async {
+    final data = {
+      'startDate': startDate.toUtc().toIso8601String(),
+      'endDate': endDate.toUtc().toIso8601String(),
+      'ttlSeconds': ttlSeconds,
+      if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+    };
+    final response = await apiClient.dio.post('/cars/$carId/holds', data: data);
+    return VehicleHoldModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<bool> releaseVehicleHold(String holdId) async {
+    final response = await apiClient.dio.delete('/cars/holds/$holdId');
+    return response.data?['success'] == true;
+  }
 }

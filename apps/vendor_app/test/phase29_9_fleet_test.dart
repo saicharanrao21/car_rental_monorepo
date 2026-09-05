@@ -141,6 +141,38 @@ class MockFleetRepository implements FleetRepository {
 
   @override
   Future<void> deleteMileagePackage(String carId, String packageId) async {}
+
+  @override
+  Future<List<AvailabilityTimelineEntry>> getVehicleAvailabilityTimeline(
+    String carId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async => [];
+
+  @override
+  Future<List<VehicleBlockModel>> getVehicleBlocks(String carId) async => [];
+
+  @override
+  Future<VehicleBlockModel> createVehicleBlock({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String blockType,
+    String? reason,
+  }) async => VehicleBlockModel(
+        id: 'mock_b2',
+        carId: carId,
+        vendorId: 'vendor_1',
+        startDate: startDate,
+        endDate: endDate,
+        blockType: blockType,
+        actorId: 'vendor_user_1',
+        actorRole: 'VENDOR',
+        createdAt: DateTime.now(),
+      );
+
+  @override
+  Future<bool> deleteVehicleBlock(String blockId) async => true;
 }
 
 class MockDashboardRepository implements DashboardRepository {

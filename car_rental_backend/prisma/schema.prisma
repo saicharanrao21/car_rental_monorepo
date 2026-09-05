@@ -181,6 +181,22 @@ enum HandoverOtpType {
   RETURN
 }
 
+enum VehicleBlockType {
+  MAINTENANCE
+  ACCIDENT_REPAIR
+  ROUTINE_INSPECTION
+  VENDOR_BLACKOUT
+  ADMIN_LOCK
+  SAFETY_HOLD
+}
+
+enum VehicleHoldStatus {
+  ACTIVE
+  RELEASED
+  EXPIRED
+  CONVERTED
+}
+
 enum SecurityDepositStatus {
   REQUIRED
   HELD
@@ -566,6 +582,8 @@ model Car {
   mileagePackages        MileagePackage[]
   sponsoredCampaigns     SponsoredCampaign[]
   featuredListings       FeaturedListing[]
+  blocks                 VehicleBlock[]
+  holds                  VehicleHold[]
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -573,6 +591,47 @@ model Car {
   @@index([isAvailable])
   @@index([vendorId, isAvailable])
   @@index([type, pricePerDay])
+}
+
+model VehicleBlock {
+  id          String           @id @default(cuid())
+  carId       String
+  car         Car              @relation(fields: [carId], references: [id], onDelete: Cascade)
+  vendorId    String
+  startDate   DateTime
+  endDate     DateTime
+  blockType   VehicleBlockType @default(VENDOR_BLACKOUT)
+  reason      String?
+  actorId     String
+  actorRole   Role             @default(VENDOR)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([carId])
+  @@index([vendorId])
+  @@index([carId, startDate, endDate])
+  @@index([startDate, endDate])
+}
+
+model VehicleHold {
+  id             String            @id @default(cuid())
+  carId          String
+  car            Car               @relation(fields: [carId], references: [id], onDelete: Cascade)
+  customerId     String
+  vendorId       String
+  startDate      DateTime
+  endDate        DateTime
+  expiresAt      DateTime
+  status         VehicleHoldStatus @default(ACTIVE)
+  idempotencyKey String?           @unique
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([carId])
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([carId, startDate, endDate, status])
+  @@index([status, expiresAt])
 }
 
 model Booking {
