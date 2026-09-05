@@ -1,3 +1,5 @@
+import 'package:models/models.dart';
+
 class SentNotification {
   final String target;
   final String title;
@@ -20,4 +22,15 @@ abstract class AdminNotificationsRepository {
   });
 
   Future<List<SentNotification>> getSentHistory();
+
+  Future<List<NotificationDeliveryModel>> getDeliveries({
+    String? status,
+    String? channel,
+    int limit = 50,
+    int offset = 0,
+  });
+
+  Future<Map<String, dynamic>> getDeliveryStats();
+
+  Future<void> retryDelivery(String deliveryId);
 }

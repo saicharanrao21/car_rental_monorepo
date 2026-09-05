@@ -23,12 +23,17 @@ import { SendBulkDto } from './dto/send-bulk.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-preferences.dto';
 
+import { NotificationOrchestratorService } from './notification-orchestrator.service';
+
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly orchestrator: NotificationOrchestratorService,
+  ) {}
 
-  // ── Admin Broadcasts ──────────────────────────────────────────────────────
+  // ── Admin Broadcasts & Delivery Governance ────────────────────────────────
 
   @Post('admin/notifications/send')
   @RequirePermissions(AdminPermission.BANNER_MANAGE)
@@ -44,6 +49,38 @@ export class NotificationsController {
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
     return this.notificationsService.getHistory(page ?? 1, limit ?? 10);
+  }
+
+  @Get('admin/notifications/deliveries')
+  @Roles(Role.ADMIN)
+  async getDeliveries(
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('channel') channel?: any,
+    @Query('status') status?: any,
+    @Query('recipient') recipient?: string,
+    @Query('notificationId') notificationId?: string,
+  ) {
+    return this.orchestrator.getDeliveries({
+      page,
+      limit,
+      channel,
+      status,
+      recipient,
+      notificationId,
+    });
+  }
+
+  @Get('admin/notifications/stats')
+  @Roles(Role.ADMIN)
+  async getStats() {
+    return this.orchestrator.getDeliveryStats();
+  }
+
+  @Post('admin/notifications/deliveries/:id/retry')
+  @Roles(Role.ADMIN)
+  async retryDelivery(@Param('id') id: string) {
+    return this.orchestrator.retryDelivery(id);
   }
 
   // ── Device Token Registration ─────────────────────────────────────────────

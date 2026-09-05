@@ -70,7 +70,12 @@ export class FcmService {
     }
   }
 
-  async sendToUser(userId: string, title: string, body: string) {
+  async sendToUser(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { fcmToken: true },
@@ -83,31 +88,62 @@ export class FcmService {
       return;
     }
 
+    return this.sendToToken(user.fcmToken, title, body, data);
+  }
+
+  async sendToToken(
+    token: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (this.isMock) {
+      const mockMessageId = `projects/drivego/messages/mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       this.logger.log(
-        `[FCM-MOCK] Push to ${userId} (Token: ${user.fcmToken}): "${title}" - "${body}"`,
+        `[FCM-MOCK] Push to Token: ${token} | "${title}" - "${body}" | ID: ${mockMessageId}`,
       );
-      return;
+      return { success: true, messageId: mockMessageId };
     }
 
     try {
-      await getMessaging().send({
-        token: user.fcmToken,
+      const response = await getMessaging().send({
+        token,
         notification: {
           title,
           body,
         },
+        data: data || {},
       });
-      this.logger.log(`[FCM] Push sent to user ${userId}`);
-    } catch (error) {
-      this.logger.error(
-        `[FCM] Failed to send push to user ${userId} (Token: ${user.fcmToken}):`,
-        error,
-      );
+      this.logger.log(`[FCM] Push sent successfully: ${response}`);
+      return { success: true, messageId: response };
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error);
+      this.logger.error(`[FCM] Push failed for token ${token}:`, error);
+
+      // Auto-invalidate dead tokens
+      if (
+        errorMsg.includes('registration-token-not-registered') ||
+        errorMsg.includes('invalid-registration-token') ||
+        error?.code === 'messaging/registration-token-not-registered' ||
+        error?.code === 'messaging/invalid-registration-token'
+      ) {
+        await this.prisma.userDevice.updateMany({
+          where: { token },
+          data: { isActive: false },
+        });
+        this.logger.warn(`[FCM] Auto-deactivated invalid device token: ${token}`);
+      }
+
+      return { success: false, error: errorMsg };
     }
   }
 
-  async sendMulticast(tokens: string[], title: string, body: string) {
+  async sendMulticast(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ) {
     if (tokens.length === 0) return;
 
     if (this.isMock) {
@@ -122,16 +158,43 @@ export class FcmService {
     for (let i = 0; i < tokens.length; i += chunkSize) {
       const chunk = tokens.slice(i, i + chunkSize);
       try {
-        await getMessaging().sendEachForMulticast({
+        const response = await getMessaging().sendEachForMulticast({
           tokens: chunk,
           notification: {
             title,
             body,
           },
+          data: data || {},
         });
         this.logger.log(
-          `[FCM] Multicast chunk of ${chunk.length} tokens sent successfully.`,
+          `[FCM] Multicast chunk of ${chunk.length} tokens: success=${response.successCount}, failure=${response.failureCount}`,
         );
+
+        // Deactivate invalid tokens from response
+        if (response.failureCount > 0) {
+          const invalidTokens: string[] = [];
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success && resp.error) {
+              const code = resp.error.code;
+              if (
+                code === 'messaging/registration-token-not-registered' ||
+                code === 'messaging/invalid-registration-token'
+              ) {
+                invalidTokens.push(chunk[idx]);
+              }
+            }
+          });
+
+          if (invalidTokens.length > 0) {
+            await this.prisma.userDevice.updateMany({
+              where: { token: { in: invalidTokens } },
+              data: { isActive: false },
+            });
+            this.logger.warn(
+              `[FCM] Deactivated ${invalidTokens.length} stale multicast tokens.`,
+            );
+          }
+        }
       } catch (error) {
         this.logger.error('[FCM] Multicast chunk failed to send:', error);
       }

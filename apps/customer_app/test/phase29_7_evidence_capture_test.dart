@@ -260,7 +260,11 @@ class MockNotificationsRepo implements NotificationsRepository {
 
   @override
   Future<void> markAllRead(String userId) async {}
+
+  @override
+  Future<void> markAsRead(String notificationId) async {}
 }
+
 
 class MockWalletRepo implements WalletRepository {
   @override

@@ -28,3 +28,4 @@ export 'src/location_model.dart';
 export 'src/whatsapp_model.dart';
 export 'src/mileage_package_model.dart';
 export 'src/vendor_location_model.dart';
+export 'src/notification_delivery_model.dart';

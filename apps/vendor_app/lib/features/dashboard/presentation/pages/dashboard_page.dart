@@ -10,8 +10,10 @@ import '../providers/dashboard_providers.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import '../../domain/models/operations_models.dart';
 import '../../../profile/presentation/providers/documents_provider.dart';
+import '../../../notifications/presentation/providers/vendor_notifications_providers.dart';
 
 class DashboardPage extends ConsumerWidget {
+
   const DashboardPage({super.key});
 
   @override
@@ -27,6 +29,7 @@ class DashboardPage extends ConsumerWidget {
     final fleetAsync = ref.watch(fleetSummaryProvider);
     final earningsAsync = ref.watch(earningsSnapshotProvider);
     final statsAsync = ref.watch(dashboardStatsProvider);
+    final unreadNotifsCount = ref.watch(vendorUnreadNotificationsCountProvider);
 
     final nowFormatted = DateFormat('EEE, dd MMM yyyy').format(DateTime.now());
 
@@ -57,29 +60,41 @@ class DashboardPage extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            key: const Key('vendor_dashboard_notification_bell'),
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.notifications_outlined, color: Colors.white),
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: DDSColors.errorRed,
-                      shape: BoxShape.circle,
+                if (unreadNotifsCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: const BoxDecoration(
+                        color: DDSColors.errorRed,
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        unreadNotifsCount > 9 ? '9+' : '$unreadNotifsCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                    constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
                   ),
-                ),
               ],
             ),
-            tooltip: 'Notifications',
-            onPressed: () => _showNotificationsModal(context),
+            tooltip: 'Operational Alerts',
+            onPressed: () => context.push('/notifications'),
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
+
             tooltip: 'Logout',
             onPressed: () {
               ref.read(vendorSessionProvider.notifier).logout();
@@ -1447,72 +1462,8 @@ class DashboardPage extends ConsumerWidget {
   }
 
   // --- Modals and Dialogs ---
-  void _showNotificationsModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(DDSSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Operational Alerts',
-                    style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-              const Gap(DDSSpacing.sm),
-              _buildNotificationItem('New booking request received for Hyundai Creta', '2 mins ago', Icons.book_online),
-              _buildNotificationItem('Payout settlement ₹12,400 processed', '2 hours ago', Icons.payments),
-              _buildNotificationItem('Insurance renewal due in 5 days for TS09EA1234', '1 day ago', Icons.warning_amber),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildNotificationItem(String message, String time, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: DDSColors.primaryBlue.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 18, color: DDSColors.primaryBlue),
-          ),
-          const Gap(DDSSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(message, style: DDSTypography.bodyMedium.copyWith(fontWeight: FontWeight.w500)),
-                Text(time, style: DDSTypography.labelSmall.copyWith(color: DDSColors.textSecondary)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showRejectDialog(BuildContext context, WidgetRef ref, String bookingId) {
+
     final reasonController = TextEditingController();
     showDialog(
       context: context,

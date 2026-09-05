@@ -28,7 +28,9 @@ import '../../features/profile/presentation/pages/branch_detail_page.dart';
 import '../../features/locations/presentation/pages/vendor_location_settings_page.dart';
 import '../../features/locations/presentation/pages/add_location_wizard_page.dart';
 import '../../features/locations/presentation/pages/location_detail_page.dart';
+import '../../features/notifications/presentation/pages/vendor_notifications_page.dart';
 import '../widgets/vendor_app_shell.dart';
+
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_vendor');
 
@@ -230,7 +232,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           return LocationDetailPage(locationId: locationId);
         },
       ),
+      GoRoute(
+        path: '/notifications',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const VendorNotificationsPage(),
+      ),
     ],
+
     redirect: (context, state) {
       final session = ref.read(vendorSessionProvider);
       final isAuthenticated = session.isAuthenticated;

@@ -34,10 +34,26 @@ class NotificationsListNotifier extends AutoDisposeAsyncNotifier<List<Notificati
     }
   }
 
+  Future<void> markAsRead(String id) async {
+    try {
+      final repo = ref.read(notificationsRepositoryProvider);
+      await repo.markAsRead(id);
+      state = state.whenData((list) => list.map((n) {
+        if (n.id == id) {
+          return n.copyWith(isRead: true);
+        }
+        return n;
+      }).toList());
+    } catch (_) {
+      // Non-blocking fallback
+    }
+  }
+
   Future<void> refresh() async {
     ref.invalidateSelf();
     await future;
   }
+
 }
 
 final notificationsListProvider =

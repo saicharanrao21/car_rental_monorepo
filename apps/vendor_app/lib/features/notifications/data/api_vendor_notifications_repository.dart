@@ -1,14 +1,14 @@
 import 'package:models/models.dart';
 import 'package:core/core.dart';
-import '../domain/repositories/notifications_repository.dart';
+import '../domain/repositories/vendor_notifications_repository.dart';
 
-class ApiNotificationsRepository implements NotificationsRepository {
+class ApiVendorNotificationsRepository implements VendorNotificationsRepository {
   final ApiClient apiClient;
 
-  ApiNotificationsRepository({required this.apiClient});
+  ApiVendorNotificationsRepository({required this.apiClient});
 
   @override
-  Future<List<NotificationModel>> getNotifications(String userId) async {
+  Future<List<NotificationModel>> getNotifications(String vendorUserId) async {
     final response = await apiClient.dio.get('/notifications/me');
     List<dynamic> rawList = [];
     if (response.data is List) {
@@ -28,7 +28,7 @@ class ApiNotificationsRepository implements NotificationsRepository {
   }
 
   @override
-  Future<void> markAllRead(String userId) async {
+  Future<void> markAllRead(String vendorUserId) async {
     await apiClient.dio.patch('/notifications/me/mark-all-read');
   }
 

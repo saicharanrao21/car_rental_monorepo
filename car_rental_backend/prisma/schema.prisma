@@ -703,28 +703,79 @@ model Review {
   @@index([vendorId])
 }
 
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum DeliveryStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+  DEAD_LETTER
+}
+
+enum NotificationPriority {
+  HIGH
+  NORMAL
+  LOW
+}
+
 model Notification {
-  id             String    @id @default(cuid())
+  id             String                @id @default(cuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   title          String
   body           String
-  isRead         Boolean   @default(false)
-  category       String    @default("GENERAL") // BOOKING, PAYMENT, TRIP, VENDOR, SUPPORT, GROWTH, SYSTEM
+  isRead         Boolean               @default(false)
+  category       String                @default("GENERAL") // BOOKING, PAYMENT, TRIP, VENDOR, SUPPORT, GROWTH, SYSTEM
   eventType      String?
   entityType     String?
   entityId       String?
   actionUrl      String?
-  idempotencyKey String?   @unique
+  idempotencyKey String?               @unique
   metadata       Json?
   readAt         DateTime?
-  createdAt      DateTime  @default(now())
+  priority       NotificationPriority  @default(NORMAL)
+  createdAt      DateTime              @default(now())
+  deliveries     NotificationDelivery[]
 
   @@index([userId])
   @@index([isRead])
   @@index([userId, isRead, createdAt])
   @@index([userId, category])
   @@index([createdAt])
+}
+
+model NotificationDelivery {
+  id                String              @id @default(cuid())
+  notificationId    String
+  notification      Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel           NotificationChannel
+  status            DeliveryStatus      @default(PENDING)
+  recipient         String              // phone, email, device token, or userId
+  provider          String?             // FCM, TWILIO, META, NODEMAILER, IN_APP
+  providerMessageId String?
+  attemptCount      Int                 @default(0)
+  maxRetries        Int                 @default(3)
+  lastError         String?
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  idempotencyKey    String              @unique
+  metadata          Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([notificationId])
+  @@index([channel, status])
+  @@index([status, createdAt])
+  @@index([providerMessageId])
 }
 
 model UserDevice {

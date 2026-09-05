@@ -1,4 +1,5 @@
 import 'package:core/core.dart';
+import 'package:models/models.dart';
 import '../domain/repositories/admin_notifications_repository.dart';
 
 class ApiAdminNotificationsRepository implements AdminNotificationsRepository {
@@ -35,5 +36,42 @@ class ApiAdminNotificationsRepository implements AdminNotificationsRepository {
         sentAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       );
     }).toList();
+  }
+
+  @override
+  Future<List<NotificationDeliveryModel>> getDeliveries({
+    String? status,
+    String? channel,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _apiClient.dio.get(
+      '/admin/notifications/deliveries',
+      queryParameters: {
+        if (status != null && status.isNotEmpty && status != 'ALL') 'status': status,
+        if (channel != null && channel.isNotEmpty && channel != 'ALL') 'channel': channel,
+        'limit': limit,
+        'offset': offset,
+      },
+    );
+    final data = response.data;
+    final list = (data is Map && data['deliveries'] is List)
+        ? data['deliveries'] as List
+        : (data is List ? data : []);
+    return list.map((json) => NotificationDeliveryModel.fromJson(Map<String, dynamic>.from(json))).toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>> getDeliveryStats() async {
+    final response = await _apiClient.dio.get('/admin/notifications/stats');
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data);
+    }
+    return {};
+  }
+
+  @override
+  Future<void> retryDelivery(String deliveryId) async {
+    await _apiClient.dio.post('/admin/notifications/deliveries/$deliveryId/retry');
   }
 }

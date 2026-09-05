@@ -14,6 +14,25 @@ export interface EmailNotificationJobData {
   subject: string;
   htmlContent: string;
   bookingId?: string;
+  correlationId?: string;
+}
+
+export interface PushNotificationJobData {
+  userId: string;
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  correlationId?: string;
+}
+
+export interface WhatsAppNotificationJobData {
+  phone: string;
+  templateName: string;
+  language?: string;
+  bodyParameters: string[];
+  userId?: string;
+  bookingId?: string;
+  correlationId?: string;
 }
 
 export interface WebhookJobData {
@@ -55,6 +74,32 @@ export class QueueProducerService {
     return this.queueFactory.addJob(
       QUEUE_NAMES.NOTIFICATIONS,
       JOB_TYPES.NOTIFICATIONS.SEND_EMAIL,
+      data,
+      { jobId },
+    );
+  }
+
+  /**
+   * Enqueues a Push notification task.
+   */
+  async dispatchPushNotification(data: PushNotificationJobData) {
+    const jobId = `push-${data.userId}-${Date.now()}`;
+    return this.queueFactory.addJob(
+      QUEUE_NAMES.NOTIFICATIONS,
+      JOB_TYPES.NOTIFICATIONS.SEND_PUSH,
+      data,
+      { jobId },
+    );
+  }
+
+  /**
+   * Enqueues a WhatsApp notification task.
+   */
+  async dispatchWhatsAppNotification(data: WhatsAppNotificationJobData) {
+    const jobId = `whatsapp-${data.phone}-${Date.now()}`;
+    return this.queueFactory.addJob(
+      QUEUE_NAMES.NOTIFICATIONS,
+      JOB_TYPES.NOTIFICATIONS.SEND_WHATSAPP,
       data,
       { jobId },
     );
