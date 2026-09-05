@@ -25,6 +25,9 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { BookingStatus, Role, TripType } from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
+import { Optional } from '@nestjs/common';
+import { BookingLifecycleService } from './booking-lifecycle.service';
+import { BookingOutboxService } from './booking-outbox.service';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,6 +36,8 @@ export class BookingsController {
     private readonly bookingsService: BookingsService,
     private readonly inspectionsService: InspectionsService,
     private readonly handoverOtpService: HandoverOtpService,
+    @Optional() private readonly lifecycleService?: BookingLifecycleService,
+    @Optional() private readonly outboxService?: BookingOutboxService,
   ) {}
 
   // 1. GET own bookings (CUSTOMER)
@@ -214,5 +219,132 @@ export class BookingsController {
   @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
   async getBookingDetail(@Param('id') id: string, @Req() req: any) {
     return this.bookingsService.getBookingById(id, req.user);
+  }
+
+  // 15. POST confirm booking (VENDOR, ADMIN)
+  @Post('bookings/:id/confirm')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async confirmBooking(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() body?: { reason?: string },
+  ) {
+    if (this.lifecycleService) {
+      return this.lifecycleService.confirmBooking(
+        id,
+        req.user.userId,
+        req.user.role,
+        body?.reason,
+      );
+    }
+    return this.bookingsService.updateStatus(
+      id,
+      BookingStatus.CONFIRMED,
+      req.user,
+      body?.reason,
+    );
+  }
+
+  // 16. POST mark ready for handover (VENDOR, ADMIN)
+  @Post('bookings/:id/ready-for-handover')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async markReadyForHandover(@Param('id') id: string, @Req() req: any) {
+    if (this.lifecycleService) {
+      return this.lifecycleService.markReadyForHandover(
+        id,
+        req.user.userId,
+        req.user.role,
+      );
+    }
+    return this.bookingsService.updateStatus(
+      id,
+      BookingStatus.HANDOVER_READY,
+      req.user,
+    );
+  }
+
+  // 17. POST start rental (VENDOR, ADMIN)
+  @Post('bookings/:id/start-rental')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async startRental(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() body?: { handoverOtp?: string; reason?: string },
+  ) {
+    if (this.lifecycleService) {
+      return this.lifecycleService.startRental(
+        id,
+        req.user.userId,
+        req.user.role,
+        body?.handoverOtp,
+        body?.reason,
+      );
+    }
+    return this.bookingsService.updateStatus(
+      id,
+      BookingStatus.ONGOING,
+      req.user,
+      body?.reason,
+      body?.handoverOtp,
+    );
+  }
+
+  // 18. POST initiate return (CUSTOMER, VENDOR, ADMIN)
+  @Post('bookings/:id/initiate-return')
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async initiateReturn(@Param('id') id: string, @Req() req: any) {
+    if (this.lifecycleService) {
+      return this.lifecycleService.initiateReturn(
+        id,
+        req.user.userId,
+        req.user.role,
+      );
+    }
+    return this.bookingsService.updateStatus(
+      id,
+      BookingStatus.RETURN_PENDING,
+      req.user,
+    );
+  }
+
+  // 19. POST complete booking (VENDOR, ADMIN)
+  @Post('bookings/:id/complete')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async completeBooking(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() body?: { handoverOtp?: string; reason?: string },
+  ) {
+    if (this.lifecycleService) {
+      return this.lifecycleService.completeBooking(
+        id,
+        req.user.userId,
+        req.user.role,
+        body?.handoverOtp,
+        body?.reason,
+      );
+    }
+    return this.bookingsService.updateStatus(
+      id,
+      BookingStatus.COMPLETED,
+      req.user,
+      body?.reason,
+      body?.handoverOtp,
+    );
+  }
+
+  // 20. GET lifecycle audit history (ADMIN, SUPPORT_AGENT)
+  @Get('admin/bookings/:id/lifecycle-history')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async getLifecycleHistory(@Param('id') id: string) {
+    if (this.outboxService) {
+      return this.outboxService.getLifecycleHistory(id);
+    }
+    return [];
   }
 }

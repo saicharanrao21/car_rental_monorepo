@@ -893,6 +893,161 @@ class _BookingDetailPanel extends ConsumerWidget {
                     ),
                     const Gap(24),
 
+                    // Canonical Booking Lifecycle Audit Trail (Phase 33)
+                    const SectionHeader(title: 'Canonical Lifecycle Audit Trail'),
+                    const Gap(12),
+                    ref.watch(bookingLifecycleHistoryProvider(b.id)).when(
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: AppLoader(),
+                        ),
+                      ),
+                      error: (err, _) => Text(
+                        'Audit trail unavailable: $err',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      data: (events) {
+                        if (events.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[200]!),
+                            ),
+                            child: const Text(
+                              'No persisted outbox lifecycle events found for this booking.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: events.map((evt) {
+                              final eventType = evt['eventType']?.toString() ?? 'UNKNOWN_EVENT';
+                              final prev = evt['previousStatus']?.toString() ?? '-';
+                              final next = evt['newStatus']?.toString() ?? '-';
+                              final actorRole = evt['actorRole']?.toString() ?? 'SYSTEM';
+                              final status = evt['status']?.toString() ?? 'PENDING';
+                              final correlationId = evt['correlationId']?.toString() ?? '';
+                              final createdAt = DateTime.tryParse(evt['createdAt']?.toString() ?? '');
+                              final dateStr = createdAt != null
+                                  ? DateFormat('dd MMM, hh:mm:ss a').format(createdAt)
+                                  : '';
+
+                              final isPublished = status == 'PUBLISHED';
+                              final isDeadLetter = status == 'DEAD_LETTER';
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey[200]!),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Wrap(
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            spacing: 6,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue.withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  eventType,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.blue,
+                                                  ),
+                                                ),
+                                              ),
+                                              Text(
+                                                '$prev → $next',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Gap(6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isPublished
+                                                ? Colors.green.withValues(alpha: 0.1)
+                                                : (isDeadLetter
+                                                    ? Colors.red.withValues(alpha: 0.1)
+                                                    : Colors.amber.withValues(alpha: 0.1)),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            status,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isPublished
+                                                  ? Colors.green[800]
+                                                  : (isDeadLetter ? Colors.red[800] : Colors.amber[900]),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Gap(4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Actor: $actorRole | $dateStr',
+                                            style: TextStyle(fontSize: 10.5, color: Colors.grey[600]),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (correlationId.isNotEmpty) ...[
+                                          const Gap(8),
+                                          Text(
+                                            correlationId.length > 18
+                                                ? '...${correlationId.substring(correlationId.length - 18)}'
+                                                : correlationId,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontFamily: 'monospace',
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Gap(24),
+
                     // Admin Action Buttons
 
                     Row(

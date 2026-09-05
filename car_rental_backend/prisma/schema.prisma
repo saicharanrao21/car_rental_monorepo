@@ -656,6 +656,7 @@ model Booking {
   supportTickets     SupportTicket[]
   emergencyRequests  EmergencyRequest[]
   attribution        BookingAttribution?
+  outboxEvents       BookingOutboxEvent[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -1851,5 +1852,34 @@ model DailyCityMetric {
   @@unique([date, city])
   @@index([city, date])
   @@index([date])
+}
+
+model BookingOutboxEvent {
+  id             String         @id @default(cuid())
+  bookingId      String
+  booking        Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  eventType      String         // BOOKING_CREATED, BOOKING_CONFIRMED, BOOKING_CANCELLED, HANDOVER_READY, TRIP_STARTED, RETURN_PENDING, BOOKING_COMPLETED, BOOKING_EXPIRED
+  aggregateType  String         @default("BOOKING")
+  aggregateId    String
+  tenantId       String         // vendorId
+  actorId        String         // User ID who initiated action
+  actorRole      String         // CUSTOMER, VENDOR, ADMIN, SYSTEM
+  previousStatus BookingStatus?
+  newStatus      BookingStatus
+  correlationId  String         @unique // Deterministic idempotency key
+  payload        Json           // Sanitized snapshot
+  status         String         @default("PENDING") // PENDING, PUBLISHED, FAILED, DEAD_LETTER
+  retryCount     Int            @default(0)
+  maxRetries     Int            @default(3)
+  lastError      String?
+  processedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([bookingId])
+  @@index([status, createdAt])
+  @@index([eventType])
+  @@index([correlationId])
+  @@index([tenantId])
 }
 

@@ -317,15 +317,15 @@ void main() {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Expanded(
                           child: Card(
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
+                                children: [
                                   Text('Active Registered Devices', style: TextStyle(color: Colors.grey, fontSize: 12)),
                                   SizedBox(height: 8),
                                   Text('1,482', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
@@ -334,14 +334,14 @@ void main() {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16),
                         Expanded(
                           child: Card(
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
+                                children: [
                                   Text('Active SSE Streaming Clients', style: TextStyle(color: Colors.grey, fontSize: 12)),
                                   SizedBox(height: 8),
                                   Text('873', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
@@ -350,14 +350,14 @@ void main() {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16),
                         Expanded(
                           child: Card(
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
+                                children: [
                                   Text('Stale Tokens Purged (30d)', style: TextStyle(color: Colors.grey, fontSize: 12)),
                                   SizedBox(height: 8),
                                   Text('219', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.orange)),

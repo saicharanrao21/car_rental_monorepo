@@ -17,6 +17,8 @@ import { LocationsModule } from '../locations/locations.module';
 
 import { TripExtensionsService } from './trip-extensions.service';
 import { TripExtensionsController } from './trip-extensions.controller';
+import { BookingLifecycleService } from './booking-lifecycle.service';
+import { BookingOutboxService } from './booking-outbox.service';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { TripExtensionsController } from './trip-extensions.controller';
   controllers: [BookingsController, TripExtensionsController],
   providers: [
     BookingsService,
+    BookingLifecycleService,
+    BookingOutboxService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,
@@ -41,6 +45,8 @@ import { TripExtensionsController } from './trip-extensions.controller';
   ],
   exports: [
     BookingsService,
+    BookingLifecycleService,
+    BookingOutboxService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,

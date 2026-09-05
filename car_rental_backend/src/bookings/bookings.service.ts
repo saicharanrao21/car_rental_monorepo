@@ -36,9 +36,10 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { FraudService, RiskAction } from '../fraud/fraud.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 import { REDIS_NAMESPACES } from '../redis/redis-namespace.constants';
-import { LocationsService } from '../locations/locations.service';
 import { Optional } from '@nestjs/common';
 import { SecurityDepositStatus } from '@prisma/client';
+import { BookingLifecycleService } from './booking-lifecycle.service';
+import { BookingOutboxService } from './booking-outbox.service';
 
 @Injectable()
 export class BookingsService {
@@ -62,6 +63,8 @@ export class BookingsService {
     @Optional() private readonly fraudService?: FraudService,
     @Optional() private readonly cacheService?: RedisCacheService,
     @Optional() private readonly locationsService?: LocationsService,
+    @Optional() private readonly lifecycleService?: BookingLifecycleService,
+    @Optional() private readonly outboxService?: BookingOutboxService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -504,6 +507,43 @@ export class BookingsService {
             },
           });
 
+          // Phase 33: Atomically create BookingOutboxEvent in same database transaction
+          if ((tx as any).bookingOutboxEvent) {
+            await (tx as any).bookingOutboxEvent.create({
+              data: {
+                bookingId: newBooking.id,
+                eventType: 'BOOKING_CREATED',
+                aggregateType: 'BOOKING',
+                aggregateId: newBooking.id,
+                tenantId: newBooking.vendorId,
+                actorId: customerId,
+                actorRole: 'CUSTOMER',
+                previousStatus: 'PENDING',
+                newStatus: 'PENDING',
+                correlationId: `evt_booking_created_${newBooking.id}_${Date.now()}`,
+                payload: {
+                  bookingId: newBooking.id,
+                  customerId: newBooking.customerId,
+                  customerName: newBooking.customer.name,
+                  customerPhone: newBooking.customer.phone,
+                  vendorId: newBooking.vendorId,
+                  vendorName: newBooking.vendor?.businessName,
+                  carId: newBooking.carId,
+                  vehicleName: `${newBooking.car.make} ${newBooking.car.model}`,
+                  registrationNumber: newBooking.car.registrationNumber,
+                  startDate: newBooking.startDate.toISOString(),
+                  endDate: newBooking.endDate.toISOString(),
+                  totalFare: Number(newBooking.totalFare),
+                  currency: 'INR',
+                  pickupLocation: newBooking.pickupLocation,
+                  dropLocation: newBooking.dropLocation || undefined,
+                  actionUrl: `/bookings/${newBooking.id}`,
+                },
+                status: 'PENDING',
+              },
+            });
+          }
+
           return newBooking;
         },
 
@@ -532,6 +572,28 @@ export class BookingsService {
           )
           .catch((err) =>
             this.logger.error('Failed to notify vendor of new booking', err),
+          );
+      }
+
+      // Trigger outbox dispatch asynchronously
+      if (this.outboxService) {
+        this.prisma.bookingOutboxEvent
+          ?.findFirst({
+            where: {
+              bookingId: booking.id,
+              eventType: 'BOOKING_CREATED',
+              status: 'PENDING',
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+          .then((evt) => {
+            if (evt) this.outboxService!.dispatchEvent(evt.id);
+          })
+          .catch((err) =>
+            this.logger.error(
+              'Failed to dispatch outbox event for booking created',
+              err,
+            ),
           );
       }
 
@@ -759,6 +821,17 @@ export class BookingsService {
     reason?: string,
     handoverOtp?: string,
   ) {
+    if (this.lifecycleService) {
+      const res = await this.lifecycleService.executeTransition({
+        bookingId,
+        actorId: requestingUser.userId,
+        actorRole: requestingUser.role,
+        targetStatus: newStatus,
+        reason,
+        handoverOtp,
+      });
+      return res.booking;
+    }
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { vendor: true, securityDeposit: true },
@@ -1122,6 +1195,15 @@ export class BookingsService {
   }
 
   async cancelBooking(bookingId: string, customerId: string, reason: string) {
+    if (this.lifecycleService) {
+      const res = await this.lifecycleService.cancelBooking(
+        bookingId,
+        customerId,
+        Role.CUSTOMER,
+        reason,
+      );
+      return res.booking;
+    }
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { payment: true, vendor: true },

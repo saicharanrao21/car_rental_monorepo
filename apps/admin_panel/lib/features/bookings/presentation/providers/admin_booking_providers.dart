@@ -108,3 +108,18 @@ class AdminBookingController extends StateNotifier<AsyncValue<void>> {
 final adminBookingControllerProvider = StateNotifierProvider<AdminBookingController, AsyncValue<void>>((ref) {
   return AdminBookingController(ref);
 });
+
+// Family Provider for Phase 33 canonical lifecycle audit trail
+final bookingLifecycleHistoryProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, bookingId) async {
+  final apiClient = ref.watch(apiClientProvider);
+  try {
+    final res = await apiClient.dio.get('/admin/bookings/$bookingId/lifecycle-history');
+    if (res.data is List) {
+      return (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  } catch (_) {
+    return [];
+  }
+});
