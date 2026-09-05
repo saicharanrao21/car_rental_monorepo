@@ -57,12 +57,16 @@ export class QueueProducerService {
    * Enqueues an SMS notification task.
    */
   async dispatchSmsNotification(data: SmsNotificationJobData) {
-    const jobId = `sms-${data.phone}-${Date.now()}`;
+    const jobId = data.correlationId || `sms-${data.phone}-${Date.now()}`;
     return this.queueFactory.addJob(
       QUEUE_NAMES.NOTIFICATIONS,
       JOB_TYPES.NOTIFICATIONS.SEND_SMS,
       data,
-      { jobId },
+      {
+        jobId,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
     );
   }
 
@@ -70,12 +74,16 @@ export class QueueProducerService {
    * Enqueues an Email notification task.
    */
   async dispatchEmailNotification(data: EmailNotificationJobData) {
-    const jobId = `email-${data.to}-${Date.now()}`;
+    const jobId = data.correlationId || `email-${data.to}-${Date.now()}`;
     return this.queueFactory.addJob(
       QUEUE_NAMES.NOTIFICATIONS,
       JOB_TYPES.NOTIFICATIONS.SEND_EMAIL,
       data,
-      { jobId },
+      {
+        jobId,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
     );
   }
 
@@ -83,12 +91,16 @@ export class QueueProducerService {
    * Enqueues a Push notification task.
    */
   async dispatchPushNotification(data: PushNotificationJobData) {
-    const jobId = `push-${data.userId}-${Date.now()}`;
+    const jobId = data.correlationId || `push-${data.userId}-${Date.now()}`;
     return this.queueFactory.addJob(
       QUEUE_NAMES.NOTIFICATIONS,
       JOB_TYPES.NOTIFICATIONS.SEND_PUSH,
       data,
-      { jobId },
+      {
+        jobId,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
     );
   }
 
@@ -96,12 +108,16 @@ export class QueueProducerService {
    * Enqueues a WhatsApp notification task.
    */
   async dispatchWhatsAppNotification(data: WhatsAppNotificationJobData) {
-    const jobId = `whatsapp-${data.phone}-${Date.now()}`;
+    const jobId = data.correlationId || `whatsapp-${data.phone}-${Date.now()}`;
     return this.queueFactory.addJob(
       QUEUE_NAMES.NOTIFICATIONS,
       JOB_TYPES.NOTIFICATIONS.SEND_WHATSAPP,
       data,
-      { jobId },
+      {
+        jobId,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
     );
   }
 

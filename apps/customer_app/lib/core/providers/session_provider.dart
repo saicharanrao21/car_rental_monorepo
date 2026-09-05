@@ -77,6 +77,8 @@ class SessionNotifier extends Notifier<AuthState> {
 
 
 
+  String? _currentFcmToken;
+
   Future<void> registerFcmToken() async {
     try {
       String? fcmToken;
@@ -99,20 +101,30 @@ class SessionNotifier extends Notifier<AuthState> {
 
       // If the SDK did not return a token, do not store anything.
       if (fcmToken == null || fcmToken.isEmpty) return;
+      _currentFcmToken = fcmToken;
 
       final apiClient = ref.read(apiClientProvider);
-      await apiClient.dio.patch(
-        '/users/me/fcm-token',
-        data: {'token': fcmToken},
+      await apiClient.dio.post(
+        '/notifications/devices/register',
+        data: {
+          'token': fcmToken,
+          'platform': 'ANDROID',
+          'appVersion': '1.0.0',
+        },
       );
 
       // Keep the stored token fresh on rotation.
       try {
         FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
           if (newToken.isNotEmpty) {
-            await apiClient.dio.patch(
-              '/users/me/fcm-token',
-              data: {'token': newToken},
+            _currentFcmToken = newToken;
+            await apiClient.dio.post(
+              '/notifications/devices/register',
+              data: {
+                'token': newToken,
+                'platform': 'ANDROID',
+                'appVersion': '1.0.0',
+              },
             );
           }
         });
@@ -124,7 +136,21 @@ class SessionNotifier extends Notifier<AuthState> {
 
   Future<void> logout() async {
     final tokenStorage = ref.read(tokenStorageProvider);
+    final apiClient = ref.read(apiClientProvider);
+
+    if (_currentFcmToken != null && _currentFcmToken!.isNotEmpty) {
+      try {
+        await apiClient.dio.post(
+          '/notifications/devices/unregister',
+          data: {'token': _currentFcmToken},
+        );
+      } catch (_) {
+        // Best-effort unregister on server
+      }
+    }
+
     await tokenStorage.clearTokens();
+    _currentFcmToken = null;
     state = AuthState.unauthenticated();
   }
 }

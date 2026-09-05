@@ -15,6 +15,9 @@ import { UpdateNotificationPreferencesDto } from './dto/update-preferences.dto';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { Role, Prisma } from '@prisma/client';
 
+import { NotificationOrchestratorService } from './notification-orchestrator.service';
+import { NotificationRealtimeService } from './notification-realtime.service';
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -25,6 +28,8 @@ export class NotificationsService {
     private readonly auditLogService: AuditLogService,
     @Optional() private readonly queueProducer?: QueueProducerService,
     @Optional() private readonly systemConfigService?: SystemConfigService,
+    @Optional() private readonly orchestrator?: NotificationOrchestratorService,
+    @Optional() private readonly realtimeService?: NotificationRealtimeService,
   ) {}
 
   /**
@@ -44,6 +49,23 @@ export class NotificationsService {
       metadata,
       isTransactional = true,
     } = dto;
+
+    // Bridge with Canonical NotificationOrchestratorService if domain lifecycle event
+    if (this.orchestrator && eventType && entityType && entityId) {
+      return this.orchestrator.publishEvent({
+        eventType,
+        recipientId: userId,
+        entityType,
+        entityId,
+        variables: {
+          title,
+          body,
+          ...(typeof metadata === 'object' && metadata ? metadata : {}),
+        },
+        priority: dto.priority as any,
+        isTransactional,
+      });
+    }
 
     // 1. Permanent Deduplication Check (Database Uniqueness)
     if (idempotencyKey) {
@@ -82,6 +104,19 @@ export class NotificationsService {
         isRead: false,
       },
     });
+
+    // Realtime SSE broadcast
+    if (this.realtimeService) {
+      this.realtimeService.emitToUser(userId, 'notification', notification);
+      this.prisma.notification
+        .count({ where: { userId, isRead: false } })
+        .then((cnt) =>
+          this.realtimeService?.emitToUser(userId, 'unread_count', {
+            unreadCount: cnt,
+          }),
+        )
+        .catch(() => {});
+    }
 
     // 4. Dispatch Multi-Device Push Notifications (if allowed)
     if (allowPush) {
@@ -197,12 +232,37 @@ export class NotificationsService {
   // ── Device Token Registration & Multi-Device Sessions ─────────────────────
 
   async registerDevice(userId: string, dto: RegisterDeviceDto) {
+    // 1. If physical deviceId is provided, clean up stale/conflicting associations
+    if (dto.deviceId) {
+      // Deactivate any existing device records registered to other users on this same hardware
+      await this.prisma.userDevice.updateMany({
+        where: {
+          deviceId: dto.deviceId,
+          userId: { not: userId },
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
+
+      // Deactivate previous tokens for this user on this same physical device (token rotation)
+      await this.prisma.userDevice.updateMany({
+        where: {
+          deviceId: dto.deviceId,
+          userId,
+          token: { not: dto.token },
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
+    }
+
     const existing = await this.prisma.userDevice.findUnique({
       where: { token: dto.token },
     });
 
+    let device;
     if (existing) {
-      return this.prisma.userDevice.update({
+      device = await this.prisma.userDevice.update({
         where: { token: dto.token },
         data: {
           userId,
@@ -213,18 +273,19 @@ export class NotificationsService {
           lastSeenAt: new Date(),
         },
       });
+    } else {
+      device = await this.prisma.userDevice.create({
+        data: {
+          userId,
+          token: dto.token,
+          platform: dto.platform || 'ANDROID',
+          deviceId: dto.deviceId,
+          appVersion: dto.appVersion,
+          isActive: true,
+          lastSeenAt: new Date(),
+        },
+      });
     }
-
-    const device = await this.prisma.userDevice.create({
-      data: {
-        userId,
-        token: dto.token,
-        platform: dto.platform || 'ANDROID',
-        deviceId: dto.deviceId,
-        appVersion: dto.appVersion,
-        isActive: true,
-      },
-    });
 
     // Update legacy fcmToken on User for backwards compatibility
     await this.prisma.user.update({
@@ -236,10 +297,61 @@ export class NotificationsService {
   }
 
   async unregisterDevice(userId: string, token: string) {
-    return this.prisma.userDevice.updateMany({
+    const res = await this.prisma.userDevice.updateMany({
       where: { userId, token },
       data: { isActive: false },
     });
+
+    // Also clear from User table if this token was the legacy user.fcmToken
+    if (this.prisma.user?.updateMany) {
+      await this.prisma.user.updateMany({
+        where: { id: userId, fcmToken: token },
+        data: { fcmToken: null },
+      });
+    }
+
+    return res;
+  }
+
+  async getUserDevices(userId: string) {
+    return this.prisma.userDevice.findMany({
+      where: { userId, isActive: true },
+      select: {
+        id: true,
+        platform: true,
+        deviceId: true,
+        appVersion: true,
+        lastSeenAt: true,
+        createdAt: true,
+      },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+  }
+
+  async revokeDevice(userId: string, deviceIdOrId: string) {
+    const res = await this.prisma.userDevice.updateMany({
+      where: {
+        userId,
+        OR: [{ id: deviceIdOrId }, { deviceId: deviceIdOrId }],
+      },
+      data: { isActive: false },
+    });
+    return { success: true, count: res.count };
+  }
+
+  async cleanupStaleDevices(staleDays = 90) {
+    const cutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.userDevice.updateMany({
+      where: {
+        isActive: true,
+        lastSeenAt: { lt: cutoff },
+      },
+      data: { isActive: false },
+    });
+    this.logger.log(
+      `[STALE-DEVICE-CLEANUP] Deactivated ${result.count} stale devices (seen before ${cutoff.toISOString()})`,
+    );
+    return { cleanedCount: result.count };
   }
 
   // ── Notification Preferences ──────────────────────────────────────────────
@@ -323,17 +435,37 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found.');
     }
 
-    return this.prisma.notification.update({
+    const updated = await this.prisma.notification.update({
       where: { id: notificationId },
-      data: { isRead: true, readAt: new Date() },
+      data: {
+        isRead: true,
+        readAt: notification.readAt ?? new Date(),
+      },
     });
+
+    // Realtime unread count sync
+    if (this.realtimeService) {
+      const count = await this.prisma.notification.count({
+        where: { userId, isRead: false },
+      });
+      this.realtimeService.emitToUser(userId, 'unread_count', { unreadCount: count });
+      this.realtimeService.emitToUser(userId, 'read', { notificationId });
+    }
+
+    return updated;
   }
 
   async markAllAsRead(userId: string) {
-    return this.prisma.notification.updateMany({
+    const res = await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
+
+    if (this.realtimeService) {
+      this.realtimeService.emitToUser(userId, 'unread_count', { unreadCount: 0 });
+    }
+
+    return res;
   }
 
   // ── Admin Broadcasts & History ────────────────────────────────────────────

@@ -792,6 +792,7 @@ model UserDevice {
   updatedAt  DateTime @updatedAt
 
   @@index([userId, isActive])
+  @@index([userId, deviceId])
   @@index([token])
   @@index([lastSeenAt])
 }

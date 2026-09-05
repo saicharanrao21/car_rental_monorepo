@@ -82,6 +82,9 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       },
     };
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -90,8 +93,10 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await response.json();
 
       if (!response.ok) {
@@ -110,12 +115,15 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
         status: 'ACCEPTED',
       };
     } catch (err: any) {
-      this.logger.error(`Meta WhatsApp HTTP request failed: ${err.message}`, err.stack);
+      clearTimeout(timeout);
+      const isAbort = err?.name === 'AbortError';
+      const errMsg = isAbort ? 'Meta WhatsApp request timed out after 10000ms' : err.message;
+      this.logger.error(`Meta WhatsApp HTTP request failed: ${errMsg}`, err.stack);
       return {
         providerMessageId: `wamid.net_err_${Date.now()}`,
         status: 'FAILED',
-        errorCode: 'NETWORK_ERROR',
-        errorMessage: err.message,
+        errorCode: isAbort ? 'TIMEOUT' : 'NETWORK_ERROR',
+        errorMessage: errMsg,
       };
     }
   }

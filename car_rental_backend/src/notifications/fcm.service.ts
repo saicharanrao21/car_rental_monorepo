@@ -75,20 +75,72 @@ export class FcmService {
     title: string,
     body: string,
     data?: Record<string, string>,
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { fcmToken: true },
+  ): Promise<{ success: boolean; messageId?: string; error?: string; activeDeviceCount?: number }> {
+    // 1. Query all active devices for this user
+    const activeDevices = await this.prisma.userDevice.findMany({
+      where: { userId, isActive: true },
+      select: { token: true },
     });
 
-    if (!user || !user.fcmToken) {
-      this.logger.log(
-        `[FCM] Skip push for user ${userId} - no token registered.`,
-      );
-      return;
+    let tokens = activeDevices.map((d) => d.token);
+
+    // Fallback: check legacy single fcmToken on User
+    if (tokens.length === 0) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { fcmToken: true },
+      });
+      if (user?.fcmToken) {
+        tokens = [user.fcmToken];
+      }
     }
 
-    return this.sendToToken(user.fcmToken, title, body, data);
+    if (tokens.length === 0) {
+      this.logger.log(
+        `[FCM] Skip push for user ${userId} - no active devices registered.`,
+      );
+      return { success: true, messageId: 'no_active_devices', activeDeviceCount: 0 };
+    }
+
+    if (this.isMock) {
+      const mockMessageId = `projects/drivego/messages/mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      this.logger.log(
+        `[FCM-MOCK] Push to User: ${userId} (${tokens.length} devices) | "${title}" - "${body}" | ID: ${mockMessageId}`,
+      );
+      return { success: true, messageId: mockMessageId, activeDeviceCount: tokens.length };
+    }
+
+    // Send to all active tokens in parallel
+    const results = await Promise.allSettled(
+      tokens.map((token) => this.sendToToken(token, title, body, data)),
+    );
+
+    const successful = results.filter(
+      (r) => r.status === 'fulfilled' && (r.value as any)?.success,
+    );
+
+    if (successful.length > 0) {
+      const firstMessageId = (successful[0] as any).value?.messageId;
+      return {
+        success: true,
+        messageId: firstMessageId,
+        activeDeviceCount: tokens.length,
+      };
+    }
+
+    const firstError = results.find(
+      (r) => r.status === 'rejected' || !(r as any).value?.success,
+    );
+    const errorMsg =
+      firstError?.status === 'rejected'
+        ? firstError.reason?.message
+        : (firstError as any)?.value?.error || 'All device push dispatches failed';
+
+    return {
+      success: false,
+      error: errorMsg,
+      activeDeviceCount: tokens.length,
+    };
   }
 
   async sendToToken(
@@ -130,6 +182,10 @@ export class FcmService {
         await this.prisma.userDevice.updateMany({
           where: { token },
           data: { isActive: false },
+        });
+        await this.prisma.user.updateMany({
+          where: { fcmToken: token },
+          data: { fcmToken: null },
         });
         this.logger.warn(`[FCM] Auto-deactivated invalid device token: ${token}`);
       }

@@ -41,35 +41,38 @@ class NotificationsPage extends ConsumerWidget {
           // Filter Tabs
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  context: context,
-                  ref: ref,
-                  label: 'All',
-                  tab: NotificationFilterTab.all,
-                  current: activeFilter,
-                  keyStr: 'notifications_filter_all',
-                ),
-                const Gap(8),
-                _buildFilterChip(
-                  context: context,
-                  ref: ref,
-                  label: 'Operational',
-                  tab: NotificationFilterTab.operational,
-                  current: activeFilter,
-                  keyStr: 'notifications_filter_operational',
-                ),
-                const Gap(8),
-                _buildFilterChip(
-                  context: context,
-                  ref: ref,
-                  label: 'Promotions',
-                  tab: NotificationFilterTab.promotions,
-                  current: activeFilter,
-                  keyStr: 'notifications_filter_promotions',
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    context: context,
+                    ref: ref,
+                    label: 'All',
+                    tab: NotificationFilterTab.all,
+                    current: activeFilter,
+                    keyStr: 'notifications_filter_all',
+                  ),
+                  const Gap(8),
+                  _buildFilterChip(
+                    context: context,
+                    ref: ref,
+                    label: 'Operational',
+                    tab: NotificationFilterTab.operational,
+                    current: activeFilter,
+                    keyStr: 'notifications_filter_operational',
+                  ),
+                  const Gap(8),
+                  _buildFilterChip(
+                    context: context,
+                    ref: ref,
+                    label: 'Promotions',
+                    tab: NotificationFilterTab.promotions,
+                    current: activeFilter,
+                    keyStr: 'notifications_filter_promotions',
+                  ),
+                ],
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -97,44 +100,50 @@ class NotificationsPage extends ConsumerWidget {
                 }).toList();
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              shape: BoxShape.circle,
+                  return RefreshIndicator(
+                    onRefresh: () => ref.read(notificationsListProvider.notifier).refresh(),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        height: 400,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.notifications_off_outlined,
+                                size: 48,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            child: Icon(
-                              Icons.notifications_off_outlined,
-                              size: 48,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            const Gap(16),
+                            const Text(
+                              'No Notifications Found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const Gap(16),
-                          const Text(
-                            'No Notifications Found',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            const Gap(8),
+                            Text(
+                              activeFilter == NotificationFilterTab.all
+                                  ? 'Any trip updates or operational notifications will appear here.'
+                                  : 'No notifications match the selected filter.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                          const Gap(8),
-                          Text(
-                            activeFilter == NotificationFilterTab.all
-                                ? 'Any trip updates or operational notifications will appear here.'
-                                : 'No notifications match the selected filter.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );

@@ -24,19 +24,37 @@ import {
   Prisma,
 } from '@prisma/client';
 
+export interface OperationalEventVariables {
+  customerName?: string;
+  vendorName?: string;
+  bookingId?: string;
+  vehicleName?: string;
+  registrationNumber?: string;
+  pickupTime?: string;
+  returnTime?: string;
+  pickupAddress?: string;
+  returnAddress?: string;
+  deliveryFee?: number | string;
+  paymentAmount?: number | string;
+  refundAmount?: number | string;
+  supportContact?: string;
+  etaMinutes?: number | string;
+  damageSeverity?: string;
+  [key: string]: any;
+}
+
 export interface PublishOperationalEventDto {
-  eventType: OperationalEventType;
+  eventType: string;
   recipientId: string;
-  entityType?: string; // 'BOOKING', 'PAYMENT', 'CAR'
-  entityId?: string; // bookingId, paymentId
-  variables: TemplateVariables;
-  idempotencyKey?: string;
-  priority?: 'HIGH' | 'NORMAL' | 'LOW';
+  entityType: string;
+  entityId: string;
+  variables: OperationalEventVariables;
+  priority?: NotificationPriority;
   channels?: NotificationChannel[];
   isTransactional?: boolean;
 }
 
-export interface DeliveryQueryDto {
+export interface DeliveryQueryFilter {
   page?: number;
   limit?: number;
   channel?: NotificationChannel;
@@ -56,6 +74,7 @@ export class NotificationOrchestratorService {
     private readonly emailProvider: EmailProvider,
     @Optional() private readonly whatsappProvider?: WhatsAppProvider,
     @Optional() private readonly queueProducer?: QueueProducerService,
+    @Optional() private readonly realtimeService?: NotificationRealtimeService,
   ) {}
 
   /**
@@ -148,6 +167,19 @@ export class NotificationOrchestratorService {
         isRead: false,
       },
     });
+
+    // Broadcast live event to authenticated user via SSE stream
+    if (this.realtimeService) {
+      this.realtimeService.emitToUser(recipientId, 'notification', notification);
+      this.prisma.notification
+        .count({ where: { userId: recipientId, isRead: false } })
+        .then((cnt) =>
+          this.realtimeService?.emitToUser(recipientId, 'unread_count', {
+            unreadCount: cnt,
+          }),
+        )
+        .catch(() => {});
+    }
 
     // 7. Create NotificationDelivery Records and Dispatch to Channels
     const deliveries: any[] = [];
@@ -259,11 +291,16 @@ export class NotificationOrchestratorService {
 
       case NotificationChannel.WHATSAPP:
         if (user.phone) {
+          const params = [
+            user.name || 'Valued Customer',
+            rendered.title,
+            rendered.body,
+          ];
           if (this.queueProducer) {
             await this.queueProducer.dispatchWhatsAppNotification({
               phone: user.phone,
-              templateName: rendered.whatsappTemplate,
-              bodyParameters: rendered.whatsappParams,
+              templateName: 'booking_operational_alert',
+              bodyParameters: params,
               userId: recipientId,
               correlationId: deliveryId,
             });
@@ -272,8 +309,8 @@ export class NotificationOrchestratorService {
             await this.executeWhatsAppDelivery(
               deliveryId,
               user.phone,
-              rendered.whatsappTemplate,
-              rendered.whatsappParams,
+              'booking_operational_alert',
+              params,
             );
           }
         }
@@ -324,6 +361,9 @@ export class NotificationOrchestratorService {
           attemptCount: { increment: 1 },
         },
       });
+      if (result?.success === false) {
+        await this.checkDeadLetterThreshold(deliveryId);
+      }
       return result;
     } catch (err: any) {
       await this.recordDeliveryFailure(deliveryId, err?.message);
@@ -345,6 +385,9 @@ export class NotificationOrchestratorService {
           attemptCount: { increment: 1 },
         },
       });
+      if (!result.success) {
+        await this.checkDeadLetterThreshold(deliveryId, result.isTransient);
+      }
       return result;
     } catch (err: any) {
       await this.recordDeliveryFailure(deliveryId, err?.message);
@@ -369,16 +412,23 @@ export class NotificationOrchestratorService {
         'en_US',
         params,
       );
+
+      const isAccepted = result.status === 'ACCEPTED';
       await this.prisma.notificationDelivery.update({
         where: { id: deliveryId },
         data: {
-          status: DeliveryStatus.DELIVERED,
+          status: isAccepted ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED,
           providerMessageId: result.providerMessageId,
-          deliveredAt: new Date(),
+          deliveredAt: isAccepted ? new Date() : null,
+          failedAt: !isAccepted ? new Date() : null,
+          lastError: result.errorMessage || null,
           attemptCount: { increment: 1 },
         },
       });
-      return { success: true, messageId: result.providerMessageId };
+      if (!isAccepted) {
+        await this.checkDeadLetterThreshold(deliveryId, false);
+      }
+      return { success: isAccepted, messageId: result.providerMessageId, error: result.errorMessage };
     } catch (err: any) {
       await this.recordDeliveryFailure(deliveryId, err?.message);
       throw err;
@@ -404,6 +454,9 @@ export class NotificationOrchestratorService {
           attemptCount: { increment: 1 },
         },
       });
+      if (!result.success) {
+        await this.checkDeadLetterThreshold(deliveryId, result.isTransient);
+      }
       return result;
     } catch (err: any) {
       await this.recordDeliveryFailure(deliveryId, err?.message);
@@ -411,25 +464,44 @@ export class NotificationOrchestratorService {
     }
   }
 
+  private async checkDeadLetterThreshold(deliveryId: string, isTransient = true) {
+    try {
+      const existing = await this.prisma.notificationDelivery.findUnique({
+        where: { id: deliveryId },
+      });
+      if (!existing) return;
+      if (!isTransient || existing.attemptCount >= existing.maxRetries) {
+        await this.prisma.notificationDelivery.update({
+          where: { id: deliveryId },
+          data: { status: DeliveryStatus.DEAD_LETTER },
+        });
+      }
+    } catch {
+      // Non-blocking dead-letter check
+    }
+  }
+
   private async recordDeliveryFailure(deliveryId: string, errorMessage?: string) {
-    const existing = await this.prisma.notificationDelivery.findUnique({
-      where: { id: deliveryId },
-    });
+    try {
+      const existing = await this.prisma.notificationDelivery.findUnique({
+        where: { id: deliveryId },
+      });
 
-    if (!existing) return;
+      const nextAttempt = (existing?.attemptCount ?? 0) + 1;
+      const isExhausted = nextAttempt >= (existing?.maxRetries ?? 3);
 
-    const nextAttempt = existing.attemptCount + 1;
-    const isExhausted = nextAttempt >= existing.maxRetries;
-
-    await this.prisma.notificationDelivery.update({
-      where: { id: deliveryId },
-      data: {
-        status: isExhausted ? DeliveryStatus.DEAD_LETTER : DeliveryStatus.FAILED,
-        attemptCount: nextAttempt,
-        lastError: errorMessage || 'Channel delivery failed',
-        failedAt: new Date(),
-      },
-    });
+      await this.prisma.notificationDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: isExhausted ? DeliveryStatus.DEAD_LETTER : DeliveryStatus.FAILED,
+          attemptCount: nextAttempt,
+          lastError: errorMessage || 'Channel delivery failed',
+          failedAt: new Date(),
+        },
+      });
+    } catch {
+      // Best effort failure recording
+    }
   }
 
   // ── User Preference Resolution ────────────────────────────────────────────

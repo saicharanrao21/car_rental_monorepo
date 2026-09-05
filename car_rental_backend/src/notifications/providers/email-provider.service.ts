@@ -5,6 +5,7 @@ export interface EmailSendResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  isTransient?: boolean;
 }
 
 export abstract class EmailProvider {
@@ -43,8 +44,10 @@ export class SmtpEmailProvider implements EmailProvider {
       return { success: true, messageId: fallbackId };
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     try {
-      // Direct REST call to Resend email API if configured
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -57,15 +60,19 @@ export class SmtpEmailProvider implements EmailProvider {
           subject,
           html,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await response.json();
 
       if (!response.ok) {
         this.logger.error(`Resend API error: ${JSON.stringify(data)}`);
+        const isTransient = response.status === 429 || response.status >= 500;
         return {
           success: false,
           error: data.message || 'Email dispatch failed',
+          isTransient,
         };
       }
 
@@ -74,10 +81,14 @@ export class SmtpEmailProvider implements EmailProvider {
         messageId: data.id,
       };
     } catch (err: any) {
-      this.logger.error(`Email dispatch error: ${err?.message}`, err?.stack);
+      clearTimeout(timeout);
+      const isAbort = err?.name === 'AbortError';
+      const errMsg = isAbort ? 'Email request timed out after 10000ms' : (err?.message || 'Email request failed');
+      this.logger.error(`Email dispatch error: ${errMsg}`, err?.stack);
       return {
         success: false,
-        error: err?.message || 'Email request failed',
+        error: errMsg,
+        isTransient: true,
       };
     }
   }

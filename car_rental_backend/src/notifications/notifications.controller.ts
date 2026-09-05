@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
+  Sse,
   Body,
   Param,
   Query,
@@ -10,7 +12,9 @@ import {
   Req,
   ParseIntPipe,
   ParseBoolPipe,
+  MessageEvent,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -24,6 +28,7 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-preferences.dto';
 
 import { NotificationOrchestratorService } from './notification-orchestrator.service';
+import { NotificationRealtimeService } from './notification-realtime.service';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
@@ -31,7 +36,16 @@ export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly orchestrator: NotificationOrchestratorService,
+    private readonly realtimeService: NotificationRealtimeService,
   ) {}
+
+  // ── Real-Time Live Notification Stream (Server-Sent Events) ───────────────
+
+  @Sse('notifications/stream')
+  streamNotifications(@Req() req: any): Observable<MessageEvent> {
+    const userId = req.user.id || req.user.userId;
+    return this.realtimeService.getUserStream(userId);
+  }
 
   // ── Admin Broadcasts & Delivery Governance ────────────────────────────────
 
@@ -83,7 +97,21 @@ export class NotificationsController {
     return this.orchestrator.retryDelivery(id);
   }
 
-  // ── Device Token Registration ─────────────────────────────────────────────
+  @Post('admin/notifications/devices/cleanup')
+  @Roles(Role.ADMIN)
+  async cleanupStaleDevices(
+    @Query('staleDays', new ParseIntPipe({ optional: true })) staleDays?: number,
+  ) {
+    return this.notificationsService.cleanupStaleDevices(staleDays ?? 90);
+  }
+
+  // ── Device Token Registration & Multi-Device Management ───────────────────
+
+  @Get('notifications/devices')
+  async getDevices(@Req() req: any) {
+    const userId = req.user.id || req.user.userId;
+    return this.notificationsService.getUserDevices(userId);
+  }
 
   @Post('notifications/devices/register')
   async registerDevice(@Req() req: any, @Body() dto: RegisterDeviceDto) {
@@ -95,6 +123,12 @@ export class NotificationsController {
   async unregisterDevice(@Req() req: any, @Body('token') token: string) {
     const userId = req.user.id || req.user.userId;
     return this.notificationsService.unregisterDevice(userId, token);
+  }
+
+  @Delete('notifications/devices/:id')
+  async revokeDevice(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user.id || req.user.userId;
+    return this.notificationsService.revokeDevice(userId, id);
   }
 
   // ── Notification Preferences ──────────────────────────────────────────────

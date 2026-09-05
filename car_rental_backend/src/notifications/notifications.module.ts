@@ -9,6 +9,7 @@ import { FcmService } from './fcm.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationOrchestratorService } from './notification-orchestrator.service';
 import { NotificationsController } from './notifications.controller';
+import { NotificationRealtimeService } from './notification-realtime.service';
 import { SmsProvider, MockSmsProvider } from './providers/sms-provider.service';
 import { EmailProvider, MockEmailProvider } from './providers/email-provider.service';
 
@@ -26,6 +27,7 @@ import { EmailProvider, MockEmailProvider } from './providers/email-provider.ser
     FcmService,
     NotificationsService,
     NotificationOrchestratorService,
+    NotificationRealtimeService,
     { provide: SmsProvider, useClass: MockSmsProvider },
     { provide: EmailProvider, useClass: MockEmailProvider },
   ],
@@ -33,6 +35,7 @@ import { EmailProvider, MockEmailProvider } from './providers/email-provider.ser
   exports: [
     NotificationsService,
     NotificationOrchestratorService,
+    NotificationRealtimeService,
     FcmService,
     SmsProvider,
     EmailProvider,

@@ -155,29 +155,35 @@ class VendorNotificationsPage extends ConsumerWidget {
                 }).toList();
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.notifications_paused_outlined,
-                            size: 56,
-                            color: DDSColors.textSecondary.withValues(alpha: 0.5),
-                          ),
-                          const Gap(16),
-                          Text(
-                            'No Alerts in This Category',
-                            style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const Gap(8),
-                          Text(
-                            'Operational, handover, and escrow notifications will appear here.',
-                            textAlign: TextAlign.center,
-                            style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textSecondary),
-                          ),
-                        ],
+                  return RefreshIndicator(
+                    onRefresh: () => ref.read(vendorNotificationsProvider.notifier).refresh(),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        height: 400,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.notifications_paused_outlined,
+                              size: 56,
+                              color: DDSColors.textSecondary.withValues(alpha: 0.5),
+                            ),
+                            const Gap(16),
+                            Text(
+                              'No Alerts in This Category',
+                              style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const Gap(8),
+                            Text(
+                              'Operational, handover, and escrow notifications will appear here.',
+                              textAlign: TextAlign.center,
+                              style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

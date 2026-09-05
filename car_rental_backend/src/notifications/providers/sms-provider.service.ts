@@ -5,6 +5,7 @@ export interface SmsSendResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  isTransient?: boolean;
 }
 
 export abstract class SmsProvider {
@@ -45,6 +46,9 @@ export class TwilioSmsProvider implements SmsProvider {
       return { success: true, messageId: fallbackId };
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     try {
       const url = `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`;
       const body = new URLSearchParams({
@@ -61,15 +65,19 @@ export class TwilioSmsProvider implements SmsProvider {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: body.toString(),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await response.json();
 
       if (!response.ok) {
         this.logger.error(`Twilio SMS API error: ${JSON.stringify(data)}`);
+        const isTransient = response.status === 429 || response.status >= 500;
         return {
           success: false,
           error: data.message || 'Twilio SMS failed',
+          isTransient,
         };
       }
 
@@ -78,10 +86,14 @@ export class TwilioSmsProvider implements SmsProvider {
         messageId: data.sid,
       };
     } catch (err: any) {
-      this.logger.error(`Twilio network error: ${err?.message}`, err?.stack);
+      clearTimeout(timeout);
+      const isAbort = err?.name === 'AbortError';
+      const errMsg = isAbort ? 'Twilio request timed out after 10000ms' : (err?.message || 'Twilio request failed');
+      this.logger.error(`Twilio network error: ${errMsg}`, err?.stack);
       return {
         success: false,
-        error: err?.message || 'Twilio request failed',
+        error: errMsg,
+        isTransient: true,
       };
     }
   }
