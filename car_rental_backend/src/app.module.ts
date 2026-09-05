@@ -40,6 +40,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { SystemConfigModule } from './config-engine/system-config.module';
 import { GeospatialModule } from './geospatial/geospatial.module';
+import { PricingModule } from './pricing/pricing.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -90,6 +91,7 @@ import { validateEnv } from './common/env.validation';
     WhatsAppModule,
     GrowthModule,
     AnalyticsModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

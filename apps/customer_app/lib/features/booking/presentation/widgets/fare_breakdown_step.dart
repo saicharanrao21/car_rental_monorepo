@@ -33,6 +33,18 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final repo = ref.read(bookingRepositoryProvider);
+      ref.read(bookingDraftProvider.notifier).fetchAuthoritativeQuote(
+            repo: repo,
+            carId: widget.car.id,
+          );
+    });
+  }
+
+  @override
   void dispose() {
     _couponController.dispose();
     super.dispose();
@@ -168,7 +180,95 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
               fontSize: 12,
             ),
           ),
-          const Gap(DDSSpacing.md),
+          const Gap(DDSSpacing.sm),
+
+          // ── Canonical Server Quote Status Banner ──
+          if (draft.isQuoteLoading)
+            Container(
+              margin: const EdgeInsets.only(bottom: DDSSpacing.sm),
+              padding: const EdgeInsets.all(DDSSpacing.sm),
+              decoration: BoxDecoration(
+                color: DDSColors.infoBlueBg,
+                borderRadius: DDSRadius.mediumBorderRadius,
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const Gap(DDSSpacing.sm),
+                  Text(
+                    'Calculating server-authoritative quote...',
+                    style: DDSTypography.labelSmall.copyWith(
+                      color: DDSColors.primaryBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (draft.authoritativeQuote != null) ...[
+            if (draft.authoritativeQuote!.isExpired)
+              Container(
+                margin: const EdgeInsets.only(bottom: DDSSpacing.sm),
+                padding: const EdgeInsets.all(DDSSpacing.sm),
+                decoration: BoxDecoration(
+                  color: DDSColors.errorRed.withValues(alpha: 0.1),
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                  border: Border.all(color: DDSColors.errorRed.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_off_outlined, color: DDSColors.errorRed, size: 20),
+                    const Gap(DDSSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Quote expired. Please refresh to lock latest rates before payment.',
+                        style: DDSTypography.labelSmall.copyWith(
+                          color: DDSColors.errorRed,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final repo = ref.read(bookingRepositoryProvider);
+                        ref.read(bookingDraftProvider.notifier).refreshExpiredQuote(repo: repo);
+                      },
+                      child: const Text('Refresh', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                margin: const EdgeInsets.only(bottom: DDSSpacing.sm),
+                padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.sm, vertical: 8),
+                decoration: BoxDecoration(
+                  color: DDSColors.successGreenBg,
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                  border: Border.all(color: DDSColors.successGreen.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_outlined, color: DDSColors.successGreen, size: 18),
+                    const Gap(DDSSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Server Quote Active • Rate Guaranteed for 15 mins',
+                        style: DDSTypography.labelSmall.copyWith(
+                          color: DDSColors.successGreen,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          const Gap(DDSSpacing.xs),
 
           // ── Booking Review Summary Card ───────────────────────────
           BookingReviewSummaryCard(
@@ -466,6 +566,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
             result: result,
             finalPayable: finalPayable,
             config: config,
+            quote: draft.authoritativeQuote,
           ),
           const Gap(DDSSpacing.md),
 

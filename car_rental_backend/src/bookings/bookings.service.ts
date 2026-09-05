@@ -43,6 +43,7 @@ import { BookingLifecycleService } from './booking-lifecycle.service';
 import { BookingOutboxService } from './booking-outbox.service';
 import { LocationsService } from '../locations/locations.service';
 import { VehicleAvailabilityService } from '../cars/vehicle-availability.service';
+import { PricingService } from '../pricing/pricing.service';
 
 @Injectable()
 export class BookingsService {
@@ -69,6 +70,7 @@ export class BookingsService {
     @Optional() private readonly lifecycleService?: BookingLifecycleService,
     @Optional() private readonly outboxService?: BookingOutboxService,
     @Optional() private readonly availabilityService?: VehicleAvailabilityService,
+    @Optional() private readonly pricingService?: PricingService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -477,23 +479,50 @@ export class BookingsService {
             }
           }
 
-          // 5. Create booking row with dynamic security deposit and delivery options
+          // Phase 35: Authoritative Quote acceptance and snapshot verification
+          let acceptedQuoteSnapshot: any = null;
+          if (dto.quoteId && this.pricingService && (tx as any).bookingQuote) {
+            const quoteRes = await this.pricingService.verifyAndAcceptQuote(
+              tx,
+              dto.quoteId,
+              customerId,
+              {
+                carId: dto.carId,
+                startDate: start,
+                endDate: end,
+                tripType: dto.tripType,
+              },
+            );
+            acceptedQuoteSnapshot = quoteRes.priceSnapshot;
+          }
+
+          // 5. Create booking row with dynamic security deposit, authoritative pricing snapshot and delivery options
           const newBooking = await tx.booking.create({
             data: {
               customerId,
               vendorId: car.vendorId,
               carId: dto.carId,
               tripType: dto.tripType,
+              quoteId: dto.quoteId,
+              priceSnapshot: acceptedQuoteSnapshot as any,
               pickupLocation: dto.pickupLocation,
               dropLocation: dto.dropLocation,
               startDate: start,
               endDate: end,
               distanceKm: dto.distanceKm ? distance : null,
-              baseFare: fareDetails.baseFare,
-              platformFee: fareDetails.platformFee,
-              gstAmount: fareDetails.gst,
-              totalFare: finalTotalFare,
-              netToVendor: baseNetToVendorDecimal.add(totalDeliveryAddons),
+              baseFare: acceptedQuoteSnapshot ? new Prisma.Decimal(acceptedQuoteSnapshot.subtotal) : fareDetails.baseFare,
+              platformFee: acceptedQuoteSnapshot
+                ? new Prisma.Decimal(acceptedQuoteSnapshot.lineItems.find((l: any) => l.type === 'PLATFORM_FEE')?.amount || 0)
+                : fareDetails.platformFee,
+              gstAmount: acceptedQuoteSnapshot
+                ? new Prisma.Decimal(acceptedQuoteSnapshot.taxTotal)
+                : fareDetails.gst,
+              totalFare: acceptedQuoteSnapshot
+                ? new Prisma.Decimal(acceptedQuoteSnapshot.tripFare)
+                : finalTotalFare,
+              netToVendor: acceptedQuoteSnapshot
+                ? new Prisma.Decimal(acceptedQuoteSnapshot.netToVendor)
+                : baseNetToVendorDecimal.add(totalDeliveryAddons),
               driverIncluded: dto.driverIncluded ?? true,
               childSeat: dto.childSeat ?? false,
               extraLuggage: dto.extraLuggage ?? false,
@@ -518,7 +547,9 @@ export class BookingsService {
               protectionDeductible: protectionDeductibleDecimal,
               couponId: validatedCoupon ? validatedCoupon.couponId : null,
               couponCode: validatedCoupon ? validatedCoupon.code : null,
-              discountAmount: discountAmountDecimal,
+              discountAmount: acceptedQuoteSnapshot
+                ? new Prisma.Decimal(acceptedQuoteSnapshot.discountTotal)
+                : discountAmountDecimal,
               mileagePackageId: mileagePackage ? mileagePackage.id : null,
               mileagePackageName: mileagePackage ? mileagePackage.name : null,
               includedKmPerDay: mileagePackage ? mileagePackage.includedKmPerDay : null,
@@ -529,7 +560,9 @@ export class BookingsService {
               status: BookingStatus.PENDING,
               securityDeposit: {
                 create: {
-                  amount: new Prisma.Decimal(depositAmount),
+                  amount: acceptedQuoteSnapshot
+                    ? new Prisma.Decimal(acceptedQuoteSnapshot.depositTotal)
+                    : new Prisma.Decimal(depositAmount),
                   status: SecurityDepositStatus.REQUIRED,
                 },
               },
@@ -582,7 +615,7 @@ export class BookingsService {
                   customerName: newBooking.customer.name,
                   customerPhone: newBooking.customer.phone,
                   vendorId: newBooking.vendorId,
-                  vendorName: newBooking.vendor?.businessName,
+                  vendorName: car.vendor?.businessName,
                   carId: newBooking.carId,
                   vehicleName: `${newBooking.car.make} ${newBooking.car.model}`,
                   registrationNumber: newBooking.car.registrationNumber,

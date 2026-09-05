@@ -79,6 +79,9 @@ class BookingDraft {
   final bool isQuoteLoading;
   final double quoteDistanceKm;
   final String? quoteErrorReason;
+  // Phase 35 Canonical Quote fields
+  final String? quoteId;
+  final BookingQuoteModel? authoritativeQuote;
 
   const BookingDraft({
     this.carId = '',
@@ -136,6 +139,8 @@ class BookingDraft {
     this.isQuoteLoading = false,
     this.quoteDistanceKm = 0.0,
     this.quoteErrorReason,
+    this.quoteId,
+    this.authoritativeQuote,
   });
 
   int get rentalDays {
@@ -199,6 +204,8 @@ class BookingDraft {
     bool? isQuoteLoading,
     double? quoteDistanceKm,
     String? quoteErrorReason,
+    String? quoteId,
+    BookingQuoteModel? authoritativeQuote,
   }) {
     return BookingDraft(
       carId: carId ?? this.carId,
@@ -263,6 +270,8 @@ class BookingDraft {
       isQuoteLoading: isQuoteLoading ?? this.isQuoteLoading,
       quoteDistanceKm: quoteDistanceKm ?? this.quoteDistanceKm,
       quoteErrorReason: quoteErrorReason ?? this.quoteErrorReason,
+      quoteId: quoteId ?? this.quoteId,
+      authoritativeQuote: authoritativeQuote ?? this.authoritativeQuote,
     );
   }
 }
@@ -406,6 +415,77 @@ class BookingDraftNotifier extends AutoDisposeNotifier<BookingDraft> {
         oneWayFee: state.isDifferentReturnLocation ? oneWayFee : 0.0,
         quoteDistanceKm: distKm,
         quoteErrorReason: isAvail ? null : (reason ?? 'Fulfillment option unavailable'),
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isQuoteLoading: false,
+        quoteErrorReason: e.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', ''),
+      );
+    }
+  }
+
+  /// Authoritatively fetches complete pricing quote from Phase 35 backend engine
+  Future<void> fetchAuthoritativeQuote({
+    required BookingRepository repo,
+    String? carId,
+  }) async {
+    final targetCarId = (carId != null && carId.isNotEmpty) ? carId : state.carId;
+    if (targetCarId.isEmpty) return;
+    final start = state.startDate ?? DateTime.now().add(const Duration(days: 1));
+    final end = state.endDate ?? DateTime.now().add(const Duration(days: 3));
+
+    state = state.copyWith(isQuoteLoading: true, quoteErrorReason: null);
+    try {
+      final quote = await repo.getQuote(
+        carId: targetCarId,
+        startDate: start,
+        endDate: end,
+        tripType: state.tripType,
+        mileagePackageId: state.selectedMileagePackageId,
+        protectionPlanId: state.selectedProtectionPackageId,
+        pickupLocationId: state.pickupHubId,
+        returnLocationId: state.isDifferentReturnLocation ? state.returnHubId : state.pickupHubId,
+        deliveryAddress: state.hasDoorstepDelivery ? state.deliveryAddress : null,
+        customerLatitude: state.deliveryLatitude,
+        customerLongitude: state.deliveryLongitude,
+        couponCode: state.appliedCouponCode,
+      );
+
+      state = state.copyWith(
+        isQuoteLoading: false,
+        quoteId: quote.quoteId,
+        authoritativeQuote: quote,
+        baseFare: quote.subtotal,
+        platformFee: quote.feesTotal,
+        gst: quote.taxTotal,
+        totalFare: quote.totalPayable,
+        netToVendor: quote.netToVendor,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isQuoteLoading: false,
+        quoteErrorReason: e.toString().replaceAll('Exception: ', '').replaceAll('DioException: ', ''),
+      );
+    }
+  }
+
+  /// Refreshes an expired or stale quote
+  Future<void> refreshExpiredQuote({
+    required BookingRepository repo,
+  }) async {
+    if (state.quoteId == null) return;
+    state = state.copyWith(isQuoteLoading: true, quoteErrorReason: null);
+    try {
+      final quote = await repo.refreshQuote(state.quoteId!);
+      state = state.copyWith(
+        isQuoteLoading: false,
+        quoteId: quote.quoteId,
+        authoritativeQuote: quote,
+        baseFare: quote.subtotal,
+        platformFee: quote.feesTotal,
+        gst: quote.taxTotal,
+        totalFare: quote.totalPayable,
+        netToVendor: quote.netToVendor,
       );
     } catch (e) {
       state = state.copyWith(

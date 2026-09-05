@@ -103,7 +103,7 @@ export class PaymentsService {
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { securityDeposit: true },
+      include: { securityDeposit: true, quote: true },
     });
 
     if (!booking) {
@@ -141,6 +141,17 @@ export class PaymentsService {
     const tripFare = booking.totalFare;
     const depositAmount = booking.securityDeposit?.amount || new Decimal(0);
     const totalAmount = tripFare.add(depositAmount);
+
+    // Phase 35: Authoritative Quote Price Integrity check
+    if (booking.quoteId && booking.quote) {
+      const quoteTotal = booking.quote.totalPayable;
+      const diff = Math.abs(quoteTotal.sub(totalAmount).toNumber());
+      if (diff >= 0.05) {
+        throw new ConflictException(
+          `Payment amount mismatch: Booking payable amount (₹${totalAmount}) does not match authoritative accepted quote (₹${quoteTotal}).`,
+        );
+      }
+    }
 
     let walletApplied = new Decimal(0);
     let promoApplied = new Decimal(0);

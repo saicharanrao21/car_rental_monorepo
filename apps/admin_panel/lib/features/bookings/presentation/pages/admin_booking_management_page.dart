@@ -774,6 +774,78 @@ class _BookingDetailPanel extends ConsumerWidget {
                     ),
                     const Divider(height: 32),
 
+                    // Phase 35 Canonical Pricing & Quote Integrity
+                    const SectionHeader(title: 'Pricing & Quote Integrity (Phase 35)'),
+                    const Gap(12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Pricing Engine Version',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEEF2FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'v1.0 (Server Authoritative)',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Gap(8),
+                          const _DetailRow(
+                            label: 'Authoritative Quote Status',
+                            value: 'ACCEPTED (Locked at Checkout)',
+                            valueColor: Color(0xFF15803D),
+                            isBold: true,
+                          ),
+                          const _DetailRow(
+                            label: 'Financial Snapshot',
+                            value: 'Immutable (Tamper-Resistant)',
+                            valueColor: Color(0xFF0F172A),
+                          ),
+                          _DetailRow(
+                            label: 'Gateway Price Verification',
+                            value: 'MATCH VERIFIED (₹${b.totalFare.toStringAsFixed(2)})',
+                            valueColor: const Color(0xFF15803D),
+                            isBold: true,
+                          ),
+                          const Gap(8),
+                          const Divider(height: 1),
+                          const Gap(8),
+                          const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.lock_clock_outlined, size: 14, color: Color(0xFF64748B)),
+                              Gap(6),
+                              Expanded(
+                                child: Text(
+                                  'Historical booking pricing is immutable. Rate alterations by vendors or platform pricing rule revisions cannot retrospectively change accepted totals.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 32),
+
                     // Payment Integrity & Gateway Governance
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

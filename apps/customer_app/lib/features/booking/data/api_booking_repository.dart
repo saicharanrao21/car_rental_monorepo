@@ -148,6 +148,10 @@ class ApiBookingRepository implements BookingRepository {
           draftState.selectedMileagePackageId!.isNotEmpty) {
         data['mileagePackageId'] = draftState.selectedMileagePackageId;
       }
+      final qId = draftState.quoteId ?? draftState.authoritativeQuote?.quoteId;
+      if (qId != null && qId.isNotEmpty) {
+        data['quoteId'] = qId;
+      }
     }
 
     final response = await apiClient.dio.post(
@@ -336,5 +340,82 @@ class ApiBookingRepository implements BookingRepository {
   Future<bool> releaseVehicleHold(String holdId) async {
     final response = await apiClient.dio.delete('/cars/holds/$holdId');
     return response.data?['success'] == true;
+  }
+
+  @override
+  Future<BookingQuoteModel> getQuote({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? tripType,
+    String? mileagePackageId,
+    String? protectionPlanId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    String? deliveryAddress,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? couponCode,
+    String? idempotencyKey,
+  }) async {
+    final data = <String, dynamic>{
+      'carId': carId,
+      'startDate': startDate.toUtc().toIso8601String(),
+      'endDate': endDate.toUtc().toIso8601String(),
+      if (tripType != null) 'tripType': _mapTripTypeToBackend(tripType),
+      if (mileagePackageId != null) 'mileagePackageId': mileagePackageId,
+      if (protectionPlanId != null) 'protectionPlanId': protectionPlanId,
+      if (pickupLocationId != null) 'pickupLocationId': pickupLocationId,
+      if (returnLocationId != null) 'returnLocationId': returnLocationId,
+      if (deliveryAddress != null) 'deliveryAddress': deliveryAddress,
+      if (customerLatitude != null) 'customerLatitude': customerLatitude,
+      if (customerLongitude != null) 'customerLongitude': customerLongitude,
+      if (couponCode != null) 'couponCode': couponCode,
+      if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+    };
+
+    final response = await apiClient.dio.post(
+      '/pricing/quote',
+      data: data,
+    );
+
+    final resData = response.data;
+    if (resData is Map<String, dynamic>) {
+      if (resData.containsKey('data') && resData['data'] is Map<String, dynamic>) {
+        return BookingQuoteModel.fromJson(resData['data']);
+      }
+      return BookingQuoteModel.fromJson(resData);
+    }
+    throw Exception('Invalid quote response from pricing engine');
+  }
+
+  @override
+  Future<BookingQuoteModel> refreshQuote(String quoteId) async {
+    final response = await apiClient.dio.post('/pricing/quote/$quoteId/refresh');
+    final resData = response.data;
+    if (resData is Map<String, dynamic>) {
+      if (resData.containsKey('data') && resData['data'] is Map<String, dynamic>) {
+        return BookingQuoteModel.fromJson(resData['data']);
+      }
+      return BookingQuoteModel.fromJson(resData);
+    }
+    throw Exception('Invalid refreshed quote response from pricing engine');
+  }
+
+  @override
+  Future<BookingQuoteModel?> getQuoteById(String quoteId) async {
+    try {
+      final response = await apiClient.dio.get('/pricing/quote/$quoteId');
+      final resData = response.data;
+      if (resData is Map<String, dynamic>) {
+        if (resData.containsKey('data') && resData['data'] is Map<String, dynamic>) {
+          return BookingQuoteModel.fromJson(resData['data']);
+        }
+        return BookingQuoteModel.fromJson(resData);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 }

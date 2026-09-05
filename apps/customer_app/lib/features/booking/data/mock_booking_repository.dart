@@ -198,4 +198,120 @@ class MockBookingRepositoryImpl with LatencySimulator implements BookingReposito
     await simulateLatency();
     return true;
   }
+
+  @override
+  Future<BookingQuoteModel> getQuote({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? tripType,
+    String? mileagePackageId,
+    String? protectionPlanId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    String? deliveryAddress,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? couponCode,
+    String? idempotencyKey,
+  }) async {
+    await simulateLatency();
+    final days = endDate.difference(startDate).inDays.clamp(1, 999);
+    final hours = endDate.difference(startDate).inHours.clamp(1, 99999);
+    const dailyRate = 2000.0;
+    final subtotal = dailyRate * days;
+    final discount = (days >= 30) ? subtotal * 0.20 : (days >= 7 ? subtotal * 0.10 : 0.0);
+    const platformFee = 150.0;
+    final gst = ((subtotal - discount + platformFee) * 0.18).roundToDouble();
+    const deposit = 3000.0;
+    final totalPayable = subtotal - discount + platformFee + gst + deposit;
+
+    return BookingQuoteModel(
+      quoteId: 'quote_mock_${DateTime.now().millisecondsSinceEpoch}',
+      tenantId: 'tenant_mock',
+      carId: carId,
+      vehicleName: 'Mock Vehicle',
+      registrationNumber: 'MH02AB1234',
+      tripType: tripType ?? 'SELF_DRIVE',
+      startDate: startDate,
+      endDate: endDate,
+      durationDays: days,
+      durationHours: hours,
+      currency: 'INR',
+      pricingVersion: 'v1.0',
+      subtotal: subtotal,
+      discountTotal: discount,
+      feesTotal: platformFee,
+      taxTotal: gst,
+      depositTotal: deposit,
+      tripFare: subtotal - discount + platformFee + gst,
+      totalPayable: totalPayable,
+      netToVendor: subtotal - discount,
+      status: 'ACTIVE',
+      createdAt: DateTime.now(),
+      expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+      lineItems: [
+        BookingQuoteLineItemModel(
+          type: 'BASE_RENTAL',
+          name: 'Base Vehicle Rental ($days days)',
+          rate: dailyRate,
+          quantity: days.toDouble(),
+          amount: subtotal,
+          displayOrder: 1,
+        ),
+        if (discount > 0)
+          BookingQuoteLineItemModel(
+            type: 'DURATION_DISCOUNT',
+            name: 'Duration Discount',
+            rate: discount,
+            quantity: 1.0,
+            amount: -discount,
+            displayOrder: 2,
+          ),
+        const BookingQuoteLineItemModel(
+          type: 'PLATFORM_FEE',
+          name: 'Convenience Platform Fee',
+          rate: platformFee,
+          quantity: 1.0,
+          amount: platformFee,
+          displayOrder: 3,
+        ),
+        BookingQuoteLineItemModel(
+          type: 'TAX_GST',
+          name: 'Statutory GST (18%)',
+          rate: gst,
+          quantity: 1.0,
+          amount: gst,
+          displayOrder: 4,
+        ),
+        const BookingQuoteLineItemModel(
+          type: 'SECURITY_DEPOSIT',
+          name: 'Refundable Security Deposit',
+          rate: deposit,
+          quantity: 1.0,
+          amount: deposit,
+          isRefundable: true,
+          displayOrder: 5,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<BookingQuoteModel> refreshQuote(String quoteId) async {
+    return getQuote(
+      carId: 'mock_car_id',
+      startDate: DateTime.now().add(const Duration(days: 1)),
+      endDate: DateTime.now().add(const Duration(days: 3)),
+    );
+  }
+
+  @override
+  Future<BookingQuoteModel?> getQuoteById(String quoteId) async {
+    return getQuote(
+      carId: 'mock_car_id',
+      startDate: DateTime.now().add(const Duration(days: 1)),
+      endDate: DateTime.now().add(const Duration(days: 3)),
+    );
+  }
 }

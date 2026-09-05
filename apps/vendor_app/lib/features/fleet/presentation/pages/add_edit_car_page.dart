@@ -297,13 +297,16 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'STEP ${_currentStep + 1} OF $_totalSteps: ${_getStepTitle(_currentStep).toUpperCase()}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
-                            letterSpacing: 0.5,
+                        Expanded(
+                          child: Text(
+                            'STEP ${_currentStep + 1} OF $_totalSteps: ${_getStepTitle(_currentStep).toUpperCase()}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         Text(
@@ -666,7 +669,41 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
           'Set daily, hourly, and per-km pricing for customer bookings.',
           style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
         ),
-        const Gap(20),
+        const Gap(16),
+
+        // Phase 35 Canonical Pricing Governance Notice
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFBBF7D0)),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 18),
+              Gap(10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Server-Authoritative Pricing Active',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                    ),
+                    Gap(2),
+                    Text(
+                      'Base rates set here establish future vehicle quotes. Applicable taxes (GST), platform fees, and security deposits are authoritatively calculated at checkout. Changes will not alter existing accepted bookings or quotes.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Gap(16),
 
         _buildTextField(
           controller: _priceDayCtrl,

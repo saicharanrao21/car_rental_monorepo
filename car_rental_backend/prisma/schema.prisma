@@ -584,6 +584,7 @@ model Car {
   featuredListings       FeaturedListing[]
   blocks                 VehicleBlock[]
   holds                  VehicleHold[]
+  quotes                 BookingQuote[]
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -716,6 +717,9 @@ model Booking {
   emergencyRequests  EmergencyRequest[]
   attribution        BookingAttribution?
   outboxEvents       BookingOutboxEvent[]
+  quoteId            String?
+  quote              BookingQuote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  priceSnapshot      Json?
 
   @@index([customerId])
   @@index([vendorId])
@@ -727,6 +731,7 @@ model Booking {
   @@index([customerId, status])
   @@index([vendorId, status])
   @@index([status, createdAt])
+  @@index([quoteId])
 }
 
 model MileagePackage {
@@ -1940,5 +1945,85 @@ model BookingOutboxEvent {
   @@index([eventType])
   @@index([correlationId])
   @@index([tenantId])
+}
+
+enum QuoteStatus {
+  ACTIVE
+  ACCEPTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum QuoteLineItemType {
+  BASE_RENTAL
+  HOURLY_RENTAL
+  PACKAGE_TIER
+  DURATION_DISCOUNT
+  COUPON_DISCOUNT
+  REFERRAL_DISCOUNT
+  PLATFORM_FEE
+  GST
+  DELIVERY_FEE
+  PICKUP_FEE
+  RETURN_FEE
+  ONE_WAY_SURCHARGE
+  PROTECTION_FEE
+  SECURITY_DEPOSIT
+  EXTRA_ADDON
+}
+
+model BookingQuote {
+  id             String                 @id @default(cuid())
+  tenantId       String                 // vendorId
+  customerId     String?
+  carId          String
+  car            Car                    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  tripType       TripType
+  startDate      DateTime
+  endDate        DateTime
+  durationDays   Int
+  durationHours  Int
+  pricingVersion String                 @default("v1.0")
+  currency       String                 @default("INR")
+  subtotal       Decimal                @db.Decimal(10, 2)
+  discountTotal  Decimal                @default(0) @db.Decimal(10, 2)
+  feesTotal      Decimal                @default(0) @db.Decimal(10, 2)
+  taxTotal       Decimal                @default(0) @db.Decimal(10, 2)
+  depositTotal   Decimal                @default(0) @db.Decimal(10, 2)
+  totalPayable   Decimal                @db.Decimal(10, 2)
+  netToVendor    Decimal                @db.Decimal(10, 2)
+  status         QuoteStatus            @default(ACTIVE)
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  idempotencyKey String?                @unique
+  metadata       Json?
+  lineItems      BookingQuoteLineItem[]
+  bookings       Booking[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([tenantId])
+  @@index([carId])
+  @@index([customerId])
+  @@index([status, expiresAt])
+  @@index([idempotencyKey])
+}
+
+model BookingQuoteLineItem {
+  id           String            @id @default(cuid())
+  quoteId      String
+  quote        BookingQuote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  type         QuoteLineItemType
+  name         String
+  description  String?
+  rate         Decimal           @db.Decimal(10, 2)
+  quantity     Decimal           @default(1) @db.Decimal(10, 2)
+  amount       Decimal           @db.Decimal(10, 2)
+  isRefundable Boolean           @default(false)
+  displayOrder Int               @default(0)
+  createdAt    DateTime          @default(now())
+
+  @@index([quoteId])
+  @@index([type])
 }
 

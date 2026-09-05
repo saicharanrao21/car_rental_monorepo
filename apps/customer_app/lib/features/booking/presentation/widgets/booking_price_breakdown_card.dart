@@ -15,6 +15,7 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
   final FareCalculatorResult result;
   final double finalPayable;
   final CommissionConfigModel config;
+  final BookingQuoteModel? quote;
 
   const BookingPriceBreakdownCard({
     super.key,
@@ -27,12 +28,15 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
     required this.result,
     required this.finalPayable,
     required this.config,
+    this.quote,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(bookingDraftProvider);
+    final activeQuote = quote ?? draft.authoritativeQuote;
     final tripFare = result.baseFare + result.platformFee;
+    final payableTotal = activeQuote?.totalPayable ?? finalPayable;
 
     return Container(
       padding: const EdgeInsets.all(DDSSpacing.md),
@@ -51,13 +55,28 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  'Price Breakdown',
-                  style: DDSTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: DDSColors.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Price Breakdown',
+                      style: DDSTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: DDSColors.textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (activeQuote != null) ...[
+                      const Gap(2),
+                      Text(
+                        'Quote #${activeQuote.quoteId.length > 8 ? activeQuote.quoteId.substring(0, 8) : activeQuote.quoteId} (${activeQuote.pricingVersion})',
+                        style: DDSTypography.labelSmall.copyWith(
+                          fontSize: 10,
+                          color: DDSColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const Gap(8),
@@ -73,7 +92,7 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
                     const Icon(Icons.lock_outline, size: 12, color: DDSColors.successGreen),
                     const Gap(4),
                     Text(
-                      'Price Locked',
+                      activeQuote != null ? 'Authoritative' : 'Price Locked',
                       style: DDSTypography.labelSmall.copyWith(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -92,27 +111,38 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           ),
           const Gap(DDSSpacing.sm),
 
-          // Trip Fare
-          _row('Base Trip Fare', tripFare, bold: true),
+          if (activeQuote != null && activeQuote.lineItems.isNotEmpty) ...[
+            for (final item in activeQuote.lineItems) ...[
+              _row(
+                item.name,
+                item.amount,
+                bold: item.type == 'BASE_RENTAL',
+                color: item.amount < 0 ? DDSColors.successGreen : null,
+              ),
+              const Gap(6),
+            ],
+          ] else ...[
+            // Trip Fare
+            _row('Base Trip Fare', tripFare, bold: true),
 
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
-            child: Column(
-              children: [
-                _subRow(
-                  draft.selectedMileagePackage != null
-                      ? 'Package: ${draft.selectedMileagePackage!.name} (${draft.rentalDays}d × ₹${draft.selectedMileagePackage!.basePricePerDay.toInt()}/d)'
-                      : 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
-                  originalRentalFare,
-                ),
-                if (draft.selectedMileagePackage == null)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+              child: Column(
+                children: [
                   _subRow(
-                    'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
-                    car.pricePerKm * draft.estimatedDistanceKm,
+                    draft.selectedMileagePackage != null
+                        ? 'Package: ${draft.selectedMileagePackage!.name} (${draft.rentalDays}d × ₹${draft.selectedMileagePackage!.basePricePerDay.toInt()}/d)'
+                        : 'Rental (${draft.rentalDays}d × ₹${car.pricePerDay.toInt()}/day)',
+                    originalRentalFare,
                   ),
-              ],
+                  if (draft.selectedMileagePackage == null)
+                    _subRow(
+                      'Distance (${draft.estimatedDistanceKm}km × ₹${car.pricePerKm.toInt()}/km)',
+                      car.pricePerKm * draft.estimatedDistanceKm,
+                    ),
+                ],
+              ),
             ),
-          ),
 
           // Duration discount
           if (discountPercent > 0) ...[
@@ -235,8 +265,9 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
               ],
             ),
           ],
+        ],
 
-          const Gap(DDSSpacing.sm),
+        const Gap(DDSSpacing.sm),
           const Divider(
             height: 1,
             color: DDSColors.borderLight,
@@ -246,7 +277,7 @@ class BookingPriceBreakdownCard extends ConsumerWidget {
           // Total Rental Charges
           _row(
             'Total Payable Amount',
-            finalPayable,
+            payableTotal,
             bold: true,
             color: DDSColors.primaryBlue,
             fontSize: 15,

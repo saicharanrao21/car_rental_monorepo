@@ -30,3 +30,4 @@ export 'src/mileage_package_model.dart';
 export 'src/vendor_location_model.dart';
 export 'src/notification_delivery_model.dart';
 export 'src/vehicle_availability_model.dart';
+export 'src/booking_quote_model.dart';

@@ -55,4 +55,27 @@ abstract class BookingRepository {
     required String carCategory,
     required String tripType,
   });
+
+  /// Generates a server-authoritative booking quote before checkout.
+  Future<BookingQuoteModel> getQuote({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? tripType,
+    String? mileagePackageId,
+    String? protectionPlanId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    String? deliveryAddress,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? couponCode,
+    String? idempotencyKey,
+  });
+
+  /// Refreshes an expired quote with current rates.
+  Future<BookingQuoteModel> refreshQuote(String quoteId);
+
+  /// Retrieves an existing quote by ID.
+  Future<BookingQuoteModel?> getQuoteById(String quoteId);
 }

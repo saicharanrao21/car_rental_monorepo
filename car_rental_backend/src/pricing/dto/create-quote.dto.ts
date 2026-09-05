@@ -6,25 +6,14 @@ import {
   IsDateString,
   IsNumber,
   Min,
+  IsBoolean,
 } from 'class-validator';
 import { TripType, DeliveryType } from '@prisma/client';
 
-export class CreateBookingDto {
+export class CreateQuoteDto {
   @IsString()
   @IsNotEmpty()
   carId: string;
-
-  @IsEnum(TripType)
-  @IsNotEmpty()
-  tripType: TripType;
-
-  @IsString()
-  @IsNotEmpty()
-  pickupLocation: string;
-
-  @IsString()
-  @IsOptional()
-  dropLocation?: string;
 
   @IsDateString()
   @IsNotEmpty()
@@ -34,6 +23,18 @@ export class CreateBookingDto {
   @IsNotEmpty()
   endDate: string;
 
+  @IsEnum(TripType)
+  @IsNotEmpty()
+  tripType: TripType;
+
+  @IsString()
+  @IsOptional()
+  pickupLocation?: string;
+
+  @IsString()
+  @IsOptional()
+  dropLocation?: string;
+
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -41,16 +42,11 @@ export class CreateBookingDto {
 
   @IsString()
   @IsOptional()
-  couponCode?: string;
+  pickupHubId?: string;
 
+  @IsString()
   @IsOptional()
-  driverIncluded?: boolean;
-
-  @IsOptional()
-  childSeat?: boolean;
-
-  @IsOptional()
-  extraLuggage?: boolean;
+  returnHubId?: string;
 
   @IsEnum(DeliveryType)
   @IsOptional()
@@ -68,11 +64,6 @@ export class CreateBookingDto {
   @IsOptional()
   deliveryLongitude?: number;
 
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  deliveryFee?: number;
-
   @IsString()
   @IsOptional()
   pickupAddress?: string;
@@ -85,10 +76,9 @@ export class CreateBookingDto {
   @IsOptional()
   pickupLongitude?: number;
 
-  @IsNumber()
-  @Min(0)
+  @IsString()
   @IsOptional()
-  pickupFee?: number;
+  couponCode?: string;
 
   @IsString()
   @IsOptional()
@@ -98,38 +88,19 @@ export class CreateBookingDto {
   @IsOptional()
   mileagePackageId?: string;
 
-  @IsString()
+  @IsBoolean()
   @IsOptional()
-  pickupHubId?: string;
+  driverIncluded?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  childSeat?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  extraLuggage?: boolean;
 
   @IsString()
   @IsOptional()
-  returnHubId?: string;
-
-  @IsString()
-  @IsOptional()
-  pickupName?: string;
-
-  @IsString()
-  @IsOptional()
-  dropName?: string;
-
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  returnFee?: number;
-
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  oneWayFee?: number;
-
-  @IsString()
-  @IsOptional()
-  holdId?: string;
-
-  @IsString()
-  @IsOptional()
-  quoteId?: string;
+  idempotencyKey?: string;
 }
-

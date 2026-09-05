@@ -15,6 +15,7 @@ import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { FraudModule } from '../fraud/fraud.module';
 import { LocationsModule } from '../locations/locations.module';
 import { CarsModule } from '../cars/cars.module';
+import { PricingModule } from '../pricing/pricing.module';
 
 import { TripExtensionsService } from './trip-extensions.service';
 import { TripExtensionsController } from './trip-extensions.controller';
@@ -34,6 +35,7 @@ import { BookingOutboxService } from './booking-outbox.service';
     FraudModule,
     LocationsModule,
     CarsModule,
+    PricingModule,
   ],
   controllers: [BookingsController, TripExtensionsController],
   providers: [

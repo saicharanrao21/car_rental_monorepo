@@ -161,6 +161,61 @@ class MockFulfillmentBookingRepository implements BookingRepository {
 
   @override
   Future<bool> releaseVehicleHold(String holdId) async => true;
+
+  @override
+  Future<BookingQuoteModel> getQuote({
+    required String carId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? tripType,
+    String? mileagePackageId,
+    String? protectionPlanId,
+    String? pickupLocationId,
+    String? returnLocationId,
+    String? deliveryAddress,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? couponCode,
+    String? idempotencyKey,
+  }) async => BookingQuoteModel(
+        quoteId: 'quote_test_mock',
+        tenantId: 'tenant_1',
+        carId: carId,
+        vehicleName: 'Hyundai Creta',
+        registrationNumber: 'MH02AB1234',
+        tripType: tripType ?? 'SELF_DRIVE',
+        startDate: startDate,
+        endDate: endDate,
+        durationDays: 2,
+        durationHours: 48,
+        currency: 'INR',
+        pricingVersion: 'v1.0',
+        subtotal: 4000.0,
+        discountTotal: 0.0,
+        feesTotal: 150.0,
+        taxTotal: 747.0,
+        depositTotal: 3000.0,
+        tripFare: 4897.0,
+        totalPayable: 7897.0,
+        netToVendor: 3600.0,
+        status: 'ACTIVE',
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+      );
+
+  @override
+  Future<BookingQuoteModel> refreshQuote(String quoteId) async => getQuote(
+        carId: 'car_test_1',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 2)),
+      );
+
+  @override
+  Future<BookingQuoteModel?> getQuoteById(String quoteId) async => getQuote(
+        carId: 'car_test_1',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 2)),
+      );
 }
 
 void main() {

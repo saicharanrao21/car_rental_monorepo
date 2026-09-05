@@ -169,10 +169,12 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
               draft.deliveryFee +
               draft.returnPickupFee +
               draft.additionalDriverFee;
-          final calculatedTotal = (fareResult.total +
+          final fallbackTotal = (fareResult.total +
                   totalAddons -
                   draft.couponDiscountAmount)
               .clamp(0.0, double.infinity);
+          final calculatedTotal =
+              draft.authoritativeQuote?.totalPayable ?? fallbackTotal;
 
           final primaryButtonText = _getPrimaryButtonText(step, calculatedTotal);
           final isPaymentLoading =
@@ -245,6 +247,7 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
                       result: fareResult,
                       finalPayable: calculatedTotal,
                       config: config,
+                      quote: draft.authoritativeQuote,
                     ),
                   );
                 },
