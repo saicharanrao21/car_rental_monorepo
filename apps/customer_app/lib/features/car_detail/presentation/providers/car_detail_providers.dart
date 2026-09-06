@@ -26,21 +26,7 @@ final carDetailDataProvider = FutureProvider.family.autoDispose<CarDetailData, S
 
   final car = await repository.getCarById(carId);
 
-  VendorModel vendor;
-  try {
-    vendor = await repository.getVendorById(car.vendorId);
-  } catch (_) {
-    vendor = VendorModel(
-      id: car.vendorId.isNotEmpty ? car.vendorId : 'v-default',
-      businessName: 'Verified Partner',
-      ownerName: 'Verified Partner',
-      phone: '+91 9876543210',
-      email: 'vendor@drivego.in',
-      city: 'Mumbai',
-      rating: 4.8,
-      totalTrips: 120,
-    );
-  }
+  final vendor = await repository.getVendorById(car.vendorId);
 
   List<ReviewModel> reviews = [];
   try {

@@ -218,4 +218,29 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
       return false;
     }
   }
+
+  @override
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId) async {
+    final response = await apiClient.dio.get('/bookings/$bookingId/damage-claims');
+    if (response.data == null) return [];
+    final List<dynamic> list = response.data is List ? response.data : (response.data['data'] ?? []);
+    return list.map((item) => DamageClaimModel.fromJson(Map<String, dynamic>.from(item as Map))).toList();
+  }
+
+  @override
+  Future<DamageClaimModel> disputeDamageClaim({
+    required String claimId,
+    required String notes,
+    List<String>? disputePhotos,
+  }) async {
+    final response = await apiClient.dio.post(
+      '/damage-claims/$claimId/dispute',
+      data: {
+        'customerDispute': notes,
+        if (disputePhotos != null && disputePhotos.isNotEmpty) 'disputePhotos': disputePhotos,
+      },
+    );
+    final data = response.data is Map<String, dynamic> ? response.data : (response.data['data'] ?? response.data);
+    return DamageClaimModel.fromJson(Map<String, dynamic>.from(data as Map));
+  }
 }

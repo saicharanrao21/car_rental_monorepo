@@ -174,4 +174,29 @@ class MockMyBookingsRepositoryImpl with LatencySimulator implements MyBookingsRe
     await simulateLatency();
     return true;
   }
+
+  @override
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId) async {
+    await simulateLatency();
+    return [];
+  }
+
+  @override
+  Future<DamageClaimModel> disputeDamageClaim({
+    required String claimId,
+    required String notes,
+    List<String>? disputePhotos,
+  }) async {
+    await simulateLatency();
+    return DamageClaimModel(
+      id: claimId,
+      bookingId: 'bk_mock',
+      vendorId: 'v_mock',
+      claimedAmount: 2500.0,
+      status: DamageClaimStatus.UNDER_REVIEW,
+      description: 'Disputed claim',
+      customerDispute: notes,
+      createdAt: DateTime.now(),
+    );
+  }
 }

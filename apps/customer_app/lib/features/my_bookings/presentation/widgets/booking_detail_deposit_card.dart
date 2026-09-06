@@ -82,6 +82,15 @@ class BookingDetailDepositCard extends ConsumerWidget {
                   bold: true,
                 ),
               ],
+              if (deposit.razorpayRefundId != null && deposit.razorpayRefundId!.isNotEmpty) ...[
+                const Gap(4),
+                _row(
+                  context,
+                  'Refund Transaction Ref',
+                  deposit.razorpayRefundId!,
+                  valueColor: Colors.blue[800],
+                ),
+              ],
               if (deposit.releasedAt != null) ...[
                 const Gap(4),
                 _row(
@@ -125,6 +134,8 @@ class BookingDetailDepositCard extends ConsumerWidget {
     switch (status) {
       case SecurityDepositStatus.HELD:
         return ('HELD / SECURE', Colors.blue.withValues(alpha: 0.12), Colors.blue[800]!);
+      case SecurityDepositStatus.REFUND_PENDING:
+        return ('REFUND PENDING', Colors.amber.withValues(alpha: 0.12), Colors.amber[900]!);
       case SecurityDepositStatus.REFUNDED:
         return ('100% REFUNDED', Colors.green.withValues(alpha: 0.12), Colors.green[800]!);
       case SecurityDepositStatus.PARTIALLY_REFUNDED:

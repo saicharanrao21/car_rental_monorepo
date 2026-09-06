@@ -27,6 +27,9 @@ class DamageClaimModel {
   final String? vendorNotes;
   final String? adminNotes;
   final String? customerDispute;
+  final List<String> disputePhotos;
+  final String? protectionPackageCode;
+  final double? protectionDeductible;
   final DateTime createdAt;
   final DateTime? resolvedAt;
 
@@ -42,11 +45,17 @@ class DamageClaimModel {
     this.vendorNotes,
     this.adminNotes,
     this.customerDispute,
+    this.disputePhotos = const [],
+    this.protectionPackageCode,
+    this.protectionDeductible,
     required this.createdAt,
     this.resolvedAt,
   });
 
   factory DamageClaimModel.fromJson(Map<String, dynamic> json) {
+    final booking = json['booking'] as Map<String, dynamic>?;
+    final protection = booking?['protectionPackage'] as Map<String, dynamic>?;
+
     return DamageClaimModel(
       id: json['id'] as String? ?? '',
       bookingId: json['bookingId'] as String? ?? '',
@@ -62,6 +71,15 @@ class DamageClaimModel {
       vendorNotes: json['vendorNotes'] as String?,
       adminNotes: json['adminNotes'] as String?,
       customerDispute: json['customerDispute'] as String?,
+      disputePhotos: (json['disputePhotos'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      protectionPackageCode: (json['protectionPackageCode'] as String?) ??
+          (protection?['code'] as String?),
+      protectionDeductible:
+          (json['protectionDeductible'] as num?)?.toDouble() ??
+              (protection?['deductible'] as num?)?.toDouble(),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
@@ -84,6 +102,9 @@ class DamageClaimModel {
       'vendorNotes': vendorNotes,
       'adminNotes': adminNotes,
       'customerDispute': customerDispute,
+      'disputePhotos': disputePhotos,
+      'protectionPackageCode': protectionPackageCode,
+      'protectionDeductible': protectionDeductible,
       'createdAt': createdAt.toIso8601String(),
       'resolvedAt': resolvedAt?.toIso8601String(),
     };

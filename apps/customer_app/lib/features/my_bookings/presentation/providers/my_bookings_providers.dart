@@ -52,6 +52,12 @@ final bookingInspectionsProvider =
   return repo.getInspections(bookingId);
 });
 
+final bookingDamageClaimsProvider =
+    FutureProvider.autoDispose.family<List<DamageClaimModel>, String>((ref, bookingId) async {
+  final repo = ref.watch(myBookingsRepositoryProvider);
+  return repo.getDamageClaims(bookingId);
+});
+
 final activeOngoingTripProvider = Provider.autoDispose<CustomerBookingItem?>((ref) {
   final listAsync = ref.watch(myBookingsListProvider);
   return listAsync.maybeWhen(

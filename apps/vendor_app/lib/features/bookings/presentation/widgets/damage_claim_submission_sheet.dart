@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:core/core.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/providers/api_providers.dart';
 import '../providers/vendor_bookings_providers.dart';
 
 class DamageClaimSubmissionSheet extends ConsumerStatefulWidget {
@@ -23,61 +27,103 @@ class _DamageClaimSubmissionSheetState extends ConsumerState<DamageClaimSubmissi
   final _amountCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
   final _vendorNotesCtrl = TextEditingController();
-  final _photoUrlCtrl = TextEditingController();
 
   final List<String> _damagePhotos = [];
   bool _isSubmitting = false;
+  bool _isUploading = false;
 
   @override
   void dispose() {
     _amountCtrl.dispose();
     _descriptionCtrl.dispose();
     _vendorNotesCtrl.dispose();
-    _photoUrlCtrl.dispose();
     super.dispose();
   }
 
-  void _addPhotoDialog() {
-    _photoUrlCtrl.text = 'damage-claim/photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Damage Evidence Photo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppTextField(
-              label: 'Storage Key / Photo Path',
-              controller: _photoUrlCtrl,
-              hint: 'e.g. damage-claim/rear_bumper_scratch.jpg',
+  Future<void> _pickAndUploadPhotos() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+        withData: true,
+      );
+
+      if (!mounted || result == null || result.files.isEmpty) return;
+
+      setState(() => _isUploading = true);
+
+      final apiClient = ref.read(apiClientProvider);
+      final uploadService = UploadService(apiClient: apiClient);
+
+      int uploadedCount = 0;
+      for (final file in result.files) {
+        final bytes = file.bytes;
+        if (bytes == null) continue;
+
+        // Enforce max 10MB per file
+        if (bytes.length > 10 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('File ${file.name} exceeds maximum 10MB size limit.')),
+            );
+          }
+          continue;
+        }
+
+        final ext = (file.extension ?? 'jpg').toLowerCase();
+        String contentType = 'image/jpeg';
+        if (ext == 'png') contentType = 'image/png';
+        if (ext == 'webp') contentType = 'image/webp';
+
+        try {
+          final uploadRes = await uploadService.uploadFileBytes(
+            fileType: 'damage-claim',
+            contentType: contentType,
+            fileBytes: bytes,
+          );
+
+          if (mounted) {
+            setState(() {
+              _damagePhotos.add(uploadRes.key);
+            });
+            uploadedCount++;
+          }
+        } catch (uploadErr) {
+          if (mounted) {
+            String errDetail = uploadErr.toString();
+            if (uploadErr is DioException) {
+              final msg = uploadErr.response?.data?['message'];
+              if (msg is String) errDetail = msg;
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Upload failed for ${file.name}: $errDetail'),
+              ),
+            );
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() => _isUploading = false);
+        if (uploadedCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.green[800],
+              content: Text('$uploadedCount damage evidence photo(s) uploaded successfully.'),
             ),
-            const Gap(8),
-            Text(
-              'Uploads directly to Cloudflare R2 storage.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final key = _photoUrlCtrl.text.trim();
-              if (key.isNotEmpty) {
-                setState(() {
-                  _damagePhotos.add(key);
-                });
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add Photo'),
-          ),
-        ],
-      ),
-    );
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking photos: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -232,9 +278,15 @@ class _DamageClaimSubmissionSheetState extends ConsumerState<DamageClaimSubmissi
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   TextButton.icon(
-                    onPressed: _addPhotoDialog,
-                    icon: const Icon(Icons.add_a_photo, size: 16),
-                    label: const Text('Add Photo'),
+                    onPressed: _isUploading ? null : _pickAndUploadPhotos,
+                    icon: _isUploading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_a_photo, size: 16),
+                    label: Text(_isUploading ? 'Uploading...' : 'Add Photos'),
                   ),
                 ],
               ),

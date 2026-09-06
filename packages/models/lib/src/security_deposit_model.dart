@@ -1,6 +1,7 @@
 enum SecurityDepositStatus {
   REQUIRED,
   HELD,
+  REFUND_PENDING,
   REFUNDED,
   PARTIALLY_REFUNDED,
   FORFEITED,
@@ -8,8 +9,9 @@ enum SecurityDepositStatus {
 
   static SecurityDepositStatus fromString(String? value) {
     if (value == null) return SecurityDepositStatus.REQUIRED;
+    final upper = value.toUpperCase();
     return SecurityDepositStatus.values.firstWhere(
-      (e) => e.name == value.toUpperCase(),
+      (e) => e.name == upper,
       orElse: () => SecurityDepositStatus.REQUIRED,
     );
   }

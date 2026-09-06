@@ -7,6 +7,8 @@ import { AdminModule } from '../admin/admin.module';
 import { SystemConfigModule } from '../config-engine/system-config.module';
 import { WalletsModule } from '../wallets/wallets.module';
 
+import { RazorpayXPayoutProvider } from './providers/razorpayx-payout.provider';
+
 @Module({
   imports: [
     PrismaModule,
@@ -16,7 +18,7 @@ import { WalletsModule } from '../wallets/wallets.module';
     forwardRef(() => WalletsModule),
   ],
   controllers: [PayoutsController],
-  providers: [PayoutsService],
-  exports: [PayoutsService],
+  providers: [PayoutsService, RazorpayXPayoutProvider],
+  exports: [PayoutsService, RazorpayXPayoutProvider],
 })
 export class PayoutsModule {}

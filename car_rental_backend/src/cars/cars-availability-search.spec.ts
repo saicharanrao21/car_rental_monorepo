@@ -86,6 +86,12 @@ describe('Phase 10.4: Date-First Car Availability Search Tests', () => {
       booking: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      vehicleBlock: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      vehicleHold: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       platformSettings: {
         findUnique: jest.fn().mockResolvedValue({
           enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],

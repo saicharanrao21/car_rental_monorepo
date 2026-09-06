@@ -6,6 +6,9 @@ import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../providers/vendor_bookings_providers.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:core/core.dart';
+import '../../../../core/providers/api_providers.dart';
 
 class ReturnInspectionPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -13,6 +16,7 @@ class ReturnInspectionPage extends ConsumerStatefulWidget {
   final bool? hasNewDamage;
   final bool showSuccessDialog;
   final bool showValidationError;
+  final String? preTripPhotoUrl;
 
   const ReturnInspectionPage({
     super.key,
@@ -21,6 +25,7 @@ class ReturnInspectionPage extends ConsumerStatefulWidget {
     this.hasNewDamage,
     this.showSuccessDialog = false,
     this.showValidationError = false,
+    this.preTripPhotoUrl,
   });
 
   @override
@@ -41,11 +46,12 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
 
   // 4-Photo Return Burst
   final Map<String, String> _returnBurstPhotos = {
-    'Front': 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
-    'Rear': 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
-    'Left Side': 'https://images.unsplash.com/photo-1503376780353-7e6692767b70',
-    'Right Side': 'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
+    'Front': '',
+    'Rear': '',
+    'Left Side': '',
+    'Right Side': '',
   };
+  final Map<String, bool> _uploadingReturnBurstPhotos = {};
 
   // Damage Comparison
   bool _newDamageDetected = true;
@@ -111,6 +117,68 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
     return null;
   }
 
+  Future<void> _captureOrUploadReturnPhoto(String angleName) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes == null) return;
+
+      if (bytes.length > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File ${file.name} exceeds maximum 10MB limit.')),
+          );
+        }
+        return;
+      }
+
+      setState(() => _uploadingReturnBurstPhotos[angleName] = true);
+
+      final ext = (file.extension ?? 'jpg').toLowerCase();
+      String contentType = 'image/jpeg';
+      if (ext == 'png') contentType = 'image/png';
+      if (ext == 'webp') contentType = 'image/webp';
+
+      final apiClient = ref.read(apiClientProvider);
+      final uploadService = UploadService(apiClient: apiClient);
+      final uploadRes = await uploadService.uploadFileBytes(
+        fileType: 'inspection-photo',
+        contentType: contentType,
+        fileBytes: bytes,
+      );
+
+      if (mounted) {
+        setState(() {
+          _returnBurstPhotos[angleName] = uploadRes.publicUrl ?? uploadRes.key;
+          _uploadingReturnBurstPhotos[angleName] = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text('Return $angleName photo uploaded successfully.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploadingReturnBurstPhotos[angleName] = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Failed to upload $angleName photo: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _submitReturn() async {
     if (_isSubmitting) return;
 
@@ -142,12 +210,14 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
         ? 'NEW DAMAGE DETECTED: $_newDamageLocation ($_newDamageSeverity) - ${_newDamageNotesCtrl.text.trim()}'
         : 'No new damages. Vehicle returned in good condition.';
 
+    final returnPhotos = _returnBurstPhotos.values.where((p) => p.isNotEmpty).toList();
+
     final success = await ref.read(vendorBookingsProvider.notifier).completeReturn(
       bookingId: widget.bookingId,
       odometer: retOdo,
       fuelPercent: _returnFuelPercent,
       conditionNotes: damageNotes,
-      damagePhotos: _returnBurstPhotos.values.toList(),
+      damagePhotos: returnPhotos,
       returnOtp: otpText.isNotEmpty ? otpText : null,
     );
 
@@ -157,7 +227,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
         widget.bookingId,
         claimedAmount: claimAmt,
         description: damageNotes,
-        damagePhotos: [_returnBurstPhotos['Right Side'] ?? ''],
+        damagePhotos: returnPhotos,
         vendorNotes: 'Recorded during rapid return inspection.',
       );
     }
@@ -274,7 +344,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                     children: [
                       if (_currentStep == 0) _buildStep0OdometerFuel(fallbackBooking),
                       if (_currentStep == 1) _buildStep1PhotoBurst(),
-                      if (_currentStep == 2) _buildStep2BeforeAfterDamage(),
+                      if (_currentStep == 2) _buildStep2BeforeAfterDamage(fallbackBooking),
                       if (_currentStep == 3) _buildStep3Review(fallbackBooking),
                       const Gap(24),
                     ],
@@ -686,51 +756,86 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   }
 
   Widget _buildBurstPhotoCard(String angleName, String imageUrl) {
+    final isUploading = _uploadingReturnBurstPhotos[angleName] == true;
+    final isCaptured = imageUrl.isNotEmpty;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isCaptured ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
         boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFFE2E8F0),
-                      child: const Icon(Icons.directions_car, color: Color(0xFF94A3B8), size: 40),
+            child: InkWell(
+              onTap: isUploading ? null : () => _captureOrUploadReturnPhoto(angleName),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (isCaptured)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFFE2E8F0),
+                          child: const Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8), size: 40),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      color: const Color(0xFFF8FAFC),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (isUploading)
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            const Icon(Icons.add_a_photo_outlined, color: Color(0xFF0066FF), size: 32),
+                          const Gap(6),
+                          Text(
+                            isUploading ? 'Uploading...' : 'Tap to Capture',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isUploading ? const Color(0xFF64748B) : const Color(0xFF0066FF),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      borderRadius: BorderRadius.circular(6),
+                  if (isCaptured)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, color: Colors.white, size: 12),
+                            Gap(2),
+                            Text('Captured', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check, color: Colors.white, size: 12),
-                        Gap(2),
-                        Text('Captured', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Padding(
@@ -743,12 +848,11 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0B192C)),
                 ),
                 InkWell(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Retake return $angleName photo')),
-                    );
-                  },
-                  child: const Text('Retake', style: TextStyle(fontSize: 12, color: Color(0xFF0066FF), fontWeight: FontWeight.bold)),
+                  onTap: isUploading ? null : () => _captureOrUploadReturnPhoto(angleName),
+                  child: Text(
+                    isCaptured ? 'Retake' : 'Capture',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF0066FF), fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -758,7 +862,12 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
     );
   }
 
-  Widget _buildStep2BeforeAfterDamage() {
+  Widget _buildStep2BeforeAfterDamage(BookingModel booking) {
+    final handoverPhoto = widget.preTripPhotoUrl ?? '';
+    final returnPhoto = _returnBurstPhotos['Right Side']?.isNotEmpty == true
+        ? _returnBurstPhotos['Right Side']!
+        : (_returnBurstPhotos.values.where((p) => p.isNotEmpty).firstOrNull ?? '');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -801,18 +910,32 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: const Color(0xFFE2E8F0)),
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(7),
-                              child: Image.network(
-                                'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0xFFE2E8F0),
-                                  child: const Center(child: Icon(Icons.directions_car, color: Color(0xFF94A3B8))),
-                                ),
-                              ),
-                            ),
+                            child: handoverPhoto.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.network(
+                                      handoverPhoto,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: const Color(0xFFE2E8F0),
+                                        child: const Center(child: Icon(Icons.directions_car, color: Color(0xFF94A3B8))),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: const Color(0xFFF1F5F9),
+                                    child: const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.photo_library_outlined, color: Color(0xFF94A3B8), size: 28),
+                                          Gap(4),
+                                          Text('No Pre-Trip Photo', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                           ),
                           const Gap(4),
                           const Center(
@@ -837,19 +960,33 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                             ),
                             child: Stack(
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.network(
-                                    'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: const Color(0xFFFEE2E2),
-                                      child: const Center(child: Icon(Icons.car_crash_rounded, color: Color(0xFFEF4444))),
-                                    ),
-                                  ),
-                                ),
+                                returnPhoto.isNotEmpty
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.network(
+                                          returnPhoto,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (_, __, ___) => Container(
+                                            color: const Color(0xFFFEE2E8),
+                                            child: const Center(child: Icon(Icons.car_crash_rounded, color: Color(0xFFEF4444))),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        color: const Color(0xFFFEF2F2),
+                                        child: const Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.add_a_photo_outlined, color: Color(0xFFEF4444), size: 28),
+                                              Gap(4),
+                                              Text('Capture in Step 2', style: TextStyle(fontSize: 10, color: Color(0xFFEF4444))),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                 Positioned(
                                   top: 4,
                                   right: 4,
@@ -966,7 +1103,10 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
                 const Gap(8),
                 _buildSummaryRow('Fuel Return Level', '$_returnFuelPercent% (${_fuelDifference > 0 ? "-$_fuelDifference%" : "Full"})'),
                 const Gap(8),
-                _buildSummaryRow('Photo Burst', '4 Return Angles Verified'),
+                _buildSummaryRow(
+                  'Photo Burst',
+                  '${_returnBurstPhotos.values.where((p) => p.isNotEmpty).length}/4 Angles Captured',
+                ),
                 const Gap(8),
                 _buildSummaryRow(
                   'Damage Status',

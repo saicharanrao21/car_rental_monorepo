@@ -33,7 +33,7 @@ export class DamageClaimsController {
     return this.damageClaimsService.createClaim(bookingId, dto, req.user);
   }
 
-  @Get('bookings/:id/damage-claims')
+  @Get(['bookings/:id/damage-claims', 'damage-claims/booking/:id'])
   async getClaimsForBooking(@Param('id') bookingId: string, @Request() req: any) {
     return this.damageClaimsService.getClaimsForBooking(bookingId, req.user);
   }

@@ -198,7 +198,7 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
       }
 
       // Otherwise launch Razorpay for gateway portion
-      paymentService.launchRazorpayCheckout(
+      final launchRes = paymentService.launchRazorpayCheckout(
         razorpay: _razorpay,
         order: order,
         bookingId: booking.id,
@@ -206,6 +206,26 @@ class PaymentStepState extends ConsumerState<PaymentStep> {
         contactPhone: session.user?.phone ?? '',
         contactEmail: session.user?.email ?? '',
       );
+
+      if (!launchRes.isLaunched && mounted) {
+        setState(() => _isProcessingPayment = false);
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Payment Checkout'),
+            content: Text(
+              launchRes.unsupportedReason ??
+                  'Please use the Android or iOS mobile app to complete checkout.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Understood'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         String msg = e.toString();

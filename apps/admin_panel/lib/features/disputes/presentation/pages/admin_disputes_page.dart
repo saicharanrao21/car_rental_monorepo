@@ -800,9 +800,9 @@ class _DamageClaimDetailPanelState extends ConsumerState<_DamageClaimDetailPanel
               ElevatedButton(
                 onPressed: () async {
                   final notes = _adminNotesCtrl.text.trim();
-                  if (notes.isEmpty) {
+                  if (notes.length < 10) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please provide administrative justification notes')),
+                      const SnackBar(content: Text('Administrative justification notes must be at least 10 characters.')),
                     );
                     return;
                   }
@@ -810,9 +810,12 @@ class _DamageClaimDetailPanelState extends ConsumerState<_DamageClaimDetailPanel
                   double? amount;
                   if (requiresAmount) {
                     amount = double.tryParse(_approvedAmountCtrl.text.trim());
-                    if (amount == null || amount <= 0 || amount > widget.claim.claimedAmount) {
+                    final ceiling = widget.claim.protectionDeductible != null
+                        ? (widget.claim.claimedAmount < widget.claim.protectionDeductible! ? widget.claim.claimedAmount : widget.claim.protectionDeductible!)
+                        : widget.claim.claimedAmount;
+                    if (amount == null || amount <= 0 || amount > ceiling) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Enter a valid amount between ₹1 and ₹${widget.claim.claimedAmount}')),
+                        SnackBar(content: Text('Enter a valid amount between ₹1 and ₹${ceiling.toStringAsFixed(0)} (deductible ceiling)')),
                       );
                       return;
                     }
@@ -915,6 +918,28 @@ class _DamageClaimDetailPanelState extends ConsumerState<_DamageClaimDetailPanel
                           'Claimed Repair Amount: ${IndianCurrencyFormatter.format(c.claimedAmount, showDecimals: false)}',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red),
                         ),
+                        if (c.protectionPackageCode != null || c.protectionDeductible != null) ...[
+                          const Gap(6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0066FF)),
+                                const Gap(6),
+                                Text(
+                                  'Protection: ${c.protectionPackageCode ?? 'STANDARD'} • Deductible Limit: ${IndianCurrencyFormatter.format(c.protectionDeductible ?? 0, showDecimals: false)}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (c.approvedAmount != null) ...[
                           const Gap(4),
                           Text(
@@ -1011,9 +1036,43 @@ class _DamageClaimDetailPanelState extends ConsumerState<_DamageClaimDetailPanel
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.amber[300]!),
                       ),
-                      child: Text(
-                        c.customerDispute!,
-                        style: TextStyle(fontSize: 13, color: Colors.amber[900]),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c.customerDispute!,
+                            style: TextStyle(fontSize: 13, color: Colors.amber[900]),
+                          ),
+                          if (c.disputePhotos.isNotEmpty) ...[
+                            const Gap(12),
+                            const Text(
+                              'Customer Counter-Evidence Photos:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.brown),
+                            ),
+                            const Gap(6),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: c.disputePhotos.map((url) {
+                                return ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(
+                                    url,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.broken_image, size: 20, color: Colors.grey),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const Gap(20),

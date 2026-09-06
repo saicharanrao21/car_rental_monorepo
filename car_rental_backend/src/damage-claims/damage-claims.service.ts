@@ -219,7 +219,13 @@ export class DamageClaimsService {
   ) {
     const claim = await this.prisma.damageClaim.findUnique({
       where: { id: claimId },
-      include: { booking: true },
+      include: {
+        booking: {
+          include: {
+            protectionPackage: true,
+          },
+        },
+      },
     });
 
     if (!claim) {
@@ -277,6 +283,16 @@ export class DamageClaimsService {
     if (approvedAmount > claim.claimedAmount.toNumber()) {
       throw new BadRequestException(
         `Approved amount (${approvedAmount}) cannot exceed claimed amount (${claim.claimedAmount.toNumber()}).`,
+      );
+    }
+
+    // Deductible ceiling check: cannot exceed customer's protection package deductible limit
+    if (
+      claim.booking?.protectionDeductible &&
+      approvedAmount > claim.booking.protectionDeductible.toNumber()
+    ) {
+      throw new BadRequestException(
+        `Approved amount (${approvedAmount}) cannot exceed customer protection package deductible ceiling of INR ${claim.booking.protectionDeductible.toNumber()}. Customer financial liability is capped.`,
       );
     }
 
@@ -351,6 +367,7 @@ export class DamageClaimsService {
                 select: { id: true, make: true, model: true, registrationNumber: true, year: true },
               },
               securityDeposit: true,
+              protectionPackage: true,
             },
           },
         },

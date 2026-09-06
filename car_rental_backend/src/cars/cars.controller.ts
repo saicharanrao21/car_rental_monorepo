@@ -213,7 +213,7 @@ export class CarsController {
     }
     const token = authHeader.split(' ')[1];
     const secret =
-      this.configService.get<string>('JWT_ACCESS_SECRET') ||
+      this.configService?.get<string>('JWT_ACCESS_SECRET') ||
       'dev_access_secret_key_change_me_12345!';
     try {
       const verified: any = await this.jwtService.verifyAsync(token, {

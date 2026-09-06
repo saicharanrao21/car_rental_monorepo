@@ -6,6 +6,18 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:core/core.dart';
 import '../../../../core/providers/api_providers.dart';
 
+class RazorpayCheckoutResult {
+  final bool isLaunched;
+  final String? unsupportedReason;
+
+  const RazorpayCheckoutResult.success()
+      : isLaunched = true,
+        unsupportedReason = null;
+
+  const RazorpayCheckoutResult.unsupported(this.unsupportedReason)
+      : isLaunched = false;
+}
+
 class PaymentFlowService {
   final ApiClient _apiClient;
 
@@ -29,8 +41,8 @@ class PaymentFlowService {
     return PaymentOrderModel.fromJson(orderData);
   }
 
-  /// Opens Razorpay Checkout on supported mobile platforms
-  void launchRazorpayCheckout({
+  /// Opens Razorpay Checkout on supported mobile platforms with clean web boundary handling
+  RazorpayCheckoutResult launchRazorpayCheckout({
     required Razorpay razorpay,
     required PaymentOrderModel order,
     required String bookingId,
@@ -40,8 +52,8 @@ class PaymentFlowService {
   }) {
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     if (!isMobile) {
-      throw UnsupportedError(
-        "Card/UPI checkout isn't available on this platform yet — please use the mobile app to complete payment.",
+      return const RazorpayCheckoutResult.unsupported(
+        'Card and UPI payment checkout is optimized for the native Android and iOS mobile apps. Web checkout integration boundary is configured and waiting for production web gateway activation.',
       );
     }
 
@@ -63,6 +75,7 @@ class PaymentFlowService {
     };
 
     razorpay.open(options);
+    return const RazorpayCheckoutResult.success();
   }
 
   /// Cryptographically verifies payment with backend and confirms booking

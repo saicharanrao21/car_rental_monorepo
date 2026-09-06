@@ -209,4 +209,10 @@ abstract class MyBookingsRepository {
   Future<PaymentOrderModel?> getPaymentForBooking(String bookingId);
   Future<List<InspectionModel>> getInspections(String bookingId);
   Future<bool> sendHandoverOtp(String bookingId, String otpType);
+  Future<List<DamageClaimModel>> getDamageClaims(String bookingId);
+  Future<DamageClaimModel> disputeDamageClaim({
+    required String claimId,
+    required String notes,
+    List<String>? disputePhotos,
+  });
 }

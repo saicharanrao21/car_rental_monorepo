@@ -24,6 +24,7 @@ import { ApprovePayoutDto } from './dto/approve-payout.dto';
 import { ExecutePayoutDto } from './dto/execute-payout.dto';
 import { CreateFinancialAdjustmentDto } from './dto/create-adjustment.dto';
 import { WalletsService } from '../wallets/wallets.service';
+import { RazorpayXPayoutProvider } from './providers/razorpayx-payout.provider';
 
 @Injectable()
 export class PayoutsService {
@@ -35,6 +36,7 @@ export class PayoutsService {
     private readonly auditLogService: AuditLogService,
     @Optional() private readonly systemConfigService?: SystemConfigService,
     @Optional() private readonly walletsService?: WalletsService,
+    @Optional() private readonly payoutGatewayProvider?: RazorpayXPayoutProvider,
   ) {}
 
   private async generatePayoutNumber(): Promise<string> {
@@ -491,57 +493,179 @@ export class PayoutsService {
 
     if (
       payout.status !== PayoutStatus.APPROVED &&
-      payout.status !== PayoutStatus.PENDING
+      payout.status !== PayoutStatus.PENDING &&
+      payout.status !== PayoutStatus.PROCESSING
     ) {
       throw new BadRequestException(
         `Payout in status '${payout.status}' cannot be executed.`,
       );
     }
 
+    // 1. If an explicit providerTransferId is supplied by the operator (manual external bank transfer verification)
+    if (dto?.providerTransferId && dto.providerTransferId.trim().length > 0) {
+      const updated = await this.prisma.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: PayoutStatus.PAID,
+          paidAt: new Date(),
+          processedAt: new Date(),
+          providerTransferId: dto.providerTransferId.trim(),
+          providerFee: dto.providerFee ? new Prisma.Decimal(dto.providerFee) : undefined,
+          notes: dto.adminNotes
+            ? `${payout.notes || ''} | Manual Settlement: ${dto.adminNotes}`
+            : payout.notes,
+        },
+        include: { vendor: true },
+      });
+
+      await this.auditLogService.log(
+        adminUserId,
+        'PAYOUT_EXECUTED_MANUAL',
+        'Payout',
+        payoutId,
+        {
+          amount: payout.amount.toNumber(),
+          providerTransferId: updated.providerTransferId,
+        },
+      );
+
+      const vendorUserId = updated.vendor?.userId || payout.vendor?.userId;
+      if (vendorUserId) {
+        this.notificationsService
+          .notifyUser(
+            vendorUserId,
+            'Payout Marked Paid',
+            `Your payout of INR ${updated.amount} has been processed and marked as paid (Transfer ID: ${updated.providerTransferId}).`,
+          )
+          .catch((err) =>
+            this.logger.error('Failed to notify vendor of payout status change', err),
+          );
+      }
+      return updated;
+    }
+
+    // 2. Automated banking gateway transfer via provider abstraction
+    if (this.payoutGatewayProvider) {
+      const result = await this.payoutGatewayProvider.initiateTransfer({
+        payoutId: payout.id,
+        payoutNumber: payout.payoutNumber || payout.id,
+        vendorId: payout.vendorId,
+        amount: payout.amount.toNumber(),
+        currency: 'INR',
+        idempotencyKey: payout.idempotencyKey || `po_exec_${payout.id}`,
+      });
+
+      if (result.status === 'BLOCKED_CREDENTIALS') {
+        const updated = await this.prisma.payout.update({
+          where: { id: payoutId },
+          data: {
+            status: PayoutStatus.PROCESSING,
+            processedAt: new Date(),
+            providerFailureReason: result.failureReason,
+            notes: dto?.adminNotes
+              ? `${payout.notes || ''} | Gateway: ${result.failureReason}`
+              : result.failureReason,
+          },
+          include: { vendor: true },
+        });
+
+        await this.auditLogService.log(
+          adminUserId,
+          'PAYOUT_DISPATCH_BLOCKED_MISSING_CREDENTIALS',
+          'Payout',
+          payoutId,
+          {
+            amount: payout.amount.toNumber(),
+            reason: result.failureReason,
+          },
+        );
+
+        return updated;
+      }
+
+      if (result.status === 'PAID') {
+        const updated = await this.prisma.payout.update({
+          where: { id: payoutId },
+          data: {
+            status: PayoutStatus.PAID,
+            paidAt: new Date(),
+            processedAt: new Date(),
+            providerTransferId: result.providerTransferId,
+            providerFee: result.providerFee ? new Prisma.Decimal(result.providerFee) : undefined,
+          },
+          include: { vendor: true },
+        });
+
+        await this.auditLogService.log(
+          adminUserId,
+          'PAYOUT_EXECUTED',
+          'Payout',
+          payoutId,
+          {
+            amount: payout.amount.toNumber(),
+            providerTransferId: result.providerTransferId,
+          },
+        );
+
+        return updated;
+      }
+
+      if (result.status === 'FAILED') {
+        const updated = await this.prisma.payout.update({
+          where: { id: payoutId },
+          data: {
+            status: PayoutStatus.FAILED,
+            providerFailureReason: result.failureReason,
+          },
+          include: { vendor: true },
+        });
+
+        await this.auditLogService.log(
+          adminUserId,
+          'PAYOUT_FAILED',
+          'Payout',
+          payoutId,
+          {
+            amount: payout.amount.toNumber(),
+            reason: result.failureReason,
+          },
+        );
+
+        return updated;
+      }
+    }
+
+    // 3. Fallback: Transition to PROCESSING if no gateway credentials and no manual reference
     const updated = await this.prisma.payout.update({
       where: { id: payoutId },
       data: {
-        status: PayoutStatus.PAID,
-        paidAt: new Date(),
+        status: PayoutStatus.PROCESSING,
         processedAt: new Date(),
-        providerTransferId: dto?.providerTransferId || `manual_tx_${Date.now()}`,
-        providerFee: dto?.providerFee ? new Prisma.Decimal(dto.providerFee) : undefined,
-        notes: dto?.adminNotes ? `${payout.notes || ''} | Execution: ${dto.adminNotes}` : payout.notes,
+        providerFailureReason:
+          'EXTERNAL CREDENTIAL BLOCKER: Payout gateway credentials unconfigured.',
+        notes: dto?.adminNotes
+          ? `${payout.notes || ''} | Execution Note: ${dto.adminNotes}`
+          : payout.notes,
       },
-      include: {
-        vendor: true,
-      },
+      include: { vendor: true },
     });
 
     await this.auditLogService.log(
       adminUserId,
-      'PAYOUT_EXECUTED',
+      'PAYOUT_PROCESSING',
       'Payout',
       payoutId,
-      {
-        amount: payout.amount.toNumber(),
-        providerTransferId: updated.providerTransferId,
-      },
+      { amount: payout.amount.toNumber() },
     );
-
-    const vendorUserId = updated.vendor?.userId || payout.vendor?.userId;
-    if (vendorUserId) {
-      this.notificationsService
-        .notifyUser(
-          vendorUserId,
-          'Payout Marked Paid',
-          `Your payout of INR ${updated.amount} has been processed and marked as paid.`,
-        )
-        .catch((err) =>
-          this.logger.error('Failed to notify vendor of payout status change', err),
-        );
-    }
 
     return updated;
   }
 
   async markPayoutPaid(payoutId: string, adminNote?: string) {
-    return this.executePayout(payoutId, 'system', { adminNotes: adminNote });
+    return this.executePayout(payoutId, 'system', {
+      adminNotes: adminNote,
+      providerTransferId: adminNote || `settled_${Date.now()}`,
+    });
   }
 
   async rejectPayout(payoutId: string, adminUserId: string, reason: string) {

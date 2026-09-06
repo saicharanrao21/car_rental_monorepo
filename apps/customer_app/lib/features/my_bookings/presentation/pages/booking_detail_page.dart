@@ -19,6 +19,7 @@ import '../widgets/booking_detail_schedule_card.dart';
 import '../widgets/booking_detail_package_card.dart';
 import '../widgets/booking_detail_pricing_card.dart';
 import '../widgets/booking_detail_deposit_card.dart';
+import '../widgets/booking_detail_damage_claim_card.dart';
 import '../widgets/booking_detail_host_card.dart';
 import '../widgets/booking_detail_actions_card.dart';
 import '../widgets/booking_refund_tracker_card.dart';
@@ -154,7 +155,7 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
       final paymentService = ref.read(paymentFlowServiceProvider);
       final order = await paymentService.getOrCreatePaymentOrder(item.booking.id);
 
-      paymentService.launchRazorpayCheckout(
+      final launchRes = paymentService.launchRazorpayCheckout(
         razorpay: _razorpay,
         order: order,
         bookingId: item.booking.id,
@@ -162,6 +163,26 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
         contactPhone: session.user?.phone ?? '',
         contactEmail: session.user?.email ?? '',
       );
+
+      if (!launchRes.isLaunched && mounted) {
+        setState(() => _isProcessingPayment = false);
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Payment Checkout'),
+            content: Text(
+              launchRes.unsupportedReason ??
+                  'Please use the Android or iOS mobile app to complete checkout.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Understood'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessingPayment = false);
@@ -461,6 +482,10 @@ class _BookingDetailPageState extends ConsumerState<BookingDetailPage> {
 
                   // 5. Security Deposit Card
                   BookingDetailDepositCard(bookingId: booking.id),
+                  const Gap(14),
+
+                  // 5b. Damage Claims & Disputes Card
+                  BookingDetailDamageClaimCard(bookingId: booking.id),
                   const Gap(14),
 
                   // 6. Refund Tracker Card (if cancelled/refunded)

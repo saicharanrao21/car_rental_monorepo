@@ -7,6 +7,9 @@ import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import '../../../fleet/presentation/providers/fleet_providers.dart';
 import '../providers/vendor_bookings_providers.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:core/core.dart';
+import '../../../../core/providers/api_providers.dart';
 
 class HandoverInspectionPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -43,11 +46,12 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
 
   // 4-Photo Burst
   final Map<String, String> _burstPhotos = {
-    'Front': 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
-    'Rear': 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
-    'Left Side': 'https://images.unsplash.com/photo-1503376780353-7e6692767b70',
-    'Right Side': 'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
+    'Front': '',
+    'Rear': '',
+    'Left Side': '',
+    'Right Side': '',
   };
+  final Map<String, bool> _uploadingBurstPhotos = {};
 
   // Damage
   bool _hasDamage = false;
@@ -71,7 +75,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
         'location': 'Front Bumper',
         'severity': 'Minor Scuff',
         'notes': 'Pre-existing minor scratch near lower lip',
-        'photo': 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
+        'photo': '',
       });
     }
     if (widget.showSuccessDialog) {
@@ -119,10 +123,72 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
         'notes': _damageNotesCtrl.text.trim().isNotEmpty
             ? _damageNotesCtrl.text.trim()
             : 'Pre-existing minor surface blemish',
-        'photo': 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
+        'photo': '',
       });
       _damageNotesCtrl.clear();
     });
+  }
+
+  Future<void> _captureOrUploadBurstPhoto(String angleName) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes == null) return;
+
+      if (bytes.length > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File ${file.name} exceeds maximum 10MB limit.')),
+          );
+        }
+        return;
+      }
+
+      setState(() => _uploadingBurstPhotos[angleName] = true);
+
+      final ext = (file.extension ?? 'jpg').toLowerCase();
+      String contentType = 'image/jpeg';
+      if (ext == 'png') contentType = 'image/png';
+      if (ext == 'webp') contentType = 'image/webp';
+
+      final apiClient = ref.read(apiClientProvider);
+      final uploadService = UploadService(apiClient: apiClient);
+      final uploadRes = await uploadService.uploadFileBytes(
+        fileType: 'inspection-photo',
+        contentType: contentType,
+        fileBytes: bytes,
+      );
+
+      if (mounted) {
+        setState(() {
+          _burstPhotos[angleName] = uploadRes.publicUrl ?? uploadRes.key;
+          _uploadingBurstPhotos[angleName] = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text('$angleName photo uploaded successfully.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploadingBurstPhotos[angleName] = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Failed to upload $angleName photo: $e'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _submitHandover(BookingModel booking) async {
@@ -193,7 +259,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
     setState(() => _isSubmitting = true);
 
     final damageList = _recordedDamages.map((d) => '${d['location']}: ${d['severity']} (${d['notes']})').toList();
-    final photoList = _burstPhotos.values.toList();
+    final photoList = _burstPhotos.values.where((p) => p.isNotEmpty).toList();
 
     final success = await ref.read(vendorBookingsProvider.notifier).completeHandover(
       bookingId: widget.bookingId,
@@ -841,51 +907,86 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
   }
 
   Widget _buildBurstPhotoCard(String angleName, String imageUrl) {
+    final isUploading = _uploadingBurstPhotos[angleName] == true;
+    final isCaptured = imageUrl.isNotEmpty;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isCaptured ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
         boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFFE2E8F0),
-                      child: const Icon(Icons.directions_car, color: Color(0xFF94A3B8), size: 40),
+            child: InkWell(
+              onTap: isUploading ? null : () => _captureOrUploadBurstPhoto(angleName),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (isCaptured)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFFE2E8F0),
+                          child: const Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8), size: 40),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      color: const Color(0xFFF8FAFC),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (isUploading)
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            const Icon(Icons.add_a_photo_outlined, color: Color(0xFF0066FF), size: 32),
+                          const Gap(6),
+                          Text(
+                            isUploading ? 'Uploading...' : 'Tap to Capture',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isUploading ? const Color(0xFF64748B) : const Color(0xFF0066FF),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      borderRadius: BorderRadius.circular(6),
+                  if (isCaptured)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, color: Colors.white, size: 12),
+                            Gap(2),
+                            Text('Captured', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check, color: Colors.white, size: 12),
-                        Gap(2),
-                        Text('Captured', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Padding(
@@ -900,12 +1001,11 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                 ),
                 const Gap(4),
                 InkWell(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Retake $angleName photo')),
-                    );
-                  },
-                  child: const Text('Retake', style: TextStyle(fontSize: 12, color: Color(0xFF0066FF), fontWeight: FontWeight.bold)),
+                  onTap: isUploading ? null : () => _captureOrUploadBurstPhoto(angleName),
+                  child: Text(
+                    isCaptured ? 'Retake' : 'Capture',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF0066FF), fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -1085,7 +1185,10 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                 const Gap(8),
                 _buildSummaryRow('Departure Fuel', '$_selectedFuelPercent% Level'),
                 const Gap(8),
-                _buildSummaryRow('Photo Burst', '4/4 Angles Captured & Stored'),
+                _buildSummaryRow(
+                  'Photo Burst',
+                  '${_burstPhotos.values.where((p) => p.isNotEmpty).length}/4 Angles Captured',
+                ),
                 const Gap(8),
                 _buildSummaryRow(
                   'Damage Status',

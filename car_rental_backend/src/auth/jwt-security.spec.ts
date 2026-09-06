@@ -41,6 +41,8 @@ describe('Cryptographic JWT Verification & Controller Security (Phase 1)', () =>
 
     carsController = new CarsController(
       mockCarsService as any,
+      undefined as any,
+      undefined as any,
       jwtService,
       configService,
     );

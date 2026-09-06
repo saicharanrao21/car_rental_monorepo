@@ -236,25 +236,29 @@ export class CarsService {
         distinct: ['carId'],
       });
 
-      const overlappingBlocks = await this.prisma.vehicleBlock.findMany({
-        where: {
-          startDate: { lt: reqEnd },
-          endDate: { gt: reqStart },
-        },
-        select: { carId: true },
-        distinct: ['carId'],
-      });
+      const overlappingBlocks = this.prisma.vehicleBlock
+        ? await this.prisma.vehicleBlock.findMany({
+            where: {
+              startDate: { lt: reqEnd },
+              endDate: { gt: reqStart },
+            },
+            select: { carId: true },
+            distinct: ['carId'],
+          })
+        : [];
 
-      const overlappingHolds = await this.prisma.vehicleHold.findMany({
-        where: {
-          status: VehicleHoldStatus.ACTIVE,
-          expiresAt: { gt: new Date() },
-          startDate: { lt: reqEnd },
-          endDate: { gt: reqStart },
-        },
-        select: { carId: true },
-        distinct: ['carId'],
-      });
+      const overlappingHolds = this.prisma.vehicleHold
+        ? await this.prisma.vehicleHold.findMany({
+            where: {
+              status: VehicleHoldStatus.ACTIVE,
+              expiresAt: { gt: new Date() },
+              startDate: { lt: reqEnd },
+              endDate: { gt: reqStart },
+            },
+            select: { carId: true },
+            distinct: ['carId'],
+          })
+        : [];
 
       const excludedCarIds = Array.from(
         new Set([
