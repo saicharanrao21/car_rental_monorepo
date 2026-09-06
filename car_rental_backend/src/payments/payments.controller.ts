@@ -67,7 +67,18 @@ export class PaymentsController {
     return this.paymentsService.handleWebhook(rawBody, signature, req.headers);
   }
 
-  // 4. GET /payments/:bookingId (CUSTOMER who owns it, ADMIN, or SUPPORT_AGENT)
+  // 4. GET /payments/vendor/:bookingId (VENDOR who owns vehicle in booking, or ADMIN)
+  @Get('vendor/:bookingId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async getVendorPaymentStatus(
+    @Req() req: any,
+    @Param('bookingId') bookingId: string,
+  ) {
+    return this.paymentsService.getVendorPaymentByBookingId(bookingId, req.user);
+  }
+
+  // 5. GET /payments/:bookingId (CUSTOMER who owns it, ADMIN, or SUPPORT_AGENT)
   @Get(':bookingId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER, Role.ADMIN, Role.SUPPORT_AGENT)
@@ -78,7 +89,18 @@ export class PaymentsController {
     return this.paymentsService.getPaymentByBookingId(bookingId, req.user);
   }
 
-  // 5. POST /payments/:bookingId/refund (ADMIN only)
+  // 6. GET /payments/:bookingId/audit-logs (ADMIN or SUPPORT_AGENT)
+  @Get(':bookingId/audit-logs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async getPaymentAuditLogs(
+    @Req() req: any,
+    @Param('bookingId') bookingId: string,
+  ) {
+    return this.paymentsService.getPaymentAuditLogs(bookingId, req.user);
+  }
+
+  // 7. POST /payments/:bookingId/refund (ADMIN only)
   @Post(':bookingId/refund')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

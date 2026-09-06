@@ -22,6 +22,7 @@ import {
   WalletStatus,
   LedgerEntryType,
   WalletBucketType,
+  Prisma,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -94,6 +95,128 @@ export class PaymentsService {
   }
 
   /**
+   * Asserts that a state transition from `fromStatus` to `toStatus` is valid according to
+   * the canonical payment state machine.
+   */
+  assertValidTransition(
+    fromStatus: PaymentStatus | null | undefined,
+    toStatus: PaymentStatus,
+  ): void {
+    if (!fromStatus) {
+      if (toStatus === PaymentStatus.CREATED) return;
+      throw new BadRequestException(`Cannot initialize payment directly into ${toStatus}`);
+    }
+
+    // Idempotent identical state
+    if (fromStatus === toStatus) return;
+
+    const validTransitions: Record<PaymentStatus, PaymentStatus[]> = {
+      [PaymentStatus.CREATED]: [
+        PaymentStatus.AUTHORIZED,
+        PaymentStatus.CAPTURED,
+        PaymentStatus.PAID,
+        PaymentStatus.FAILED,
+        PaymentStatus.CANCELLED,
+        PaymentStatus.EXPIRED,
+      ],
+      [PaymentStatus.PENDING]: [
+        PaymentStatus.AUTHORIZED,
+        PaymentStatus.CAPTURED,
+        PaymentStatus.PAID,
+        PaymentStatus.FAILED,
+        PaymentStatus.CANCELLED,
+        PaymentStatus.EXPIRED,
+      ],
+      [PaymentStatus.AUTHORIZED]: [
+        PaymentStatus.CAPTURED,
+        PaymentStatus.PAID,
+        PaymentStatus.FAILED,
+        PaymentStatus.CANCELLED,
+        PaymentStatus.EXPIRED,
+      ],
+      [PaymentStatus.CAPTURED]: [
+        PaymentStatus.PAID,
+        PaymentStatus.PARTIALLY_REFUNDED,
+        PaymentStatus.REFUNDED,
+      ],
+      [PaymentStatus.PAID]: [
+        PaymentStatus.PARTIALLY_REFUNDED,
+        PaymentStatus.REFUNDED,
+      ],
+      [PaymentStatus.PARTIALLY_REFUNDED]: [
+        PaymentStatus.PARTIALLY_REFUNDED,
+        PaymentStatus.REFUNDED,
+      ],
+      [PaymentStatus.FAILED]: [
+        PaymentStatus.CREATED,
+      ],
+      [PaymentStatus.CANCELLED]: [
+        PaymentStatus.CREATED,
+      ],
+      [PaymentStatus.EXPIRED]: [
+        PaymentStatus.CREATED,
+      ],
+      [PaymentStatus.REFUNDED]: [],
+    };
+
+    const allowed = validTransitions[fromStatus] || [];
+    if (!allowed.includes(toStatus)) {
+      throw new ConflictException(
+        `Invalid payment transition from ${fromStatus} to ${toStatus}. This transition violates canonical financial integrity rules.`,
+      );
+    }
+  }
+
+  /**
+   * Appends an immutable audit event to PaymentAuditLog for end-to-end financial traceability.
+   */
+  async recordPaymentAuditLog(
+    data: {
+      paymentId: string;
+      bookingId: string;
+      tenantId?: string;
+      eventType: string;
+      fromStatus?: PaymentStatus | null;
+      toStatus: PaymentStatus;
+      amount?: Decimal | number;
+      gatewayReference?: string | null;
+      actorId?: string | null;
+      actorRole?: string | null;
+      source: string;
+      payloadHash?: string | null;
+      metadata?: any;
+    },
+    tx?: any,
+  ): Promise<void> {
+    const client = tx || this.prisma;
+    if (!client.paymentAuditLog) {
+      return; // Safe fallback for lightweight unit test mocks
+    }
+
+    try {
+      await client.paymentAuditLog.create({
+        data: {
+          paymentId: data.paymentId,
+          bookingId: data.bookingId,
+          tenantId: data.tenantId || 'default',
+          eventType: data.eventType,
+          fromStatus: data.fromStatus || null,
+          toStatus: data.toStatus,
+          amount: data.amount ? new Decimal(data.amount) : null,
+          gatewayReference: data.gatewayReference || null,
+          actorId: data.actorId || null,
+          actorRole: data.actorRole || null,
+          source: data.source,
+          payloadHash: data.payloadHash || null,
+          metadata: data.metadata || null,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to record PaymentAuditLog entry: ${err.message}`);
+    }
+  }
+
+  /**
    * Creates a payment order for a PENDING booking with server-authoritative wallet & split-payment support.
    */
   async createOrder(
@@ -132,10 +255,8 @@ export class PaymentsService {
       ) {
         throw new ConflictException('This booking has already been paid for.');
       }
-      // Allow retry by deleting existing CREATED or FAILED payment
-      await this.prisma.payment.delete({
-        where: { id: existingPayment.id },
-      });
+      // Phase 36: Preserve financial integrity — do NOT delete payment row.
+      // Retrying payments update existing record or renew the order.
     }
 
     const tripFare = booking.totalFare;
@@ -206,14 +327,43 @@ export class PaymentsService {
       }
     }
 
-    // Create Payment row in CREATED status
-    await this.prisma.payment.create({
-      data: {
-        bookingId,
-        razorpayOrderId: orderId,
-        amount: totalAmount,
-        status: PaymentStatus.CREATED,
-      },
+    // Create or update Payment row in CREATED status
+    let paymentRecord: any;
+    if (existingPayment) {
+      paymentRecord = await this.prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          razorpayOrderId: orderId,
+          amount: totalAmount,
+          status: PaymentStatus.CREATED,
+          failedAt: null,
+          failureReason: null,
+        },
+      });
+    } else {
+      paymentRecord = await this.prisma.payment.create({
+        data: {
+          bookingId,
+          razorpayOrderId: orderId,
+          amount: totalAmount,
+          status: PaymentStatus.CREATED,
+        },
+      });
+    }
+
+    // Phase 36: Record financial audit event
+    await this.recordPaymentAuditLog({
+      paymentId: paymentRecord?.id || existingPayment?.id || 'pending',
+      bookingId,
+      tenantId: (booking as any)?.tenantId || 'default',
+      eventType: existingPayment ? 'PAYMENT_ORDER_RENEWED' : 'PAYMENT_ORDER_CREATED',
+      fromStatus: existingPayment?.status || null,
+      toStatus: PaymentStatus.CREATED,
+      amount: totalAmount,
+      gatewayReference: orderId,
+      actorId: customerId,
+      actorRole: 'CUSTOMER',
+      source: 'CUSTOMER',
     });
 
     return {
@@ -509,6 +659,8 @@ export class PaymentsService {
         );
       }
 
+      this.assertValidTransition(payment.status, PaymentStatus.PAID);
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -516,6 +668,26 @@ export class PaymentsService {
           razorpayPaymentId: resolvedPaymentId,
         },
       });
+
+      await this.recordPaymentAuditLog(
+        {
+          paymentId: payment.id,
+          bookingId: booking.id,
+          tenantId: (booking as any)?.tenantId || 'default',
+          eventType: 'PAYMENT_VERIFIED',
+          fromStatus: payment.status,
+          toStatus: PaymentStatus.PAID,
+          amount: totalExpected,
+          gatewayReference: resolvedPaymentId,
+          actorId: customerId,
+          actorRole: 'CUSTOMER',
+          source: 'CUSTOMER',
+          payloadHash: razorpaySignature
+            ? crypto.createHash('sha256').update(razorpaySignature).digest('hex')
+            : null,
+        },
+        tx,
+      );
 
       // Update Security Deposit Status to HELD if deposit exists
       if (booking.securityDeposit) {
@@ -759,6 +931,22 @@ export class PaymentsService {
           },
         });
 
+        await this.recordPaymentAuditLog(
+          {
+            paymentId: payment.id,
+            bookingId: payment.bookingId,
+            tenantId: (payment as any)?.tenantId || 'default',
+            eventType: 'WEBHOOK_PAYMENT_CAPTURED',
+            fromStatus: payment.status,
+            toStatus: PaymentStatus.PAID,
+            amount: payment.amount,
+            gatewayReference: paymentId,
+            source: 'WEBHOOK',
+            payloadHash: crypto.createHash('sha256').update(rawBody).digest('hex'),
+          },
+          tx,
+        );
+
         const b = await tx.booking.findUnique({
           where: { id: payment.bookingId },
         });
@@ -804,13 +992,56 @@ export class PaymentsService {
         where: { razorpayOrderId: orderId },
       });
 
-      if (payment && payment.status !== PaymentStatus.PAID) {
+      if (payment && payment.status !== PaymentStatus.PAID && payment.status !== PaymentStatus.REFUNDED) {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
             status: PaymentStatus.FAILED,
             razorpayPaymentId: paymentId,
           },
+        });
+
+        await this.recordPaymentAuditLog({
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          tenantId: (payment as any)?.tenantId || 'default',
+          eventType: 'WEBHOOK_PAYMENT_FAILED',
+          fromStatus: payment.status,
+          toStatus: PaymentStatus.FAILED,
+          gatewayReference: paymentId,
+          source: 'WEBHOOK',
+          payloadHash: crypto.createHash('sha256').update(rawBody).digest('hex'),
+        });
+      }
+    } else if (event === 'payment.authorized') {
+      const paymentEntity = payload.payload?.payment?.entity;
+      if (!paymentEntity) return { received: true };
+
+      const orderId = paymentEntity.order_id;
+      const paymentId = paymentEntity.id;
+
+      const payment = await this.prisma.payment.findFirst({
+        where: { razorpayOrderId: orderId },
+      });
+
+      if (payment && payment.status === PaymentStatus.CREATED) {
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: PaymentStatus.AUTHORIZED,
+            razorpayPaymentId: paymentId,
+          },
+        });
+
+        await this.recordPaymentAuditLog({
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          tenantId: (payment as any)?.tenantId || 'default',
+          eventType: 'WEBHOOK_PAYMENT_AUTHORIZED',
+          fromStatus: PaymentStatus.CREATED,
+          toStatus: PaymentStatus.AUTHORIZED,
+          gatewayReference: paymentId,
+          source: 'WEBHOOK',
         });
       }
     } else if (event === 'refund.processed') {
@@ -853,6 +1084,18 @@ export class PaymentsService {
             refundAmount: refundRupees,
             refundStatus: RefundStatus.PROCESSED,
           },
+        });
+
+        await this.recordPaymentAuditLog({
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          tenantId: (payment as any)?.tenantId || 'default',
+          eventType: 'WEBHOOK_REFUND_PROCESSED',
+          fromStatus: payment.status,
+          toStatus: PaymentStatus.REFUNDED,
+          amount: refundRupees,
+          gatewayReference: refundId,
+          source: 'WEBHOOK',
         });
 
         if (payment.booking?.customerId) {
@@ -900,6 +1143,18 @@ export class PaymentsService {
             refundAmount: refundRupees,
             refundStatus: RefundStatus.PENDING,
           },
+        });
+
+        await this.recordPaymentAuditLog({
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          tenantId: (payment as any)?.tenantId || 'default',
+          eventType: 'WEBHOOK_REFUND_CREATED',
+          fromStatus: payment.status,
+          toStatus: payment.status,
+          amount: refundRupees,
+          gatewayReference: refundId,
+          source: 'WEBHOOK',
         });
       }
     } else if (event === 'refund.failed') {
@@ -1194,6 +1449,20 @@ export class PaymentsService {
       },
     });
 
+    await this.recordPaymentAuditLog({
+      paymentId: payment.id,
+      bookingId,
+      tenantId: (payment as any)?.tenantId || 'default',
+      eventType: initialRefundStatus === RefundStatus.PROCESSED ? 'REFUND_PROCESSED' : 'REFUND_INITIATED',
+      fromStatus: payment.status,
+      toStatus: initialRefundStatus === RefundStatus.PROCESSED ? PaymentStatus.REFUNDED : payment.status,
+      amount: totalRefundRupees,
+      gatewayReference: refundId,
+      actorId: requestedByUserId || null,
+      source: requestedByUserId ? 'ADMIN' : 'SYSTEM',
+      metadata: { reason, cancellationTier },
+    });
+
     let paymentRefundId: string | undefined;
     if (this.prisma.paymentRefund) {
       try {
@@ -1357,5 +1626,114 @@ export class PaymentsService {
       amountInPaise: Math.round(payment.amount.toNumber() * 100),
       refunds: (payment as any).refunds || [],
     };
+  }
+
+  /**
+   * Retrieves sanitized vendor-facing payment & earnings details for a booking on their vehicle.
+   * Strips all customer credentials, card/UPI identifiers, and gateway secrets.
+   */
+  async getVendorPaymentByBookingId(
+    bookingId: string,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        car: { select: { id: true, vendorId: true } },
+        securityDeposit: true,
+        payment: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    if (requestingUser.role === Role.VENDOR) {
+      let vendorProfileId = requestingUser.userId;
+      if (this.prisma.vendor) {
+        const vendorRecord = await this.prisma.vendor.findFirst({
+          where: { userId: requestingUser.userId },
+          select: { id: true },
+        });
+        if (vendorRecord) {
+          vendorProfileId = vendorRecord.id;
+        }
+      }
+
+      const isCarVendor =
+        booking.car?.vendorId === requestingUser.userId ||
+        booking.car?.vendorId === vendorProfileId ||
+        booking.vendorId === requestingUser.userId ||
+        booking.vendorId === vendorProfileId;
+
+      if (!isCarVendor) {
+        throw new ForbiddenException(
+          'Access denied: You can only view payment information for your own fleet bookings.',
+        );
+      }
+    }
+
+    const payment = booking.payment;
+    const isPaid = payment?.status === PaymentStatus.PAID;
+    const isRefunded =
+      payment?.status === PaymentStatus.REFUNDED ||
+      payment?.status === PaymentStatus.PARTIALLY_REFUNDED;
+
+    const netVendorEarnings = booking.netToVendor;
+    const platformCommission = booking.platformFee;
+    const refundImpact = isRefunded
+      ? (payment?.refundAmount || new Decimal(0))
+      : new Decimal(0);
+
+    return {
+      bookingId: booking.id,
+      paymentStatus: payment?.status || 'UNPAID',
+      isPaid,
+      currency: payment?.currency || 'INR',
+      tripFare: booking.totalFare.toNumber(),
+      netVendorEarnings: netVendorEarnings.toNumber(),
+      platformCommission: platformCommission.toNumber(),
+      securityDepositHeld: booking.securityDeposit?.amount?.toNumber() || 0,
+      refundStatus: payment?.refundStatus || 'NONE',
+      refundAmount: payment?.refundAmount?.toNumber() || 0,
+      settlementStatus: isPaid ? 'ELIGIBLE_FOR_SETTLEMENT' : 'PENDING_PAYMENT',
+      updatedAt: payment?.updatedAt || booking.updatedAt,
+    };
+  }
+
+  /**
+   * Retrieves financial audit trail events for administrative governance.
+   */
+  async getPaymentAuditLogs(
+    bookingId: string,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    if (
+      requestingUser.role !== Role.ADMIN &&
+      requestingUser.role !== Role.SUPPORT_AGENT
+    ) {
+      throw new ForbiddenException(
+        'Access denied: Only administrators and support agents can view financial audit logs.',
+      );
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { bookingId },
+      select: { id: true },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('No payment found for this booking.');
+    }
+
+    if (!this.prisma.paymentAuditLog) {
+      return [];
+    }
+
+    return this.prisma.paymentAuditLog.findMany({
+      where: { paymentId: payment.id },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

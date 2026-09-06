@@ -152,6 +152,7 @@ enum PaymentStatus {
   PAID
   FAILED
   CANCELLED
+  EXPIRED
   PARTIALLY_REFUNDED
   REFUNDED
 }
@@ -986,27 +987,33 @@ model ReconciliationException {
 }
 
 model Payment {
-  id                String          @id @default(cuid())
-  bookingId         String          @unique
-  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  razorpayOrderId   String?         @unique
+  id                String            @id @default(cuid())
+  tenantId          String            @default("default")
+  bookingId         String            @unique
+  booking           Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  razorpayOrderId   String?           @unique
   razorpayPaymentId String?
-  razorpayRefundId  String?         @unique
-  amount            Decimal         @db.Decimal(10, 2)
-  refundAmount      Decimal?        @db.Decimal(10, 2)
-  currency          String          @default("INR")
-  status            PaymentStatus   @default(CREATED)
-  refundStatus      RefundStatus    @default(NONE)
-  gatewayProvider   String          @default("RAZORPAY")
+  razorpayRefundId  String?           @unique
+  amount            Decimal           @db.Decimal(10, 2)
+  gatewayAmountPaise Int?
+  refundAmount      Decimal?          @db.Decimal(10, 2)
+  currency          String            @default("INR")
+  status            PaymentStatus     @default(CREATED)
+  refundStatus      RefundStatus      @default(NONE)
+  gatewayProvider   String            @default("RAZORPAY")
+  paymentMethod     String?
   gatewaySignature  String?
   capturedAt        DateTime?
   failedAt          DateTime?
   failureReason     String?
-  idempotencyKey    String?         @unique
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  idempotencyKey    String?           @unique
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   refunds           PaymentRefund[]
+  auditLogs         PaymentAuditLog[]
 
+  @@index([tenantId, status])
   @@index([razorpayRefundId])
   @@index([razorpayOrderId])
   @@index([status, createdAt])
@@ -1017,6 +1024,7 @@ model Payment {
 
 model PaymentRefund {
   id                String        @id @default(cuid())
+  tenantId          String        @default("default")
   paymentId         String
   payment           Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   bookingId         String
@@ -1033,11 +1041,37 @@ model PaymentRefund {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
+  @@index([tenantId, status])
   @@index([paymentId])
   @@index([bookingId])
   @@index([status])
   @@index([idempotencyKey])
   @@index([gatewayRefundId])
+}
+
+model PaymentAuditLog {
+  id                String         @id @default(cuid())
+  paymentId         String
+  payment           Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bookingId         String
+  tenantId          String         @default("default")
+  eventType         String
+  fromStatus        PaymentStatus?
+  toStatus          PaymentStatus
+  amount            Decimal?       @db.Decimal(10, 2)
+  gatewayReference  String?
+  actorId           String?
+  actorRole         String?
+  source            String
+  payloadHash       String?
+  metadata          Json?
+  createdAt         DateTime       @default(now())
+
+  @@index([paymentId])
+  @@index([bookingId])
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 model WebhookEvent {

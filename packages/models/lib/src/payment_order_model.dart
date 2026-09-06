@@ -117,6 +117,10 @@ class PaymentOrderModel {
 
   bool get isFailed => status.toUpperCase() == 'FAILED';
 
+  bool get isExpired => status.toUpperCase() == 'EXPIRED';
+
+  bool get isAuthorized => status.toUpperCase() == 'AUTHORIZED';
+
   bool get isRefunded => status.toUpperCase() == 'REFUNDED';
 
   bool get isPartiallyRefunded =>
@@ -235,6 +239,152 @@ class PaymentOrderModel {
       'capturedAt': capturedAt?.toIso8601String(),
       'failureReason': failureReason,
       'refunds': refunds.map((r) => r.toJson()).toList(),
+    };
+  }
+}
+
+class PaymentAuditLogModel {
+  final String? id;
+  final String paymentId;
+  final String bookingId;
+  final String tenantId;
+  final String eventType;
+  final String? fromStatus;
+  final String toStatus;
+  final double? amount;
+  final String? gatewayReference;
+  final String? actorId;
+  final String? actorRole;
+  final String source;
+  final String? payloadHash;
+  final Map<String, dynamic>? metadata;
+  final DateTime? createdAt;
+
+  const PaymentAuditLogModel({
+    this.id,
+    required this.paymentId,
+    required this.bookingId,
+    this.tenantId = 'default',
+    required this.eventType,
+    this.fromStatus,
+    required this.toStatus,
+    this.amount,
+    this.gatewayReference,
+    this.actorId,
+    this.actorRole,
+    required this.source,
+    this.payloadHash,
+    this.metadata,
+    this.createdAt,
+  });
+
+  factory PaymentAuditLogModel.fromJson(Map<String, dynamic> json) {
+    return PaymentAuditLogModel(
+      id: json['id'] as String?,
+      paymentId: (json['paymentId'] as String?) ?? '',
+      bookingId: (json['bookingId'] as String?) ?? '',
+      tenantId: (json['tenantId'] as String?) ?? 'default',
+      eventType: (json['eventType'] as String?) ?? '',
+      fromStatus: json['fromStatus'] as String?,
+      toStatus: (json['toStatus'] as String?) ?? '',
+      amount: (json['amount'] as num?)?.toDouble(),
+      gatewayReference: json['gatewayReference'] as String?,
+      actorId: json['actorId'] as String?,
+      actorRole: json['actorRole'] as String?,
+      source: (json['source'] as String?) ?? 'SYSTEM',
+      payloadHash: json['payloadHash'] as String?,
+      metadata: json['metadata'] is Map<String, dynamic>
+          ? json['metadata'] as Map<String, dynamic>
+          : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'paymentId': paymentId,
+      'bookingId': bookingId,
+      'tenantId': tenantId,
+      'eventType': eventType,
+      'fromStatus': fromStatus,
+      'toStatus': toStatus,
+      'amount': amount,
+      'gatewayReference': gatewayReference,
+      'actorId': actorId,
+      'actorRole': actorRole,
+      'source': source,
+      'payloadHash': payloadHash,
+      'metadata': metadata,
+      'createdAt': createdAt?.toIso8601String(),
+    };
+  }
+}
+
+class VendorPaymentSummaryModel {
+  final String bookingId;
+  final String paymentStatus;
+  final bool isPaid;
+  final String currency;
+  final double tripFare;
+  final double netVendorEarnings;
+  final double platformCommission;
+  final double securityDepositHeld;
+  final String refundStatus;
+  final double refundAmount;
+  final String settlementStatus;
+  final DateTime? updatedAt;
+
+  const VendorPaymentSummaryModel({
+    required this.bookingId,
+    required this.paymentStatus,
+    required this.isPaid,
+    this.currency = 'INR',
+    required this.tripFare,
+    required this.netVendorEarnings,
+    required this.platformCommission,
+    required this.securityDepositHeld,
+    this.refundStatus = 'NONE',
+    this.refundAmount = 0.0,
+    required this.settlementStatus,
+    this.updatedAt,
+  });
+
+  factory VendorPaymentSummaryModel.fromJson(Map<String, dynamic> json) {
+    return VendorPaymentSummaryModel(
+      bookingId: (json['bookingId'] as String?) ?? '',
+      paymentStatus: (json['paymentStatus'] as String?) ?? 'UNPAID',
+      isPaid: json['isPaid'] == true,
+      currency: (json['currency'] as String?) ?? 'INR',
+      tripFare: (json['tripFare'] as num?)?.toDouble() ?? 0.0,
+      netVendorEarnings: (json['netVendorEarnings'] as num?)?.toDouble() ?? 0.0,
+      platformCommission: (json['platformCommission'] as num?)?.toDouble() ?? 0.0,
+      securityDepositHeld: (json['securityDepositHeld'] as num?)?.toDouble() ?? 0.0,
+      refundStatus: (json['refundStatus'] as String?) ?? 'NONE',
+      refundAmount: (json['refundAmount'] as num?)?.toDouble() ?? 0.0,
+      settlementStatus: (json['settlementStatus'] as String?) ?? 'PENDING_PAYMENT',
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'bookingId': bookingId,
+      'paymentStatus': paymentStatus,
+      'isPaid': isPaid,
+      'currency': currency,
+      'tripFare': tripFare,
+      'netVendorEarnings': netVendorEarnings,
+      'platformCommission': platformCommission,
+      'securityDepositHeld': securityDepositHeld,
+      'refundStatus': refundStatus,
+      'refundAmount': refundAmount,
+      'settlementStatus': settlementStatus,
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 }

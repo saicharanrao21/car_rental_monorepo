@@ -64,10 +64,14 @@ class BookingDetailPricingCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                isPending ? 'Total Amount Payable' : 'Total Amount Paid',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  isPending ? 'Total Amount Payable' : 'Total Amount Paid',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               PriceTag(
                 amount: booking.totalFare,
                 amountStyle: const TextStyle(
@@ -176,6 +180,11 @@ class BookingDetailPricingCard extends StatelessWidget {
         bg = Colors.grey.withValues(alpha: 0.15);
         fg = Colors.grey[800]!;
         label = 'CANCELLED';
+        break;
+      case 'EXPIRED':
+        bg = Colors.red.withValues(alpha: 0.12);
+        fg = Colors.red[800]!;
+        label = 'ORDER EXPIRED';
         break;
       default:
         bg = Colors.green.withValues(alpha: 0.12);
