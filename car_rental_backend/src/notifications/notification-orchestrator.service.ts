@@ -11,6 +11,7 @@ import { SmsProvider } from './providers/sms-provider.service';
 import { EmailProvider } from './providers/email-provider.service';
 import { WhatsAppProvider } from '../whatsapp/whatsapp-provider.service';
 import { QueueProducerService } from '../queues/queue-producer.service';
+import { NotificationRealtimeService } from './notification-realtime.service';
 import {
   NotificationTemplateEngine,
   OperationalEventType,
@@ -52,6 +53,7 @@ export interface PublishOperationalEventDto {
   priority?: NotificationPriority;
   channels?: NotificationChannel[];
   isTransactional?: boolean;
+  idempotencyKey?: string;
 }
 
 export interface DeliveryQueryFilter {
@@ -62,6 +64,8 @@ export interface DeliveryQueryFilter {
   recipient?: string;
   notificationId?: string;
 }
+
+export type DeliveryQueryDto = DeliveryQueryFilter;
 
 @Injectable()
 export class NotificationOrchestratorService {
@@ -111,7 +115,10 @@ export class NotificationOrchestratorService {
     };
 
     // 2. Render Canonical Template
-    const rendered = NotificationTemplateEngine.render(eventType, enrichedVars);
+    const rendered = NotificationTemplateEngine.render(
+      eventType as OperationalEventType,
+      enrichedVars,
+    );
     const priority = (overridePriority || rendered.priority) as NotificationPriority;
 
     // 3. Generate Deterministic Idempotency Key

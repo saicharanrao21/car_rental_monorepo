@@ -24,6 +24,10 @@ export class SendNotificationDto {
 
   @IsOptional()
   @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
   eventType?: string;
 
   @IsOptional()

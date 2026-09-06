@@ -3,7 +3,6 @@ import 'package:models/models.dart';
 import 'package:admin_panel/core/providers/api_providers.dart';
 import '../../domain/repositories/admin_notifications_repository.dart';
 import '../../data/api_admin_notifications_repository.dart';
-import '../../data/mock_admin_notifications_repository.dart';
 
 final adminNotificationsRepositoryProvider = Provider<AdminNotificationsRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -54,13 +53,8 @@ final notificationDeliveryStatusFilterProvider = StateProvider.autoDispose<Strin
 final notificationDeliveryChannelFilterProvider = StateProvider.autoDispose<String>((ref) => 'ALL');
 
 final adminDeliveryStatsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  try {
-    final repo = ref.watch(adminNotificationsRepositoryProvider);
-    return await repo.getDeliveryStats();
-  } catch (_) {
-    final fallbackRepo = MockAdminNotificationsRepository();
-    return await fallbackRepo.getDeliveryStats();
-  }
+  final repo = ref.watch(adminNotificationsRepositoryProvider);
+  return repo.getDeliveryStats();
 });
 
 class AdminDeliveriesNotifier extends AutoDisposeAsyncNotifier<List<NotificationDeliveryModel>> {
@@ -69,19 +63,11 @@ class AdminDeliveriesNotifier extends AutoDisposeAsyncNotifier<List<Notification
     final status = ref.watch(notificationDeliveryStatusFilterProvider);
     final channel = ref.watch(notificationDeliveryChannelFilterProvider);
 
-    try {
-      final repo = ref.watch(adminNotificationsRepositoryProvider);
-      return await repo.getDeliveries(
-        status: status,
-        channel: channel,
-      );
-    } catch (_) {
-      final fallbackRepo = MockAdminNotificationsRepository();
-      return await fallbackRepo.getDeliveries(
-        status: status,
-        channel: channel,
-      );
-    }
+    final repo = ref.watch(adminNotificationsRepositoryProvider);
+    return repo.getDeliveries(
+      status: status,
+      channel: channel,
+    );
   }
 
   Future<void> retry(String deliveryId) async {
@@ -90,11 +76,8 @@ class AdminDeliveriesNotifier extends AutoDisposeAsyncNotifier<List<Notification
       await repo.retryDelivery(deliveryId);
       ref.invalidateSelf();
       ref.invalidate(adminDeliveryStatsProvider);
-    } catch (_) {
-      final fallbackRepo = MockAdminNotificationsRepository();
-      await fallbackRepo.retryDelivery(deliveryId);
-      ref.invalidateSelf();
-      ref.invalidate(adminDeliveryStatsProvider);
+    } catch (err, stack) {
+      state = AsyncError(err, stack);
     }
   }
 

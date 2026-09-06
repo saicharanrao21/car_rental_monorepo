@@ -173,7 +173,13 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
     queueName: string,
     jobName: string,
     data: T,
-    opts?: { jobId?: string; delay?: number; priority?: number },
+    opts?: {
+      jobId?: string;
+      delay?: number;
+      priority?: number;
+      attempts?: number;
+      backoff?: any;
+    },
   ): Promise<{ jobId: string; status: 'QUEUED' | 'PROCESSED_MOCK' }> {
     const queue = this.getOrCreateQueue(queueName);
 
@@ -193,6 +199,8 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
       jobId: opts?.jobId,
       delay: opts?.delay,
       priority: opts?.priority,
+      attempts: opts?.attempts,
+      backoff: opts?.backoff,
     });
 
     return {

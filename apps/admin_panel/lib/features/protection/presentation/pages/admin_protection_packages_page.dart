@@ -77,7 +77,7 @@ class _AdminProtectionPackagesPageState extends ConsumerState<AdminProtectionPac
                       try {
                         final apiClient = ref.read(apiClientProvider);
                         await apiClient.dio.patch(
-                          '/protection-packages/${pkg.id}',
+                          '/admin/protection-packages/${pkg.id}',
                           data: {
                             'dailyRate': double.tryParse(dailyRateCtrl.text.trim()) ?? pkg.dailyRate,
                             'deductibleAmount': double.tryParse(deductibleCtrl.text.trim()) ?? pkg.deductibleAmount,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'token_storage.dart';
 
@@ -5,13 +6,16 @@ class ApiClient {
   final Dio dio;
   final TokenStorage tokenStorage;
 
+  static String get defaultBaseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+  }
+
   ApiClient({required this.tokenStorage, Dio? dio})
       : dio = dio ?? Dio(
           BaseOptions(
-            baseUrl: const String.fromEnvironment(
-              'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:3000',
-            ),
+            baseUrl: defaultBaseUrl,
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
           ),

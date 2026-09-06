@@ -176,7 +176,7 @@ class ApiMyBookingsRepository implements MyBookingsRepository {
   @override
   Future<SecurityDepositModel?> getSecurityDeposit(String bookingId) async {
     try {
-      final response = await apiClient.dio.get('/deposits/$bookingId');
+      final response = await apiClient.dio.get('/bookings/$bookingId/deposit');
       if (response.data == null) return null;
       return SecurityDepositModel.fromJson(Map<String, dynamic>.from(response.data));
     } catch (_) {

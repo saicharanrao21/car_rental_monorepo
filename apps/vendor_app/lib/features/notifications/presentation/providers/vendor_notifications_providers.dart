@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import '../../domain/repositories/vendor_notifications_repository.dart';
 import '../../data/api_vendor_notifications_repository.dart';
-import '../../data/mock_vendor_notifications_repository.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 
@@ -18,14 +17,8 @@ class VendorNotificationsNotifier extends AutoDisposeAsyncNotifier<List<Notifica
     final vendor = session.vendor;
     final vendorUserId = vendor?.id ?? 'vnd_active_01';
 
-    try {
-      final repo = ref.watch(vendorNotificationsRepositoryProvider);
-      return await repo.getNotifications(vendorUserId);
-    } catch (_) {
-      // Graceful fallback to mock repository in sandbox/offline mode
-      final fallbackRepo = MockVendorNotificationsRepositoryImpl();
-      return await fallbackRepo.getNotifications(vendorUserId);
-    }
+    final repo = ref.watch(vendorNotificationsRepositoryProvider);
+    return repo.getNotifications(vendorUserId);
   }
 
   Future<void> markAllAsRead() async {
@@ -37,8 +30,8 @@ class VendorNotificationsNotifier extends AutoDisposeAsyncNotifier<List<Notifica
       final repo = ref.read(vendorNotificationsRepositoryProvider);
       await repo.markAllRead(vendorUserId);
       state = state.whenData((list) => list.map((n) => n.copyWith(isRead: true)).toList());
-    } catch (_) {
-      state = state.whenData((list) => list.map((n) => n.copyWith(isRead: true)).toList());
+    } catch (err, stack) {
+      state = AsyncValue.error(err, stack);
     }
   }
 
@@ -52,13 +45,8 @@ class VendorNotificationsNotifier extends AutoDisposeAsyncNotifier<List<Notifica
         }
         return n;
       }).toList());
-    } catch (_) {
-      state = state.whenData((list) => list.map((n) {
-        if (n.id == id) {
-          return n.copyWith(isRead: true);
-        }
-        return n;
-      }).toList());
+    } catch (err, stack) {
+      state = AsyncValue.error(err, stack);
     }
   }
 

@@ -32,6 +32,23 @@ export class NotificationRealtimeService {
   }
 
   /**
+   * Emits a structured event payload to the target user.
+   */
+  emitEvent(event: {
+    type?: string;
+    userId: string;
+    timestamp?: string;
+    notification?: any;
+    data?: any;
+  }) {
+    const type =
+      event.type?.toLowerCase() === 'notification'
+        ? 'notification'
+        : (event.type?.toLowerCase() as any) || 'notification';
+    this.emitToUser(event.userId, type, event.notification || event.data || event);
+  }
+
+  /**
    * Returns an Observable SSE event stream for a specific authenticated user.
    * Merges user-targeted operational events with a 30s keep-alive ping to prevent proxy timeouts.
    */
