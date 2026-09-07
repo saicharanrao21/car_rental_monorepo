@@ -11,3 +11,4 @@ import { SystemConfigController } from './system-config.controller';
 export class SystemConfigModule {}
 export * from './system-config.interface';
 export * from './system-config.service';
+export * from './system-config-validator';

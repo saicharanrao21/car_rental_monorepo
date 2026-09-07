@@ -353,3 +353,59 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     description: 'Default security deposit amount in INR per car category',
   },
 };
+
+export type ConfigSource = 'DATABASE' | 'DEFAULT_FALLBACK';
+
+export interface DetailedConfigResult<T = any> {
+  key: string;
+  effectiveValue: T;
+  source: ConfigSource;
+  isExplicitlyConfigured: boolean;
+  version: number;
+  updatedAt: Date | null;
+  updatedBy: string | null;
+  category: string;
+  description: string | null;
+  isPublic: boolean;
+}
+
+export interface SetConfigOptions {
+  expectedVersion?: number;
+  reason?: string;
+  ip?: string;
+}
+
+export interface ConfigUpdateItem {
+  key: string;
+  value: any;
+  expectedVersion?: number;
+}
+
+export interface BatchConfigUpdateDto {
+  configs: ConfigUpdateItem[];
+  reason?: string;
+}
+
+export interface BatchConfigUpdateResult {
+  success: boolean;
+  updatedCount: number;
+  updatedKeys: string[];
+}
+
+export interface ConfigAuditHistoryItem {
+  id: string;
+  action: string;
+  key: string;
+  previousValue: any;
+  newValue: any;
+  adminUserId: string;
+  adminUser?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  version?: number;
+  reason?: string;
+  timestamp: Date;
+}
