@@ -104,6 +104,7 @@ class AdminShell extends ConsumerWidget {
       domainName: 'Security & Governance',
       icon: Icons.security_outlined,
       items: [
+        AdminNavItem(label: 'Business Rules Engine', icon: Icons.tune_rounded, route: '/business-rules'),
         AdminNavItem(label: 'Audit Log', icon: Icons.history_outlined, route: '/audit-log'),
         AdminNavItem(label: 'Fraud & Risk', icon: Icons.security_outlined, route: '/fraud'),
         AdminNavItem(label: 'Platform Settings', icon: Icons.settings_outlined, route: '/settings'),
