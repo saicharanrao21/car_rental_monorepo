@@ -16,6 +16,10 @@ export enum AdminPermission {
   VENDOR_WRITE = 'vendor:write',
   FLEET_MANAGEMENT = 'fleet:management',
 
+  // Location & Service Areas
+  LOCATION_READ = 'location:read',
+  LOCATION_WRITE = 'location:write',
+
   // Bookings & Operations
   BOOKING_READ = 'booking:read',
   BOOKING_WRITE = 'booking:write',

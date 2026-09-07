@@ -27,6 +27,12 @@ export const REDIS_NAMESPACES = {
     COMMISSION_CONFIG: (city: string, category: string, tripType: string) =>
       `cache:commission:${city.toLowerCase()}:${category}:${tripType}`,
     VENDOR_DETAIL: (vendorId: string) => `cache:vendor:detail:${vendorId}`,
+    SERVICE_AREAS: (city?: string) =>
+      city ? `cache:service_areas:${city.toLowerCase()}` : `cache:service_areas:all`,
+    SERVICE_AREA_DETAIL: (id: string) => `cache:service_area:${id}`,
+    SERVICEABILITY: (lat: number, lng: number) =>
+      `cache:serviceability:${lat.toFixed(3)}:${lng.toFixed(3)}`,
+    VENDOR_SERVICE_AREAS: (vendorId: string) => `cache:vendor:service_areas:${vendorId}`,
   },
   RATE_LIMIT: {
     IP: (ip: string) => `ratelimit:ip:${ip}`,

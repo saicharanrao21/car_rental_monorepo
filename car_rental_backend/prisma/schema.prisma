@@ -100,6 +100,12 @@ enum LocationStatus {
   INACTIVE
 }
 
+enum ServiceAreaStatus {
+  ACTIVE
+  COMING_SOON
+  INACTIVE
+}
+
 enum DeliveryPricingModel {
   FREE
   FIXED
@@ -417,6 +423,7 @@ model Vendor {
   deliveryPolicy     VendorDeliveryPolicy?
   locationMatrices   VendorLocationMatrix[]
   sponsoredCampaigns SponsoredCampaign[]
+  serviceAreaAssignments VendorServiceArea[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -1114,14 +1121,68 @@ model PlatformSettings {
 }
 
 model SupportedCity {
-  id               String   @id @default(cuid())
-  name             String   @unique
+  id               String            @id @default(cuid())
+  name             String            @unique
+  normalizedName   String            @default("")
   state            String
+  country          String            @default("India")
   latitude         Float
   longitude        Float
-  isActive         Boolean  @default(true)
-  enabledTripTypes String[] @default([])
-  createdAt        DateTime @default(now())
+  timezone         String            @default("Asia/Kolkata")
+  isActive         Boolean           @default(true)
+  status           ServiceAreaStatus @default(ACTIVE)
+  enabledTripTypes String[]          @default([])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @default(now()) @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  serviceAreas     ServiceArea[]
+
+  @@index([status])
+  @@index([name])
+}
+
+model ServiceArea {
+  id                String              @id @default(cuid())
+  cityId            String
+  city              SupportedCity       @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  name              String
+  normalizedName    String
+  status            ServiceAreaStatus   @default(ACTIVE)
+  latitude          Float
+  longitude         Float
+  radiusMeters      Float               @default(5000)
+  priority          Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @default(now()) @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  vendorAssignments VendorServiceArea[]
+
+  @@unique([cityId, normalizedName])
+  @@index([cityId])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([cityId, status])
+}
+
+model VendorServiceArea {
+  id            String      @id @default(cuid())
+  vendorId      String
+  vendor        Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  serviceAreaId String
+  serviceArea   ServiceArea @relation(fields: [serviceAreaId], references: [id], onDelete: Cascade)
+  isPrimary     Boolean     @default(false)
+  isActive      Boolean     @default(true)
+  assignedBy    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @default(now()) @updatedAt
+
+  @@unique([vendorId, serviceAreaId])
+  @@index([vendorId])
+  @@index([serviceAreaId])
+  @@index([serviceAreaId, isActive])
+  @@index([vendorId, isActive])
 }
 
 model RefreshToken {

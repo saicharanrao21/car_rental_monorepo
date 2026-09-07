@@ -39,6 +39,8 @@ export class SystemConfigValidator {
         return this.validateReferralConfig(payload);
       case 'booking.policies':
         return this.validateBookingPoliciesConfig(payload);
+      case 'location.rules':
+        return this.validateLocationRulesConfig(payload);
       default:
         // Generic object validation for unspecified keys
         if (typeof payload !== 'object') {
@@ -410,6 +412,49 @@ export class SystemConfigValidator {
       const v = Number(payload.cancellationGraceMinutes);
       if (isNaN(v) || v < 0 || v > 1440) {
         throw new BadRequestException('cancellationGraceMinutes must be between 0 and 1440 minutes.');
+      }
+    }
+
+    return payload;
+  }
+
+  private static validateLocationRulesConfig(payload: any): any {
+    if (typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new BadRequestException('location.rules must be a JSON object.');
+    }
+
+    if (payload.defaultRadiusMeters !== undefined) {
+      const v = Number(payload.defaultRadiusMeters);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('defaultRadiusMeters must be a positive number.');
+      }
+    }
+
+    if (payload.maxServiceRadiusMeters !== undefined) {
+      const v = Number(payload.maxServiceRadiusMeters);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('maxServiceRadiusMeters must be a positive number.');
+      }
+    }
+
+    if (payload.minServiceRadiusMeters !== undefined) {
+      const v = Number(payload.minServiceRadiusMeters);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('minServiceRadiusMeters must be a positive number.');
+      }
+    }
+
+    if (payload.comingSoonCatchmentRadiusKm !== undefined) {
+      const v = Number(payload.comingSoonCatchmentRadiusKm);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('comingSoonCatchmentRadiusKm must be a positive number.');
+      }
+    }
+
+    if (payload.maxNearestAreasToSuggest !== undefined) {
+      const v = Number(payload.maxNearestAreasToSuggest);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('maxNearestAreasToSuggest must be a positive number.');
       }
     }
 

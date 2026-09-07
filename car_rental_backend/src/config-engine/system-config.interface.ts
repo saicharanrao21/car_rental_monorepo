@@ -34,6 +34,15 @@ export interface SearchRankingConfig {
   featuredBoostMultiplier: number; // e.g. 1.15x
 }
 
+export interface LocationRulesConfig {
+  defaultRadiusMeters: number;
+  maxServiceRadiusMeters: number;
+  minServiceRadiusMeters: number;
+  comingSoonCatchmentRadiusKm: number;
+  maxNearestAreasToSuggest: number;
+  strictVendorCoverageEnforcement: boolean;
+}
+
 export interface BookingPolicyConfig {
   handoverOtpTtlMinutes: number;
   cancellationGraceMinutes: number;
@@ -351,6 +360,19 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as DepositDefaultsConfig,
     isPublic: true,
     description: 'Default security deposit amount in INR per car category',
+  },
+  'location.rules': {
+    category: 'LOCATION',
+    value: {
+      defaultRadiusMeters: 5000,
+      maxServiceRadiusMeters: 50000,
+      minServiceRadiusMeters: 500,
+      comingSoonCatchmentRadiusKm: 50,
+      maxNearestAreasToSuggest: 5,
+      strictVendorCoverageEnforcement: true,
+    } as LocationRulesConfig,
+    isPublic: true,
+    description: 'Operational thresholds and geo-resolution policies for service areas and customer serviceability',
   },
 };
 

@@ -103,6 +103,40 @@ export class CarsService {
       };
     }
 
+    if (query.serviceAreaId) {
+      where.vendor = {
+        ...(where.vendor || {}),
+        serviceAreaAssignments: {
+          some: {
+            serviceAreaId: query.serviceAreaId,
+            isActive: true,
+          },
+        },
+      };
+    } else if (query.lat !== undefined && query.lng !== undefined) {
+      const candidateAreas = await this.prisma.serviceArea.findMany({
+        where: {
+          status: 'ACTIVE',
+          city: { status: { not: 'INACTIVE' } },
+        },
+      });
+      const matchingArea = candidateAreas.find((area) => {
+        const distKm = this.calculateHaversine(query.lat!, query.lng!, area.latitude, area.longitude);
+        return distKm * 1000 <= area.radiusMeters;
+      });
+      if (matchingArea) {
+        where.vendor = {
+          ...(where.vendor || {}),
+          serviceAreaAssignments: {
+            some: {
+              serviceAreaId: matchingArea.id,
+              isActive: true,
+            },
+          },
+        };
+      }
+    }
+
     if (query.pickupHubId) {
       where.pickupHubId = query.pickupHubId;
     }

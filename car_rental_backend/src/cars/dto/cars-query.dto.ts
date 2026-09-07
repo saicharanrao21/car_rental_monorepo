@@ -37,6 +37,10 @@ export class CarsQueryDto extends PaginationDto {
   lng?: number;
 
   @IsOptional()
+  @IsString()
+  serviceAreaId?: string;
+
+  @IsOptional()
   @IsEnum(CarCategory)
   carType?: CarCategory;
 
