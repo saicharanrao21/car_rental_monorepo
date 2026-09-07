@@ -1107,17 +1107,22 @@ export class BookingsService {
         });
         const amountPaid = payment?.amount || booking.totalFare;
         const depositAmount = booking.securityDeposit?.amount || 0;
-        cancellationCalc = this.cancellationPolicyService.calculateCancellation(
-          {
-            startDate: booking.startDate,
-            cancellationTime: new Date(),
-            amountPaid,
-            depositAmount,
-            actorRole: requestingUser.role,
-            isAdminOverride: isAdmin && reason?.includes('admin_full_refund'),
-            isPendingConfirmation: booking.status === BookingStatus.PENDING,
-          },
-        );
+        const snapshot = booking.priceSnapshot as any;
+        const historicalMatrix = snapshot?.metadata?.cancellationMatrix || snapshot?.cancellationMatrix;
+        const cancelParams = {
+          startDate: booking.startDate,
+          cancellationTime: new Date(),
+          amountPaid,
+          depositAmount,
+          actorRole: requestingUser.role,
+          isAdminOverride: isAdmin && reason?.includes('admin_full_refund'),
+          isPendingConfirmation: booking.status === BookingStatus.PENDING,
+          cancellationMatrix: historicalMatrix,
+        };
+        cancellationCalc =
+          typeof this.cancellationPolicyService.calculateCancellationWithConfig === 'function'
+            ? await this.cancellationPolicyService.calculateCancellationWithConfig(cancelParams)
+            : this.cancellationPolicyService.calculateCancellation(cancelParams);
 
         if (cancellationCalc.refundAmountInPaise > 0) {
           await this.paymentsService.refund(
@@ -1256,14 +1261,21 @@ export class BookingsService {
     const amountPaid = booking.payment?.amount || booking.totalFare;
     const depositAmount = booking.securityDeposit?.amount || 0;
     const isPendingConfirmation = booking.status === BookingStatus.PENDING;
-    const calculation = this.cancellationPolicyService.calculateCancellation({
+    const snapshot = booking.priceSnapshot as any;
+    const historicalMatrix = snapshot?.metadata?.cancellationMatrix || snapshot?.cancellationMatrix;
+    const cancelParams = {
       startDate: booking.startDate,
       cancellationTime: new Date(),
       amountPaid,
       depositAmount,
       actorRole: requestingUser.role,
       isPendingConfirmation,
-    });
+      cancellationMatrix: historicalMatrix,
+    };
+    const calculation =
+      typeof this.cancellationPolicyService.calculateCancellationWithConfig === 'function'
+        ? await this.cancellationPolicyService.calculateCancellationWithConfig(cancelParams)
+        : this.cancellationPolicyService.calculateCancellation(cancelParams);
 
     return {
       bookingId: booking.id,
@@ -1319,12 +1331,19 @@ export class BookingsService {
 
     try {
       const amountPaid = booking.payment?.amount || booking.totalFare;
-      const calculation = this.cancellationPolicyService.calculateCancellation({
+      const snapshot = booking.priceSnapshot as any;
+      const historicalMatrix = snapshot?.metadata?.cancellationMatrix || snapshot?.cancellationMatrix;
+      const cancelParams = {
         startDate: booking.startDate,
         cancellationTime: new Date(),
         amountPaid,
         actorRole: Role.CUSTOMER,
-      });
+        cancellationMatrix: historicalMatrix,
+      };
+      const calculation =
+        typeof this.cancellationPolicyService.calculateCancellationWithConfig === 'function'
+          ? await this.cancellationPolicyService.calculateCancellationWithConfig(cancelParams)
+          : this.cancellationPolicyService.calculateCancellation(cancelParams);
 
       await this.paymentsService.refund(
         bookingId,

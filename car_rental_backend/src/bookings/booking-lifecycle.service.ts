@@ -254,8 +254,10 @@ export class BookingLifecycleService {
         const amountPaid = booking.payment?.amount || booking.totalFare;
         const depositAmount = booking.securityDeposit?.amount || 0;
         const isPendingConfirmation = previousStatus === BookingStatus.PENDING;
+        const snapshot = booking.priceSnapshot as any;
+        const historicalMatrix = snapshot?.metadata?.cancellationMatrix || snapshot?.cancellationMatrix;
 
-        cancellationCalc = this.cancellationPolicyService.calculateCancellation({
+        const cancelParams = {
           startDate: booking.startDate,
           cancellationTime: new Date(),
           amountPaid,
@@ -263,7 +265,14 @@ export class BookingLifecycleService {
           actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
           isAdminOverride: actorRole === Role.ADMIN && reason?.includes('admin_full_refund'),
           isPendingConfirmation,
-        });
+          cancellationMatrix: historicalMatrix,
+        };
+
+        if (typeof this.cancellationPolicyService.calculateCancellationWithConfig === 'function') {
+          cancellationCalc = await this.cancellationPolicyService.calculateCancellationWithConfig(cancelParams);
+        } else {
+          cancellationCalc = this.cancellationPolicyService.calculateCancellation(cancelParams);
+        }
 
         if (cancellationCalc.refundAmountInPaise > 0) {
           await this.paymentsService.refund(

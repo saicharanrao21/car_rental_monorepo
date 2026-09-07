@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CarCategory, Prisma } from '@prisma/client';
+import { SystemConfigService } from '../config-engine/system-config.service';
 
 export const DEFAULT_DEPOSIT_AMOUNTS: Record<CarCategory, number> = {
   [CarCategory.HATCHBACK]: 3000,
@@ -15,11 +16,14 @@ export const DEFAULT_DEPOSIT_AMOUNTS: Record<CarCategory, number> = {
 export class DepositRulesService {
   private readonly logger = new Logger(DepositRulesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configService?: SystemConfigService,
+  ) {}
 
   /**
    * Resolves the authoritative security deposit requirement for a car category and optional city.
-   * Priority: City-specific rule > Category global rule > Category default constant.
+   * Priority: City-specific rule > Category global rule > Configured Category default > Category fallback constant.
    */
   async getDepositAmount(
     carCategory: CarCategory,
@@ -54,6 +58,22 @@ export class DepositRulesService {
       this.logger.warn(
         `Failed to fetch dynamic deposit rule: ${err.message}. Falling back to category default.`,
       );
+    }
+
+    if (this.configService) {
+      try {
+        const defaultsCfg = await this.configService.getDepositDefaultsConfig();
+        if (
+          defaultsCfg &&
+          typeof defaultsCfg[carCategory] === 'number' &&
+          !isNaN(defaultsCfg[carCategory]!) &&
+          defaultsCfg[carCategory]! >= 0
+        ) {
+          return defaultsCfg[carCategory]!;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed reading deposit defaults config: ${err?.message}`);
+      }
     }
 
     return DEFAULT_DEPOSIT_AMOUNTS[carCategory] ?? 5000;

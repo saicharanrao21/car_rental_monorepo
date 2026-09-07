@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CarCategory, TripType, Prisma } from '@prisma/client';
+import { SystemConfigService } from '../config-engine/system-config.service';
 
 @Injectable()
 export class CommissionResolverService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configService?: SystemConfigService,
+  ) {}
 
   async resolveCommissionPercent(
     city: string,
@@ -32,7 +36,24 @@ export class CommissionResolverService {
     });
 
     if (rules.length === 0) {
-      return new Prisma.Decimal(10.0); // Default to 10%
+      let defaultCommission = 10.0;
+      if (this.configService) {
+        try {
+          const cfg = await this.configService.getCommissionConfig();
+          if (
+            cfg &&
+            typeof cfg.defaultPercent === 'number' &&
+            !isNaN(cfg.defaultPercent) &&
+            cfg.defaultPercent >= 0 &&
+            cfg.defaultPercent <= 100
+          ) {
+            defaultCommission = cfg.defaultPercent;
+          }
+        } catch {
+          // Safe fallback to default
+        }
+      }
+      return new Prisma.Decimal(defaultCommission);
     }
 
     // Score rules based on specificity:

@@ -14,6 +14,7 @@ import { CouponsService } from '../coupons/coupons.service';
 import { DepositRulesService } from '../deposits/deposit-rules.service';
 import { LocationsService } from '../locations/locations.service';
 import { VehicleAvailabilityService } from '../cars/vehicle-availability.service';
+import { SystemConfigService } from '../config-engine/system-config.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import {
   QuoteLineItemDto,
@@ -42,6 +43,7 @@ export class PricingService {
     @Optional() private readonly depositRulesService?: DepositRulesService,
     @Optional() private readonly locationsService?: LocationsService,
     @Optional() private readonly availabilityService?: VehicleAvailabilityService,
+    @Optional() private readonly configService?: SystemConfigService,
   ) {}
 
   /**
@@ -199,10 +201,39 @@ export class PricingService {
 
     // 2. Multi-Day Duration Discount
     let durationDiscountPct = 0;
-    if (durationDays >= 30 && car.monthlyDiscountPercent && car.monthlyDiscountPercent > 0) {
-      durationDiscountPct = car.monthlyDiscountPercent;
-    } else if (durationDays >= 7 && car.weeklyDiscountPercent && car.weeklyDiscountPercent > 0) {
-      durationDiscountPct = car.weeklyDiscountPercent;
+    let configuredDurationTiers: Array<{ minDays: number; discountPercent: number }> | null = null;
+    if (this.configService) {
+      try {
+        const rawTiers = await this.configService.getDurationDiscountsConfig();
+        if (Array.isArray(rawTiers) && rawTiers.length > 0) {
+          const validTiers = rawTiers.filter(
+            (t) =>
+              typeof t.minDays === 'number' &&
+              t.minDays > 0 &&
+              typeof t.discountPercent === 'number' &&
+              t.discountPercent >= 0,
+          );
+          if (validTiers.length > 0) {
+            configuredDurationTiers = validTiers.sort((a, b) => b.minDays - a.minDays);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed reading duration discounts config: ${err?.message}`);
+      }
+    }
+
+    if (configuredDurationTiers && configuredDurationTiers.length > 0) {
+      const matched = configuredDurationTiers.find((t) => durationDays >= t.minDays);
+      if (matched) {
+        durationDiscountPct = matched.discountPercent;
+      }
+    } else {
+      // Safe fallback
+      if (durationDays >= 30 && car.monthlyDiscountPercent && car.monthlyDiscountPercent > 0) {
+        durationDiscountPct = car.monthlyDiscountPercent;
+      } else if (durationDays >= 7 && car.weeklyDiscountPercent && car.weeklyDiscountPercent > 0) {
+        durationDiscountPct = car.weeklyDiscountPercent;
+      }
     }
 
     let durationDiscountAmount = new Prisma.Decimal(0);
@@ -249,10 +280,29 @@ export class PricingService {
       displayOrder: orderIndex++,
     });
 
-    const gstAmount = platformFee.mul(0.18).toDecimalPlaces(2);
+    let gstRate = 18;
+    if (this.configService) {
+      try {
+        const taxCfg = await this.configService.getTaxConfig();
+        if (
+          taxCfg &&
+          typeof taxCfg.gstRate === 'number' &&
+          !isNaN(taxCfg.gstRate) &&
+          taxCfg.gstRate >= 0 &&
+          taxCfg.gstRate <= 100
+        ) {
+          gstRate = taxCfg.gstRate;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed reading tax config, falling back to 18%: ${err?.message}`);
+      }
+    }
+
+    const gstRateFraction = new Prisma.Decimal(gstRate).div(100);
+    const gstAmount = platformFee.mul(gstRateFraction).toDecimalPlaces(2);
     lineItems.push({
       type: QuoteLineItemType.GST,
-      name: 'GST (18% on Platform Fee)',
+      name: `GST (${gstRate}% on Platform Fee)`,
       description: 'Government Goods and Services Tax on platform services',
       rate: gstAmount.toNumber(),
       quantity: 1,
@@ -469,7 +519,24 @@ export class PricingService {
     const totalPayable = tripFare.add(depositTotal).toDecimalPlaces(2);
     const netToVendor = baseFareAfterDurationDiscount.add(fulfillmentTotal).toDecimalPlaces(2);
 
-    const expiresAt = new Date(Date.now() + QUOTE_VALIDITY_MINUTES * 60 * 1000);
+    let validityMinutes = QUOTE_VALIDITY_MINUTES;
+    if (this.configService) {
+      try {
+        const quoteCfg = await this.configService.getQuoteConfig();
+        if (
+          quoteCfg &&
+          typeof quoteCfg.validityMinutes === 'number' &&
+          !isNaN(quoteCfg.validityMinutes) &&
+          quoteCfg.validityMinutes > 0
+        ) {
+          validityMinutes = quoteCfg.validityMinutes;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed reading quote config, falling back to ${QUOTE_VALIDITY_MINUTES}m: ${err?.message}`);
+      }
+    }
+
+    const expiresAt = new Date(Date.now() + validityMinutes * 60 * 1000);
 
     // 9. Persist Quote and Line Items
     const quote = await this.prisma.bookingQuote.create({
@@ -700,6 +767,15 @@ export class PricingService {
       .add(acceptedQuote.feesTotal)
       .add(acceptedQuote.taxTotal);
 
+    let cancellationMatrixSnapshot: any = null;
+    if (this.configService) {
+      try {
+        cancellationMatrixSnapshot = await this.configService.getCancellationMatrixConfig();
+      } catch {
+        // Fallback
+      }
+    }
+
     const priceSnapshot: PriceSnapshotJson = {
       quoteId: acceptedQuote.id,
       pricingVersion: acceptedQuote.pricingVersion,
@@ -723,7 +799,10 @@ export class PricingService {
         amount: Number(li.amount),
         isRefundable: li.isRefundable,
       })),
-      metadata: acceptedQuote.metadata as any,
+      metadata: {
+        ...((acceptedQuote.metadata as any) || {}),
+        ...(cancellationMatrixSnapshot ? { cancellationMatrix: cancellationMatrixSnapshot } : {}),
+      },
     };
 
     return {

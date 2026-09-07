@@ -94,6 +94,47 @@ export interface PlatformFeatureFlags {
   enableWhatsAppNotifications: boolean;
 }
 
+export interface TaxConfig {
+  gstRate: number; // e.g. 18 (%)
+}
+
+export interface QuoteConfig {
+  validityMinutes: number; // e.g. 15 (minutes)
+}
+
+export interface DurationDiscountTier {
+  minDays: number;
+  discountPercent: number;
+}
+
+export interface CancellationTier {
+  minHoursBeforePickup: number; // e.g. 24, 6, 0
+  feePercent: number; // e.g. 0, 25, 50
+  tier: string;
+  description: string;
+}
+
+export interface CancellationMatrixConfig {
+  tiers: CancellationTier[];
+  afterStartFeePercent: number; // e.g. 100
+  afterStartTier?: string;
+  afterStartDescription?: string;
+}
+
+export interface CommissionConfig {
+  defaultPercent: number; // e.g. 10 (%)
+}
+
+export interface DepositDefaultsConfig {
+  HATCHBACK: number;
+  SEDAN: number;
+  SUV: number;
+  LUXURY: number;
+  TEMPO_TRAVELLER?: number;
+  MINI_BUS?: number;
+  [key: string]: number | undefined;
+}
+
 export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: any; isPublic: boolean; description: string }> = {
   'wallet.rules': {
     category: 'WALLET',
@@ -234,5 +275,81 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as PlatformFeatureFlags,
     isPublic: true,
     description: 'Global dynamic feature flags controlling client application features',
+  },
+  'pricing.tax': {
+    category: 'PRICING',
+    value: {
+      gstRate: 18,
+    } as TaxConfig,
+    isPublic: true,
+    description: 'Goods and Services Tax (GST) rate percentage applied to platform service fees',
+  },
+  'pricing.quote': {
+    category: 'PRICING',
+    value: {
+      validityMinutes: 15,
+    } as QuoteConfig,
+    isPublic: true,
+    description: 'Booking quote validity window duration in minutes before expiration',
+  },
+  'pricing.duration_discounts': {
+    category: 'PRICING',
+    value: [
+      { minDays: 7, discountPercent: 10 },
+      { minDays: 30, discountPercent: 20 },
+    ] as DurationDiscountTier[],
+    isPublic: true,
+    description: 'Ordered multi-day duration discount tiers based on rental duration in days',
+  },
+  'booking.cancellation_matrix': {
+    category: 'BOOKING',
+    value: {
+      tiers: [
+        {
+          minHoursBeforePickup: 24,
+          feePercent: 0,
+          tier: 'FULL_REFUND_FREE_CANCELLATION',
+          description: 'Free cancellation (> 24 hours before pickup)',
+        },
+        {
+          minHoursBeforePickup: 6,
+          feePercent: 25,
+          tier: 'MODERATE_CANCELLATION',
+          description: 'Cancellation between 6 and 24 hours before pickup (25% fee)',
+        },
+        {
+          minHoursBeforePickup: 0,
+          feePercent: 50,
+          tier: 'LATE_CANCELLATION',
+          description: 'Cancellation within 6 hours of pickup time (50% fee)',
+        },
+      ],
+      afterStartFeePercent: 100,
+      afterStartTier: 'NO_REFUND_AFTER_START',
+      afterStartDescription: 'Cancellation after trip pickup time (Non-refundable)',
+    } as CancellationMatrixConfig,
+    isPublic: true,
+    description: 'Time-based cancellation fee percentage tiers and after-start fee policy',
+  },
+  'pricing.commission': {
+    category: 'PRICING',
+    value: {
+      defaultPercent: 10,
+    } as CommissionConfig,
+    isPublic: false,
+    description: 'Default platform commission percentage fallback when no granular rule matches',
+  },
+  'deposits.defaults': {
+    category: 'FINANCE',
+    value: {
+      HATCHBACK: 3000,
+      SEDAN: 4000,
+      SUV: 5000,
+      LUXURY: 10000,
+      TEMPO_TRAVELLER: 8000,
+      MINI_BUS: 10000,
+    } as DepositDefaultsConfig,
+    isPublic: true,
+    description: 'Default security deposit amount in INR per car category',
   },
 };

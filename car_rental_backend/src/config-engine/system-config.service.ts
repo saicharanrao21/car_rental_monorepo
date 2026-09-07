@@ -15,6 +15,12 @@ import {
   ReconciliationConfig,
   AnalyticsConfig,
   PlatformFeatureFlags,
+  TaxConfig,
+  QuoteConfig,
+  DurationDiscountTier,
+  CancellationMatrixConfig,
+  CommissionConfig,
+  DepositDefaultsConfig,
 } from './system-config.interface';
 
 @Injectable()
@@ -162,5 +168,29 @@ export class SystemConfigService {
 
   async getFeatureFlags(): Promise<PlatformFeatureFlags> {
     return this.getConfig<PlatformFeatureFlags>('platform.feature_flags');
+  }
+
+  async getTaxConfig(): Promise<TaxConfig> {
+    return this.getConfig<TaxConfig>('pricing.tax');
+  }
+
+  async getQuoteConfig(): Promise<QuoteConfig> {
+    return this.getConfig<QuoteConfig>('pricing.quote');
+  }
+
+  async getDurationDiscountsConfig(): Promise<DurationDiscountTier[]> {
+    return this.getConfig<DurationDiscountTier[]>('pricing.duration_discounts');
+  }
+
+  async getCancellationMatrixConfig(): Promise<CancellationMatrixConfig> {
+    return this.getConfig<CancellationMatrixConfig>('booking.cancellation_matrix');
+  }
+
+  async getCommissionConfig(): Promise<CommissionConfig> {
+    return this.getConfig<CommissionConfig>('pricing.commission');
+  }
+
+  async getDepositDefaultsConfig(): Promise<DepositDefaultsConfig> {
+    return this.getConfig<DepositDefaultsConfig>('deposits.defaults');
   }
 }
