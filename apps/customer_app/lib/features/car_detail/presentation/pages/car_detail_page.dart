@@ -187,7 +187,18 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
                             city: city,
                             pickup: pickup,
                             drop: drop,
-                            onChangeSearch: () => context.push('/search'),
+                            onChangeSearch: () {
+                              final startStr = dates != null ? dates.start.toIso8601String() : '';
+                              final endStr = dates != null ? dates.end.toIso8601String() : '';
+                              context.go(
+                                '/search?city=${Uri.encodeComponent(city)}'
+                                '&tripType=${Uri.encodeComponent(tripType)}'
+                                '&start=${Uri.encodeComponent(startStr)}'
+                                '&end=${Uri.encodeComponent(endStr)}'
+                                '&pickup=${Uri.encodeComponent(pickup ?? '')}'
+                                '&drop=${Uri.encodeComponent(drop ?? '')}',
+                              );
+                            },
                           ),
                           const Gap(24),
 

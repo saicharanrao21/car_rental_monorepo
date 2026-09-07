@@ -166,7 +166,10 @@ export class DepositsService {
     });
 
     if (!deposit) {
-      throw new NotFoundException('Security deposit record not found.');
+      this.logger.warn(
+        `releaseDeposit invoked for booking ${bookingId}, but no security deposit record exists. Skipping deposit release.`,
+      );
+      return null;
     }
 
     if (deposit.status !== SecurityDepositStatus.HELD) {
@@ -288,23 +291,25 @@ export class DepositsService {
     });
 
     if (!deposit) {
-      throw new NotFoundException('Security deposit record not found.');
+      this.logger.warn(
+        `settleDeduction invoked for booking ${bookingId}, but no security deposit record exists. Skipping deposit deduction.`,
+      );
+      return null;
     }
 
     if (deposit.status !== SecurityDepositStatus.HELD) {
-      throw new ConflictException(
-        `Deposit cannot be settled in status: ${deposit.status}`,
+      this.logger.warn(
+        `Deposit for booking ${bookingId} cannot be settled in status: ${deposit.status}. Skipping deduction.`,
       );
+      return deposit;
     }
 
     const deductDecimal = new Prisma.Decimal(deductAmount);
-    if (deductDecimal.gt(deposit.amount)) {
-      throw new BadRequestException(
-        `Deduction amount (${deductAmount}) cannot exceed total deposit (${deposit.amount.toNumber()}).`,
-      );
-    }
+    const actualDeductDecimal = deductDecimal.gt(deposit.amount)
+      ? deposit.amount
+      : deductDecimal;
 
-    const remainingRefund = deposit.amount.sub(deductDecimal);
+    const remainingRefund = deposit.amount.sub(actualDeductDecimal);
     const targetStatus = remainingRefund.gt(0)
       ? SecurityDepositStatus.PARTIALLY_REFUNDED
       : SecurityDepositStatus.FORFEITED;
@@ -317,7 +322,7 @@ export class DepositsService {
       },
       data: {
         status: targetStatus,
-        deductedAmount: deductDecimal,
+        deductedAmount: actualDeductDecimal,
         releasedAt: new Date(),
       },
     });
@@ -373,7 +378,8 @@ export class DepositsService {
       deposit.id,
       {
         bookingId,
-        deductedAmount: deductDecimal.toNumber(),
+        deductedAmount: actualDeductDecimal.toNumber(),
+        totalClaimedAmount: deductAmount,
         refundedAmount: remainingRefund.toNumber(),
         reason,
       },

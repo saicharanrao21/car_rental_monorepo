@@ -169,7 +169,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final startStr = dateRange.start.toIso8601String();
     final endStr = dateRange.end.toIso8601String();
 
-    context.push(
+    context.go(
       '/search?city=${Uri.encodeComponent(city)}'
       '&tripType=${Uri.encodeComponent(tripType)}'
       '&start=${Uri.encodeComponent(startStr)}'

@@ -505,14 +505,15 @@ class DashboardPage extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onPressed: () async {
-                      final success = await ref
-                          .read(dashboardControllerProvider.notifier)
-                          .respondToBooking(item.bookingId!, true);
+                      final controller = ref.read(dashboardControllerProvider.notifier);
+                      final success = await controller.respondToBooking(item.bookingId!, true);
                       if (context.mounted) {
+                        final errorMsg = controller.lastErrorMessage ?? 'Failed to confirm booking';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(success ? 'Booking confirmed successfully!' : 'Failed to confirm booking'),
+                            content: Text(success ? 'Booking confirmed successfully!' : errorMsg),
                             backgroundColor: success ? DDSColors.successGreen : DDSColors.errorRed,
+                            duration: Duration(seconds: success ? 2 : 4),
                           ),
                         );
                       }

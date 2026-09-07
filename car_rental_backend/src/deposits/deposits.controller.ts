@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   Request,
+  NotFoundException,
 } from '@nestjs/common';
 import { DepositsService } from './deposits.service';
 import { DepositRulesService } from './deposit-rules.service';
@@ -35,7 +36,11 @@ export class DepositsController {
     @Body('reason') reason: string,
     @Request() req: any,
   ) {
-    return this.depositsService.releaseDeposit(bookingId, req.user.userId, reason);
+    const result = await this.depositsService.releaseDeposit(bookingId, req.user.userId, reason);
+    if (!result) {
+      throw new NotFoundException('Security deposit record not found.');
+    }
+    return result;
   }
 
   @Get('admin/deposit-rules')

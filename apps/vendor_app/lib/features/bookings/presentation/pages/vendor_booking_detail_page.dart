@@ -1469,7 +1469,7 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Paid Booking Awaiting Your Approval',
+                            'Booking Request Awaiting Approval',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                           Gap(2),
@@ -1500,16 +1500,30 @@ class _VendorBookingDetailPageState extends ConsumerState<VendorBookingDetailPag
                     Expanded(
                       child: AppButton(
                         text: 'Accept Booking',
-                        onPressed: () async {
+                        onPressed: _isLoadingAction
+                            ? null
+                            : () async {
                           setState(() => _isLoadingAction = true);
-                          final success = await ref
-                              .read(vendorBookingsProvider.notifier)
-                              .updateStatus(bookingId, 'confirmed');
+                          final notifier = ref.read(vendorBookingsProvider.notifier);
+                          final success = await notifier.updateStatus(bookingId, 'confirmed');
                           if (mounted) {
                             setState(() => _isLoadingAction = false);
                             if (success) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Booking request accepted successfully!')),
+                                const SnackBar(
+                                  content: Text('Booking request accepted successfully!'),
+                                  backgroundColor: DDSColors.successGreen,
+                                ),
+                              );
+                            } else {
+                              final errorMsg = notifier.lastErrorMessage ??
+                                  'Failed to confirm booking. Please ensure payment has been captured.';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(errorMsg),
+                                  backgroundColor: DDSColors.errorRed,
+                                  duration: const Duration(seconds: 4),
+                                ),
                               );
                             }
                           }

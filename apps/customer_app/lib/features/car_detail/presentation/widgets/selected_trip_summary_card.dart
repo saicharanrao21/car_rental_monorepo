@@ -76,7 +76,7 @@ class SelectedTripSummaryCard extends StatelessWidget {
               isFullWidth: false,
               size: DriveGoButtonSize.compact,
               variant: DriveGoButtonVariant.primary,
-              onPressed: onChangeSearch ?? () => context.push('/search'),
+              onPressed: onChangeSearch ?? () => context.go('/search'),
             ),
           ],
         ),
@@ -129,7 +129,7 @@ class SelectedTripSummaryCard extends StatelessWidget {
               ),
               const Gap(8),
               InkWell(
-                onTap: onChangeSearch ?? () => context.push('/search'),
+                onTap: onChangeSearch ?? () => context.go('/search'),
                 borderRadius: BorderRadius.circular(DDSRadius.small),
                 child: Container(
                   padding: const EdgeInsets.symmetric(

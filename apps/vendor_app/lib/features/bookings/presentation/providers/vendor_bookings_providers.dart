@@ -108,27 +108,34 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     }
   }
 
+  String? lastErrorMessage;
+
   Future<bool> updateStatus(
     String bookingId,
     String newStatus, {
     String? handoverOtp,
     String? reason,
   }) async {
+    lastErrorMessage = null;
     final repo = ref.read(vendorBookingsRepositoryProvider);
-    final result = await AsyncValue.guard(() async {
+    try {
       await repo.updateBookingStatus(
         bookingId,
         newStatus,
         handoverOtp: handoverOtp,
         reason: reason,
       );
-    });
-    ref.invalidateSelf();
-    ref.invalidate(dashboardStatsProvider);
-    ref.invalidate(latestBookingRequestsProvider);
-    ref.invalidate(bookingInspectionsProvider(bookingId));
-    ref.invalidate(fleetCarsProvider);
-    return !result.hasError;
+      ref.invalidateSelf();
+      ref.invalidate(dashboardStatsProvider);
+      ref.invalidate(latestBookingRequestsProvider);
+      ref.invalidate(bookingInspectionsProvider(bookingId));
+      ref.invalidate(fleetCarsProvider);
+      return true;
+    } catch (err) {
+      lastErrorMessage = _formatErrorMessage(err);
+      ref.invalidateSelf();
+      return false;
+    }
   }
 
   Future<bool> markHandoverReady(String bookingId) async {
@@ -140,15 +147,25 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
   }
 
   Future<bool> reject(String bookingId, String reason) async {
+    lastErrorMessage = null;
     final repo = ref.read(vendorBookingsRepositoryProvider);
-    final result = await AsyncValue.guard(() async {
+    try {
       await repo.rejectBooking(bookingId, reason);
-    });
-    ref.invalidateSelf();
-    ref.invalidate(dashboardStatsProvider);
-    ref.invalidate(latestBookingRequestsProvider);
-    ref.invalidate(fleetCarsProvider);
-    return !result.hasError;
+      ref.invalidateSelf();
+      ref.invalidate(dashboardStatsProvider);
+      ref.invalidate(latestBookingRequestsProvider);
+      ref.invalidate(fleetCarsProvider);
+      return true;
+    } catch (err) {
+      lastErrorMessage = _formatErrorMessage(err);
+      ref.invalidateSelf();
+      return false;
+    }
+  }
+
+  String _formatErrorMessage(dynamic err) {
+    final str = err.toString();
+    return str.startsWith('Exception: ') ? str.substring(11) : str;
   }
 
   Future<bool> submitInspection(

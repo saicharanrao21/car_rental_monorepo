@@ -93,12 +93,16 @@ final earningsSnapshotProvider = FutureProvider.autoDispose<EarningsSnapshot>((r
 });
 
 class DashboardController extends AutoDisposeAsyncNotifier<void> {
+  String? lastErrorMessage;
+
   @override
   FutureOr<void> build() {}
 
   Future<bool> respondToBooking(String bookingId, bool accept) async {
+    if (state.isLoading) return false;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() async {
+    lastErrorMessage = null;
+    try {
       await ref.read(vendorBookingsRepositoryProvider).updateBookingStatus(
         bookingId,
         accept ? 'confirmed' : 'cancelled',
@@ -109,14 +113,20 @@ class DashboardController extends AutoDisposeAsyncNotifier<void> {
       ref.invalidate(todayOperationsProvider);
       ref.invalidate(bookingMatrixProvider);
       ref.invalidate(vendorBookingsProvider);
-    });
-    state = result;
-    return !result.hasError;
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (err) {
+      lastErrorMessage = _formatErrorMessage(err);
+      state = const AsyncValue.data(null);
+      return false;
+    }
   }
 
   Future<bool> rejectBooking(String bookingId, String reason) async {
+    if (state.isLoading) return false;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() async {
+    lastErrorMessage = null;
+    try {
       await ref.read(vendorBookingsRepositoryProvider).rejectBooking(bookingId, reason);
       ref.invalidate(dashboardStatsProvider);
       ref.invalidate(latestBookingRequestsProvider);
@@ -124,9 +134,18 @@ class DashboardController extends AutoDisposeAsyncNotifier<void> {
       ref.invalidate(todayOperationsProvider);
       ref.invalidate(bookingMatrixProvider);
       ref.invalidate(vendorBookingsProvider);
-    });
-    state = result;
-    return !result.hasError;
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (err) {
+      lastErrorMessage = _formatErrorMessage(err);
+      state = const AsyncValue.data(null);
+      return false;
+    }
+  }
+
+  String _formatErrorMessage(dynamic err) {
+    final str = err.toString();
+    return str.startsWith('Exception: ') ? str.substring(11) : str;
   }
 }
 

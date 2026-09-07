@@ -514,9 +514,13 @@ export class BookingLifecycleService {
       const isPaid = booking.payment && booking.payment.status === PaymentStatus.PAID;
       if (!isPaid) {
         if (!isAdmin) {
-          throw new BadRequestException(
-            `Cannot confirm booking: Payment has not been captured (Payment status: ${booking.payment?.status || 'NONE'}).`,
-          );
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            code: 'UNPAID_BOOKING_CONFIRMATION_REJECTED',
+            message: `Cannot confirm booking: Payment has not been captured (Payment status: ${booking.payment?.status || 'NONE'}). The customer must complete payment before vendor confirmation.`,
+            paymentStatus: booking.payment?.status || 'NONE',
+          });
         }
         if (!reason || reason.trim().length < 10) {
           throw new BadRequestException(

@@ -40,7 +40,7 @@ class HomeQuickCategoriesWidget extends ConsumerWidget {
           title: 'Popular Car Types',
           actionText: 'View All',
           onActionPressed: () {
-            context.push('/search?city=${Uri.encodeComponent(selectedCity)}');
+            context.go('/search?city=${Uri.encodeComponent(selectedCity)}');
           },
         ),
         const Gap(12),
@@ -63,7 +63,7 @@ class HomeQuickCategoriesWidget extends ConsumerWidget {
                   child: InkWell(
                     borderRadius: DDSRadius.mediumBorderRadius,
                     onTap: () {
-                      context.push(
+                      context.go(
                         '/search?city=${Uri.encodeComponent(selectedCity)}&category=${Uri.encodeComponent(category)}',
                       );
                     },

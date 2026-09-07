@@ -375,13 +375,21 @@ describe('Phase 33 — Canonical Booking Lifecycle Orchestration Layer', () => {
       },
     });
 
-    await expect(
-      lifecycleService.confirmBooking(
+    try {
+      await lifecycleService.confirmBooking(
         'booking-p33-001',
         'vendor-owner-001',
         Role.VENDOR,
-      ),
-    ).rejects.toThrow(BadRequestException);
+      );
+      fail('Expected BadRequestException to be thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(BadRequestException);
+      const response = err.getResponse();
+      expect(response).toMatchObject({
+        code: 'UNPAID_BOOKING_CONFIRMATION_REJECTED',
+        paymentStatus: PaymentStatus.PENDING,
+      });
+    }
   });
 
   // 10. Refund dependency

@@ -199,11 +199,13 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   const Gap(DDSSpacing.sm),
-                  Text(
-                    'Calculating server-authoritative quote...',
-                    style: DDSTypography.labelSmall.copyWith(
-                      color: DDSColors.primaryBlue,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Text(
+                      'Calculating server-authoritative quote...',
+                      style: DDSTypography.labelSmall.copyWith(
+                        color: DDSColors.primaryBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -306,11 +308,13 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                       ),
                     ),
                     const Gap(DDSSpacing.xs),
-                    Text(
-                      'Promo Code / Coupon',
-                      style: DDSTypography.titleMedium.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: DDSColors.textPrimary,
+                    Expanded(
+                      child: Text(
+                        'Promo Code / Coupon',
+                        style: DDSTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: DDSColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -407,6 +411,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: DDSColors.primaryBlue,
                             foregroundColor: Colors.white,
+                            minimumSize: const Size(80, 40),
                             shape: RoundedRectangleBorder(
                               borderRadius: DDSRadius.mediumBorderRadius,
                             ),

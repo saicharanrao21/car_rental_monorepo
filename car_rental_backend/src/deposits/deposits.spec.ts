@@ -238,5 +238,46 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
 
       expect(paymentsService.refund).not.toHaveBeenCalled();
     });
+
+    it('returns null safely when settling deduction for a booking without a deposit', async () => {
+      prisma.securityDeposit.findUnique.mockResolvedValue(null);
+
+      const result = await service.settleDeduction('b_nodep', 2000, 'admin_1', 'No deposit test');
+
+      expect(result).toBeNull();
+      expect(paymentsService.refund).not.toHaveBeenCalled();
+    });
+
+    it('caps deduction to deposit amount when damage exceeds deposit, forfeiting full deposit with zero refund', async () => {
+      prisma.securityDeposit.findUnique.mockResolvedValue({
+        id: 'dep1',
+        bookingId: 'b1',
+        amount: new Prisma.Decimal(3000),
+        deductedAmount: new Prisma.Decimal(0),
+        status: SecurityDepositStatus.HELD,
+        booking: { customerId: 'c1' },
+      });
+
+      prisma.securityDeposit.updateMany.mockResolvedValue({ count: 1 });
+      prisma.securityDeposit.update.mockResolvedValue({
+        id: 'dep1',
+        status: SecurityDepositStatus.FORFEITED,
+        deductedAmount: new Prisma.Decimal(3000),
+        refundedAmount: new Prisma.Decimal(0),
+      });
+
+      const result = await service.settleDeduction('b1', 5000, 'admin_1', 'High damage');
+
+      // Deduction capped to 3000, remaining refund is 0, so Razorpay refund is NOT called
+      expect(prisma.securityDeposit.updateMany).toHaveBeenCalledWith({
+        where: { id: 'dep1', status: SecurityDepositStatus.HELD },
+        data: expect.objectContaining({
+          status: SecurityDepositStatus.FORFEITED,
+          deductedAmount: new Prisma.Decimal(3000),
+        }),
+      });
+      expect(paymentsService.refund).not.toHaveBeenCalled();
+      expect(result.status).toBe(SecurityDepositStatus.FORFEITED);
+    });
   });
 });

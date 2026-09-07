@@ -43,7 +43,7 @@ class HomeAvailableCarsSection extends ConsumerWidget {
               title: 'Available in $selectedCity',
               actionText: 'See all (${cars.length})',
               onActionPressed: () {
-                context.push('/search?city=${Uri.encodeComponent(selectedCity)}');
+                context.go('/search?city=${Uri.encodeComponent(selectedCity)}');
               },
             ),
             const Gap(12),

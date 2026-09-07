@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import '../domain/repositories/vendor_bookings_repository.dart';
@@ -75,27 +76,45 @@ class ApiVendorBookingsRepository implements VendorBookingsRepository {
     String? handoverOtp,
     String? reason,
   }) async {
-    await apiClient.dio.patch(
-      '/bookings/$bookingId/status',
-      data: {
-        'status': newStatus.toUpperCase(),
-        if (handoverOtp != null && handoverOtp.isNotEmpty) 'handoverOtp': handoverOtp,
-        if (reason != null && reason.isNotEmpty) 'reason': reason,
-      },
-    );
+    try {
+      await apiClient.dio.patch(
+        '/bookings/$bookingId/status',
+        data: {
+          'status': newStatus.toUpperCase(),
+          if (handoverOtp != null && handoverOtp.isNotEmpty) 'handoverOtp': handoverOtp,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+        },
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String? msg;
+      if (data is Map) {
+        msg = data['message'] as String? ?? data['error'] as String?;
+      }
+      throw Exception(msg ?? e.message ?? 'Failed to update booking status');
+    }
   }
 
   @override
   Future<void> rejectBooking(String bookingId, String reason) async {
-    await apiClient.dio.patch(
-      '/bookings/$bookingId/status',
-      data: {
-        'status': 'CANCELLED',
-      },
-      queryParameters: {
-        'reason': reason,
-      },
-    );
+    try {
+      await apiClient.dio.patch(
+        '/bookings/$bookingId/status',
+        data: {
+          'status': 'CANCELLED',
+        },
+        queryParameters: {
+          'reason': reason,
+        },
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String? msg;
+      if (data is Map) {
+        msg = data['message'] as String? ?? data['error'] as String?;
+      }
+      throw Exception(msg ?? e.message ?? 'Failed to reject booking');
+    }
   }
 
   @override

@@ -223,6 +223,7 @@ export class DamageClaimsService {
         booking: {
           include: {
             protectionPackage: true,
+            securityDeposit: true,
           },
         },
       },
@@ -234,7 +235,9 @@ export class DamageClaimsService {
 
     if (
       claim.status === DamageClaimStatus.SETTLED ||
-      claim.status === DamageClaimStatus.REJECTED
+      claim.status === DamageClaimStatus.REJECTED ||
+      claim.status === DamageClaimStatus.APPROVED ||
+      claim.status === DamageClaimStatus.PARTIALLY_APPROVED
     ) {
       throw new ConflictException(
         `Claim is already finalized with status: ${claim.status}`,
@@ -251,8 +254,8 @@ export class DamageClaimsService {
         },
       });
 
-      // Release deposit back to customer
-      await this.depositsService.releaseDeposit(
+      // Release deposit back to customer if deposit exists
+      const releasedDeposit = await this.depositsService.releaseDeposit(
         claim.bookingId,
         adminUserId,
         `Damage claim rejected: ${dto.adminNotes}`,
@@ -266,8 +269,22 @@ export class DamageClaimsService {
         {
           bookingId: claim.bookingId,
           adminNotes: dto.adminNotes,
+          depositReleased: Boolean(releasedDeposit),
+          ...(releasedDeposit ? {} : { note: 'No security deposit was held for this booking' }),
         },
       );
+
+      if (claim.booking?.customerId) {
+        this.notificationsService
+          .notifyUser(
+            claim.booking.customerId,
+            'Damage Claim Rejected',
+            `The damage claim submitted for your booking ${claim.bookingId} has been rejected by the admin.${releasedDeposit ? ' Your security deposit has been released.' : ''}`,
+          )
+          .catch((err) =>
+            this.logger.error('Failed to notify customer of claim rejection', err),
+          );
+      }
 
       return updated;
     }
@@ -287,12 +304,18 @@ export class DamageClaimsService {
     }
 
     // Deductible ceiling check: cannot exceed customer's protection package deductible limit
-    if (
-      claim.booking?.protectionDeductible &&
-      approvedAmount > claim.booking.protectionDeductible.toNumber()
-    ) {
+    const deductibleCeiling =
+      claim.booking?.protectionDeductible !== null &&
+      claim.booking?.protectionDeductible !== undefined
+        ? claim.booking.protectionDeductible.toNumber()
+        : claim.booking?.protectionPackage?.deductibleAmount !== null &&
+          claim.booking?.protectionPackage?.deductibleAmount !== undefined
+          ? claim.booking.protectionPackage.deductibleAmount.toNumber()
+          : null;
+
+    if (deductibleCeiling !== null && approvedAmount > deductibleCeiling) {
       throw new BadRequestException(
-        `Approved amount (${approvedAmount}) cannot exceed customer protection package deductible ceiling of INR ${claim.booking.protectionDeductible.toNumber()}. Customer financial liability is capped.`,
+        `Approved amount (${approvedAmount}) cannot exceed customer protection package deductible ceiling of INR ${deductibleCeiling}. Customer financial liability is capped.`,
       );
     }
 
@@ -303,8 +326,8 @@ export class DamageClaimsService {
         ? DamageClaimStatus.PARTIALLY_APPROVED
         : DamageClaimStatus.APPROVED;
 
-    // Settle deduction against security deposit
-    await this.depositsService.settleDeduction(
+    // Settle deduction against security deposit (if one exists)
+    const settledDeposit = await this.depositsService.settleDeduction(
       claim.bookingId,
       approvedAmount,
       adminUserId,
@@ -321,9 +344,10 @@ export class DamageClaimsService {
       },
     });
 
+    const hasDeposit = Boolean(settledDeposit);
     this.auditLogService.log(
       adminUserId,
-      'DAMAGE_CLAIM_APPROVED',
+      hasDeposit ? 'DAMAGE_CLAIM_APPROVED' : 'DAMAGE_CLAIM_APPROVED_NO_DEPOSIT',
       'DamageClaim',
       claimId,
       {
@@ -332,8 +356,26 @@ export class DamageClaimsService {
         approvedAmount,
         decision: dto.decision,
         adminNotes: dto.adminNotes,
+        depositSettled: hasDeposit,
+        actualDepositDeduction:
+          settledDeposit?.deductedAmount?.toNumber
+            ? settledDeposit.deductedAmount.toNumber()
+            : Number(settledDeposit?.deductedAmount || 0),
+        ...(!hasDeposit ? { note: 'No security deposit was held for this legacy booking; claim adjudicated without deposit deduction' } : {}),
       },
     );
+
+    if (claim.booking?.customerId) {
+      this.notificationsService
+        .notifyUser(
+          claim.booking.customerId,
+          'Damage Claim Adjudicated',
+          `A damage claim for your booking ${claim.bookingId} has been ${targetStatus === DamageClaimStatus.PARTIALLY_APPROVED ? 'partially approved' : 'approved'} for INR ${approvedAmount}.${hasDeposit ? ' Applicable damages have been deducted from your security deposit.' : ''}`,
+        )
+        .catch((err) =>
+          this.logger.error('Failed to notify customer of claim adjudication', err),
+        );
+    }
 
     return updated;
   }

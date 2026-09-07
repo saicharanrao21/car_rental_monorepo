@@ -221,6 +221,78 @@ describe('Phase 5: DamageClaimsService (Post-Trip Damage Claims Workflow & Concu
       );
       expect(result.status).toBe(DamageClaimStatus.REJECTED);
     });
+
+    it('successfully adjudicates legacy booking claim without security deposit (BUG-02 fix)', async () => {
+      prisma.damageClaim.findUnique.mockResolvedValue({
+        id: 'claim_legacy',
+        bookingId: 'b_legacy',
+        claimedAmount: new Prisma.Decimal(2500),
+        status: DamageClaimStatus.UNDER_REVIEW,
+        booking: {
+          id: 'b_legacy',
+          securityDeposit: null,
+          protectionDeductible: null,
+        },
+      });
+
+      depositsService.settleDeduction.mockResolvedValue(null);
+
+      prisma.damageClaim.update.mockResolvedValue({
+        id: 'claim_legacy',
+        status: DamageClaimStatus.APPROVED,
+        approvedAmount: new Prisma.Decimal(2000),
+      });
+
+      const result = await service.adjudicateClaim(
+        'claim_legacy',
+        {
+          decision: ClaimDecision.APPROVED,
+          approvedAmount: 2000,
+          adminNotes: 'Legacy booking settled without deposit deduction',
+        },
+        'admin_user_1',
+      );
+
+      expect(depositsService.settleDeduction).toHaveBeenCalledWith(
+        'b_legacy',
+        2000,
+        'admin_user_1',
+        'Legacy booking settled without deposit deduction',
+      );
+      expect(result.status).toBe(DamageClaimStatus.APPROVED);
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'admin_user_1',
+        'DAMAGE_CLAIM_APPROVED_NO_DEPOSIT',
+        'DamageClaim',
+        'claim_legacy',
+        expect.objectContaining({
+          depositSettled: false,
+          actualDepositDeduction: 0,
+        }),
+      );
+    });
+
+    it('rejects duplicate adjudication on already finalized claim', async () => {
+      prisma.damageClaim.findUnique.mockResolvedValue({
+        id: 'claim_done',
+        bookingId: 'b1',
+        claimedAmount: new Prisma.Decimal(3000),
+        status: DamageClaimStatus.APPROVED,
+        booking: { id: 'b1' },
+      });
+
+      await expect(
+        service.adjudicateClaim(
+          'claim_done',
+          {
+            decision: ClaimDecision.APPROVED,
+            approvedAmount: 3000,
+            adminNotes: 'Attempting second adjudication',
+          },
+          'admin_user_1',
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 
   describe('getAllClaimsForAdmin', () => {
