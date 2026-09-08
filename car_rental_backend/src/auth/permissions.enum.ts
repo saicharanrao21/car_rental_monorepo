@@ -14,6 +14,12 @@ export enum AdminPermission {
   // Vendor & Fleet
   VENDOR_READ = 'vendor:read',
   VENDOR_WRITE = 'vendor:write',
+  VENDOR_REQUIREMENTS_READ = 'vendor_requirements:read',
+  VENDOR_REQUIREMENTS_WRITE = 'vendor_requirements:write',
+  VENDOR_DEPOSIT_READ = 'vendor_deposit:read',
+  VENDOR_DEPOSIT_WRITE = 'vendor_deposit:write',
+  VENDOR_VERIFICATION_READ = 'vendor_verification:read',
+  VENDOR_VERIFICATION_WRITE = 'vendor_verification:write',
   FLEET_MANAGEMENT = 'fleet:management',
 
   // Location & Service Areas
@@ -37,6 +43,16 @@ export enum AdminPermission {
   RECONCILIATION_MANAGE = 'reconciliation:manage',
   COMMISSION_MANAGE = 'commission:manage',
 
+  // Wallet
+  WALLET_READ = 'wallet:read',
+  WALLET_WRITE = 'wallet:write',
+  WALLET_ADJUST = 'wallet:adjust',
+
+  // Loyalty & Rewards
+  LOYALTY_READ = 'loyalty:read',
+  LOYALTY_WRITE = 'loyalty:write',
+  LOYALTY_ADJUST = 'loyalty:adjust',
+
   // Support & Disputes
   SUPPORT_TICKET_READ = 'support:ticket:read',
   SUPPORT_TICKET_WRITE = 'support:ticket:write',
@@ -46,6 +62,8 @@ export enum AdminPermission {
   COUPON_MANAGE = 'coupon:manage',
   CAMPAIGN_MANAGE = 'campaign:manage',
   BANNER_MANAGE = 'banner:manage',
+  REFERRAL_READ = 'referral:read',
+  REFERRAL_WRITE = 'referral:write',
 
   // Risk & Fraud
   FRAUD_VIEW = 'fraud:view',
@@ -66,6 +84,10 @@ export const ROLE_PERMISSIONS_MATRIX: Record<Role, AdminPermission[]> = {
     AdminPermission.SUPPORT_TICKET_WRITE,
     AdminPermission.EMERGENCY_DISPATCH,
     AdminPermission.DISPUTE_RESOLVE,
+    AdminPermission.VENDOR_READ,
+    AdminPermission.VENDOR_REQUIREMENTS_READ,
+    AdminPermission.VENDOR_DEPOSIT_READ,
+    AdminPermission.VENDOR_VERIFICATION_READ,
   ],
   [Role.VENDOR]: [],
   [Role.CUSTOMER]: [],

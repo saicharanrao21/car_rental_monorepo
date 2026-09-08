@@ -28,6 +28,7 @@ import '../../features/locations/presentation/pages/operational_map_page.dart';
 import '../../features/locations/presentation/pages/location_governance_page.dart';
 import '../../features/whatsapp/presentation/pages/admin_whatsapp_page.dart';
 import '../../features/business_rules/presentation/pages/business_rules_dashboard_page.dart';
+import '../../features/wallet/presentation/pages/admin_wallet_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -139,6 +140,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/loyalty',
             builder: (context, state) => const AdminLoyaltyManagementPage(),
+          ),
+          GoRoute(
+            path: '/wallet',
+            builder: (context, state) => const AdminWalletPage(),
           ),
           GoRoute(
             path: '/fraud',

@@ -82,6 +82,7 @@ class AdminShell extends ConsumerWidget {
       domainName: 'Finance & Settlements',
       icon: Icons.payments_outlined,
       items: [
+        AdminNavItem(label: 'Wallet Management', icon: Icons.account_balance_wallet_outlined, route: '/wallet'),
         AdminNavItem(label: 'Commission Settings', icon: Icons.percent_outlined, route: '/commission'),
         AdminNavItem(label: 'Invoices & Billing', icon: Icons.receipt_long_outlined, route: '/invoices'),
         AdminNavItem(label: 'Protection Packages', icon: Icons.shield_outlined, route: '/protection-packages'),

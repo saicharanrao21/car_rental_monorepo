@@ -12,21 +12,26 @@ import { LoyaltyTierCode, Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { AdminPermission } from '../auth/permissions.enum';
 import { AdminAdjustLoyaltyDto } from './dto/admin-adjust-loyalty.dto';
 import { LoyaltyService } from './loyalty.service';
 
 @Controller('admin/loyalty')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(Role.ADMIN)
 export class AdminLoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
   @Get('summary')
+  @RequirePermissions(AdminPermission.LOYALTY_READ, AdminPermission.FINANCE_READ)
   async getSummary() {
     return this.loyaltyService.getAdminLoyaltySummary();
   }
 
   @Get('accounts')
+  @RequirePermissions(AdminPermission.LOYALTY_READ, AdminPermission.FINANCE_READ)
   async getAccounts(
     @Query('search') search?: string,
     @Query('tierCode') tierCode?: LoyaltyTierCode,
@@ -39,6 +44,7 @@ export class AdminLoyaltyController {
   }
 
   @Get('accounts/:userId/transactions')
+  @RequirePermissions(AdminPermission.LOYALTY_READ, AdminPermission.FINANCE_READ)
   async getAccountTransactions(
     @Param('userId') userId: string,
     @Query('page') page?: string,
@@ -50,6 +56,7 @@ export class AdminLoyaltyController {
   }
 
   @Post('adjust')
+  @RequirePermissions(AdminPermission.LOYALTY_ADJUST, AdminPermission.FINANCE_ADJUSTMENT)
   async adjustPoints(@Req() req: any, @Body() dto: AdminAdjustLoyaltyDto) {
     const userId = req.user.id || req.user.userId;
     return this.loyaltyService.adminAdjustPoints(userId, dto);

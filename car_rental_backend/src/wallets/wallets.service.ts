@@ -133,6 +133,32 @@ export class WalletsService {
   }
 
   /**
+   * Retrieves full wallet details, user profile, recent ledger, and reconciliation status for Admin console.
+   */
+  async getWalletByUserIdAdmin(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true, email: true, role: true },
+    });
+    if (!user) {
+      throw new NotFoundException(`User not found: ${userId}`);
+    }
+    const wallet = await this.getOrCreateWallet(userId);
+    const recentLedger = await this.prisma.walletLedgerEntry.findMany({
+      where: { walletId: wallet.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    const reconciliation = await this.reconcileWallet(wallet.id);
+    return {
+      wallet,
+      user,
+      recentLedger,
+      reconciliation,
+    };
+  }
+
+  /**
    * Lazily checks and expires outdated promotional credits for a wallet.
    */
   async cleanExpiredPromotionalCredits(
@@ -238,6 +264,7 @@ export class WalletsService {
     const config = this.systemConfigService
       ? await this.systemConfigService.getWalletConfig()
       : {
+          isEnabled: true,
           maxSingleDeposit: 50000,
           minSingleDeposit: 100,
           maxWalletBalanceCap: 100000,
@@ -247,6 +274,17 @@ export class WalletsService {
           maxDailyWalletUsage: 50000,
           isDepositsEnabled: true,
         };
+
+    if (config.isEnabled === false) {
+      return {
+        allowed: false,
+        usableAmount: 0,
+        promoAmount: 0,
+        realAmount: 0,
+        availableBalance: currentWallet.availableBalance.toNumber(),
+        reason: 'DriveGo Wallet is currently disabled by administrator.',
+      };
+    }
 
     const bookingTotal = new Decimal(bookingAmount);
 
@@ -362,9 +400,20 @@ export class WalletsService {
       const currentReal = new Decimal(lockedWallet.realBalance);
       const currentPromo = new Decimal(lockedWallet.promoBalance);
 
-      // Check balance cap
+      // Check balance cap and wallet master switch
       const newAvailable = currentAvailable.add(amount);
-      if (newAvailable.gt(MAX_WALLET_BALANCE_CAP)) {
+      if (type !== LedgerEntryType.ADMIN_ADJUSTMENT && this.systemConfigService) {
+        const config = await this.systemConfigService.getWalletConfig();
+        if (config && config.isEnabled === false) {
+          throw new BadRequestException('Wallet operations are currently disabled by platform administrator.');
+        }
+        const cap = config?.maxWalletBalanceCap || MAX_WALLET_BALANCE_CAP;
+        if (newAvailable.gt(cap)) {
+          throw new BadRequestException(
+            `Wallet balance cap exceeded. Maximum allowed balance is ₹${cap.toLocaleString('en-IN')}`,
+          );
+        }
+      } else if (newAvailable.gt(MAX_WALLET_BALANCE_CAP)) {
         throw new BadRequestException(
           `Wallet balance cap exceeded. Maximum allowed balance is ₹${MAX_WALLET_BALANCE_CAP.toLocaleString('en-IN')}`,
         );
@@ -468,6 +517,13 @@ export class WalletsService {
         throw new BadRequestException(`Wallet is not active (Status: ${lockedWallet.status})`);
       }
 
+      if (type !== LedgerEntryType.ADMIN_ADJUSTMENT && this.systemConfigService) {
+        const config = await this.systemConfigService.getWalletConfig();
+        if (config && config.isEnabled === false) {
+          throw new BadRequestException('Wallet operations are currently disabled by platform administrator.');
+        }
+      }
+
       const currentAvailable = new Decimal(lockedWallet.availableBalance);
       const currentReal = new Decimal(lockedWallet.realBalance);
       const currentPromo = new Decimal(lockedWallet.promoBalance);
@@ -550,13 +606,14 @@ export class WalletsService {
     const config = this.systemConfigService
       ? await this.systemConfigService.getWalletConfig()
       : {
+          isEnabled: true,
           minSingleDeposit: MIN_SINGLE_DEPOSIT,
           maxSingleDeposit: MAX_SINGLE_DEPOSIT,
           maxWalletBalanceCap: MAX_WALLET_BALANCE_CAP,
           isDepositsEnabled: true,
         };
 
-    if (!config.isDepositsEnabled) {
+    if (config.isEnabled === false || !config.isDepositsEnabled) {
       throw new BadRequestException('Wallet deposits are currently disabled.');
     }
 
@@ -617,6 +674,13 @@ export class WalletsService {
    * Verifies Razorpay deposit payment signature and credits the user's real balance.
    */
   async verifyDepositPayment(userId: string, dto: VerifyDepositDto) {
+    const config = this.systemConfigService
+      ? await this.systemConfigService.getWalletConfig()
+      : null;
+    if (config && (config.isEnabled === false || !config.isDepositsEnabled)) {
+      throw new BadRequestException('Wallet deposits are currently disabled.');
+    }
+
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = dto;
     const wallet = await this.getOrCreateWallet(userId);
     const idempotencyKey = `wallet_deposit_${razorpayPaymentId}`;

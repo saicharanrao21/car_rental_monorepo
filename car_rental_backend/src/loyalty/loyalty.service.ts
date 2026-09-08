@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import {
   BookingStatus,
@@ -18,6 +19,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { SystemConfigService } from '../config-engine/system-config.service';
+import { LoyaltyConfig } from '../config-engine/system-config.interface';
+import { AuditLogService } from '../admin/audit-log.service';
 import { AdminAdjustLoyaltyDto } from './dto/admin-adjust-loyalty.dto';
 import { RedeemPointsDto } from './dto/redeem-points.dto';
 
@@ -28,7 +32,25 @@ export class LoyaltyService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly walletsService: WalletsService,
+    @Optional() private readonly systemConfigService?: SystemConfigService,
+    @Optional() private readonly auditLogService?: AuditLogService,
   ) {}
+
+  /**
+   * Helper to retrieve effective loyalty configuration from SystemConfig or defaults.
+   */
+  async getEffectiveConfig(): Promise<LoyaltyConfig> {
+    if (this.systemConfigService) {
+      return this.systemConfigService.getLoyaltyConfig();
+    }
+    return {
+      isEnabled: true,
+      rupeesPerPointEarned: 10,
+      pointsToRupeeRatio: 2,
+      minPointsToRedeem: 2,
+      maxPointsPerBooking: 5000,
+    };
+  }
 
   async onModuleInit() {
     await this.ensureTiersExist();
@@ -261,17 +283,20 @@ export class LoyaltyService implements OnModuleInit {
 
   /**
    * Pure calculation of eligible loyalty points:
-   * basePoints = floor(eligibleBaseFare / 10)
-   * finalPoints = floor(basePoints * tierMultiplier)
+   * basePoints = floor(eligibleBaseFare / rupeesPerPoint)
+   * finalPoints = min(floor(basePoints * tierMultiplier), maxPointsCap)
    */
   calculateEligiblePoints(
     eligibleBaseFare: number,
     tierMultiplier: number,
+    rupeesPerPoint = 10,
+    maxPointsCap?: number,
   ): number {
     if (!eligibleBaseFare || eligibleBaseFare <= 0) return 0;
-    const basePoints = Math.floor(eligibleBaseFare / 10);
+    const basePoints = Math.floor(eligibleBaseFare / rupeesPerPoint);
     const finalPoints = Math.floor(basePoints * tierMultiplier);
-    return Math.max(0, finalPoints);
+    const positivePoints = Math.max(0, finalPoints);
+    return maxPointsCap ? Math.min(positivePoints, maxPointsCap) : positivePoints;
   }
 
   /**
@@ -296,6 +321,14 @@ export class LoyaltyService implements OnModuleInit {
    * Handles booking completion event and credits loyalty points authoritatively
    */
   async handleBookingCompleted(bookingId: string) {
+    const config = await this.getEffectiveConfig();
+    if (!config.isEnabled) {
+      this.logger.log(
+        `Loyalty program is disabled by platform config. Skipping point award for booking ${bookingId}.`,
+      );
+      return { earnedPoints: 0, reason: 'Loyalty program disabled' };
+    }
+
     const idempotencyKey = `loyalty_booking_${bookingId}`;
 
     const existingTx = await this.prisma.loyaltyTransaction.findUnique({
@@ -392,6 +425,8 @@ export class LoyaltyService implements OnModuleInit {
       const finalPoints = this.calculateEligiblePoints(
         eligibleBaseFare,
         multiplier,
+        config.rupeesPerPointEarned || 10,
+        config.maxPointsPerBooking,
       );
       if (finalPoints <= 0) {
         return { earnedPoints: 0 };
@@ -443,12 +478,125 @@ export class LoyaltyService implements OnModuleInit {
   }
 
   /**
-   * Redeems loyalty points to DriveGo Promotional Wallet Credit (2 points = ₹1)
+   * Reverses loyalty points previously awarded for a completed booking if it is cancelled/refunded.
+   */
+  async handleBookingCancelled(bookingId: string) {
+    const earningTx = await this.prisma.loyaltyTransaction.findFirst({
+      where: {
+        referenceType: 'BOOKING',
+        referenceId: bookingId,
+        type: LoyaltyTransactionType.TRIP_COMPLETION_EARNED,
+      },
+      include: { account: true },
+    });
+
+    if (!earningTx) {
+      return { reversed: false, reason: 'No loyalty points earned for this booking' };
+    }
+
+    const idempotencyKey = `loyalty_reversal_booking_${bookingId}`;
+    const existingReversal = await this.prisma.loyaltyTransaction.findUnique({
+      where: { idempotencyKey },
+    });
+    if (existingReversal) {
+      return { alreadyReversed: true, pointsReversed: existingReversal.points };
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const doubleCheck = await tx.loyaltyTransaction.findUnique({
+        where: { idempotencyKey },
+      });
+      if (doubleCheck) {
+        return { alreadyReversed: true, pointsReversed: doubleCheck.points };
+      }
+
+      const lockedAccounts = await tx.$queryRaw<
+        Array<{
+          id: string;
+          userId: string;
+          tierId: string;
+          pointsBalance: number;
+          lifetimePoints: number;
+        }>
+      >`
+        SELECT "id", "userId", "tierId", "pointsBalance", "lifetimePoints"
+        FROM "LoyaltyAccount"
+        WHERE "id" = ${earningTx.accountId}
+        FOR UPDATE
+      `;
+
+      if (!lockedAccounts || lockedAccounts.length === 0) {
+        return { reversed: false, reason: 'Loyalty account not found' };
+      }
+
+      const account = lockedAccounts[0];
+      const pointsToReverse = earningTx.points;
+      const newPointsBalance = Math.max(0, account.pointsBalance - pointsToReverse);
+      const newLifetimePoints = Math.max(0, account.lifetimePoints - pointsToReverse);
+
+      const allTiers = await tx.loyaltyTier.findMany({
+        orderBy: { minPointsRequired: 'asc' },
+      });
+      const adjustedTier = this.determineTierForLifetimePoints(
+        newLifetimePoints,
+        allTiers,
+      );
+
+      await tx.loyaltyAccount.update({
+        where: { id: account.id },
+        data: {
+          pointsBalance: newPointsBalance,
+          lifetimePoints: newLifetimePoints,
+          tierId: adjustedTier.id,
+        },
+      });
+
+      const reversalTx = await tx.loyaltyTransaction.create({
+        data: {
+          accountId: account.id,
+          type: LoyaltyTransactionType.CANCELLATION_REVERSAL,
+          points: pointsToReverse,
+          balanceBefore: account.pointsBalance,
+          balanceAfter: newPointsBalance,
+          referenceType: 'BOOKING_CANCELLATION',
+          referenceId: bookingId,
+          idempotencyKey,
+          description: `Reversal of ${pointsToReverse} points due to trip cancellation (Booking: ${bookingId})`,
+        },
+      });
+
+      this.logger.log(
+        `[LOYALTY REVERSAL] Reversed ${pointsToReverse} points for booking ${bookingId} on user ${account.userId}. New points balance: ${newPointsBalance}`,
+      );
+
+      return {
+        reversed: true,
+        pointsReversed: pointsToReverse,
+        newPointsBalance,
+        newLifetimePoints,
+        tierCode: adjustedTier.code,
+        transactionId: reversalTx.id,
+      };
+    });
+  }
+
+  /**
+   * Redeems loyalty points to DriveGo Promotional Wallet Credit according to dynamic config ratio.
    */
   async redeemPointsToWallet(userId: string, dto: RedeemPointsDto) {
-    if (!dto.points || dto.points < 2 || !Number.isInteger(dto.points)) {
+    const config = await this.getEffectiveConfig();
+    if (!config.isEnabled) {
       throw new BadRequestException(
-        'Points to redeem must be an integer of at least 2 points (2 points = ₹1)',
+        'Loyalty rewards program is currently disabled by administrator.',
+      );
+    }
+
+    const minPoints = config.minPointsToRedeem || 2;
+    const ratio = config.pointsToRupeeRatio || 2;
+
+    if (!dto.points || dto.points < minPoints || !Number.isInteger(dto.points)) {
+      throw new BadRequestException(
+        `Points to redeem must be an integer of at least ${minPoints} points (${ratio} points = ₹1)`,
       );
     }
 
@@ -495,12 +643,12 @@ export class LoyaltyService implements OnModuleInit {
         );
       }
 
-      const walletCreditAmount = Math.floor(dto.points / 2);
+      const walletCreditAmount = Math.floor(dto.points / ratio);
       if (walletCreditAmount <= 0) {
         throw new BadRequestException('Redemption must yield at least ₹1 wallet credit');
       }
 
-      const actualPointsRedeemed = walletCreditAmount * 2;
+      const actualPointsRedeemed = walletCreditAmount * ratio;
       const newPointsBalance = account.pointsBalance - actualPointsRedeemed;
 
       await tx.loyaltyAccount.update({

@@ -19,6 +19,7 @@ import {
   BatchConfigUpdateResult,
   ConfigAuditHistoryItem,
   WalletConfig,
+  LoyaltyConfig,
   ReferralConfig,
   SearchRankingConfig,
   BookingPolicyConfig,
@@ -469,6 +470,10 @@ export class SystemConfigService {
   // Typed Convenience Getters
   async getWalletConfig(): Promise<WalletConfig> {
     return this.getConfig<WalletConfig>('wallet.rules');
+  }
+
+  async getLoyaltyConfig(): Promise<LoyaltyConfig> {
+    return this.getConfig<LoyaltyConfig>('loyalty.rules');
   }
 
   async getReferralConfig(): Promise<ReferralConfig> {

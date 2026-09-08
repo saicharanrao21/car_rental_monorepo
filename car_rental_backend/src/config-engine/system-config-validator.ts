@@ -33,6 +33,8 @@ export class SystemConfigValidator {
         return this.validateDepositDefaultsConfig(payload);
       case 'wallet.rules':
         return this.validateWalletConfig(payload);
+      case 'loyalty.rules':
+        return this.validateLoyaltyConfig(payload);
       case 'search.ranking':
         return this.validateSearchRankingConfig(payload);
       case 'referral.rules':
@@ -41,6 +43,8 @@ export class SystemConfigValidator {
         return this.validateBookingPoliciesConfig(payload);
       case 'location.rules':
         return this.validateLocationRulesConfig(payload);
+      case 'vendor.onboarding.rules':
+        return this.validateVendorOnboardingRulesConfig(payload);
       default:
         // Generic object validation for unspecified keys
         if (typeof payload !== 'object') {
@@ -328,6 +332,10 @@ export class SystemConfigValidator {
       throw new BadRequestException('wallet.rules must be a JSON object.');
     }
 
+    if (payload.isEnabled !== undefined && typeof payload.isEnabled !== 'boolean') {
+      throw new BadRequestException('isEnabled must be a boolean.');
+    }
+
     if (payload.maxSingleDeposit !== undefined) {
       const v = Number(payload.maxSingleDeposit);
       if (isNaN(v) || v < 500 || v > 500000) {
@@ -346,6 +354,50 @@ export class SystemConfigValidator {
       const v = Number(payload.maxWalletPaymentPercentage);
       if (isNaN(v) || v < 5 || v > 100) {
         throw new BadRequestException('maxWalletPaymentPercentage must be between 5% and 100%.');
+      }
+    }
+
+    if (payload.isDepositsEnabled !== undefined && typeof payload.isDepositsEnabled !== 'boolean') {
+      throw new BadRequestException('isDepositsEnabled must be a boolean.');
+    }
+
+    return payload;
+  }
+
+  private static validateLoyaltyConfig(payload: any): any {
+    if (typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new BadRequestException('loyalty.rules must be a JSON object.');
+    }
+
+    if (payload.isEnabled !== undefined && typeof payload.isEnabled !== 'boolean') {
+      throw new BadRequestException('isEnabled must be a boolean.');
+    }
+
+    if (payload.rupeesPerPointEarned !== undefined) {
+      const v = Number(payload.rupeesPerPointEarned);
+      if (isNaN(v) || v <= 0 || v > 10000) {
+        throw new BadRequestException('rupeesPerPointEarned must be a positive number up to 10,000.');
+      }
+    }
+
+    if (payload.pointsToRupeeRatio !== undefined) {
+      const v = Number(payload.pointsToRupeeRatio);
+      if (isNaN(v) || v <= 0 || v > 1000) {
+        throw new BadRequestException('pointsToRupeeRatio must be a positive number up to 1,000.');
+      }
+    }
+
+    if (payload.minPointsToRedeem !== undefined) {
+      const v = Number(payload.minPointsToRedeem);
+      if (isNaN(v) || v < 1) {
+        throw new BadRequestException('minPointsToRedeem must be at least 1 point.');
+      }
+    }
+
+    if (payload.maxPointsPerBooking !== undefined) {
+      const v = Number(payload.maxPointsPerBooking);
+      if (isNaN(v) || v <= 0) {
+        throw new BadRequestException('maxPointsPerBooking must be a positive number.');
       }
     }
 
@@ -379,6 +431,16 @@ export class SystemConfigValidator {
       throw new BadRequestException('referral.rules must be a JSON object.');
     }
 
+    if (payload.isReferralsEnabled !== undefined && typeof payload.isReferralsEnabled !== 'boolean') {
+      throw new BadRequestException('isReferralsEnabled must be a boolean.');
+    }
+
+    if (payload.rewardType !== undefined) {
+      if (!['WALLET_CREDIT', 'REWARD_POINTS'].includes(payload.rewardType)) {
+        throw new BadRequestException("rewardType must be either 'WALLET_CREDIT' or 'REWARD_POINTS'.");
+      }
+    }
+
     if (payload.defaultReferrerReward !== undefined) {
       const v = Number(payload.defaultReferrerReward);
       if (isNaN(v) || v < 0 || v > 10000) {
@@ -390,6 +452,20 @@ export class SystemConfigValidator {
       const v = Number(payload.defaultRefereeReward);
       if (isNaN(v) || v < 0 || v > 10000) {
         throw new BadRequestException('defaultRefereeReward must be between ₹0 and ₹10,000.');
+      }
+    }
+
+    if (payload.minBookingAmount !== undefined) {
+      const v = Number(payload.minBookingAmount);
+      if (isNaN(v) || v < 0) {
+        throw new BadRequestException('minBookingAmount must be a non-negative number.');
+      }
+    }
+
+    if (payload.maxReferralsPerUser !== undefined) {
+      const v = Number(payload.maxReferralsPerUser);
+      if (isNaN(v) || v < 1 || v > 1000) {
+        throw new BadRequestException('maxReferralsPerUser must be between 1 and 1,000.');
       }
     }
 
@@ -456,6 +532,47 @@ export class SystemConfigValidator {
       if (isNaN(v) || v <= 0) {
         throw new BadRequestException('maxNearestAreasToSuggest must be a positive number.');
       }
+    }
+
+    return payload;
+  }
+
+  private static validateVendorOnboardingRulesConfig(payload: any): any {
+    if (typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new BadRequestException('vendor.onboarding.rules must be a JSON object.');
+    }
+
+    if (payload.defaultSecurityDepositAmount !== undefined) {
+      const v = Number(payload.defaultSecurityDepositAmount);
+      if (isNaN(v) || v < 0) {
+        throw new BadRequestException('defaultSecurityDepositAmount must be a non-negative number.');
+      }
+    }
+
+    if (payload.allowPartialDepositPayment !== undefined && typeof payload.allowPartialDepositPayment !== 'boolean') {
+      throw new BadRequestException('allowPartialDepositPayment must be a boolean.');
+    }
+
+    if (payload.minInitialDepositPercentage !== undefined) {
+      const v = Number(payload.minInitialDepositPercentage);
+      if (isNaN(v) || v < 0 || v > 100) {
+        throw new BadRequestException('minInitialDepositPercentage must be between 0 and 100.');
+      }
+    }
+
+    if (payload.documentExpiryGracePeriodDays !== undefined) {
+      const v = Number(payload.documentExpiryGracePeriodDays);
+      if (isNaN(v) || v < 0) {
+        throw new BadRequestException('documentExpiryGracePeriodDays must be a non-negative number.');
+      }
+    }
+
+    if (payload.strictActivationEnforcement !== undefined && typeof payload.strictActivationEnforcement !== 'boolean') {
+      throw new BadRequestException('strictActivationEnforcement must be a boolean.');
+    }
+
+    if (payload.autoCheckEligibilityOnUpload !== undefined && typeof payload.autoCheckEligibilityOnUpload !== 'boolean') {
+      throw new BadRequestException('autoCheckEligibilityOnUpload must be a boolean.');
     }
 
     return payload;

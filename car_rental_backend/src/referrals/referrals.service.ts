@@ -516,6 +516,70 @@ export class ReferralsService {
     return this.prisma.$transaction(executeQualification);
   }
 
+  /**
+   * Reverses referral reward/qualification if the qualifying booking is cancelled or refunded.
+   */
+  async handleBookingCancelled(bookingId: string, externalTx?: Prisma.TransactionClient) {
+    const executeReversal = async (tx: Prisma.TransactionClient) => {
+      const attribution = await tx.referralAttribution.findFirst({
+        where: {
+          qualifyingBookingId: bookingId,
+          status: { in: [ReferralStatus.QUALIFIED, ReferralStatus.REWARDED] },
+        },
+      });
+
+      if (!attribution) {
+        return { reversed: false, reason: 'No referral attribution linked to this booking' };
+      }
+
+      // If already rewarded and a ledger entry was created, claw back or mark reversed
+      if (attribution.status === ReferralStatus.REWARDED && attribution.referrerLedgerEntryId) {
+        const referrerWallet = await tx.wallet.findUnique({
+          where: { userId: attribution.referrerId },
+        });
+
+        if (referrerWallet) {
+          try {
+            const idempotencyKey = `ref_reversal_${attribution.id}_${bookingId}`;
+            await this.walletsService.debitWallet(
+              referrerWallet.id,
+              attribution.referrerRewardAmount,
+              LedgerEntryType.ADMIN_ADJUSTMENT,
+              'REFERRAL_REVERSAL',
+              attribution.id,
+              idempotencyKey,
+              `Referral reward reversal due to booking cancellation (${bookingId})`,
+              { attributionId: attribution.id, bookingId },
+              tx,
+            );
+          } catch (err: any) {
+            this.logger.warn(`Could not debit referrer wallet on referral cancellation: ${err.message}`);
+          }
+        }
+      }
+
+      const updated = await tx.referralAttribution.update({
+        where: { id: attribution.id },
+        data: {
+          status: ReferralStatus.CANCELLED,
+        },
+      });
+
+      this.logger.log(`[REFERRAL REVERSED] Attribution ${attribution.id} status marked CANCELLED due to booking ${bookingId}`);
+
+      return {
+        reversed: true,
+        attributionId: updated.id,
+        previousStatus: attribution.status,
+      };
+    };
+
+    if (externalTx) {
+      return executeReversal(externalTx);
+    }
+    return this.prisma.$transaction(executeReversal);
+  }
+
   // ── Admin Campaign Management ─────────────────────────────────────────────
 
   /**

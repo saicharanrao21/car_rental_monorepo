@@ -396,7 +396,7 @@ export class BookingLifecycleService {
         this.logger.error(`Asynchronous outbox dispatch failed for event ${outboxEvent.id}: ${err.message}`);
       });
 
-      // 8. Trigger Referral and Loyalty incentives upon clean completion
+      // 8. Trigger Referral and Loyalty incentives upon clean completion or reversals upon cancellation/refund
       if (targetStatus === BookingStatus.COMPLETED) {
         if (this.referralsService) {
           this.referralsService
@@ -407,6 +407,17 @@ export class BookingLifecycleService {
           this.loyaltyService
             .handleBookingCompleted(bookingId)
             .catch((err) => this.logger.error(`Loyalty crediting failed for ${bookingId}:`, err));
+        }
+      } else if (targetStatus === BookingStatus.CANCELLED || targetStatus === BookingStatus.REFUNDED) {
+        if (this.referralsService && typeof this.referralsService.handleBookingCancelled === 'function') {
+          this.referralsService
+            .handleBookingCancelled(bookingId)
+            .catch((err) => this.logger.error(`Referral reversal failed for ${bookingId}:`, err));
+        }
+        if (this.loyaltyService && typeof this.loyaltyService.handleBookingCancelled === 'function') {
+          this.loyaltyService
+            .handleBookingCancelled(bookingId)
+            .catch((err) => this.logger.error(`Loyalty reversal failed for ${bookingId}:`, err));
         }
       }
 

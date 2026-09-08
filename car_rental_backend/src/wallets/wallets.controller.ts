@@ -14,13 +14,16 @@ import { WalletsService } from './wallets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { AdminPermission } from '../auth/permissions.enum';
 import { Role } from '@prisma/client';
 import { CreateDepositOrderDto } from './dto/create-deposit-order.dto';
 import { VerifyDepositDto } from './dto/verify-deposit.dto';
 import { AdminAdjustWalletDto } from './dto/admin-adjust-wallet.dto';
 
 @Controller('wallet')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
 
@@ -94,6 +97,7 @@ export class WalletsController {
    */
   @Post('admin/adjust')
   @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.WALLET_ADJUST, AdminPermission.FINANCE_ADJUSTMENT)
   async adminAdjust(
     @Req() req: any,
     @Body() dto: AdminAdjustWalletDto,
@@ -107,7 +111,18 @@ export class WalletsController {
    */
   @Get('admin/:walletId/reconcile')
   @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.WALLET_READ, AdminPermission.FINANCE_READ)
   async adminReconcile(@Param('walletId') walletId: string) {
     return this.walletsService.reconcileWallet(walletId);
+  }
+
+  /**
+   * Admin retrieve full user wallet details, profile, recent ledger, and reconciliation.
+   */
+  @Get('admin/user/:userId')
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.WALLET_READ, AdminPermission.FINANCE_READ)
+  async adminGetUserWallet(@Param('userId') userId: string) {
+    return this.walletsService.getWalletByUserIdAdmin(userId);
   }
 }

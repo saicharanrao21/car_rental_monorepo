@@ -1,4 +1,5 @@
 export interface WalletConfig {
+  isEnabled: boolean;
   maxSingleDeposit: number;
   minSingleDeposit: number;
   maxWalletBalanceCap: number;
@@ -9,12 +10,21 @@ export interface WalletConfig {
   isDepositsEnabled: boolean;
 }
 
+export interface LoyaltyConfig {
+  isEnabled: boolean;
+  rupeesPerPointEarned: number; // e.g. 10 (1 point per ₹10 base fare)
+  pointsToRupeeRatio: number; // e.g. 2 (2 points = ₹1)
+  minPointsToRedeem: number; // e.g. 2
+  maxPointsPerBooking: number; // e.g. 5000
+}
+
 export interface ReferralConfig {
   defaultReferrerReward: number;
   defaultRefereeReward: number;
   minBookingAmount: number;
   maxReferralsPerUser: number;
   isReferralsEnabled: boolean;
+  rewardType: 'WALLET_CREDIT' | 'REWARD_POINTS';
 }
 
 export interface GrowthCampaignConfig {
@@ -144,10 +154,20 @@ export interface DepositDefaultsConfig {
   [key: string]: number | undefined;
 }
 
+export interface VendorOnboardingRulesConfig {
+  defaultSecurityDepositAmount: number;
+  allowPartialDepositPayment: boolean;
+  minInitialDepositPercentage: number;
+  documentExpiryGracePeriodDays: number;
+  strictActivationEnforcement: boolean;
+  autoCheckEligibilityOnUpload: boolean;
+}
+
 export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: any; isPublic: boolean; description: string }> = {
   'wallet.rules': {
     category: 'WALLET',
     value: {
+      isEnabled: true,
       maxSingleDeposit: 50000,
       minSingleDeposit: 100,
       maxWalletBalanceCap: 100000,
@@ -159,6 +179,18 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as WalletConfig,
     isPublic: true,
     description: 'Wallet deposit limits, checkout usage caps, and promotional credit bounds',
+  },
+  'loyalty.rules': {
+    category: 'LOYALTY',
+    value: {
+      isEnabled: true,
+      rupeesPerPointEarned: 10,
+      pointsToRupeeRatio: 2,
+      minPointsToRedeem: 2,
+      maxPointsPerBooking: 5000,
+    } as LoyaltyConfig,
+    isPublic: true,
+    description: 'DriveGo loyalty points earning formula, redemption conversion ratio, and bounds',
   },
   'growth.campaigns': {
     category: 'GROWTH',
@@ -180,6 +212,7 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
       minBookingAmount: 1000,
       maxReferralsPerUser: 20,
       isReferralsEnabled: true,
+      rewardType: 'WALLET_CREDIT',
     } as ReferralConfig,
     isPublic: true,
     description: 'Referral program reward values and qualification thresholds',
@@ -373,6 +406,19 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
     } as LocationRulesConfig,
     isPublic: true,
     description: 'Operational thresholds and geo-resolution policies for service areas and customer serviceability',
+  },
+  'vendor.onboarding.rules': {
+    category: 'VENDOR',
+    value: {
+      defaultSecurityDepositAmount: 25000,
+      allowPartialDepositPayment: true,
+      minInitialDepositPercentage: 20,
+      documentExpiryGracePeriodDays: 7,
+      strictActivationEnforcement: true,
+      autoCheckEligibilityOnUpload: true,
+    } as VendorOnboardingRulesConfig,
+    isPublic: true,
+    description: 'Vendor onboarding requirements rules, deposit defaults, and activation enforcement policy',
   },
 };
 
