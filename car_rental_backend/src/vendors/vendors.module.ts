@@ -9,6 +9,12 @@ import { CarsModule } from '../cars/cars.module';
 import { CommonModule } from '../common/common.module';
 import { UploadsModule } from '../uploads/uploads.module';
 
+import { VendorOnboardingController } from './onboarding/vendor-onboarding.controller';
+import { AdminVendorOnboardingController } from './onboarding/admin-vendor-onboarding.controller';
+import { VendorOnboardingRequirementsService } from './onboarding/vendor-onboarding-requirements.service';
+import { VendorSecurityDepositService } from './onboarding/vendor-security-deposit.service';
+import { VendorOnboardingEligibilityService } from './onboarding/vendor-onboarding-eligibility.service';
+
 @Module({
   imports: [
     AuthModule,
@@ -21,8 +27,20 @@ import { UploadsModule } from '../uploads/uploads.module';
     VendorsController,
     AdminVendorsController,
     LocalitiesController,
+    VendorOnboardingController,
+    AdminVendorOnboardingController,
   ],
-  providers: [VendorsService],
-  exports: [VendorsService],
+  providers: [
+    VendorsService,
+    VendorOnboardingRequirementsService,
+    VendorSecurityDepositService,
+    VendorOnboardingEligibilityService,
+  ],
+  exports: [
+    VendorsService,
+    VendorOnboardingRequirementsService,
+    VendorSecurityDepositService,
+    VendorOnboardingEligibilityService,
+  ],
 })
 export class VendorsModule {}

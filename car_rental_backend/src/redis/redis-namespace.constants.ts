@@ -33,6 +33,10 @@ export const REDIS_NAMESPACES = {
     SERVICEABILITY: (lat: number, lng: number) =>
       `cache:serviceability:${lat.toFixed(3)}:${lng.toFixed(3)}`,
     VENDOR_SERVICE_AREAS: (vendorId: string) => `cache:vendor:service_areas:${vendorId}`,
+    VENDOR_ONBOARDING_ELIGIBILITY: (vendorId: string) => `cache:vendor:eligibility:${vendorId}`,
+    VENDOR_REQUIREMENTS: (vendorId: string) => `cache:vendor:requirements:${vendorId}`,
+    VENDOR_SECURITY_DEPOSIT: (vendorId: string) => `cache:vendor:deposit:${vendorId}`,
+    ONBOARDING_REQUIREMENTS_ALL: () => `cache:onboarding:requirements:all`,
   },
   RATE_LIMIT: {
     IP: (ip: string) => `ratelimit:ip:${ip}`,

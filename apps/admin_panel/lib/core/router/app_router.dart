@@ -6,6 +6,7 @@ import '../widgets/admin_shell.dart';
 import '../../features/auth/presentation/pages/admin_login_page.dart';
 import '../../features/dashboard/presentation/pages/admin_dashboard_page.dart';
 import '../../features/vendors/presentation/pages/vendor_management_page.dart';
+import '../../features/vendors/presentation/pages/vendor_onboarding_console_page.dart';
 import '../../features/customers/presentation/pages/customer_management_page.dart';
 import '../../features/bookings/presentation/pages/admin_booking_management_page.dart';
 import '../../features/fleet/presentation/pages/admin_fleet_overview_page.dart';
@@ -76,6 +77,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/vendors',
             builder: (context, state) => const VendorManagementPage(),
+          ),
+          GoRoute(
+            path: '/vendors/onboarding',
+            builder: (context, state) => const VendorOnboardingConsolePage(),
           ),
           GoRoute(
             path: '/customers',

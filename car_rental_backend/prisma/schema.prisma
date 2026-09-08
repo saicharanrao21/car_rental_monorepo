@@ -43,6 +43,52 @@ enum DocumentStatus {
   REJECTED
 }
 
+enum RequirementCategory {
+  DOCUMENT
+  MONETARY
+  PHYSICAL_ASSET
+  VERIFICATION
+  OTHER
+}
+
+enum RequirementScope {
+  GLOBAL
+  VENDOR_SPECIFIC
+  VEHICLE_CATEGORY
+  SERVICE_AREA
+}
+
+enum RequirementFulfillmentStatus {
+  PENDING
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  WAIVED
+}
+
+enum VendorDepositStatus {
+  REQUIRED
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  HELD
+  RELEASED
+  REFUNDED
+  FORFEITED
+}
+
+enum VendorDepositTransactionType {
+  INITIAL_PAYMENT
+  PARTIAL_PAYMENT
+  TOP_UP
+  RELEASE
+  REFUND
+  FORFEITURE
+  ADMIN_ADJUSTMENT
+}
+
 enum CarCategory {
   HATCHBACK
   SEDAN
@@ -424,6 +470,8 @@ model Vendor {
   locationMatrices   VendorLocationMatrix[]
   sponsoredCampaigns SponsoredCampaign[]
   serviceAreaAssignments VendorServiceArea[]
+  onboardingRequirements VendorRequirementState[]
+  vendorSecurityDeposit  VendorSecurityDeposit?
 
   @@index([city])
   @@index([verificationStatus])
@@ -551,6 +599,7 @@ model Document {
   status     DocumentStatus @default(PENDING)
   expiresAt  DateTime?
   uploadedAt DateTime       @default(now())
+  vendorRequirementStates VendorRequirementState[]
 
   @@index([vendorId])
   @@index([carId])
@@ -2120,5 +2169,106 @@ model BookingQuoteLineItem {
 
   @@index([quoteId])
   @@index([type])
+}
+
+model OnboardingRequirementDefinition {
+  id               String                        @id @default(cuid())
+  code             String
+  name             String
+  description      String?
+  category         RequirementCategory
+  isRequired       Boolean                       @default(true)
+  isActive         Boolean                       @default(true)
+  displayOrder     Int                           @default(0)
+  scope            RequirementScope              @default(GLOBAL)
+  targetScopeValue String?
+  version          Int                           @default(1)
+  effectiveFrom    DateTime                      @default(now())
+  effectiveTo      DateTime?
+  config           Json?
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @default(now()) @updatedAt
+  vendorStates     VendorRequirementState[]
+
+  @@unique([code, version])
+  @@index([category, isActive])
+  @@index([scope, targetScopeValue])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model VendorRequirementState {
+  id                      String                           @id @default(cuid())
+  vendorId                String
+  vendor                  Vendor                           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  requirementDefinitionId String
+  requirementDefinition   OnboardingRequirementDefinition  @relation(fields: [requirementDefinitionId], references: [id], onDelete: Cascade)
+  status                  RequirementFulfillmentStatus     @default(PENDING)
+  documentId              String?
+  document                Document?                        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentNumber          String?
+  issuedAt                DateTime?
+  expiresAt               DateTime?
+  submissionData          Json?
+  submittedAt             DateTime?
+  rejectionReason         String?
+  reviewedByUserId        String?
+  reviewedAt              DateTime?
+  waivedByUserId          String?
+  waivedReason            String?
+  waivedAt                DateTime?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @default(now()) @updatedAt
+
+  @@unique([vendorId, requirementDefinitionId])
+  @@index([vendorId, status])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model VendorSecurityDeposit {
+  id                 String                     @id @default(cuid())
+  vendorId           String                     @unique
+  vendor             Vendor                     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  requiredAmount     Decimal                    @db.Decimal(10, 2)
+  paidAmount         Decimal                    @default(0) @db.Decimal(10, 2)
+  remainingAmount    Decimal                    @db.Decimal(10, 2)
+  status             VendorDepositStatus        @default(REQUIRED)
+  requirementCode    String?
+  requirementVersion Int?
+  heldAt             DateTime?
+  releasedAt         DateTime?
+  refundedAt         DateTime?
+  forfeitedAt        DateTime?
+  forfeitedReason    String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @default(now()) @updatedAt
+  ledgerEntries      VendorDepositLedgerEntry[]
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+model VendorDepositLedgerEntry {
+  id              String                       @id @default(cuid())
+  depositId       String
+  deposit         VendorSecurityDeposit        @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  amount          Decimal                      @db.Decimal(10, 2)
+  direction       LedgerDirection
+  balanceBefore   Decimal                      @db.Decimal(10, 2)
+  balanceAfter    Decimal                      @db.Decimal(10, 2)
+  transactionType VendorDepositTransactionType
+  paymentMethod   String
+  reference       String
+  reason          String?
+  actorId         String?
+  actorRole       String?
+  idempotencyKey  String                       @unique
+  metadata        Json?
+  createdAt       DateTime                     @default(now())
+
+  @@index([depositId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([idempotencyKey])
 }
 

@@ -538,13 +538,12 @@ export class SystemConfigValidator {
   }
 
   private static validateVendorOnboardingRulesConfig(payload: any): any {
-    if (typeof payload !== 'object' || Array.isArray(payload)) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new BadRequestException('vendor.onboarding.rules must be a JSON object.');
     }
 
     if (payload.defaultSecurityDepositAmount !== undefined) {
-      const v = Number(payload.defaultSecurityDepositAmount);
-      if (isNaN(v) || v < 0) {
+      if (typeof payload.defaultSecurityDepositAmount !== 'number' || isNaN(payload.defaultSecurityDepositAmount) || payload.defaultSecurityDepositAmount < 0) {
         throw new BadRequestException('defaultSecurityDepositAmount must be a non-negative number.');
       }
     }
@@ -554,15 +553,22 @@ export class SystemConfigValidator {
     }
 
     if (payload.minInitialDepositPercentage !== undefined) {
-      const v = Number(payload.minInitialDepositPercentage);
-      if (isNaN(v) || v < 0 || v > 100) {
+      if (
+        typeof payload.minInitialDepositPercentage !== 'number' ||
+        isNaN(payload.minInitialDepositPercentage) ||
+        payload.minInitialDepositPercentage < 0 ||
+        payload.minInitialDepositPercentage > 100
+      ) {
         throw new BadRequestException('minInitialDepositPercentage must be between 0 and 100.');
       }
     }
 
     if (payload.documentExpiryGracePeriodDays !== undefined) {
-      const v = Number(payload.documentExpiryGracePeriodDays);
-      if (isNaN(v) || v < 0) {
+      if (
+        typeof payload.documentExpiryGracePeriodDays !== 'number' ||
+        isNaN(payload.documentExpiryGracePeriodDays) ||
+        payload.documentExpiryGracePeriodDays < 0
+      ) {
         throw new BadRequestException('documentExpiryGracePeriodDays must be a non-negative number.');
       }
     }

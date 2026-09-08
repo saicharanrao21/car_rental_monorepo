@@ -63,6 +63,7 @@ class AdminShell extends ConsumerWidget {
         AdminNavItem(label: 'Bookings Management', icon: Icons.book_online_outlined, route: '/bookings'),
         AdminNavItem(label: 'Fleet Inventory', icon: Icons.directions_car_outlined, route: '/fleet'),
         AdminNavItem(label: 'Vendor Partners', icon: Icons.storefront_outlined, route: '/vendors'),
+        AdminNavItem(label: 'Vendor Onboarding & Deposits', icon: Icons.verified_user_outlined, route: '/vendors/onboarding'),
         AdminNavItem(label: 'Supported Cities', icon: Icons.location_city_outlined, route: '/supported-cities'),
       ],
     ),

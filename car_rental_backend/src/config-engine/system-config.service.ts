@@ -36,6 +36,7 @@ import {
   CancellationMatrixConfig,
   CommissionConfig,
   DepositDefaultsConfig,
+  VendorOnboardingRulesConfig,
 } from './system-config.interface';
 
 @Injectable()
@@ -541,5 +542,9 @@ export class SystemConfigService {
 
   async getDepositDefaultsConfig(): Promise<DepositDefaultsConfig> {
     return this.getConfig<DepositDefaultsConfig>('deposits.defaults');
+  }
+
+  async getVendorOnboardingConfig(): Promise<VendorOnboardingRulesConfig> {
+    return this.getConfig<VendorOnboardingRulesConfig>('vendor.onboarding.rules');
   }
 }

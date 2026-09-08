@@ -1,16 +1,17 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VendorsQueryDto } from './dto/vendors-query.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { PaginatedResult } from '../common/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-import { SubscriptionTier } from '@prisma/client';
+import { SubscriptionTier, VerificationStatus } from '@prisma/client';
 import { AuditLogService } from '../admin/audit-log.service';
 
 import { BankEncryptionService } from '../common/bank-encryption.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { BadRequestException } from '@nestjs/common';
+import { VendorOnboardingEligibilityService } from './onboarding/vendor-onboarding-eligibility.service';
 
 @Injectable()
 export class VendorsService {
@@ -22,6 +23,7 @@ export class VendorsService {
     private readonly auditLogService: AuditLogService,
     private readonly bankEncryptionService: BankEncryptionService,
     private readonly uploadsService: UploadsService,
+    @Optional() private readonly onboardingEligibilityService?: VendorOnboardingEligibilityService,
   ) {}
 
   async findAll(query: VendorsQueryDto): Promise<PaginatedResult<any>> {
@@ -286,6 +288,15 @@ export class VendorsService {
 
     if (!vendor) {
       throw new NotFoundException('Vendor not found');
+    }
+
+    if (dto.status === VerificationStatus.VERIFIED && this.onboardingEligibilityService) {
+      const eligibility = await this.onboardingEligibilityService.evaluateEligibility(id, true);
+      if (!eligibility.isEligible) {
+        throw new BadRequestException(
+          `Cannot verify vendor: onboarding compliance incomplete. Blocking reasons: ${eligibility.blockingReasons.join('; ')}`,
+        );
+      }
     }
 
     const updated = await this.prisma.vendor.update({
