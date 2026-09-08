@@ -20,6 +20,8 @@ import {
   InspectionType,
   HandoverOtpType,
   VehicleHoldStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
   Prisma,
 } from '@prisma/client';
 import { PaginationDto } from '../common/pagination.dto';
@@ -44,6 +46,7 @@ import { BookingOutboxService } from './booking-outbox.service';
 import { LocationsService } from '../locations/locations.service';
 import { VehicleAvailabilityService } from '../cars/vehicle-availability.service';
 import { PricingService } from '../pricing/pricing.service';
+import { VehicleOperationsEligibilityService } from '../cars/vehicle-operations-eligibility.service';
 
 @Injectable()
 export class BookingsService {
@@ -71,6 +74,7 @@ export class BookingsService {
     @Optional() private readonly outboxService?: BookingOutboxService,
     @Optional() private readonly availabilityService?: VehicleAvailabilityService,
     @Optional() private readonly pricingService?: PricingService,
+    @Optional() private readonly vehicleEligibilityService?: VehicleOperationsEligibilityService,
   ) {}
 
   async createBooking(customerId: string, dto: CreateBookingDto) {
@@ -123,6 +127,20 @@ export class BookingsService {
         throw new NotFoundException('Car not found.');
       }
 
+      // Check operational readiness status
+      if (car.operationalStatus && car.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        throw new ConflictException(
+          `Cannot book vehicle: Vehicle operational status is ${car.operationalStatus}. Vehicle must be ACTIVE.`,
+        );
+      }
+
+      // Check vehicle verification status
+      if (car.verificationStatus && car.verificationStatus !== VehicleVerificationStatus.VERIFIED) {
+        throw new BadRequestException(
+          `Cannot book vehicle: Vehicle verification status is ${car.verificationStatus}. Vehicle must be VERIFIED.`,
+        );
+      }
+
       if (car.vendor?.verificationStatus !== VerificationStatus.VERIFIED) {
         throw new BadRequestException(
           'Cannot book a vehicle from an unverified vendor.',
@@ -131,6 +149,20 @@ export class BookingsService {
 
       if (!car.isAvailable) {
         throw new ConflictException('This car is marked as unavailable.');
+      }
+
+      // If eligibility service is wired, perform authoritative check
+      if (this.vehicleEligibilityService) {
+        const eligibility = await this.vehicleEligibilityService.evaluateEligibility(dto.carId);
+        if (!eligibility.eligible) {
+          const blockerMsgs = eligibility.blockers
+            .filter((b) => b.severity === 'BLOCKER')
+            .map((b) => b.message)
+            .join(' | ');
+          throw new BadRequestException(
+            `Cannot book vehicle: ${blockerMsgs || 'Vehicle does not meet platform operational readiness standards.'}`,
+          );
+        }
       }
 
       // Check if tripType is supported by the car
@@ -212,10 +244,16 @@ export class BookingsService {
           dto.tripType === TripType.AIRPORT_TRANSFER
         ) {
           const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
-          basePackagePrice = car.pricePerHour.mul(durationHours);
+          const pricePerHourDecimal = car.pricePerHour instanceof Prisma.Decimal
+            ? car.pricePerHour
+            : new Prisma.Decimal(car.pricePerHour || 0);
+          basePackagePrice = pricePerHourDecimal.mul(durationHours);
           pricingBasis = 'LEGACY_HOURLY';
         } else {
-          basePackagePrice = car.pricePerDay.mul(durationDays);
+          const pricePerDayDecimal = car.pricePerDay instanceof Prisma.Decimal
+            ? car.pricePerDay
+            : new Prisma.Decimal(car.pricePerDay || 0);
+          basePackagePrice = pricePerDayDecimal.mul(durationDays);
           pricingBasis = 'LEGACY_DAILY';
         }
       }
@@ -619,8 +657,8 @@ export class BookingsService {
                   carId: newBooking.carId,
                   vehicleName: `${newBooking.car.make} ${newBooking.car.model}`,
                   registrationNumber: newBooking.car.registrationNumber,
-                  startDate: newBooking.startDate.toISOString(),
-                  endDate: newBooking.endDate.toISOString(),
+                  startDate: new Date(newBooking.startDate).toISOString(),
+                  endDate: new Date(newBooking.endDate).toISOString(),
                   totalFare: Number(newBooking.totalFare),
                   currency: 'INR',
                   pickupLocation: newBooking.pickupLocation,
@@ -642,25 +680,31 @@ export class BookingsService {
 
       // Invalidate vehicle search cache and detail cache
       if (this.cacheService) {
-        await this.cacheService.invalidatePattern('cache:search:cars:*');
-        await this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(dto.carId));
+        if (typeof this.cacheService.invalidatePattern === 'function') {
+          await this.cacheService.invalidatePattern('cache:search:cars:*');
+        }
+        if (typeof this.cacheService.delete === 'function') {
+          await this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(dto.carId));
+        }
       }
 
       // After transaction completes, notify vendor
-      const vendorUser = await this.prisma.vendor.findUnique({
-        where: { id: booking.vendorId },
-        select: { userId: true },
-      });
-      if (vendorUser && vendorUser.userId) {
-        this.notificationsService
-          .notifyUser(
-            vendorUser.userId,
-            'New Booking Request',
-            `You have received a new booking request for ${booking.car.make} ${booking.car.model} (${booking.car.registrationNumber}).`,
-          )
-          .catch((err) =>
-            this.logger.error('Failed to notify vendor of new booking', err),
-          );
+      if ((this.prisma as any).vendor?.findUnique) {
+        const vendorUser = await (this.prisma as any).vendor.findUnique({
+          where: { id: booking.vendorId },
+          select: { userId: true },
+        });
+        if (vendorUser && vendorUser.userId) {
+          this.notificationsService
+            .notifyUser(
+              vendorUser.userId,
+              'New Booking Request',
+              `You have received a new booking request for ${booking.car.make} ${booking.car.model} (${booking.car.registrationNumber}).`,
+            )
+            .catch((err) =>
+              this.logger.error('Failed to notify vendor of new booking', err),
+            );
+        }
       }
 
       // Trigger outbox dispatch asynchronously

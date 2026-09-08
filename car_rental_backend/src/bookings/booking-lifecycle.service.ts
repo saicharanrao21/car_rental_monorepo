@@ -23,7 +23,15 @@ import {
   InspectionType,
   HandoverOtpType,
   SecurityDepositStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
+  VehicleBlockType,
+  DamageClaimStatus,
 } from '@prisma/client';
+import { VehicleOperationsEligibilityService } from '../cars/vehicle-operations-eligibility.service';
+import { SystemConfigService } from '../config-engine/system-config.service';
+import { RedisCacheService } from '../redis/redis-cache.service';
+import { REDIS_NAMESPACES } from '../redis/redis-namespace.constants';
 import {
   BookingTransitionContext,
   BookingTransitionResult,
@@ -44,6 +52,9 @@ export class BookingLifecycleService {
     private readonly bookingLockService: BookingLockService,
     @Optional() private readonly referralsService?: ReferralsService,
     @Optional() private readonly loyaltyService?: LoyaltyService,
+    @Optional() private readonly vehicleEligibilityService?: VehicleOperationsEligibilityService,
+    @Optional() private readonly configService?: SystemConfigService,
+    @Optional() private readonly cacheService?: RedisCacheService,
   ) {}
 
   /**
@@ -352,6 +363,173 @@ export class BookingLifecycleService {
             });
           }
 
+          // 5.1 Fleet Integrity: Record vehicle reservation audit log on confirmation
+          if (targetStatus === BookingStatus.CONFIRMED && (tx as any).vehicleAuditLog) {
+            await (tx as any).vehicleAuditLog.create({
+              data: {
+                carId: booking.carId,
+                actorId,
+                actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                action: 'BOOKING_RESERVED',
+                fromStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                toStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                reason: reason || `Booking ${bookingId} confirmed and vehicle reservation established`,
+                metadata: {
+                  bookingId,
+                  startDate: new Date(booking.startDate).toISOString(),
+                  endDate: new Date(booking.endDate).toISOString(),
+                  customerId: booking.customerId,
+                },
+              },
+            });
+          }
+
+          // 5.2 Fleet Integrity: Record rental start audit log on vehicle handover
+          if (targetStatus === BookingStatus.ONGOING && (tx as any).vehicleAuditLog) {
+            await (tx as any).vehicleAuditLog.create({
+              data: {
+                carId: booking.carId,
+                actorId,
+                actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                action: 'RENTAL_STARTED',
+                fromStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                toStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                reason: reason || `Vehicle handed over and active rental started for booking ${bookingId}`,
+                metadata: {
+                  bookingId,
+                  customerId: booking.customerId,
+                  pickupTime: new Date().toISOString(),
+                },
+              },
+            });
+          }
+
+          // 5.3 Fleet Integrity: Handle return inspection damage hold vs clean release
+          if (targetStatus === BookingStatus.COMPLETED) {
+            let postTrip: any = null;
+            if (tx.inspection) {
+              postTrip = await tx.inspection.findUnique({
+                where: { bookingId_type: { bookingId, type: InspectionType.POST_TRIP } },
+              });
+            }
+
+            let activeClaims: any[] = [];
+            if ((tx as any).damageClaim) {
+              activeClaims = await (tx as any).damageClaim.findMany({
+                where: {
+                  bookingId,
+                  status: { notIn: [DamageClaimStatus.REJECTED, DamageClaimStatus.SETTLED] },
+                },
+              });
+            }
+
+            const hasInspectionDamage =
+              (postTrip?.damagePhotos && postTrip.damagePhotos.length > 0) ||
+              (postTrip?.conditionNotes &&
+                /damage|scratch|dent|accident|broken|cracked/i.test(postTrip.conditionNotes));
+            const hasDamage = hasInspectionDamage || activeClaims.length > 0;
+
+            if (hasDamage) {
+              if ((tx as any).vehicleBlock) {
+                await (tx as any).vehicleBlock.create({
+                  data: {
+                    carId: booking.carId,
+                    vendorId: booking.vendorId,
+                    blockType: VehicleBlockType.SAFETY_HOLD,
+                    reason: `Post-rental damage inspection hold for booking ${bookingId}`,
+                    startDate: new Date(),
+                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    actorId,
+                    actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                  },
+                });
+              }
+
+              if ((tx as any).car?.update) {
+                await (tx as any).car.update({
+                  where: { id: booking.carId },
+                  data: {
+                    operationalStatus: VehicleOperationalStatus.INACTIVE,
+                    isAvailable: false,
+                  },
+                });
+              }
+
+              if ((tx as any).vehicleAuditLog) {
+                await (tx as any).vehicleAuditLog.create({
+                  data: {
+                    carId: booking.carId,
+                    actorId,
+                    actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                    action: 'POST_RENTAL_DAMAGE_HOLD',
+                    fromStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                    toStatus: VehicleOperationalStatus.INACTIVE,
+                    reason: `Vehicle placed on safety hold due to post-trip damage reported on booking ${bookingId}`,
+                    metadata: {
+                      bookingId,
+                      damageClaimCount: activeClaims.length,
+                      damagePhotosCount: postTrip?.damagePhotos?.length || 0,
+                    },
+                  },
+                });
+              }
+            } else {
+              if ((tx as any).car?.update) {
+                await (tx as any).car.update({
+                  where: { id: booking.carId },
+                  data: {
+                    operationalStatus: VehicleOperationalStatus.ACTIVE,
+                    isAvailable: true,
+                  },
+                });
+              }
+
+              if ((tx as any).vehicleAuditLog) {
+                await (tx as any).vehicleAuditLog.create({
+                  data: {
+                    carId: booking.carId,
+                    actorId,
+                    actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                    action: 'RENTAL_COMPLETED',
+                    fromStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                    toStatus: VehicleOperationalStatus.ACTIVE,
+                    reason: `Rental completed cleanly for booking ${bookingId}. Vehicle restored to active service.`,
+                    metadata: {
+                      bookingId,
+                      completedAt: new Date().toISOString(),
+                    },
+                  },
+                });
+              }
+            }
+          }
+
+          // 5.4 Fleet Integrity: Record vehicle release audit log on cancellation or expiry
+          if (
+            (targetStatus === BookingStatus.CANCELLED || targetStatus === BookingStatus.EXPIRED) &&
+            (tx as any).vehicleAuditLog
+          ) {
+            await (tx as any).vehicleAuditLog.create({
+              data: {
+                carId: booking.carId,
+                actorId,
+                actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
+                action:
+                  targetStatus === BookingStatus.CANCELLED
+                    ? 'BOOKING_CANCELLED'
+                    : 'BOOKING_EXPIRED',
+                fromStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                toStatus: booking.car?.operationalStatus || VehicleOperationalStatus.ACTIVE,
+                reason: reason || `Booking reservation released due to ${targetStatus.toLowerCase()}`,
+                metadata: {
+                  bookingId,
+                  previousStatus,
+                  releasedAt: new Date().toISOString(),
+                },
+              },
+            });
+          }
+
           // Persist the transactional outbox event
           const event = await tx.bookingOutboxEvent.create({
             data: {
@@ -374,6 +552,15 @@ export class BookingLifecycleService {
         },
         { timeout: 15000 },
       );
+
+      // Invalidate fleet caches after transition
+      if (this.vehicleEligibilityService) {
+        this.vehicleEligibilityService.invalidateEligibilityCache(booking.carId).catch(() => {});
+      }
+      if (this.cacheService) {
+        this.cacheService.delete(REDIS_NAMESPACES.CACHE.CAR_DETAIL(booking.carId)).catch(() => {});
+        this.cacheService.delete(REDIS_NAMESPACES.CACHE.VENDOR_FLEET(booking.vendorId)).catch(() => {});
+      }
 
       // 6. Record Audit Log if administrator executed an override
       if (actorRole === Role.ADMIN) {
@@ -529,8 +716,61 @@ export class BookingLifecycleService {
   ) {
     const isAdmin = actorRole === Role.ADMIN || actorRole === 'SYSTEM';
 
-    // PRECONDITION FOR CONFIRMED: Payment must be captured unless Admin explicit justification
+    // PRECONDITION FOR CONFIRMED: Operational readiness + payment captured
     if (targetStatus === BookingStatus.CONFIRMED) {
+      if (booking.car?.operationalStatus && booking.car.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        throw new ConflictException(
+          `Cannot confirm booking: Vehicle operational status is ${booking.car.operationalStatus}. Vehicle must be ACTIVE.`,
+        );
+      }
+
+      if (booking.car?.verificationStatus && booking.car.verificationStatus !== VehicleVerificationStatus.VERIFIED) {
+        throw new ConflictException(
+          `Cannot confirm booking: Vehicle verification status is ${booking.car.verificationStatus}. Vehicle must be VERIFIED.`,
+        );
+      }
+
+      // Check overlapping operational blocks & maintenance windows
+      if (typeof (this.prisma as any).vehicleBlock?.findFirst === 'function') {
+        const overlappingBlock = await (this.prisma as any).vehicleBlock.findFirst({
+          where: {
+            carId: booking.carId,
+            startDate: { lt: booking.endDate },
+            endDate: { gt: booking.startDate },
+          },
+        });
+        if (overlappingBlock) {
+          throw new ConflictException(
+            `Cannot confirm booking: Vehicle has an operational block (${overlappingBlock.blockType}: ${overlappingBlock.reason || 'Maintenance'}) during this reservation period.`,
+          );
+        }
+      }
+
+      // Check overlapping confirmed/active bookings on the same car
+      if (typeof (this.prisma as any).booking?.findFirst === 'function') {
+        const overlappingBooking = await (this.prisma as any).booking.findFirst({
+          where: {
+            carId: booking.carId,
+            id: { not: booking.id },
+            status: {
+              in: [
+                BookingStatus.CONFIRMED,
+                BookingStatus.HANDOVER_READY,
+                BookingStatus.ONGOING,
+                BookingStatus.RETURN_PENDING,
+              ],
+            },
+            startDate: { lt: booking.endDate },
+            endDate: { gt: booking.startDate },
+          },
+        });
+        if (overlappingBooking) {
+          throw new ConflictException(
+            `Cannot confirm booking: Vehicle is already reserved or rented under booking ${overlappingBooking.id} for overlapping dates.`,
+          );
+        }
+      }
+
       const isPaid = booking.payment && booking.payment.status === PaymentStatus.PAID;
       if (!isPaid) {
         if (!isAdmin) {
@@ -552,6 +792,11 @@ export class BookingLifecycleService {
 
     // PRECONDITION FOR HANDOVER_READY: Pre-trip inspection must be recorded
     if (targetStatus === BookingStatus.HANDOVER_READY) {
+      if (booking.car?.operationalStatus && booking.car.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        throw new ConflictException(
+          `Cannot mark ready for handover: Vehicle operational status is ${booking.car.operationalStatus}. Must be ACTIVE.`,
+        );
+      }
       const preTrip = await this.prisma.inspection.findUnique({
         where: { bookingId_type: { bookingId: booking.id, type: InspectionType.PRE_TRIP } },
       });
@@ -562,8 +807,74 @@ export class BookingLifecycleService {
       }
     }
 
-    // PRECONDITION FOR ONGOING: Pre-trip inspection finalized + Pickup OTP verified
+    // PRECONDITION FOR ONGOING: Pre-trip inspection finalized + Pickup OTP verified + Operational revalidation
     if (targetStatus === BookingStatus.ONGOING) {
+      if (booking.car?.operationalStatus && booking.car.operationalStatus !== VehicleOperationalStatus.ACTIVE) {
+        throw new ConflictException(
+          `Cannot start trip: Vehicle operational status is ${booking.car.operationalStatus}. Vehicle must be ACTIVE.`,
+        );
+      }
+
+      if (booking.car?.verificationStatus && booking.car.verificationStatus !== VehicleVerificationStatus.VERIFIED) {
+        throw new ConflictException(
+          `Cannot start trip: Vehicle verification status is ${booking.car.verificationStatus}. Vehicle must be VERIFIED.`,
+        );
+      }
+
+      if (this.vehicleEligibilityService) {
+        const eligibility = await this.vehicleEligibilityService.evaluateEligibility(booking.carId);
+        if (!eligibility.eligible) {
+          const blockerMsgs = eligibility.blockers
+            .filter((b) => b.severity === 'BLOCKER')
+            .map((b) => b.message)
+            .join(' | ');
+          throw new ConflictException(
+            `Cannot start trip: Vehicle has operational blockers: ${blockerMsgs || 'Vehicle is not operational.'}`,
+          );
+        }
+      }
+
+      if (
+        booking.securityDeposit &&
+        booking.securityDeposit.status === SecurityDepositStatus.REQUIRED &&
+        !isAdmin
+      ) {
+        throw new BadRequestException(
+          `Cannot start trip: Mandatory customer security deposit of INR ${booking.securityDeposit.amount} must be held prior to pickup.`,
+        );
+      }
+
+      if (
+        booking.payment &&
+        booking.payment.status !== PaymentStatus.PAID &&
+        !isAdmin
+      ) {
+        throw new BadRequestException(
+          `Cannot start trip: Booking payment has not been completed (Payment status: ${booking.payment.status}).`,
+        );
+      }
+
+      let allowEarlyPickupMinutes = 30;
+      if (this.configService) {
+        try {
+          const cfg = await this.configService.getBookingPolicyConfig();
+          if (cfg?.allowEarlyPickupMinutes !== undefined) {
+            allowEarlyPickupMinutes = cfg.allowEarlyPickupMinutes;
+          }
+        } catch (e) {
+          this.logger.warn(`Could not fetch booking config for early pickup check: ${e?.message}`);
+        }
+      }
+
+      const earliestAllowedPickupTime = new Date(
+        new Date(booking.startDate).getTime() - allowEarlyPickupMinutes * 60 * 1000,
+      );
+      if (new Date() < earliestAllowedPickupTime && !isAdmin) {
+        throw new BadRequestException(
+          `Early pickup is not permitted more than ${allowEarlyPickupMinutes} minutes before scheduled start time.`,
+        );
+      }
+
       const preTrip = await this.prisma.inspection.findUnique({
         where: { bookingId_type: { bookingId: booking.id, type: InspectionType.PRE_TRIP } },
       });

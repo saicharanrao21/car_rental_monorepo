@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -10,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 import { BookingLockService } from '../redis/booking-lock.service';
 import { REDIS_NAMESPACES } from '../redis/redis-namespace.constants';
-import { VehicleOperationalStatus, Role } from '@prisma/client';
+import { VehicleOperationalStatus, Role, BookingStatus } from '@prisma/client';
 import { VehicleOperationsEligibilityService } from './vehicle-operations-eligibility.service';
 
 export interface LifecycleActor {
@@ -163,6 +164,48 @@ export class VehicleLifecycleService {
         throw new ForbiddenException(
           'Vehicle verification and initial activation must be approved by platform administration.',
         );
+      }
+
+      // Active ongoing rental protection (Step 6 & Invariants 10, 13)
+      if (
+        targetStatus === VehicleOperationalStatus.INACTIVE ||
+        targetStatus === VehicleOperationalStatus.MAINTENANCE ||
+        targetStatus === VehicleOperationalStatus.SUSPENDED ||
+        targetStatus === VehicleOperationalStatus.RETIRED
+      ) {
+        let ongoingBooking: any = null;
+        if (typeof (this.prisma as any).booking?.findFirst === 'function') {
+          ongoingBooking = await (this.prisma as any).booking.findFirst({
+            where: {
+              carId,
+              status: BookingStatus.ONGOING,
+            },
+          });
+        } else if (typeof (this.prisma as any).booking?.findMany === 'function') {
+          const list = await (this.prisma as any).booking.findMany({
+            where: {
+              carId,
+              status: { in: [BookingStatus.ONGOING] },
+            },
+          });
+          ongoingBooking = list && list.length > 0 ? list[0] : null;
+        }
+
+        if (ongoingBooking) {
+          if (
+            targetStatus === VehicleOperationalStatus.INACTIVE ||
+            targetStatus === VehicleOperationalStatus.MAINTENANCE
+          ) {
+            throw new ConflictException(
+              `Cannot deactivate or place vehicle into maintenance during an active rental (Booking ID: ${ongoingBooking.id}).`,
+            );
+          }
+          if (!options?.reason || options.reason.trim().length < 10) {
+            throw new BadRequestException(
+              'Administrative intervention (suspension/retirement) of a vehicle during an active ongoing rental requires explicit justification (minimum 10 characters).',
+            );
+          }
+        }
       }
 
       // Server-authoritative activation eligibility check

@@ -58,6 +58,12 @@ export interface BookingPolicyConfig {
   cancellationGraceMinutes: number;
   maxAdvanceBookingDays: number;
   doorstepDeliveryMaxRadiusKm: number;
+  requirePreTripInspection?: boolean;
+  requireHandoverOtp?: boolean;
+  requireReturnOtp?: boolean;
+  blockVehicleOnReturnDamage?: boolean;
+  allowEarlyPickupMinutes?: number;
+  requireVehicleActiveAtPickup?: boolean;
 }
 
 export interface NotificationConfig {
@@ -265,6 +271,12 @@ export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: a
       cancellationGraceMinutes: 60,
       maxAdvanceBookingDays: 90,
       doorstepDeliveryMaxRadiusKm: 50,
+      requirePreTripInspection: true,
+      requireHandoverOtp: true,
+      requireReturnOtp: true,
+      blockVehicleOnReturnDamage: true,
+      allowEarlyPickupMinutes: 30,
+      requireVehicleActiveAtPickup: true,
     } as BookingPolicyConfig,
     isPublic: true,
     description: 'Operational booking constraints and time limits',

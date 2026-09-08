@@ -493,6 +493,33 @@ export class SystemConfigValidator {
       }
     }
 
+    if (payload.requirePreTripInspection !== undefined && typeof payload.requirePreTripInspection !== 'boolean') {
+      throw new BadRequestException('requirePreTripInspection must be a boolean.');
+    }
+
+    if (payload.requireHandoverOtp !== undefined && typeof payload.requireHandoverOtp !== 'boolean') {
+      throw new BadRequestException('requireHandoverOtp must be a boolean.');
+    }
+
+    if (payload.requireReturnOtp !== undefined && typeof payload.requireReturnOtp !== 'boolean') {
+      throw new BadRequestException('requireReturnOtp must be a boolean.');
+    }
+
+    if (payload.blockVehicleOnReturnDamage !== undefined && typeof payload.blockVehicleOnReturnDamage !== 'boolean') {
+      throw new BadRequestException('blockVehicleOnReturnDamage must be a boolean.');
+    }
+
+    if (payload.requireVehicleActiveAtPickup !== undefined && typeof payload.requireVehicleActiveAtPickup !== 'boolean') {
+      throw new BadRequestException('requireVehicleActiveAtPickup must be a boolean.');
+    }
+
+    if (payload.allowEarlyPickupMinutes !== undefined) {
+      const v = Number(payload.allowEarlyPickupMinutes);
+      if (isNaN(v) || v < 0 || v > 1440) {
+        throw new BadRequestException('allowEarlyPickupMinutes must be between 0 and 1440 minutes.');
+      }
+    }
+
     return payload;
   }
 

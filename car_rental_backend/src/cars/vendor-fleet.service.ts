@@ -404,6 +404,15 @@ export class VendorFleetService {
       },
     });
 
+    const ongoingBooking = conflictingBookings.find(
+      (b) => b.status === BookingStatus.ONGOING,
+    );
+    if (ongoingBooking) {
+      throw new ConflictException(
+        `Cannot start maintenance while a rental is currently ONGOING with a customer (Booking ID: ${ongoingBooking.id}).`,
+      );
+    }
+
     if (conflictingBookings.length > 0 && !dto.overrideConflictingBookings) {
       const ids = conflictingBookings.map((b) => b.id).join(', ');
       throw new ConflictException(
