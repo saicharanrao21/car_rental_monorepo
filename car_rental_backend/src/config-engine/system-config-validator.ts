@@ -45,6 +45,8 @@ export class SystemConfigValidator {
         return this.validateLocationRulesConfig(payload);
       case 'vendor.onboarding.rules':
         return this.validateVendorOnboardingRulesConfig(payload);
+      case 'fleet.operations.rules':
+        return this.validateFleetOperationsRulesConfig(payload);
       default:
         // Generic object validation for unspecified keys
         if (typeof payload !== 'object') {
@@ -579,6 +581,50 @@ export class SystemConfigValidator {
 
     if (payload.autoCheckEligibilityOnUpload !== undefined && typeof payload.autoCheckEligibilityOnUpload !== 'boolean') {
       throw new BadRequestException('autoCheckEligibilityOnUpload must be a boolean.');
+    }
+
+    return payload;
+  }
+
+  private static validateFleetOperationsRulesConfig(payload: any): any {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new BadRequestException('fleet.operations.rules must be a JSON object.');
+    }
+
+    if (payload.fleetActivationEnabled !== undefined && typeof payload.fleetActivationEnabled !== 'boolean') {
+      throw new BadRequestException('fleetActivationEnabled must be a boolean.');
+    }
+
+    if (payload.requireVendorVerified !== undefined && typeof payload.requireVendorVerified !== 'boolean') {
+      throw new BadRequestException('requireVendorVerified must be a boolean.');
+    }
+
+    if (payload.requireVendorSecurityDeposit !== undefined && typeof payload.requireVendorSecurityDeposit !== 'boolean') {
+      throw new BadRequestException('requireVendorSecurityDeposit must be a boolean.');
+    }
+
+    if (payload.requireServiceAreaAssignment !== undefined && typeof payload.requireServiceAreaAssignment !== 'boolean') {
+      throw new BadRequestException('requireServiceAreaAssignment must be a boolean.');
+    }
+
+    if (payload.requireVehicleVerification !== undefined && typeof payload.requireVehicleVerification !== 'boolean') {
+      throw new BadRequestException('requireVehicleVerification must be a boolean.');
+    }
+
+    if (payload.maxMaintenanceDays !== undefined) {
+      if (typeof payload.maxMaintenanceDays !== 'number' || isNaN(payload.maxMaintenanceDays) || payload.maxMaintenanceDays < 0) {
+        throw new BadRequestException('maxMaintenanceDays must be a non-negative number.');
+      }
+    }
+
+    if (payload.autoDeactivateOnMissingCoverage !== undefined && typeof payload.autoDeactivateOnMissingCoverage !== 'boolean') {
+      throw new BadRequestException('autoDeactivateOnMissingCoverage must be a boolean.');
+    }
+
+    if (payload.availabilityBufferMinutes !== undefined) {
+      if (typeof payload.availabilityBufferMinutes !== 'number' || isNaN(payload.availabilityBufferMinutes) || payload.availabilityBufferMinutes < 0) {
+        throw new BadRequestException('availabilityBufferMinutes must be a non-negative number.');
+      }
     }
 
     return payload;

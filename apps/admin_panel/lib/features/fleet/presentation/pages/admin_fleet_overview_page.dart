@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import 'package:models/models.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
+import '../../domain/models/vendor_fleet_models.dart';
 import '../providers/admin_fleet_providers.dart';
 import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
-
 import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../../../../core/widgets/admin_data_grid.dart';
 
@@ -19,51 +18,33 @@ class AdminFleetOverviewPage extends ConsumerStatefulWidget {
 }
 
 class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage> {
-  void _showConfirmDialog({
-    required BuildContext context,
-    required String title,
-    required String content,
-    required VoidCallback onConfirm,
-  }) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onConfirm();
-            },
-            child: Text(title, style: const TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _showDetailPanel(BuildContext context, String carId) {
     AdminDetailDrawer.show(
       context: context,
-      title: 'Vehicle Specifications',
+      title: 'Vehicle Fleet & Operations',
       subtitle: 'Vehicle ID: #${carId.toUpperCase()}',
-      width: 520,
+      width: 580,
       child: _CarDetailPanel(carId: carId),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final fleetAsync = ref.watch(adminFleetProvider);
+    final kpisAsync = ref.watch(fleetKpisProvider);
+    final vehiclesAsync = ref.watch(adminFleetVehiclesProvider);
+
     final cityFilter = ref.watch(fleetCityFilterProvider);
-    final carTypeFilter = ref.watch(fleetCarTypeFilterProvider);
-    final availabilityFilter = ref.watch(fleetAvailabilityFilterProvider);
     final vendorFilter = ref.watch(fleetVendorFilterProvider);
+    final opStatusFilter = ref.watch(fleetOperationalStatusFilterProvider);
+    final verStatusFilter = ref.watch(fleetVerificationStatusFilterProvider);
 
     return Scaffold(
       body: Padding(
@@ -71,23 +52,82 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ─── Filter Top Bar ───
+            // ─── Header & KPIs ───
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fleet Operations & Vehicle Readiness',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    Gap(4),
+                    Text(
+                      'Server-authoritative vehicle lifecycle, compliance verification, and operational availability',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ref.invalidate(fleetKpisProvider);
+                    ref.invalidate(adminFleetVehiclesProvider);
+                  },
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Refresh Fleet'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const Gap(20),
+
+            // ─── KPI Cards Banner ───
+            kpisAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (err, _) => const SizedBox.shrink(),
+              data: (kpis) => _buildKpiRow(kpis),
+            ),
+            const Gap(20),
+
+            // ─── Filters Bar ───
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
+                  // Search Input
                   SizedBox(
-                    width: 150,
+                    width: 220,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search plate, model...',
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onSubmitted: (val) {
+                        ref.read(fleetSearchQueryProvider.notifier).state = val.trim().isEmpty ? null : val.trim();
+                      },
+                    ),
+                  ),
+                  const Gap(12),
+
+                  // City Dropdown
+                  SizedBox(
+                    width: 140,
                     child: AppDropdown<String>(
                       label: 'City',
                       value: cityFilter ?? 'All',
                       items: ['All', ...AppConstants.indianCities]
                           .map((city) => DropdownMenuItem<String>(
                                 value: city,
-                                child: SizedBox(
-                                  width: 80,
-                                  child: Text(city, overflow: TextOverflow.ellipsis),
-                                ),
+                                child: Text(city, overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (val) {
@@ -96,74 +136,74 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                       },
                     ),
                   ),
-                  const Gap(16),
+                  const Gap(12),
+
+                  // Operational Status Dropdown
                   SizedBox(
-                    width: 160,
+                    width: 180,
                     child: AppDropdown<String>(
-                      label: 'Car Type',
-                      value: carTypeFilter ?? 'All',
-                      items: ['All', ...AppConstants.carCategories]
-                          .map((type) => DropdownMenuItem<String>(
-                                value: type,
-                                child: SizedBox(
-                                  width: 90,
-                                  child: Text(type, overflow: TextOverflow.ellipsis),
-                                ),
+                      label: 'Lifecycle Status',
+                      value: opStatusFilter ?? 'All',
+                      items: const [
+                        'All',
+                        'ACTIVE',
+                        'DRAFT',
+                        'PENDING_VERIFICATION',
+                        'INACTIVE',
+                        'MAINTENANCE',
+                        'SUSPENDED',
+                        'RETIRED',
+                      ]
+                          .map((st) => DropdownMenuItem<String>(
+                                value: st,
+                                child: Text(st, overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (val) {
-                        ref.read(fleetCarTypeFilterProvider.notifier).state =
+                        ref.read(fleetOperationalStatusFilterProvider.notifier).state =
                             (val == 'All' || val == null) ? null : val;
                       },
                     ),
                   ),
-                  const Gap(16),
+                  const Gap(12),
+
+                  // Verification Status Dropdown
                   SizedBox(
-                    width: 180,
+                    width: 170,
                     child: AppDropdown<String>(
-                      label: 'Availability',
-                      value: availabilityFilter == null
-                          ? 'All'
-                          : (availabilityFilter ? 'Available' : 'Unavailable'),
-                      items: const ['All', 'Available', 'Unavailable']
-                          .map((status) => DropdownMenuItem<String>(
-                                value: status,
-                                child: SizedBox(
-                                  width: 110,
-                                  child: Text(status, overflow: TextOverflow.ellipsis),
-                                ),
+                      label: 'Verification',
+                      value: verStatusFilter ?? 'All',
+                      items: const ['All', 'VERIFIED', 'PENDING', 'REJECTED']
+                          .map((st) => DropdownMenuItem<String>(
+                                value: st,
+                                child: Text(st, overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (val) {
-                        if (val == 'All' || val == null) {
-                          ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
-                        } else {
-                          ref.read(fleetAvailabilityFilterProvider.notifier).state = val == 'Available';
-                        }
+                        ref.read(fleetVerificationStatusFilterProvider.notifier).state =
+                            (val == 'All' || val == null) ? null : val;
                       },
                     ),
                   ),
-                  const Gap(16),
+                  const Gap(12),
+
+                  // Vendor Filter Dropdown
                   SizedBox(
-                    width: 220,
+                    width: 200,
                     child: AppDropdown<String>(
-                      label: 'Vendor',
+                      label: 'Vendor Partner',
                       value: vendorFilter ?? 'All',
                       items: [
                         const DropdownMenuItem<String>(
                           value: 'All',
-                          child: SizedBox(
-                            width: 150,
-                            child: Text('All Vendors', overflow: TextOverflow.ellipsis),
+                          child: Text('All Vendors', overflow: TextOverflow.ellipsis),
+                        ),
+                        ...(ref.watch(adminVendorsProvider).value ?? []).map(
+                          (v) => DropdownMenuItem<String>(
+                            value: v.id,
+                            child: Text(v.businessName, overflow: TextOverflow.ellipsis),
                           ),
                         ),
-                        ...(ref.watch(adminVendorsProvider).value ?? []).map((v) => DropdownMenuItem<String>(
-                              value: v.id,
-                              child: SizedBox(
-                                width: 150,
-                                child: Text(v.businessName, overflow: TextOverflow.ellipsis),
-                              ),
-                            )),
                       ],
                       onChanged: (val) {
                         ref.read(fleetVendorFilterProvider.notifier).state =
@@ -171,17 +211,21 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                       },
                     ),
                   ),
+
                   if (cityFilter != null ||
-                      carTypeFilter != null ||
-                      availabilityFilter != null ||
-                      vendorFilter != null) ...[
-                    const Gap(16),
+                      vendorFilter != null ||
+                      opStatusFilter != null ||
+                      verStatusFilter != null ||
+                      _searchController.text.isNotEmpty) ...[
+                    const Gap(12),
                     TextButton.icon(
                       onPressed: () {
+                        _searchController.clear();
+                        ref.read(fleetSearchQueryProvider.notifier).state = null;
                         ref.read(fleetCityFilterProvider.notifier).state = null;
-                        ref.read(fleetCarTypeFilterProvider.notifier).state = null;
-                        ref.read(fleetAvailabilityFilterProvider.notifier).state = null;
                         ref.read(fleetVendorFilterProvider.notifier).state = null;
+                        ref.read(fleetOperationalStatusFilterProvider.notifier).state = null;
+                        ref.read(fleetVerificationStatusFilterProvider.notifier).state = null;
                       },
                       icon: const Icon(Icons.clear_all, size: 18),
                       label: const Text('Clear Filters'),
@@ -190,174 +234,94 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
                 ],
               ),
             ),
-            const Gap(24),
+            const Gap(16),
 
-            // ─── Fleet Overview Table ───
+            // ─── Main Fleet Grid ───
             Expanded(
-              child: fleetAsync.when(
+              child: vehiclesAsync.when(
                 loading: () => const AdminTableSkeleton(),
                 error: (err, _) => AdminErrorState(
-                  message: 'Error loading fleet list: $err',
-                  onRetry: () => ref.invalidate(adminFleetProvider),
+                  message: 'Error loading vehicle fleet: $err',
+                  onRetry: () => ref.invalidate(adminFleetVehiclesProvider),
                 ),
-                data: (cars) {
-                  return AdminDataGrid<CarModel>(
-                    items: cars,
-                    emptyTitle: 'No Vehicles Found',
+                data: (vehicles) {
+                  return AdminDataGrid<AdminFleetVehicleModel>(
+                    items: vehicles,
+                    emptyTitle: 'No Fleet Vehicles Found',
                     emptyMessage: 'No vehicles match the selected filter criteria.',
                     emptyIcon: Icons.directions_car_outlined,
-                    onRowTap: (c) => _showDetailPanel(context, c.id),
+                    onRowTap: (v) => _showDetailPanel(context, v.id),
                     columns: [
                       AdminDataColumn(
-                        title: 'VEHICLE MODEL',
-                        builder: (c) => Column(
+                        title: 'VEHICLE / PLATE',
+                        builder: (v) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              '${c.make} ${c.model} (${c.year})',
+                              '${v.make} ${v.model} (${v.year})',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontSize: 13),
                             ),
                             Text(
-                              '#${c.id.toUpperCase()}',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB)),
+                              v.registrationNumber.isNotEmpty ? v.registrationNumber : '#${v.id.toUpperCase()}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
                       ),
                       AdminDataColumn(
-                        title: 'CATEGORY',
-                        builder: (c) => Text(c.type, style: const TextStyle(fontSize: 12.5)),
-                      ),
-                      AdminDataColumn(
-                        title: 'VENDOR PARTNER',
-                        builder: (c) {
-                          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
-                            (v) => v.id == c.vendorId,
-                            orElse: () => VendorModel(
-                              id: c.vendorId,
-                              businessName: 'Vendor #${c.vendorId.length > 6 ? c.vendorId.substring(0, 6) : c.vendorId}',
-                              ownerName: '',
-                              city: '',
-                              verificationStatus: '',
+                        title: 'VENDOR / CITY',
+                        builder: (v) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              v.vendorBusinessName ?? 'Vendor #${v.vendorId.substring(0, 6)}',
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
                             ),
-                          );
-                          return Text(vendor.businessName, style: const TextStyle(fontSize: 12.5));
-                        },
+                            Text(
+                              v.vendorCity ?? '—',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
                       ),
                       AdminDataColumn(
-                        title: 'CITY',
-                        builder: (c) {
-                          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
-                            (v) => v.id == c.vendorId,
-                            orElse: () => VendorModel(id: c.vendorId, businessName: '', ownerName: '', city: 'N/A', verificationStatus: ''),
-                          );
-                          return Text(vendor.city.isNotEmpty ? vendor.city : '—');
-                        },
-                      ),
-                      AdminDataColumn(
-                        title: 'SEATS',
-                        numeric: true,
-                        builder: (c) => Text('${c.seating}'),
-                      ),
-                      AdminDataColumn(
-                        title: 'AC',
-                        builder: (c) => Text(c.isAC ? 'Yes' : 'No'),
+                        title: 'SERVICE AREA',
+                        builder: (v) => Text(
+                          v.serviceAreaName ?? 'Unassigned',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: v.serviceAreaName != null ? const Color(0xFF0F172A) : Colors.orange[800],
+                            fontWeight: v.serviceAreaName != null ? FontWeight.normal : FontWeight.bold,
+                          ),
+                        ),
                       ),
                       AdminDataColumn(
                         title: 'PRICE / DAY',
                         numeric: true,
-                        builder: (c) => Text('₹${c.pricePerDay.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        builder: (v) => Text('₹${v.pricePerDay.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       AdminDataColumn(
-                        title: 'STATUS',
-                        builder: (c) => AdminStatusBadge(status: c.isAvailable ? 'AVAILABLE' : 'DEACTIVATED'),
+                        title: 'VERIFICATION',
+                        builder: (v) => _buildVerificationBadge(v.verificationStatus),
+                      ),
+                      AdminDataColumn(
+                        title: 'OPERATIONAL STATUS',
+                        builder: (v) => _buildOperationalBadge(v.operationalStatus),
                       ),
                       AdminDataColumn(
                         title: 'ACTIONS',
-                        builder: (c) => Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () => _showDetailPanel(context, c.id),
-                              child: const Text('Inspect', style: TextStyle(fontSize: 11.5)),
-                            ),
-                            if (c.isAvailable) ...[
-                              const Gap(6),
-                              IconButton(
-                                icon: const Icon(Icons.block, color: Colors.red, size: 18),
-                                tooltip: 'Deactivate listing',
-                                onPressed: () {
-                                  _showConfirmDialog(
-                                    context: context,
-                                    title: 'Deactivate Vehicle Listing',
-                                    content: 'Are you sure you want to deactivate ${c.make} ${c.model}? Customers will no longer be able to search for or book this vehicle.',
-                                    onConfirm: () => ref
-                                        .read(adminFleetControllerProvider.notifier)
-                                        .deactivateCarListing(c.id),
-                                  );
-                                },
-                              ),
-                            ],
-                          ],
+                        builder: (v) => OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => _showDetailPanel(context, v.id),
+                          child: const Text('Inspect & Operate', style: TextStyle(fontSize: 11.5)),
                         ),
                       ),
                     ],
-                    mobileCardBuilder: (ctx, c) {
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${c.make} ${c.model} (${c.year})',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                AdminStatusBadge(status: c.isAvailable ? 'AVAILABLE' : 'DEACTIVATED', compact: true),
-                              ],
-                            ),
-                            const Gap(4),
-                            Text(
-                              '${c.type} • ${c.seating} Seats • ${c.isAC ? "AC" : "Non-AC"}',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                            ),
-                            const Gap(8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '₹${c.pricePerDay.toStringAsFixed(0)} / day',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                                OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  onPressed: () => _showDetailPanel(context, c.id),
-                                  child: const Text('Inspect Details', style: TextStyle(fontSize: 11.5)),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
                   );
                 },
               ),
@@ -367,34 +331,209 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
       ),
     );
   }
+
+  Widget _buildKpiRow(FleetKpisModel kpis) {
+    return Row(
+      children: [
+        Expanded(child: _kpiCard('Total Fleet', '${kpis.total}', Icons.directions_car, const Color(0xFF3B82F6))),
+        const Gap(12),
+        Expanded(child: _kpiCard('Active & Online', '${kpis.active}', Icons.check_circle_outline, const Color(0xFF10B981))),
+        const Gap(12),
+        Expanded(child: _kpiCard('Pending Review', '${kpis.pendingVerification}', Icons.hourglass_top, const Color(0xFFF59E0B))),
+        const Gap(12),
+        Expanded(child: _kpiCard('In Maintenance', '${kpis.maintenance}', Icons.build_circle_outlined, const Color(0xFFEA580C))),
+        const Gap(12),
+        Expanded(child: _kpiCard('Suspended', '${kpis.suspended}', Icons.block, const Color(0xFFEF4444))),
+        const Gap(12),
+        Expanded(child: _kpiCard('Readiness Rate', '${kpis.operationalReadinessRate}%', Icons.speed, const Color(0xFF8B5CF6))),
+      ],
+    );
+  }
+
+  Widget _kpiCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 1))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const Gap(10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOperationalBadge(String status) {
+    Color bg;
+    Color fg;
+    switch (status) {
+      case 'ACTIVE':
+        bg = const Color(0xFFD1FAE5);
+        fg = const Color(0xFF065F46);
+        break;
+      case 'PENDING_VERIFICATION':
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFF92400E);
+        break;
+      case 'MAINTENANCE':
+        bg = const Color(0xFFFFEDD5);
+        fg = const Color(0xFF9A3412);
+        break;
+      case 'SUSPENDED':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFF991B1B);
+        break;
+      case 'RETIRED':
+        bg = const Color(0xFFF1F5F9);
+        fg = const Color(0xFF475569);
+        break;
+      default:
+        bg = const Color(0xFFE0E7FF);
+        fg = const Color(0xFF3730A3);
+        break;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        status.replaceAll('_', ' '),
+        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildVerificationBadge(String status) {
+    Color bg;
+    Color fg;
+    switch (status) {
+      case 'VERIFIED':
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF166534);
+        break;
+      case 'REJECTED':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFF991B1B);
+        break;
+      default:
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFFB45309);
+        break;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        status,
+        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 }
 
-class _CarDetailPanel extends ConsumerWidget {
+// ─────────────────────────────────────────────────────────────
+// Detailed Vehicle Drawer Panel with Operational Readiness
+// ─────────────────────────────────────────────────────────────
+
+class _CarDetailPanel extends ConsumerStatefulWidget {
   final String carId;
   const _CarDetailPanel({required this.carId});
 
-  void _showConfirmDialog({
-    required BuildContext context,
+  @override
+  ConsumerState<_CarDetailPanel> createState() => _CarDetailPanelState();
+}
+
+class _CarDetailPanelState extends ConsumerState<_CarDetailPanel> {
+  final _reasonController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  void _showActionDialog({
     required String title,
-    required String content,
-    required VoidCallback onConfirm,
+    required String prompt,
+    required String confirmLabel,
+    required Color confirmColor,
+    required bool requiresReason,
+    required Future<void> Function(String reason) onConfirm,
   }) {
+    _reasonController.clear();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(prompt, style: const TextStyle(fontSize: 13, color: Color(0xFF475569))),
+            const Gap(12),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                hintText: requiresReason ? 'Enter mandatory reason/notes...' : 'Optional notes...',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: confirmColor, foregroundColor: Colors.white),
+            onPressed: () async {
+              final text = _reasonController.text.trim();
+              if (requiresReason && text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('A valid reason is required for this action.')),
+                );
+                return;
+              }
               Navigator.pop(ctx);
-              onConfirm();
+              try {
+                await onConfirm(text);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$title completed successfully.')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
             },
-            child: Text(title, style: const TextStyle(color: Colors.red)),
+            child: Text(confirmLabel),
           ),
         ],
       ),
@@ -402,306 +541,444 @@ class _CarDetailPanel extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final carAsync = ref.watch(carDetailProvider(carId));
-    final controllerState = ref.watch(adminFleetControllerProvider);
+  Widget build(BuildContext context) {
+    final readinessAsync = ref.watch(vehicleReadinessProvider(widget.carId));
+    final auditLogsAsync = ref.watch(vehicleAuditLogsProvider(widget.carId));
+    final vehiclesAsync = ref.watch(adminFleetVehiclesProvider);
+
+    final vehicle = (vehiclesAsync.value ?? []).firstWhere(
+      (v) => v.id == widget.carId,
+      orElse: () => AdminFleetVehicleModel(
+        id: widget.carId,
+        vendorId: '',
+        make: 'Vehicle',
+        model: 'Detail',
+        year: 2024,
+        type: 'SEDAN',
+        fuelType: 'PETROL',
+        seating: 5,
+        isAC: true,
+        registrationNumber: '',
+        photos: [],
+        pricePerKm: 0,
+        pricePerDay: 0,
+        pricePerHour: 0,
+        isAvailable: false,
+        operationalStatus: 'DRAFT',
+        verificationStatus: 'PENDING',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vehicle Fleet Details'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: carAsync.when(
-        loading: () => const Center(child: AppLoader()),
-        error: (err, _) => Center(child: Text('Error: $err')),
-        data: (car) {
-          final vendor = (ref.watch(adminVendorsProvider).value ?? []).firstWhere(
-            (v) => v.id == car.vendorId,
-            orElse: () => VendorModel(
-              id: car.vendorId,
-              businessName: 'Vendor #${car.vendorId.length > 6 ? car.vendorId.substring(0, 6) : car.vendorId}',
-              ownerName: '',
-              city: '',
-              verificationStatus: '',
-            ),
-          );
-
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Photo Placeholder
-                    Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey[400]),
-                          const Gap(8),
-                          Text(
-                            'Vehicle Photo Gallery Placeholder',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                          ),
-                        ],
-                      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Vehicle Header Banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const Gap(24),
-
-                    // Make & Model details
-                    Text(
-                      '${car.make} ${car.model}',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    const Gap(4),
-                    Text(
-                      'Year: ${car.year} | Fuel: ${car.fuelType}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                    const Gap(16),
-
-                    // Availability Status
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: (car.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: (car.isAvailable ? Colors.green : Colors.red).withValues(alpha: 0.24),
+                    child: const Icon(Icons.directions_car, color: Color(0xFF2563EB), size: 32),
+                  ),
+                  const Gap(16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${vehicle.make} ${vehicle.model} (${vehicle.year})',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            car.isAvailable ? Icons.check_circle : Icons.error,
-                            color: car.isAvailable ? Colors.green : Colors.red,
-                            size: 18,
-                          ),
-                          const Gap(8),
-                          Text(
-                            car.isAvailable
-                                ? 'AVAILABLE FOR CUSTOMER BOOKING'
-                                : 'DEACTIVATED BY PLATFORM ADMIN',
-                            style: TextStyle(
-                              color: car.isAvailable ? Colors.green[800] : Colors.red[800],
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                        const Gap(4),
+                        Text(
+                          'Plate: ${vehicle.registrationNumber} | Fuel: ${vehicle.fuelType} | Seating: ${vehicle.seating}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                        const Gap(4),
+                        Text(
+                          'Vendor: ${vehicle.vendorBusinessName ?? vehicle.vendorId} (${vehicle.vendorCity ?? "—"})',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
-                    const Divider(height: 32),
+                  ),
+                ],
+              ),
+            ),
+            const Gap(16),
 
-                    // Owning Vendor Details
-                    const SectionHeader(title: 'Owning Vendor Partner'),
-                    const Gap(12),
-                    _DetailRow(label: 'Business Name', value: vendor.businessName),
-                    _DetailRow(label: 'Owner Name', value: vendor.ownerName),
-                    _DetailRow(label: 'City', value: vendor.city),
-                    _DetailRow(label: 'Vendor Contact', value: vendor.phone.isEmpty ? 'N/A' : vendor.phone),
-                    const Divider(height: 32),
+            // Operational Readiness Card
+            readinessAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Readiness error: $e'),
+              data: (readiness) => _buildReadinessCard(readiness),
+            ),
+            const Gap(16),
 
-                    // Specifications
-                    const SectionHeader(title: 'Specifications'),
-                    const Gap(12),
-                    _DetailRow(label: 'Seating Capacity', value: '${car.seating} Seater'),
-                    _DetailRow(label: 'Air Conditioning (AC)', value: car.isAC ? 'Yes' : 'No'),
-                    _DetailRow(label: 'Vehicle Category', value: car.type),
-                    _DetailRow(label: 'Blocked Dates', value: '${car.blockedDates.length} Days Blocked'),
-                    const Divider(height: 32),
-
-                    // Pricing Specifications
-                    const SectionHeader(title: 'Base Pricing Details'),
-                    const Gap(12),
-                    _DetailRow(label: 'Price per Day', value: '₹${car.pricePerDay.toStringAsFixed(2)}'),
-                    _DetailRow(label: 'Price per Hour', value: '₹${car.pricePerHour.toStringAsFixed(2)}'),
-                    _DetailRow(label: 'Price per Excess Km', value: '₹${car.pricePerKm.toStringAsFixed(2)}'),
-                    const Divider(height: 32),
-
-                    // Mileage Packages Section
-                    const SectionHeader(title: 'Configured Mileage Packages'),
-                    const Gap(12),
-                    if (car.rawMileagePackages.isEmpty)
+            // Maintenance Banner (if in maintenance)
+            if (vehicle.operationalStatus == 'MAINTENANCE') ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDBA74)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.build_circle, color: Color(0xFFEA580C), size: 18),
+                        Gap(8),
+                        Text(
+                          'Vehicle In Scheduled Maintenance',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF9A3412), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const Gap(6),
+                    Text(
+                      'Reason: ${vehicle.maintenanceReason ?? "Routine inspection"}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF7C2D12)),
+                    ),
+                    if (vehicle.expectedReturnDate != null) ...[
+                      const Gap(4),
                       Text(
-                        'No mileage packages configured. (Using legacy pricing rates)',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600], fontStyle: FontStyle.italic),
-                      )
-                    else
-                      ...car.rawMileagePackages.map((rawPkg) {
-                        final pkg = MileagePackageModel.fromJson(Map<String, dynamic>.from(rawPkg as Map));
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: pkg.isActive ? Colors.grey[50] : Colors.red.shade50.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: pkg.isActive ? Colors.grey.shade300 : Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                pkg.isUnlimited ? Icons.all_inclusive : Icons.speed,
-                                color: pkg.isActive ? AppColors.primary : Colors.grey,
-                                size: 20,
-                              ),
-                              const Gap(10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          pkg.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: pkg.isActive ? Colors.black87 : Colors.grey[700],
-                                          ),
-                                        ),
-                                        const Gap(6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[200],
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            pkg.tripType,
-                                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                        if (pkg.isDefault) ...[
-                                          const Gap(4),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green[100],
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: const Text(
-                                              'Default',
-                                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const Gap(2),
-                                    Text(
-                                      pkg.isUnlimited
-                                          ? '₹${pkg.basePricePerDay.toInt()}/day • Unlimited km'
-                                          : '₹${pkg.basePricePerDay.toInt()}/day • ${pkg.includedKmPerDay} km/day • Extra: ₹${pkg.extraKmRate.toInt()}/km',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: pkg.isActive,
-                                activeThumbColor: AppColors.primary,
-                                onChanged: (val) {
-                                  ref.read(adminFleetControllerProvider.notifier)
-                                      .toggleMileagePackageActive(car.id, pkg.id, val);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    const Divider(height: 32),
-
-                    // Blocked Dates Details (if any)
-                    if (car.blockedDates.isNotEmpty) ...[
-                      const SectionHeader(title: 'Upcoming Blocked Dates'),
-                      const Gap(12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: car.blockedDates.map((date) {
-                          return Chip(
-                            label: Text(
-                              DateFormat('dd MMM yyyy').format(date),
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                            backgroundColor: Colors.amber[50],
-                            side: BorderSide(color: Colors.amber[200]!),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          );
-                        }).toList(),
+                        'Expected Return: ${DateFormat("MMM dd, yyyy").format(vehicle.expectedReturnDate!)}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF9A3412)),
                       ),
-                      const Divider(height: 32),
                     ],
-
-                    const Gap(24),
-
-                    // Actions
-                    if (car.isAvailable)
-                      AppButton(
-                        text: 'Deactivate Listing',
-                        backgroundColor: Colors.red[600],
-                        onPressed: () {
-                          _showConfirmDialog(
-                            context: context,
-                            title: 'Deactivate Vehicle Listing',
-                            content: 'Are you sure you want to deactivate this listing? Customers will no longer be able to find it.',
-                            onConfirm: () => ref
-                                .read(adminFleetControllerProvider.notifier)
-                                .deactivateCarListing(car.id),
-                          );
-                        },
-                      )
-                    else
-                      const AppButton(
-                        text: 'Listing Deactivated',
-                        onPressed: null,
-                      ),
-                    const Gap(40),
                   ],
                 ),
               ),
-              if (controllerState.isLoading)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black12,
-                    child: const Center(child: AppLoader()),
-                  ),
-                ),
+              const Gap(16),
             ],
-          );
-        },
+
+            // Sensitive Administrative Action Controls
+            const Text(
+              'Administrative Operations & Transitions',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+            ),
+            const Gap(10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Verify
+                if (vehicle.verificationStatus != 'VERIFIED')
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+                    icon: const Icon(Icons.verified, size: 16),
+                    label: const Text('Approve Verification'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Verify Vehicle',
+                      prompt: 'Approve vehicle registration and documentation. Vehicle will auto-activate if readiness checks pass.',
+                      confirmLabel: 'Verify & Activate',
+                      confirmColor: const Color(0xFF10B981),
+                      requiresReason: false,
+                      onConfirm: (notes) => ref.read(adminFleetControllerProvider.notifier).verifyVehicle(
+                            widget.carId,
+                            notes: notes,
+                            autoActivate: true,
+                          ),
+                    ),
+                  ),
+
+                // Reject
+                if (vehicle.verificationStatus != 'REJECTED')
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    icon: const Icon(Icons.cancel, size: 16),
+                    label: const Text('Reject Verification'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Reject Vehicle Verification',
+                      prompt: 'Specify the compliance or documentation blocker reason for rejecting this vehicle.',
+                      confirmLabel: 'Reject Vehicle',
+                      confirmColor: Colors.red,
+                      requiresReason: true,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).rejectVehicle(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+
+                // Activate
+                if (vehicle.operationalStatus != 'ACTIVE')
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+                    icon: const Icon(Icons.play_arrow, size: 16),
+                    label: const Text('Activate for Booking'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Activate Vehicle',
+                      prompt: 'Server-side engine will evaluate readiness requirements before granting bookable status.',
+                      confirmLabel: 'Activate',
+                      confirmColor: const Color(0xFF2563EB),
+                      requiresReason: false,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).activateVehicle(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+
+                // Deactivate
+                if (vehicle.operationalStatus == 'ACTIVE')
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.grey[800]),
+                    icon: const Icon(Icons.pause, size: 16),
+                    label: const Text('Deactivate'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Deactivate Vehicle',
+                      prompt: 'Move vehicle to INACTIVE status. Vehicle will stop appearing in search results.',
+                      confirmLabel: 'Deactivate',
+                      confirmColor: Colors.grey[800]!,
+                      requiresReason: false,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).deactivateVehicle(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+
+                // Start Maintenance
+                if (vehicle.operationalStatus != 'MAINTENANCE' && vehicle.operationalStatus != 'RETIRED')
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFEA580C)),
+                    icon: const Icon(Icons.build, size: 16),
+                    label: const Text('Start Maintenance'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Place in Maintenance',
+                      prompt: 'Specify reason for maintenance. If conflicting active bookings exist, action will be rejected.',
+                      confirmLabel: 'Initiate Maintenance',
+                      confirmColor: const Color(0xFFEA580C),
+                      requiresReason: true,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).startMaintenance(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+
+                // Complete Maintenance
+                if (vehicle.operationalStatus == 'MAINTENANCE')
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+                    icon: const Icon(Icons.done_all, size: 16),
+                    label: const Text('Complete Maintenance'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Complete Maintenance',
+                      prompt: 'Certify maintenance completion. Vehicle will be restored to ACTIVE if eligible.',
+                      confirmLabel: 'Complete & Reactivate',
+                      confirmColor: const Color(0xFF10B981),
+                      requiresReason: false,
+                      onConfirm: (notes) => ref.read(adminFleetControllerProvider.notifier).completeMaintenance(
+                            widget.carId,
+                            notes: notes,
+                          ),
+                    ),
+                  ),
+
+                // Suspend
+                if (vehicle.operationalStatus != 'SUSPENDED' && vehicle.operationalStatus != 'RETIRED')
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red[800]),
+                    icon: const Icon(Icons.security, size: 16),
+                    label: const Text('Suspend Vehicle'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Suspend Vehicle Operations',
+                      prompt: 'Administratively suspend this vehicle due to safety, fraudulent, or policy violations.',
+                      confirmLabel: 'Suspend Fleet Vehicle',
+                      confirmColor: Colors.red[800]!,
+                      requiresReason: true,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).suspendVehicle(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+
+                // Retire
+                if (vehicle.operationalStatus != 'RETIRED')
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.grey[700]),
+                    icon: const Icon(Icons.delete_forever, size: 16),
+                    label: const Text('Retire Decommission'),
+                    onPressed: () => _showActionDialog(
+                      title: 'Permanently Retire Vehicle',
+                      prompt: 'Decommission vehicle from DriveGo fleet. This action is terminal.',
+                      confirmLabel: 'Permanently Retire',
+                      confirmColor: Colors.red,
+                      requiresReason: true,
+                      onConfirm: (reason) => ref.read(adminFleetControllerProvider.notifier).retireVehicle(
+                            widget.carId,
+                            reason: reason,
+                          ),
+                    ),
+                  ),
+              ],
+            ),
+            const Divider(height: 32),
+
+            // Audit Timeline
+            const Text(
+              'Audit & Operational History',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+            ),
+            const Gap(10),
+            auditLogsAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Error loading audit: $e'),
+              data: (logs) {
+                if (logs.isEmpty) {
+                  return const Text('No operational audit events recorded yet.', style: TextStyle(color: Colors.grey, fontSize: 12));
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: logs.length,
+                  separatorBuilder: (_, __) => const Divider(height: 16),
+                  itemBuilder: (ctx, idx) {
+                    final l = logs[idx];
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.history, size: 14, color: Color(0xFF475569)),
+                        ),
+                        const Gap(10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    l.action.replaceAll('_', ' '),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  Text(
+                                    DateFormat('MMM dd, HH:mm').format(l.createdAt),
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                  ),
+                                ],
+                              ),
+                              if (l.reason != null && l.reason!.isNotEmpty) ...[
+                                const Gap(2),
+                                Text(
+                                  l.reason!,
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                                ),
+                              ],
+                              const Gap(2),
+                              Text(
+                                'Actor: ${l.actorRole} (${l.actorId}) | ${l.fromStatus ?? "NONE"} → ${l.toStatus}',
+                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
+  Widget _buildReadinessCard(VehicleReadinessModel readiness) {
+    final eligible = readiness.eligible;
+    final color = eligible ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
-  const _DetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          Row(
+            children: [
+              Icon(eligible ? Icons.check_circle : Icons.warning_amber_rounded, color: color, size: 20),
+              const Gap(8),
+              Text(
+                eligible ? 'Vehicle Operationally Eligible & Bookable' : 'Activation Blockers Detected',
+                style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13),
+              ),
+            ],
+          ),
+          if (!eligible && readiness.blockers.isNotEmpty) ...[
+            const Gap(10),
+            ...readiness.blockers.map(
+              (b) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('• ', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text(
+                        b.message,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (!eligible && readiness.requiredActions.isNotEmpty) ...[
+            const Gap(6),
+            const Text(
+              'Required Actions to Unlock Activation:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF991B1B)),
+            ),
+            const Gap(4),
+            ...readiness.requiredActions.map(
+              (a) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.arrow_right, size: 14, color: Color(0xFF991B1B)),
+                    Expanded(
+                      child: Text(a, style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D))),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

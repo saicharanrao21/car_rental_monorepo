@@ -89,6 +89,22 @@ enum VendorDepositTransactionType {
   ADMIN_ADJUSTMENT
 }
 
+enum VehicleOperationalStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  SUSPENDED
+  RETIRED
+}
+
+enum VehicleVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum CarCategory {
   HATCHBACK
   SEDAN
@@ -626,11 +642,21 @@ model Car {
   pricePerHour           Decimal          @db.Decimal(10, 2)
   weeklyDiscountPercent  Float?           @default(0)
   monthlyDiscountPercent Float?           @default(0)
-  isAvailable            Boolean          @default(true)
+  isAvailable            Boolean                   @default(true)
+  operationalStatus      VehicleOperationalStatus  @default(DRAFT)
+  verificationStatus     VehicleVerificationStatus @default(PENDING)
+  serviceAreaId          String?
+  serviceArea            ServiceArea?              @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  rejectionReason        String?
+  verifiedAt             DateTime?
+  reviewedByUserId       String?
+  maintenanceReason      String?
+  maintenanceStartedAt   DateTime?
+  expectedReturnDate     DateTime?
   availableTripTypes     String[] // String[] representation of TripType enum values
   blockedDates           DateTime[]
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
   documents              Document[]
   bookings               Booking[]
   wishlists              Wishlist[]
@@ -642,13 +668,36 @@ model Car {
   blocks                 VehicleBlock[]
   holds                  VehicleHold[]
   quotes                 BookingQuote[]
+  auditLogs              VehicleAuditLog[]
 
   @@index([vendorId])
   @@index([pickupHubId])
   @@index([type])
   @@index([isAvailable])
+  @@index([operationalStatus])
+  @@index([verificationStatus])
+  @@index([serviceAreaId])
   @@index([vendorId, isAvailable])
+  @@index([vendorId, operationalStatus])
   @@index([type, pricePerDay])
+}
+
+model VehicleAuditLog {
+  id         String                    @id @default(cuid())
+  carId      String
+  car        Car                       @relation(fields: [carId], references: [id], onDelete: Cascade)
+  actorId    String
+  actorRole  Role                      @default(VENDOR)
+  action     String
+  fromStatus VehicleOperationalStatus?
+  toStatus   VehicleOperationalStatus
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime                  @default(now())
+
+  @@index([carId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model VehicleBlock {
@@ -1207,6 +1256,7 @@ model ServiceArea {
   createdBy         String?
   updatedBy         String?
   vendorAssignments VendorServiceArea[]
+  cars              Car[]
 
   @@unique([cityId, normalizedName])
   @@index([cityId])

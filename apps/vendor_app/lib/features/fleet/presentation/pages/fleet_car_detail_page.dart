@@ -80,6 +80,303 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
     );
   }
 
+  void _showSubmitVerificationDialog(BuildContext context, String carId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Submit for Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: const Text(
+          'Submit this vehicle and its compliance documents to platform administrators for verification. Once approved, the vehicle can be activated for customer bookings.',
+          style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              setState(() => _isToggling = true);
+              final success = await ref
+                  .read(fleetControllerProvider.notifier)
+                  .submitForVerification(carId);
+              if (mounted) {
+                setState(() => _isToggling = false);
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Vehicle submitted for admin verification'
+                          : 'Failed to submit vehicle for verification',
+                    ),
+                    backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Submit to Admin'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeactivateDialog(BuildContext context, String carId) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Deactivate Vehicle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Taking this vehicle offline will pause customer bookings. Existing confirmed trips must still be honored.',
+              style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
+            ),
+            const Gap(14),
+            TextField(
+              controller: reasonCtrl,
+              decoration: InputDecoration(
+                labelText: 'Reason for deactivation',
+                hintText: 'e.g., Routine cleaning, vendor rest day',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final reason = reasonCtrl.text.trim();
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              setState(() => _isToggling = true);
+              final success = await ref
+                  .read(fleetControllerProvider.notifier)
+                  .deactivateVehicle(carId, reason: reason.isNotEmpty ? reason : null);
+              if (mounted) {
+                setState(() => _isToggling = false);
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success ? 'Vehicle deactivated and taken offline' : 'Failed to deactivate vehicle',
+                    ),
+                    backgroundColor: success ? const Color(0xFFF59E0B) : const Color(0xFFEF4444),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Take Offline'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStartMaintenanceDialog(BuildContext context, String carId) {
+    final reasonCtrl = TextEditingController();
+    DateTime? selectedDate;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Mark Under Maintenance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Vehicle will be removed from customer discovery immediately until maintenance is completed.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              ),
+              const Gap(14),
+              TextField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Maintenance Reason *',
+                  hintText: 'e.g. Brake pad replacement, 20k km service',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const Gap(12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.calendar_month, size: 16),
+                label: Text(
+                  selectedDate == null
+                      ? 'Select Expected Return Date'
+                      : 'Return: ${selectedDate!.toLocal().toString().split(' ')[0]}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 2)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 90)),
+                  );
+                  if (picked != null) {
+                    setModalState(() => selectedDate = picked);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final reason = reasonCtrl.text.trim();
+                if (reason.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a maintenance reason')),
+                  );
+                  return;
+                }
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                Navigator.pop(ctx);
+                setState(() => _isToggling = true);
+                final success = await ref
+                    .read(fleetControllerProvider.notifier)
+                    .startMaintenance(
+                      carId,
+                      reason: reason,
+                      expectedReturnDate: selectedDate?.toIso8601String(),
+                    );
+                if (mounted) {
+                  setState(() => _isToggling = false);
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success ? 'Vehicle entered maintenance mode' : 'Failed to start maintenance',
+                      ),
+                      backgroundColor: success ? const Color(0xFFF59E0B) : const Color(0xFFEF4444),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Start Maintenance'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCompleteMaintenanceDialog(BuildContext context, String carId) {
+    final notesCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Complete Maintenance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mark service/repairs as complete. The vehicle will return to INACTIVE state, ready for compliance checks and activation.',
+              style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
+            ),
+            const Gap(14),
+            TextField(
+              controller: notesCtrl,
+              decoration: InputDecoration(
+                labelText: 'Completion Notes (Optional)',
+                hintText: 'e.g., Oil changed, inspection passed',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final notes = notesCtrl.text.trim();
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              setState(() => _isToggling = true);
+              final success = await ref
+                  .read(fleetControllerProvider.notifier)
+                  .completeMaintenance(carId, notes: notes.isNotEmpty ? notes : null);
+              if (mounted) {
+                setState(() => _isToggling = false);
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success ? 'Maintenance completed' : 'Failed to complete maintenance',
+                    ),
+                    backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Complete & Restore'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleActivateVehicle(BuildContext context, String carId) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    setState(() => _isToggling = true);
+    final success = await ref
+        .read(fleetControllerProvider.notifier)
+        .activateVehicle(carId);
+    if (mounted) {
+      setState(() => _isToggling = false);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? 'Vehicle successfully activated for customer bookings!' : 'Activation failed: Check compliance & eligibility blockers',
+          ),
+          backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     final carsAsync = ref.watch(fleetCarsProvider);
@@ -286,7 +583,7 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
                             ],
                           ),
                           const Divider(height: 24),
-                          // Availability Switch row
+                          // Operational Status Row
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -294,13 +591,14 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Operational Availability',
+                                    'Operational Status',
                                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                                   ),
+                                  const Gap(2),
                                   Text(
                                     car.isAvailable
                                         ? 'Active on platform — accepting trip bookings'
-                                        : 'Paused — invisible to customer search',
+                                        : 'Paused / Inactive — invisible to customer search',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: car.isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444),
@@ -309,15 +607,270 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
                                   ),
                                 ],
                               ),
-                              Switch(
-                                value: car.isAvailable,
-                                activeThumbColor: const Color(0xFF10B981),
-                                onChanged: (val) => _showAvailabilityConfirmDialog(context, car, val),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: car.isAvailable ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: car.isAvailable ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      car.isAvailable ? 'ACTIVE' : 'INACTIVE',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 11,
+                                        color: car.isAvailable ? const Color(0xFF15803D) : const Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                  const Gap(8),
+                                  Switch(
+                                    value: car.isAvailable,
+                                    activeThumbColor: const Color(0xFF10B981),
+                                    onChanged: (val) => _showAvailabilityConfirmDialog(context, car, val),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ],
                       ),
+                    ),
+                    const Gap(16),
+
+                    // 2b. Server-Authoritative Operational Readiness Card
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final readinessAsync = ref.watch(vendorVehicleReadinessProvider(car.id));
+                        return readinessAsync.when(
+                          loading: () => Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          ),
+                          error: (err, _) => Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFFCA5A5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                                const Gap(10),
+                                Expanded(
+                                  child: Text(
+                                    'Could not evaluate vehicle readiness: $err',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          data: (readiness) {
+                            final isEligible = readiness.eligible;
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isEligible ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isEligible ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        isEligible ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                                        color: isEligible ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                                        size: 22,
+                                      ),
+                                      const Gap(8),
+                                      Expanded(
+                                        child: Text(
+                                          isEligible
+                                              ? 'Operationally Ready & Compliant'
+                                              : 'Activation Blocked — Action Required',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: isEligible ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: isEligible ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          readiness.operationalStatus,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: isEligible ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Gap(8),
+                                  Text(
+                                    'Verification: ${readiness.verificationStatus} • Area: ${readiness.serviceAreaName ?? readiness.serviceAreaId ?? 'None Assigned'}',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                  ),
+                                  if (readiness.blockers.isNotEmpty) ...[
+                                    const Gap(12),
+                                    const Text(
+                                      'Blocking Issues:',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF92400E)),
+                                    ),
+                                    const Gap(4),
+                                    ...readiness.blockers.map((b) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('• ', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                                          Expanded(
+                                            child: Text(
+                                              b.message,
+                                              style: const TextStyle(fontSize: 12, color: Color(0xFF78350F)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )),
+                                  ],
+                                  if (readiness.requiredActions.isNotEmpty) ...[
+                                    const Gap(8),
+                                    const Text(
+                                      'Required Actions:',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1E40AF)),
+                                    ),
+                                    const Gap(4),
+                                    ...readiness.requiredActions.map((act) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Icon(Icons.arrow_right_rounded, size: 16, color: Color(0xFF2563EB)),
+                                          Expanded(
+                                            child: Text(
+                                              act,
+                                              style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )),
+                                  ],
+                                  const Gap(14),
+                                  // Operational Lifecycle Action Buttons
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      if (readiness.operationalStatus == 'DRAFT' || readiness.verificationStatus == 'REJECTED')
+                                        ElevatedButton.icon(
+                                          onPressed: () => _showSubmitVerificationDialog(context, car.id),
+                                          icon: const Icon(Icons.send_rounded, size: 16),
+                                          label: const Text('Submit for Verification'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            foregroundColor: Colors.white,
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                      if (readiness.operationalStatus == 'INACTIVE') ...[
+                                        ElevatedButton.icon(
+                                          onPressed: () => _handleActivateVehicle(context, car.id),
+                                          icon: const Icon(Icons.check_circle_outline, size: 16),
+                                          label: const Text('Activate Vehicle'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF10B981),
+                                            foregroundColor: Colors.white,
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                        OutlinedButton.icon(
+                                          onPressed: () => _showStartMaintenanceDialog(context, car.id),
+                                          icon: const Icon(Icons.build_rounded, size: 16),
+                                          label: const Text('Start Maintenance'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFFF59E0B),
+                                            side: const BorderSide(color: Color(0xFFF59E0B)),
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                      if (readiness.operationalStatus == 'ACTIVE') ...[
+                                        ElevatedButton.icon(
+                                          onPressed: () => _showDeactivateDialog(context, car.id),
+                                          icon: const Icon(Icons.pause_circle_outline, size: 16),
+                                          label: const Text('Take Offline'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFEF4444),
+                                            foregroundColor: Colors.white,
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                        OutlinedButton.icon(
+                                          onPressed: () => _showStartMaintenanceDialog(context, car.id),
+                                          icon: const Icon(Icons.build_rounded, size: 16),
+                                          label: const Text('Start Maintenance'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFFF59E0B),
+                                            side: const BorderSide(color: Color(0xFFF59E0B)),
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                      if (readiness.operationalStatus == 'MAINTENANCE')
+                                        ElevatedButton.icon(
+                                          onPressed: () => _showCompleteMaintenanceDialog(context, car.id),
+                                          icon: const Icon(Icons.task_alt_rounded, size: 16),
+                                          label: const Text('Complete Maintenance'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF10B981),
+                                            foregroundColor: Colors.white,
+                                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                     const Gap(16),
 
@@ -526,9 +1079,123 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
                         ),
                       ),
                     ),
+                    const Gap(24),
+
+                    // 7. Operational Audit Trail
+                    const Text(
+                      'Operational History & Audit Log',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    const Gap(10),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final auditAsync = ref.watch(vendorVehicleAuditLogsProvider(car.id));
+                        return auditAsync.when(
+                          loading: () => const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          ),
+                          error: (err, _) => Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Could not load audit log: $err',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                          data: (logs) {
+                            if (logs.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: const Text(
+                                  'No operational audit records logged yet.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              );
+                            }
+                            return Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                children: logs.take(5).map((log) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 2),
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const Gap(10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    '${log.action} • ${log.fromStatus ?? 'DRAFT'} → ${log.toStatus}',
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 12,
+                                                      color: Color(0xFF0F172A),
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    log.createdAt.toLocal().toString().split(' ')[0],
+                                                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (log.reason != null && log.reason!.isNotEmpty)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 2),
+                                                  child: Text(
+                                                    'Reason: ${log.reason}',
+                                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                     const Gap(28),
 
-                    // 7. Edit Action Button
+                    // 8. Edit Action Button
                     ElevatedButton.icon(
                       onPressed: () => context.push('/fleet/edit/${car.id}'),
                       icon: const Icon(Icons.edit_rounded, color: Colors.white),

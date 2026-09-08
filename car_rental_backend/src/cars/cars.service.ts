@@ -6,7 +6,16 @@ import {
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerificationStatus, Role, Prisma, TripType, BookingStatus, VehicleHoldStatus } from '@prisma/client';
+import {
+  VerificationStatus,
+  Role,
+  Prisma,
+  TripType,
+  BookingStatus,
+  VehicleHoldStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
+} from '@prisma/client';
 import { CarsQueryDto, SortByOption } from './dto/cars-query.dto';
 import { CreateCarDto } from './dto/create-car.dto';
 import { UpdateCarDto } from './dto/update-car.dto';
@@ -113,7 +122,7 @@ export class CarsService {
           },
         },
       };
-    } else if (query.lat !== undefined && query.lng !== undefined) {
+    } else if (query.lat !== undefined && query.lng !== undefined && this.prisma.serviceArea?.findMany) {
       const candidateAreas = await this.prisma.serviceArea.findMany({
         where: {
           status: 'ACTIVE',
@@ -151,6 +160,8 @@ export class CarsService {
 
     if (!isAdmin) {
       where.isAvailable = true;
+      where.operationalStatus = VehicleOperationalStatus.ACTIVE;
+      where.verificationStatus = VehicleVerificationStatus.VERIFIED;
       where.vendor = {
         ...(where.vendor || {}),
         verificationStatus: VerificationStatus.VERIFIED,

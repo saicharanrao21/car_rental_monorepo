@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import 'package:vendor_app/features/fleet/presentation/providers/fleet_providers.dart';
 import 'package:vendor_app/features/fleet/domain/repositories/fleet_repository.dart';
+import 'package:vendor_app/features/fleet/domain/models/vendor_fleet_models.dart';
 import 'package:vendor_app/core/providers/vendor_session_provider.dart';
 
 class TestAvailabilityFleetRepository implements FleetRepository {
@@ -101,6 +102,42 @@ class TestAvailabilityFleetRepository implements FleetRepository {
     blocks.removeWhere((b) => b.id == blockId);
     return true;
   }
+
+  @override
+  Future<VehicleReadinessModel> getVehicleReadiness(String carId) async {
+    return VehicleReadinessModel(
+      eligible: true,
+      carId: carId,
+      operationalStatus: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      blockers: [],
+      requiredActions: [],
+      vendorId: 'vendor-1',
+      vendorBusinessName: 'Test Availability Fleet',
+      evaluatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  @override
+  Future<void> submitForVerification(String carId) async {}
+
+  @override
+  Future<void> activateVehicle(String carId) async {}
+
+  @override
+  Future<void> deactivateVehicle(String carId, {String? reason}) async {}
+
+  @override
+  Future<void> startMaintenance(String carId, {required String reason, String? expectedReturnDate}) async {}
+
+  @override
+  Future<void> completeMaintenance(String carId, {String? notes}) async {}
+
+  @override
+  Future<void> assignServiceArea(String carId, String serviceAreaId) async {}
+
+  @override
+  Future<List<VehicleAuditLogModel>> getVehicleAuditLogs(String carId) async => [];
 }
 
 class FastSessionNotifier extends VendorSessionNotifier {

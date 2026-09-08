@@ -163,7 +163,35 @@ export interface VendorOnboardingRulesConfig {
   autoCheckEligibilityOnUpload: boolean;
 }
 
+export interface FleetOperationsRulesConfig {
+  fleetActivationEnabled: boolean;
+  requireVendorVerified: boolean;
+  requireVendorSecurityDeposit: boolean;
+  requireServiceAreaAssignment: boolean;
+  requireVehicleVerification: boolean;
+  maxMaintenanceDays: number;
+  autoDeactivateOnMissingCoverage: boolean;
+  availabilityBufferMinutes: number;
+  mandatoryVehicleDocuments?: string[];
+  allowVendorSelfDeactivation?: boolean;
+}
+
 export const DEFAULT_SYSTEM_CONFIGS: Record<string, { category: string; value: any; isPublic: boolean; description: string }> = {
+  'fleet.operations.rules': {
+    category: 'FLEET',
+    value: {
+      fleetActivationEnabled: true,
+      requireVendorVerified: true,
+      requireVendorSecurityDeposit: true,
+      requireServiceAreaAssignment: true,
+      requireVehicleVerification: true,
+      maxMaintenanceDays: 30,
+      autoDeactivateOnMissingCoverage: true,
+      availabilityBufferMinutes: 30,
+    } as FleetOperationsRulesConfig,
+    isPublic: true,
+    description: 'Vendor fleet activation eligibility rules, verification requirements, maintenance bounds, and availability buffers',
+  },
   'wallet.rules': {
     category: 'WALLET',
     value: {

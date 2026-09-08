@@ -21,6 +21,9 @@ export enum AdminPermission {
   VENDOR_VERIFICATION_READ = 'vendor_verification:read',
   VENDOR_VERIFICATION_WRITE = 'vendor_verification:write',
   FLEET_MANAGEMENT = 'fleet:management',
+  FLEET_READ = 'fleet:read',
+  FLEET_WRITE = 'fleet:write',
+  FLEET_VERIFY = 'fleet:verify',
 
   // Location & Service Areas
   LOCATION_READ = 'location:read',
@@ -88,6 +91,7 @@ export const ROLE_PERMISSIONS_MATRIX: Record<Role, AdminPermission[]> = {
     AdminPermission.VENDOR_REQUIREMENTS_READ,
     AdminPermission.VENDOR_DEPOSIT_READ,
     AdminPermission.VENDOR_VERIFICATION_READ,
+    AdminPermission.FLEET_READ,
   ],
   [Role.VENDOR]: [],
   [Role.CUSTOMER]: [],

@@ -17,6 +17,8 @@ import {
   BookingStatus,
   Prisma,
   VerificationStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
 } from '@prisma/client';
 import {
   VehicleAvailabilityResult,
@@ -82,8 +84,11 @@ export class VehicleAvailabilityService {
 
     const conflicts: VehicleAvailabilityConflict[] = [];
 
-    // Static Invariant 1: Physical / Listing availability
-    if (!car.isAvailable) {
+    // Static Invariant 1: Physical / Listing & Operational status
+    if (
+      !car.isAvailable ||
+      (car.operationalStatus && car.operationalStatus !== VehicleOperationalStatus.ACTIVE)
+    ) {
       return {
         available: false,
         carId,
@@ -91,13 +96,44 @@ export class VehicleAvailabilityService {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
         },
-        reason: 'This vehicle is currently marked as unavailable or deactivated.',
+        reason:
+          car.operationalStatus === VehicleOperationalStatus.MAINTENANCE
+            ? 'Vehicle is currently undergoing maintenance.'
+            : car.operationalStatus === VehicleOperationalStatus.SUSPENDED
+            ? 'Vehicle is administratively suspended.'
+            : car.operationalStatus === VehicleOperationalStatus.RETIRED
+            ? 'Vehicle is retired from service.'
+            : 'This vehicle is currently marked as unavailable or deactivated.',
         conflicts: [
           {
             type: 'BLOCK',
             startDate: start,
             endDate: end,
-            reason: 'Vehicle listing is deactivated.',
+            reason:
+              car.operationalStatus === VehicleOperationalStatus.MAINTENANCE
+                ? 'Scheduled maintenance in progress.'
+                : 'Vehicle listing is deactivated or not operational.',
+          },
+        ],
+      };
+    }
+
+    // Static Invariant 1.5: Vehicle Verification
+    if (car.verificationStatus && car.verificationStatus !== VehicleVerificationStatus.VERIFIED) {
+      return {
+        available: false,
+        carId,
+        evaluatedInterval: {
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+        },
+        reason: 'Vehicle verification is pending or rejected.',
+        conflicts: [
+          {
+            type: 'BLOCK',
+            startDate: start,
+            endDate: end,
+            reason: 'Vehicle verification is not completed.',
           },
         ],
       };

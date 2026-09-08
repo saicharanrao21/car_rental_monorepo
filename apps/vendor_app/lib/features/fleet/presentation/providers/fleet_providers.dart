@@ -6,6 +6,7 @@ import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:models/models.dart';
+import '../../domain/models/vendor_fleet_models.dart';
 
 final fleetRepositoryProvider = Provider<FleetRepository>((ref) {
   return ApiFleetRepository(apiClient: ref.watch(apiClientProvider));
@@ -191,6 +192,83 @@ class FleetController extends AutoDisposeAsyncNotifier<void> {
     state = result;
     return !result.hasError;
   }
+
+  // --- Phase H Operations Methods ---
+
+  Future<bool> submitForVerification(String carId) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).submitForVerification(carId);
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+      ref.invalidate(vendorVehicleAuditLogsProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> activateVehicle(String carId) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).activateVehicle(carId);
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+      ref.invalidate(vendorVehicleAuditLogsProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> deactivateVehicle(String carId, {String? reason}) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).deactivateVehicle(carId, reason: reason);
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+      ref.invalidate(vendorVehicleAuditLogsProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> startMaintenance(String carId, {required String reason, String? expectedReturnDate}) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).startMaintenance(
+            carId,
+            reason: reason,
+            expectedReturnDate: expectedReturnDate,
+          );
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+      ref.invalidate(vendorVehicleAuditLogsProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> completeMaintenance(String carId, {String? notes}) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).completeMaintenance(carId, notes: notes);
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+      ref.invalidate(vendorVehicleAuditLogsProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
+
+  Future<bool> assignServiceArea(String carId, String serviceAreaId) async {
+    state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(() async {
+      await ref.read(fleetRepositoryProvider).assignServiceArea(carId, serviceAreaId);
+      ref.invalidate(fleetCarsProvider);
+      ref.invalidate(vendorVehicleReadinessProvider(carId));
+    });
+    state = result;
+    return !result.hasError;
+  }
 }
 
 final fleetControllerProvider = AutoDisposeAsyncNotifierProvider<FleetController, void>(() {
@@ -207,3 +285,12 @@ final vehicleTimelineProvider = FutureProvider.family.autoDispose<List<Availabil
 final vehicleBlocksProvider = FutureProvider.family.autoDispose<List<VehicleBlockModel>, String>((ref, carId) async {
   return ref.watch(fleetRepositoryProvider).getVehicleBlocks(carId);
 });
+
+final vendorVehicleReadinessProvider = FutureProvider.family.autoDispose<VehicleReadinessModel, String>((ref, carId) async {
+  return ref.watch(fleetRepositoryProvider).getVehicleReadiness(carId);
+});
+
+final vendorVehicleAuditLogsProvider = FutureProvider.family.autoDispose<List<VehicleAuditLogModel>, String>((ref, carId) async {
+  return ref.watch(fleetRepositoryProvider).getVehicleAuditLogs(carId);
+});
+

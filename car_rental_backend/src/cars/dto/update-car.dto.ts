@@ -73,4 +73,8 @@ export class UpdateCarDto {
   @IsOptional()
   @IsString()
   pickupHubId?: string;
+
+  @IsOptional()
+  @IsString()
+  serviceAreaId?: string;
 }

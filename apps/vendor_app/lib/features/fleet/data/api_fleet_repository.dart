@@ -1,6 +1,7 @@
 import 'package:models/models.dart';
 import 'package:core/core.dart';
 import '../domain/repositories/fleet_repository.dart';
+import '../domain/models/vendor_fleet_models.dart';
 
 class ApiFleetRepository implements FleetRepository {
   final ApiClient apiClient;
@@ -199,5 +200,65 @@ class ApiFleetRepository implements FleetRepository {
   Future<bool> deleteVehicleBlock(String blockId) async {
     final response = await apiClient.dio.delete('/cars/blocks/$blockId');
     return response.data?['success'] == true;
+  }
+
+  // --- Phase H Vendor Fleet Operations ---
+
+  @override
+  Future<VehicleReadinessModel> getVehicleReadiness(String carId) async {
+    final res = await apiClient.dio.get('/vendor/fleet/$carId/readiness');
+    return VehicleReadinessModel.fromJson(Map<String, dynamic>.from(res.data));
+  }
+
+  @override
+  Future<void> submitForVerification(String carId) async {
+    await apiClient.dio.post('/vendor/fleet/$carId/submit-verification');
+  }
+
+  @override
+  Future<void> activateVehicle(String carId) async {
+    await apiClient.dio.post('/vendor/fleet/$carId/activate');
+  }
+
+  @override
+  Future<void> deactivateVehicle(String carId, {String? reason}) async {
+    await apiClient.dio.post(
+      '/vendor/fleet/$carId/deactivate',
+      data: {if (reason != null && reason.isNotEmpty) 'reason': reason},
+    );
+  }
+
+  @override
+  Future<void> startMaintenance(String carId, {required String reason, String? expectedReturnDate}) async {
+    await apiClient.dio.post(
+      '/vendor/fleet/$carId/maintenance/start',
+      data: {
+        'reason': reason,
+        if (expectedReturnDate != null) 'expectedReturnDate': expectedReturnDate,
+      },
+    );
+  }
+
+  @override
+  Future<void> completeMaintenance(String carId, {String? notes}) async {
+    await apiClient.dio.post(
+      '/vendor/fleet/$carId/maintenance/complete',
+      data: {if (notes != null) 'notes': notes},
+    );
+  }
+
+  @override
+  Future<void> assignServiceArea(String carId, String serviceAreaId) async {
+    await apiClient.dio.post(
+      '/vendor/fleet/$carId/service-area',
+      data: {'serviceAreaId': serviceAreaId},
+    );
+  }
+
+  @override
+  Future<List<VehicleAuditLogModel>> getVehicleAuditLogs(String carId) async {
+    final res = await apiClient.dio.get('/vendor/fleet/$carId/audit-logs');
+    final List<dynamic> list = res.data is List ? res.data : [];
+    return list.map((e) => VehicleAuditLogModel.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 }

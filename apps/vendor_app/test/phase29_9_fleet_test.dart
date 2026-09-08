@@ -10,6 +10,7 @@ import 'package:vendor_app/features/dashboard/presentation/providers/dashboard_p
 import 'package:vendor_app/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:vendor_app/features/dashboard/domain/models/operations_models.dart';
 import 'package:vendor_app/features/fleet/domain/repositories/fleet_repository.dart';
+import 'package:vendor_app/features/fleet/domain/models/vendor_fleet_models.dart';
 import 'package:vendor_app/features/fleet/presentation/pages/fleet_list_page.dart';
 import 'package:vendor_app/features/fleet/presentation/pages/fleet_car_detail_page.dart';
 import 'package:vendor_app/features/fleet/presentation/pages/add_edit_car_page.dart';
@@ -173,6 +174,42 @@ class MockFleetRepository implements FleetRepository {
 
   @override
   Future<bool> deleteVehicleBlock(String blockId) async => true;
+
+  @override
+  Future<VehicleReadinessModel> getVehicleReadiness(String carId) async {
+    return VehicleReadinessModel(
+      eligible: true,
+      carId: carId,
+      operationalStatus: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      blockers: [],
+      requiredActions: [],
+      vendorId: 'vendor_1',
+      vendorBusinessName: 'Mock Fleet',
+      evaluatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  @override
+  Future<void> submitForVerification(String carId) async {}
+
+  @override
+  Future<void> activateVehicle(String carId) async {}
+
+  @override
+  Future<void> deactivateVehicle(String carId, {String? reason}) async {}
+
+  @override
+  Future<void> startMaintenance(String carId, {required String reason, String? expectedReturnDate}) async {}
+
+  @override
+  Future<void> completeMaintenance(String carId, {String? notes}) async {}
+
+  @override
+  Future<void> assignServiceArea(String carId, String serviceAreaId) async {}
+
+  @override
+  Future<List<VehicleAuditLogModel>> getVehicleAuditLogs(String carId) async => [];
 }
 
 class MockDashboardRepository implements DashboardRepository {

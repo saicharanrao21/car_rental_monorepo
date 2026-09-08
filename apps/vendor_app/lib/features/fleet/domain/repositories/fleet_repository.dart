@@ -1,4 +1,5 @@
 import 'package:models/models.dart';
+import '../models/vendor_fleet_models.dart';
 
 abstract class FleetRepository {
   Future<List<CarModel>> getCarsForVendor(String vendorId);
@@ -32,4 +33,14 @@ abstract class FleetRepository {
     String? reason,
   });
   Future<bool> deleteVehicleBlock(String blockId);
+
+  // --- Phase H Vendor Fleet Operations ---
+  Future<VehicleReadinessModel> getVehicleReadiness(String carId);
+  Future<void> submitForVerification(String carId);
+  Future<void> activateVehicle(String carId);
+  Future<void> deactivateVehicle(String carId, {String? reason});
+  Future<void> startMaintenance(String carId, {required String reason, String? expectedReturnDate});
+  Future<void> completeMaintenance(String carId, {String? notes});
+  Future<void> assignServiceArea(String carId, String serviceAreaId);
+  Future<List<VehicleAuditLogModel>> getVehicleAuditLogs(String carId);
 }

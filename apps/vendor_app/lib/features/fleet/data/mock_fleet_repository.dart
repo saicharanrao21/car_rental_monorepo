@@ -1,6 +1,7 @@
 import 'package:models/models.dart';
 import 'package:mock_data/mock_data.dart';
 import '../domain/repositories/fleet_repository.dart';
+import '../domain/models/vendor_fleet_models.dart';
 
 class MockFleetRepository with LatencySimulator implements FleetRepository {
   @override
@@ -122,5 +123,57 @@ class MockFleetRepository with LatencySimulator implements FleetRepository {
   Future<bool> deleteVehicleBlock(String blockId) async {
     await simulateLatency();
     return true;
+  }
+
+  @override
+  Future<VehicleReadinessModel> getVehicleReadiness(String carId) async {
+    await simulateLatency();
+    return VehicleReadinessModel(
+      eligible: true,
+      carId: carId,
+      operationalStatus: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      blockers: [],
+      requiredActions: [],
+      vendorId: 'mock_vendor',
+      vendorBusinessName: 'Apex Mobility',
+      evaluatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  @override
+  Future<void> submitForVerification(String carId) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<void> activateVehicle(String carId) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<void> deactivateVehicle(String carId, {String? reason}) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<void> startMaintenance(String carId, {required String reason, String? expectedReturnDate}) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<void> completeMaintenance(String carId, {String? notes}) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<void> assignServiceArea(String carId, String serviceAreaId) async {
+    await simulateLatency();
+  }
+
+  @override
+  Future<List<VehicleAuditLogModel>> getVehicleAuditLogs(String carId) async {
+    await simulateLatency();
+    return [];
   }
 }

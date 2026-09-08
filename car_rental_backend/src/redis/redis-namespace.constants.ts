@@ -37,6 +37,9 @@ export const REDIS_NAMESPACES = {
     VENDOR_REQUIREMENTS: (vendorId: string) => `cache:vendor:requirements:${vendorId}`,
     VENDOR_SECURITY_DEPOSIT: (vendorId: string) => `cache:vendor:deposit:${vendorId}`,
     ONBOARDING_REQUIREMENTS_ALL: () => `cache:onboarding:requirements:all`,
+    VEHICLE_ELIGIBILITY: (carId: string) => `cache:vehicle:eligibility:${carId}`,
+    VENDOR_FLEET: (vendorId: string) => `cache:vendor:fleet:${vendorId}`,
+    FLEET_KPI: () => `cache:fleet:kpis`,
   },
   RATE_LIMIT: {
     IP: (ip: string) => `ratelimit:ip:${ip}`,

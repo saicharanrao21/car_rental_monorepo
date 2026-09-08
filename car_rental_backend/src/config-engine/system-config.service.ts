@@ -37,6 +37,7 @@ import {
   CommissionConfig,
   DepositDefaultsConfig,
   VendorOnboardingRulesConfig,
+  FleetOperationsRulesConfig,
 } from './system-config.interface';
 
 @Injectable()
@@ -546,5 +547,9 @@ export class SystemConfigService {
 
   async getVendorOnboardingConfig(): Promise<VendorOnboardingRulesConfig> {
     return this.getConfig<VendorOnboardingRulesConfig>('vendor.onboarding.rules');
+  }
+
+  async getFleetOperationsConfig(): Promise<FleetOperationsRulesConfig> {
+    return this.getConfig<FleetOperationsRulesConfig>('fleet.operations.rules');
   }
 }

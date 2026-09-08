@@ -78,4 +78,8 @@ export class CreateCarDto {
   @IsOptional()
   @IsString()
   pickupHubId?: string;
+
+  @IsOptional()
+  @IsString()
+  serviceAreaId?: string;
 }
