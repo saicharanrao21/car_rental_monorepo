@@ -2398,4 +2398,90 @@ model ProviderIncident {
   @@index([createdAt])
 }
 
+// =========================================================================
+// PHASE M: ENTERPRISE COMMUNICATIONS, MESSAGING & OTP MODELS
+// =========================================================================
+
+model CommunicationMessage {
+  id                  String    @id @default(cuid())
+  tenantId            String?
+  vendorId            String?
+  branchId            String?
+  userId              String?
+  recipient           String
+  channel             String    // WHATSAPP, SMS, EMAIL, PUSH, VOICE, OTP
+  messageType         String    // TRANSACTIONAL, PROMOTIONAL, SECURITY, OTP, etc.
+  priority            String    @default("NORMAL")
+  status              String    @default("CREATED")
+  templateName        String?
+  language            String    @default("en")
+  providerId          String?
+  providerMessageId   String?
+  idempotencyKey      String?   @unique
+  correlationId       String?
+  cost                Decimal?  @db.Decimal(10, 4)
+  currency            String?   @default("INR")
+  attempts            Int       @default(0)
+  deliveredAt         DateTime?
+  readAt              DateTime?
+  failedAt            DateTime?
+  lastError           String?
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  @@index([recipient, channel])
+  @@index([providerId, status])
+  @@index([tenantId, vendorId])
+  @@index([createdAt])
+  @@index([idempotencyKey])
+}
+
+model OtpChallenge {
+  id                  String    @id @default(cuid())
+  identifier          String    // phone or email
+  purpose             String    // AUTH, HANDOVER_PICKUP, HANDOVER_RETURN, PAYMENT, etc.
+  channel             String    // WHATSAPP, SMS, VOICE, EMAIL
+  otpHash             String    // SHA-256 with pepper / bcrypt hash
+  expiresAt           DateTime
+  verified            Boolean   @default(false)
+  verifiedAt          DateTime?
+  attemptCount        Int       @default(0)
+  maxAttempts         Int       @default(3)
+  resendCount         Int       @default(0)
+  riskScore           Float     @default(0.0)
+  deviceFingerprint   String?
+  ipAddress           String?
+  providerId          String?
+  communicationId     String?
+  idempotencyKey      String?   @unique
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  @@index([identifier, purpose, verified])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model CommunicationConsent {
+  id                  String    @id @default(cuid())
+  userId              String?
+  identifier          String    // phone or email
+  channel             String    // WHATSAPP, SMS, EMAIL, PUSH, VOICE
+  marketingAllowed    Boolean   @default(false)
+  transactionalAllowed Boolean  @default(true)
+  dndRegistered       Boolean   @default(false)
+  optedOutAt          DateTime?
+  optInSource         String?
+  ipAddress           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  @@unique([identifier, channel])
+  @@index([userId])
+  @@index([identifier])
+}
+
+
 

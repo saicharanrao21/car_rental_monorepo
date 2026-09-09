@@ -463,5 +463,32 @@ export class AdminIntegrationsController {
   async previewCommunicationTemplate(@Body() req: any) {
     return this.integrationsService.previewCommunicationTemplate(req);
   }
+
+  @Post('communication-ecosystem/otp/challenge')
+  async createOtpChallenge(@Body() dto: any) {
+    return this.integrationsService.createOtpChallenge(dto);
+  }
+
+  @Post('communication-ecosystem/otp/verify')
+  async verifyOtpChallenge(@Body() dto: any) {
+    return this.integrationsService.verifyOtpChallenge(dto);
+  }
+
+  @Get('communication-ecosystem/messages')
+  async getCommunicationMessages(
+    @Query('channel') channel?: string,
+    @Query('recipient') recipient?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.integrationsService.getCommunicationMessages({
+      channel,
+      recipient,
+      status,
+      page,
+      limit,
+    });
+  }
 }
 

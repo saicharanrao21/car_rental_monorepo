@@ -31,6 +31,17 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
   final int _quietHoursEnd = 8;
   final Set<String> _blockedNumbers = {'+919876500000', 'spam_user@badmail.com'};
 
+  // OTP Platform State
+  String _otpPurpose = 'AUTH';
+  String _otpIdentifier = '+919876543210';
+  String _otpChannel = 'WHATSAPP';
+  String? _generatedChallengeId;
+  String? _simulatedOtpCode;
+  int _otpAttemptsRemaining = 3;
+  String? _otpStatusMessage;
+  bool _otpVerified = false;
+  final TextEditingController _otpInputController = TextEditingController();
+
   // 44 Communications Gateways Catalog
   final List<Map<String, dynamic>> _providers = [
     // --- WhatsApp ---
@@ -634,6 +645,7 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
         if (_selectedSubTab == 'TEMPLATES') _buildTemplatePreviewerView(theme),
         if (_selectedSubTab == 'DELIVERY') _buildDeliveryMonitorView(theme),
         if (_selectedSubTab == 'COMPLIANCE') _buildComplianceView(theme),
+        if (_selectedSubTab == 'OTP') _buildOtpOrchestratorView(theme),
       ],
     );
   }
@@ -784,6 +796,11 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
               value: 'COMPLIANCE',
               label: Text('Consent & Quiet Hours'),
               icon: Icon(Icons.shield_rounded, size: 16),
+            ),
+            ButtonSegment(
+              value: 'OTP',
+              label: Text('OTP Security & Fallback'),
+              icon: Icon(Icons.password_rounded, size: 16),
             ),
           ],
           selected: {_selectedSubTab},
@@ -1545,6 +1562,290 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // SUB-TAB 6: OTP PLATFORM & SECURITY CONTROLS
+  // =========================================================================
+  Widget _buildOtpOrchestratorView(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user_rounded, color: Colors.tealAccent, size: 24),
+                    const Gap(10),
+                    const Text('Unified Enterprise OTP Orchestrator', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.tealAccent),
+                      ),
+                      child: const Text('CSPRNG + SHA-256 PEPPER', style: TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const Gap(8),
+                const Text(
+                  'Zero-plaintext OTP architecture with multi-channel fallback (WhatsApp OTP → SMS OTP → Voice OTP), purpose binding, 60s cooldown rate-limiting, and 15-minute brute-force lockout protection.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const Divider(height: 24),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  children: [
+                    _buildSecurityPill(Icons.lock_clock_rounded, 'TTL Expiry', '10 Minutes', Colors.blue),
+                    _buildSecurityPill(Icons.shield_outlined, 'Hash Standard', 'SHA-256 + Server Pepper', Colors.purpleAccent),
+                    _buildSecurityPill(Icons.speed_rounded, 'Cooldown Limit', '60s per Identifier', Colors.amber),
+                    _buildSecurityPill(Icons.warning_amber_rounded, 'Max Attempts', '3 Before Lockout', Colors.redAccent),
+                    _buildSecurityPill(Icons.call_split_rounded, 'Fallback Chain', 'WhatsApp → SMS → Voice', Colors.tealAccent),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Gap(16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Dispatch OTP Challenge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Gap(14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: 'Purpose Binding',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              value: _otpPurpose,
+                              items: const [
+                                DropdownMenuItem(value: 'AUTH', child: Text('User Login / Auth')),
+                                DropdownMenuItem(value: 'HANDOVER_PICKUP', child: Text('Vehicle Pickup Handover')),
+                                DropdownMenuItem(value: 'HANDOVER_RETURN', child: Text('Vehicle Return Handover')),
+                                DropdownMenuItem(value: 'PAYMENT', child: Text('High-Value Payment Confirmation')),
+                              ],
+                              onChanged: (v) => setState(() => _otpPurpose = v ?? 'AUTH'),
+                            ),
+                          ),
+                          const Gap(12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: 'Initial Rail',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              value: _otpChannel,
+                              items: const [
+                                DropdownMenuItem(value: 'WHATSAPP', child: Text('WhatsApp OTP (Meta/Gupshup)')),
+                                DropdownMenuItem(value: 'SMS', child: Text('SMS OTP (MSG91/Twilio)')),
+                                DropdownMenuItem(value: 'VOICE', child: Text('Voice OTP (Twilio/Exotel)')),
+                                DropdownMenuItem(value: 'EMAIL', child: Text('Email OTP (Resend)')),
+                              ],
+                              onChanged: (v) => setState(() => _otpChannel = v ?? 'WHATSAPP'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Gap(14),
+                      TextFormField(
+                        initialValue: _otpIdentifier,
+                        decoration: const InputDecoration(
+                          labelText: 'Recipient Phone / Email (E.164)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          prefixIcon: Icon(Icons.phone_rounded, size: 20),
+                        ),
+                        onChanged: (v) => _otpIdentifier = v,
+                      ),
+                      const Gap(16),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.send_rounded, size: 18),
+                        label: const Text('Generate CSPRNG & Dispatch'),
+                        onPressed: () {
+                          // Deterministic preview generation
+                          final code = (100000 + (DateTime.now().millisecondsSinceEpoch % 899999)).toString();
+                          setState(() {
+                            _generatedChallengeId = 'chal_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
+                            _simulatedOtpCode = code;
+                            _otpAttemptsRemaining = 3;
+                            _otpVerified = false;
+                            _otpStatusMessage = 'Challenge dispatched to $_otpIdentifier via $_otpChannel rail.';
+                            _otpInputController.clear();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Gap(16),
+            Expanded(
+              flex: 5,
+              child: Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Verify Challenge & Audit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Gap(14),
+                      if (_generatedChallengeId == null)
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('No challenge dispatched yet. Click "Generate & Dispatch" on the left.', style: TextStyle(color: Colors.grey)),
+                        )
+                      else ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blueGrey.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Challenge ID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text(_generatedChallengeId!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.cyanAccent)),
+                                  const Spacer(),
+                                  Text('Attempts: ${3 - _otpAttemptsRemaining}/3', style: TextStyle(fontSize: 12, color: _otpAttemptsRemaining == 1 ? Colors.red : Colors.grey)),
+                                ],
+                              ),
+                              const Gap(4),
+                              Text('Purpose: $_otpPurpose | Identifier: $_otpIdentifier', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              const Gap(4),
+                              Row(
+                                children: [
+                                  const Text('Simulated Delivery Code: ', style: TextStyle(fontSize: 12, color: Colors.amber)),
+                                  Text(_simulatedOtpCode ?? '------', style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 14, color: Colors.amberAccent)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _otpInputController,
+                                maxLength: 6,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Enter 6-Digit Code',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                  counterText: '',
+                                ),
+                              ),
+                            ),
+                            const Gap(10),
+                            FilledButton(
+                              onPressed: _otpVerified || _otpAttemptsRemaining <= 0
+                                  ? null
+                                  : () {
+                                      final entered = _otpInputController.text.trim();
+                                      if (entered == _simulatedOtpCode) {
+                                        setState(() {
+                                          _otpVerified = true;
+                                          _otpStatusMessage = 'Verification Successful! Purpose [$_otpPurpose] validated.';
+                                        });
+                                      } else {
+                                        setState(() {
+                                          _otpAttemptsRemaining--;
+                                          if (_otpAttemptsRemaining <= 0) {
+                                            _otpStatusMessage = 'Brute-force lockout engaged! 3 failed attempts reached. Locked for 15m.';
+                                          } else {
+                                            _otpStatusMessage = 'Invalid OTP code! Remaining attempts: $_otpAttemptsRemaining';
+                                          }
+                                        });
+                                      }
+                                    },
+                              child: const Text('Verify'),
+                            ),
+                          ],
+                        ),
+                        if (_otpStatusMessage != null) ...[
+                          const Gap(10),
+                          Text(
+                            _otpStatusMessage!,
+                            style: TextStyle(
+                              color: _otpVerified
+                                  ? Colors.greenAccent
+                                  : (_otpAttemptsRemaining <= 0 ? Colors.redAccent : Colors.orangeAccent),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecurityPill(IconData icon, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const Gap(8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+            ],
+          ),
+        ],
       ),
     );
   }

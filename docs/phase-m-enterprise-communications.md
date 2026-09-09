@@ -190,7 +190,54 @@ evaluateCommunicationFallbackSafety({
 
 ---
 
-## 7. Flutter Admin Communication Control Plane
+## 8. Unified Enterprise OTP Platform & Orchestration
+
+Located in [`src/integrations/communications/otp-orchestrator.service.ts`](file:///d:/Flutter/car_rental_monorepo/car_rental_backend/src/integrations/communications/otp-orchestrator.service.ts):
+
+### Security & Invariants
+1. **Cryptographically Secure Random Generation**:
+   - 6-digit numeric OTPs generated via `crypto.randomInt(100000, 999999)`.
+2. **Zero-Plaintext Storage (SHA-256 Peppered Hash)**:
+   - Raw OTP codes are NEVER persisted into database tables or exposed in application logs.
+   - Hashed using HMAC/SHA-256 with a high-entropy server pepper: `hashOtp(rawOtp, challengeId)`. All verification matches use `crypto.timingSafeEqual`.
+3. **Purpose Binding**:
+   - Every OTP challenge is strictly bound to an intended lifecycle event (`AUTH`, `HANDOVER_PICKUP`, `HANDOVER_RETURN`, `PAYMENT`).
+   - Replay attempts or cross-purpose verifications (e.g. using a login OTP to confirm a vehicle return) are rejected.
+4. **Brute-Force Lockout & Velocity Limits**:
+   - 3 maximum verification attempts per challenge.
+   - Immediate 15-minute security lockout on 3 consecutive invalid attempts.
+   - 60-second cooldown rate-limiting per recipient identifier to prevent SMS/WhatsApp spamming.
+5. **Intelligent Multi-Channel Fallback**:
+   - Primary: WhatsApp OTP (fastest, lowest unit cost)
+   - Secondary: SMS OTP (domestic DLT high priority route)
+   - Tertiary: Voice OTP (automated outbound call with repeated speech synthesis)
+
+---
+
+## 9. Database Persistence Models (Prisma Schema)
+
+Located in [`prisma/schema.prisma`](file:///d:/Flutter/car_rental_monorepo/car_rental_backend/prisma/schema.prisma):
+
+1. **`CommunicationMessage`**:
+   - Records every communication request, channel, message type, priority, delivery state, provider metadata, cost, attempts, and correlation IDs.
+2. **`OtpChallenge`**:
+   - Records OTP challenges with SHA-256 hashes, purpose binding, expiry dates, attempt counters, and risk metadata.
+3. **`CommunicationConsent`**:
+   - Stores fine-grained user channel preferences, marketing opt-ins, and DND registration state.
+
+---
+
+## 10. Backward-Compatible Notification Migration
+
+Located in [`src/notifications/notification-orchestrator.service.ts`](file:///d:/Flutter/car_rental_monorepo/car_rental_backend/src/notifications/notification-orchestrator.service.ts):
+
+- Integrates `CommunicationDispatcherService` into `dispatchChannel(...)`.
+- Preserves 100% legacy queue/provider fallbacks when the enterprise dispatcher is bypassed or testing mocks are active.
+- Existing 4 notification test suites (28 tests) pass with zero modification.
+
+---
+
+## 11. Flutter Admin Communication Control Plane
 
 Located in [`apps/admin_panel/lib/features/integrations/presentation/widgets/communication_ecosystem_widget.dart`](file:///d:/Flutter/car_rental_monorepo/apps/admin_panel/lib/features/integrations/presentation/widgets/communication_ecosystem_widget.dart):
 
@@ -201,19 +248,31 @@ Integrated directly into `IntegrationMarketplacePage` under the `COMMUNICATIONS`
 4. **Multi-Language Template Explorer**: Interactive device preview showing variables, Indian DLT Template IDs, and multi-lingual renderings.
 5. **14-State Lifecycle Monitor**: Visual diagram of delivery state machine transitions.
 6. **Compliance Governance Station**: Toggle regulatory quiet hours (21:00–08:00) and manage recipient blocklists.
+7. **OTP Platform & Security Controls**: Interactive simulator with CSPRNG dispatch, purpose binding, multi-channel fallback, attempt tracker, and brute-force lockout monitor.
 
 ---
 
-## 8. Verification & Validation Results
+## 12. Verification & Validation Results
 
 ### A. Phase M Test Suite (`phase-m-enterprise-communications.spec.ts`)
 - **Execution**: `npx jest src/integrations/tests/phase-m-enterprise-communications.spec.ts`
-- **Result**: **35 / 35 Passed (100%)**
-- **Coverage**: Provider catalog, capability discovery, Gupshup, SendGrid, OneSignal, Twilio Voice, multi-lingual templates, compliance quiet hours, fallback safety, and admin controller APIs.
+- **Result**: **44 / 44 Passed (100%)**
+- **Coverage**:
+  - Provider catalog completeness (44 providers across 5 channels)
+  - Production adapter execution (Gupshup, SendGrid, OneSignal, Twilio Voice)
+  - Multi-language templates & DLT preservation
+  - TRAI quiet hours & DND compliance
+  - Multi-factor channel & provider routing
+  - Strict fallback safety & duplicate prevention
+  - Canonical 14-state delivery lifecycle
+  - End-to-end communication dispatcher
+  - Admin Controller & REST endpoints
+  - Unified OTP platform, CSPRNG, SHA-256 peppered hashing, brute-force lockout, purpose binding, and channel fallback
+  - Historical audit and delivery logs
 
 ### B. Full Integration Regression Test Suite
 - **Execution**: `npx jest src/integrations/tests/`
-- **Result**: **10 / 10 Test Suites Passed, 185 / 185 Tests Passed (100%)**
+- **Result**: **10 / 10 Test Suites Passed, 194 / 194 Tests Passed (100%)**
   - `phase-i-webhooks-and-health.spec.ts` (Passed)
   - `phase-i-provider-registry.spec.ts` (Passed)
   - `phase-i-admin-centre.spec.ts` (Passed)
@@ -225,10 +284,15 @@ Integrated directly into `IntegrationMarketplacePage` under the `COMMUNICATIONS`
   - `phase-j-provider-catalog.spec.ts` (Passed)
   - `phase-m-enterprise-communications.spec.ts` (Passed)
 
-### C. Backend Compilation
+### C. Full Repository Backend Test Suite
+- **Execution**: `npm run test`
+- **Result**: **107 / 107 Test Suites Passed, 1121 / 1121 Tests Passed (100%)**
+
+### D. Backend Compilation
 - **Execution**: `npm run build` (`nest build`)
 - **Result**: **Exit code 0 (Clean build)**
 
-### D. Flutter Analysis & Testing (`apps/admin_panel`)
+### E. Flutter Analysis & Testing (`apps/admin_panel`)
 - **`flutter analyze`**: **No issues found! (0 warnings, 0 errors)**
 - **`flutter test`**: **57 / 57 tests passed (100%)**
+

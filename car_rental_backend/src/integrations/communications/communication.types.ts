@@ -14,11 +14,17 @@ export enum CommunicationChannel {
 
 export enum CommunicationMessageType {
   TRANSACTIONAL = 'TRANSACTIONAL',
-  OPERATIONAL = 'OPERATIONAL',
-  CRITICAL_ALERT = 'CRITICAL_ALERT',
+  PROMOTIONAL = 'PROMOTIONAL',
+  SECURITY = 'SECURITY',
   OTP = 'OTP',
+  SYSTEM = 'SYSTEM',
+  ALERT = 'ALERT',
   MARKETING = 'MARKETING',
+  SUPPORT = 'SUPPORT',
+  CRITICAL = 'CRITICAL',
+  OPERATIONAL = 'OPERATIONAL',
   LIFECYCLE = 'LIFECYCLE',
+  CRITICAL_ALERT = 'CRITICAL_ALERT',
 }
 
 export enum CommunicationPriority {
@@ -32,15 +38,20 @@ export enum CommunicationPriority {
 export enum DeliveryStatus {
   CREATED = 'CREATED',
   QUEUED = 'QUEUED',
+  VALIDATING = 'VALIDATING',
   ROUTING = 'ROUTING',
+  PROVIDER_SELECTED = 'PROVIDER_SELECTED',
   DISPATCHING = 'DISPATCHING',
+  SENDING = 'SENDING',
   ACCEPTED = 'ACCEPTED',
+  SUBMITTED = 'SUBMITTED',
   SENT = 'SENT',
   DELIVERED = 'DELIVERED',
   READ = 'READ',
   FAILED = 'FAILED',
   RETRYING = 'RETRYING',
   FALLBACK_PENDING = 'FALLBACK_PENDING',
+  FALLING_BACK = 'FALLING_BACK',
   FALLBACK_SENT = 'FALLBACK_SENT',
   EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
@@ -74,7 +85,9 @@ export enum RoutingOptimizationGoal {
 }
 
 export interface CommunicationRecipient {
+  id?: string;
   userId?: string;
+  recipientId?: string;
   name?: string;
   phone?: string;          // E.164 normalized
   email?: string;
@@ -122,6 +135,7 @@ export interface CommunicationRequest {
   };
   otpCode?: string;
   idempotencyKey?: string;
+  correlationId?: string;
   metadata?: Record<string, any>;
 }
 
@@ -224,4 +238,70 @@ export interface CommunicationCampaign {
     failed: number;
     totalCost: number;
   };
+}
+
+// =========================================================================
+// UNIFIED OTP PLATFORM TYPES
+// =========================================================================
+
+export enum OtpPurpose {
+  AUTH = 'AUTH',
+  HANDOVER_PICKUP = 'HANDOVER_PICKUP',
+  HANDOVER_RETURN = 'HANDOVER_RETURN',
+  PAYMENT = 'PAYMENT',
+  PASSWORD_RESET = 'PASSWORD_RESET',
+  PHONE_VERIFICATION = 'PHONE_VERIFICATION',
+}
+
+export interface OtpChallengeRequest {
+  identifier: string; // phone number or email address
+  purpose: OtpPurpose | string;
+  recipientName?: string;
+  preferredChannel?: CommunicationChannel;
+  tenantId?: string;
+  vendorId?: string;
+  branchId?: string;
+  deviceFingerprint?: string;
+  ipAddress?: string;
+  idempotencyKey?: string;
+  customTtlSeconds?: number;
+}
+
+export interface OtpChallengeResult {
+  success?: boolean;
+  challengeId: string;
+  identifier: string;
+  channel: CommunicationChannel;
+  providerId: string;
+  status: DeliveryStatus;
+  expiresAt: Date;
+  coolingPeriodEndsAt: Date;
+  cooldownSeconds?: number;
+  attemptsRemaining?: number;
+  fallbackAvailable: boolean;
+  fallbackChannel?: CommunicationChannel;
+  message: string;
+  riskScore: number;
+  error?: string;
+}
+
+export interface OtpVerificationRequest {
+  challengeId?: string;
+  identifier: string;
+  purpose: OtpPurpose | string;
+  code?: string;
+  otpCode?: string;
+  deviceFingerprint?: string;
+  ipAddress?: string;
+}
+
+export interface OtpVerificationResult {
+  success: boolean;
+  verified: boolean;
+  message: string;
+  attemptsRemaining: number;
+  lockoutUntil?: Date;
+  isLockedOut: boolean;
+  verifiedAt?: Date;
+  error?: string;
 }

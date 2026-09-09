@@ -39,6 +39,13 @@ import { CommunicationRoutingService } from '../communications/communication-rou
 import { CommunicationDispatcherService } from '../communications/communication-dispatcher.service';
 import { CommunicationTemplateEngine } from '../communications/communication-template.engine';
 import { CommunicationChannel } from '../communications/communication.types';
+import { OtpOrchestratorService } from '../communications/otp-orchestrator.service';
+import {
+  OtpChallengeRequest,
+  OtpChallengeResult,
+  OtpVerificationRequest,
+  OtpVerificationResult,
+} from '../communications/communication.types';
 import {
   CircuitState,
   IntegrationExecutionRequest,
@@ -68,6 +75,7 @@ export class AdminIntegrationsService {
     @Optional() private readonly commRoutingService?: CommunicationRoutingService,
     @Optional() private readonly commDispatcherService?: CommunicationDispatcherService,
     @Optional() private readonly commTemplateEngine?: CommunicationTemplateEngine,
+    @Optional() private readonly otpOrchestrator?: OtpOrchestratorService,
   ) {}
 
   /**
@@ -704,6 +712,55 @@ export class AdminIntegrationsService {
       throw new Error('CommunicationTemplateEngine is not configured');
     }
     return this.commTemplateEngine.renderTemplate(params);
+  }
+
+  async createOtpChallenge(dto: OtpChallengeRequest): Promise<OtpChallengeResult> {
+    if (!this.otpOrchestrator) {
+      throw new Error('OtpOrchestratorService is not configured');
+    }
+    return this.otpOrchestrator.createChallenge(dto);
+  }
+
+  async verifyOtpChallenge(dto: OtpVerificationRequest): Promise<OtpVerificationResult> {
+    if (!this.otpOrchestrator) {
+      throw new Error('OtpOrchestratorService is not configured');
+    }
+    return this.otpOrchestrator.verifyChallenge(dto);
+  }
+
+  async getCommunicationMessages(filter?: {
+    channel?: string;
+    recipient?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    if (!this.prisma.communicationMessage) {
+      return { total: 0, page: 1, limit: 20, messages: [] };
+    }
+    const page = Math.max(1, Number(filter?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filter?.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (filter?.channel) where.channel = filter.channel;
+    if (filter?.recipient) where.recipient = { contains: filter.recipient, mode: 'insensitive' };
+    if (filter?.status) where.status = filter.status;
+
+    try {
+      const [total, messages] = await Promise.all([
+        this.prisma.communicationMessage.count({ where }),
+        this.prisma.communicationMessage.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+      ]);
+      return { total, page, limit, messages };
+    } catch {
+      return { total: 0, page, limit, messages: [] };
+    }
   }
 }
 

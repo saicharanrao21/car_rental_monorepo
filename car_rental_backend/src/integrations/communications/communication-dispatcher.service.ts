@@ -193,7 +193,7 @@ export class CommunicationDispatcherService {
         executionResult?.callSid ||
         `msg_${Date.now()}`;
 
-      return {
+      const res: CommunicationResponse = {
         success: true,
         communicationId,
         channel: activeChannel,
@@ -206,6 +206,9 @@ export class CommunicationDispatcherService {
         latencyMs: Date.now() - startTime,
         explanation: route.explanation,
       };
+
+      this.persistMessage(request, res).catch(() => {});
+      return res;
     } catch (primaryErr: any) {
       this.logger.warn(`[COMM_DISPATCHER] Primary provider [${currentProviderId}] failed: ${primaryErr?.message}`);
 
@@ -219,7 +222,7 @@ export class CommunicationDispatcherService {
       });
 
       if (!safety.safeToFailover || route.fallbackChain.length === 0) {
-        return {
+        const failRes: CommunicationResponse = {
           success: false,
           communicationId,
           channel: activeChannel,
@@ -232,6 +235,8 @@ export class CommunicationDispatcherService {
           explanation: safety.reason,
           error: primaryErr?.message,
         };
+        this.persistMessage(request, failRes).catch(() => {});
+        return failRes;
       }
 
       // Execute Fallback Candidate
@@ -261,7 +266,7 @@ export class CommunicationDispatcherService {
           fbResult?.callSid ||
           `fb_msg_${Date.now()}`;
 
-        return {
+        const fbSuccessRes: CommunicationResponse = {
           success: true,
           communicationId,
           channel: fallbackTarget.channel,
@@ -274,8 +279,10 @@ export class CommunicationDispatcherService {
           latencyMs: Date.now() - startTime,
           explanation: `Fallback engaged after ${primaryErr?.message}. Delivered via ${currentProviderId}.`,
         };
+        this.persistMessage(request, fbSuccessRes).catch(() => {});
+        return fbSuccessRes;
       } catch (fbErr: any) {
-        return {
+        const fbFailRes: CommunicationResponse = {
           success: false,
           communicationId,
           channel: fallbackTarget.channel,
@@ -287,7 +294,47 @@ export class CommunicationDispatcherService {
           latencyMs: Date.now() - startTime,
           error: `Primary and fallback both failed: ${fbErr?.message}`,
         };
+        this.persistMessage(request, fbFailRes).catch(() => {});
+        return fbFailRes;
       }
+    }
+  }
+
+  private async persistMessage(request: CommunicationRequest, res: CommunicationResponse): Promise<void> {
+    if (!this.prisma?.communicationMessage) return;
+    try {
+      const recipient = request.recipient.phone || request.recipient.email || request.recipient.id || 'unknown';
+      await this.prisma.communicationMessage.create({
+        data: {
+          id: res.communicationId,
+          tenantId: request.tenantId || null,
+          vendorId: request.vendorId || null,
+          branchId: request.branchId || null,
+          userId: request.recipient.id || null,
+          recipient,
+          channel: res.channel,
+          messageType: request.messageType,
+          priority: request.priority || 'NORMAL',
+          status: res.status,
+          templateName: request.template?.templateName || null,
+          language: request.template?.language || request.recipient.language || 'en',
+          providerId: res.providerId || null,
+          providerMessageId: res.providerMessageId || null,
+          idempotencyKey: request.idempotencyKey || null,
+          correlationId: request.correlationId || null,
+          cost: res.costEstimate ? (res.costEstimate as any) : null,
+          attempts: res.attemptsCount || 1,
+          lastError: res.error || null,
+          deliveredAt: res.success ? new Date() : null,
+          failedAt: !res.success ? new Date() : null,
+          metadata: {
+            fallbackUsed: res.fallbackChainUsed,
+            explanation: res.explanation,
+          },
+        },
+      });
+    } catch (err: any) {
+      this.logger.debug(`[COMM_DISPATCHER] Message persistence bypassed: ${err?.message}`);
     }
   }
 }

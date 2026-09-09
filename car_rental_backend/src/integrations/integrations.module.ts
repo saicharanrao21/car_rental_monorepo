@@ -47,6 +47,7 @@ import { CommunicationTemplateEngine } from './communications/communication-temp
 import { CommunicationComplianceService } from './communications/communication-compliance.service';
 import { CommunicationRoutingService } from './communications/communication-routing.service';
 import { CommunicationDispatcherService } from './communications/communication-dispatcher.service';
+import { OtpOrchestratorService } from './communications/otp-orchestrator.service';
 import { R2StorageAdapter } from './adapters/storage/r2-storage.adapter';
 import { S3StorageAdapter } from './adapters/storage/s3-storage.adapter';
 import { MockStorageAdapter } from './adapters/storage/mock-storage.adapter';
@@ -93,6 +94,7 @@ import { AdminModule } from '../admin/admin.module';
     CommunicationComplianceService,
     CommunicationRoutingService,
     CommunicationDispatcherService,
+    OtpOrchestratorService,
 
     // Adapters
     RazorpayAdapter,
@@ -153,6 +155,7 @@ import { AdminModule } from '../admin/admin.module';
     CommunicationComplianceService,
     CommunicationRoutingService,
     CommunicationDispatcherService,
+    OtpOrchestratorService,
 
     // Adapters exported for direct injection or test wiring
     RazorpayAdapter,

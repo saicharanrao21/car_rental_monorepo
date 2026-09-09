@@ -46,6 +46,38 @@ export class CommunicationRoutingService {
       CommunicationChannel.WHATSAPP,
       CommunicationChannel.EMAIL,
     ],
+    [CommunicationMessageType.PROMOTIONAL]: [
+      CommunicationChannel.PUSH,
+      CommunicationChannel.WHATSAPP,
+      CommunicationChannel.EMAIL,
+    ],
+    [CommunicationMessageType.SECURITY]: [
+      CommunicationChannel.SMS,
+      CommunicationChannel.WHATSAPP,
+      CommunicationChannel.EMAIL,
+      CommunicationChannel.VOICE,
+    ],
+    [CommunicationMessageType.SYSTEM]: [
+      CommunicationChannel.EMAIL,
+      CommunicationChannel.PUSH,
+      CommunicationChannel.SMS,
+    ],
+    [CommunicationMessageType.ALERT]: [
+      CommunicationChannel.PUSH,
+      CommunicationChannel.SMS,
+      CommunicationChannel.WHATSAPP,
+    ],
+    [CommunicationMessageType.SUPPORT]: [
+      CommunicationChannel.WHATSAPP,
+      CommunicationChannel.EMAIL,
+      CommunicationChannel.SMS,
+    ],
+    [CommunicationMessageType.CRITICAL]: [
+      CommunicationChannel.SMS,
+      CommunicationChannel.VOICE,
+      CommunicationChannel.PUSH,
+      CommunicationChannel.WHATSAPP,
+    ],
     [CommunicationMessageType.LIFECYCLE]: [
       CommunicationChannel.EMAIL,
       CommunicationChannel.WHATSAPP,

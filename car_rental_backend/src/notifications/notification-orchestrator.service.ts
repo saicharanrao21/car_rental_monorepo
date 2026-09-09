@@ -26,6 +26,12 @@ import {
 } from '@prisma/client';
 import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
 import { IntegrationCategory } from '../integrations/registry/provider.types';
+import { CommunicationDispatcherService } from '../integrations/communications/communication-dispatcher.service';
+import {
+  CommunicationChannel as CommChannel,
+  CommunicationMessageType,
+  CommunicationPriority as CommPriority,
+} from '../integrations/communications/communication.types';
 
 export interface OperationalEventVariables {
   customerName?: string;
@@ -82,6 +88,7 @@ export class NotificationOrchestratorService {
     @Optional() private readonly queueProducer?: QueueProducerService,
     @Optional() private readonly realtimeService?: NotificationRealtimeService,
     @Optional() private readonly runtimeService?: IntegrationRuntimeService,
+    @Optional() private readonly communicationDispatcher?: CommunicationDispatcherService,
   ) {}
 
   /**
@@ -264,6 +271,43 @@ export class NotificationOrchestratorService {
         break;
 
       case NotificationChannel.PUSH:
+        if (this.communicationDispatcher) {
+          try {
+            const res = await this.communicationDispatcher.dispatchCommunication({
+              channel: CommChannel.PUSH,
+              messageType: CommunicationMessageType.TRANSACTIONAL,
+              priority: CommPriority.NORMAL,
+              recipient: {
+                id: recipientId,
+                deviceTokens: ['mock_fcm_token_123'],
+              },
+              directContent: {
+                subject: rendered.title,
+                body: rendered.body,
+                data: {
+                  actionUrl: rendered.actionUrl || '',
+                  category: rendered.category,
+                },
+              },
+              idempotencyKey: `notif_push_${deliveryId}`,
+            });
+            await this.prisma.notificationDelivery.update({
+              where: { id: deliveryId },
+              data: {
+                status: res.success ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED,
+                provider: res.providerId || 'FCM',
+                providerMessageId: res.providerMessageId || null,
+                deliveredAt: res.success ? new Date() : null,
+                failedAt: !res.success ? new Date() : null,
+                lastError: res.error || null,
+                attemptCount: { increment: 1 },
+              },
+            });
+            break;
+          } catch (e: any) {
+            this.logger.debug(`[NOTIF-ORCHESTRATOR] Enterprise push bypass: ${e?.message}`);
+          }
+        }
         if (this.queueProducer) {
           await this.queueProducer.dispatchPushNotification({
             userId: recipientId,
@@ -286,6 +330,38 @@ export class NotificationOrchestratorService {
 
       case NotificationChannel.SMS:
         if (user.phone) {
+          if (this.communicationDispatcher) {
+            try {
+              const res = await this.communicationDispatcher.dispatchCommunication({
+                channel: CommChannel.SMS,
+                messageType: CommunicationMessageType.TRANSACTIONAL,
+                priority: CommPriority.HIGH,
+                recipient: {
+                  phone: user.phone,
+                  name: user.name || 'Customer',
+                },
+                directContent: {
+                  body: rendered.smsText,
+                },
+                idempotencyKey: `notif_sms_${deliveryId}`,
+              });
+              await this.prisma.notificationDelivery.update({
+                where: { id: deliveryId },
+                data: {
+                  status: res.success ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED,
+                  provider: res.providerId || 'TWILIO',
+                  providerMessageId: res.providerMessageId || null,
+                  deliveredAt: res.success ? new Date() : null,
+                  failedAt: !res.success ? new Date() : null,
+                  lastError: res.error || null,
+                  attemptCount: { increment: 1 },
+                },
+              });
+              break;
+            } catch (e: any) {
+              this.logger.debug(`[NOTIF-ORCHESTRATOR] Enterprise SMS bypass: ${e?.message}`);
+            }
+          }
           if (this.queueProducer) {
             await this.queueProducer.dispatchSmsNotification({
               phone: user.phone,
@@ -306,6 +382,44 @@ export class NotificationOrchestratorService {
             rendered.title,
             rendered.body,
           ];
+          if (this.communicationDispatcher) {
+            try {
+              const res = await this.communicationDispatcher.dispatchCommunication({
+                channel: CommChannel.WHATSAPP,
+                messageType: CommunicationMessageType.TRANSACTIONAL,
+                priority: CommPriority.HIGH,
+                recipient: {
+                  phone: user.phone,
+                  name: user.name || 'Customer',
+                },
+                template: {
+                  templateName: 'booking_operational_alert',
+                  language: 'en',
+                  variables: {
+                    param1: params[0],
+                    param2: params[1],
+                    param3: params[2],
+                  },
+                },
+                idempotencyKey: `notif_wa_${deliveryId}`,
+              });
+              await this.prisma.notificationDelivery.update({
+                where: { id: deliveryId },
+                data: {
+                  status: res.success ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED,
+                  provider: res.providerId || 'META_WHATSAPP',
+                  providerMessageId: res.providerMessageId || null,
+                  deliveredAt: res.success ? new Date() : null,
+                  failedAt: !res.success ? new Date() : null,
+                  lastError: res.error || null,
+                  attemptCount: { increment: 1 },
+                },
+              });
+              break;
+            } catch (e: any) {
+              this.logger.debug(`[NOTIF-ORCHESTRATOR] Enterprise WhatsApp bypass: ${e?.message}`);
+            }
+          }
           if (this.queueProducer) {
             await this.queueProducer.dispatchWhatsAppNotification({
               phone: user.phone,
@@ -328,6 +442,40 @@ export class NotificationOrchestratorService {
 
       case NotificationChannel.EMAIL:
         if (user.email) {
+          if (this.communicationDispatcher) {
+            try {
+              const res = await this.communicationDispatcher.dispatchCommunication({
+                channel: CommChannel.EMAIL,
+                messageType: CommunicationMessageType.TRANSACTIONAL,
+                priority: CommPriority.NORMAL,
+                recipient: {
+                  email: user.email,
+                  name: user.name || 'Customer',
+                },
+                directContent: {
+                  subject: rendered.emailSubject,
+                  html: rendered.emailHtml,
+                  body: rendered.smsText,
+                },
+                idempotencyKey: `notif_email_${deliveryId}`,
+              });
+              await this.prisma.notificationDelivery.update({
+                where: { id: deliveryId },
+                data: {
+                  status: res.success ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED,
+                  provider: res.providerId || 'RESEND',
+                  providerMessageId: res.providerMessageId || null,
+                  deliveredAt: res.success ? new Date() : null,
+                  failedAt: !res.success ? new Date() : null,
+                  lastError: res.error || null,
+                  attemptCount: { increment: 1 },
+                },
+              });
+              break;
+            } catch (e: any) {
+              this.logger.debug(`[NOTIF-ORCHESTRATOR] Enterprise Email bypass: ${e?.message}`);
+            }
+          }
           if (this.queueProducer) {
             await this.queueProducer.dispatchEmailNotification({
               to: user.email,
