@@ -109,6 +109,7 @@ class AdminShell extends ConsumerWidget {
         AdminNavItem(label: 'Business Rules Engine', icon: Icons.tune_rounded, route: '/business-rules'),
         AdminNavItem(label: 'Audit Log', icon: Icons.history_outlined, route: '/audit-log'),
         AdminNavItem(label: 'Fraud & Risk', icon: Icons.security_outlined, route: '/fraud'),
+        AdminNavItem(label: 'Integration Marketplace', icon: Icons.hub_outlined, route: '/integrations', badgeText: 'PHASE J', badgeColor: Color(0xFF3B82F6)),
         AdminNavItem(label: 'Platform Settings', icon: Icons.settings_outlined, route: '/settings'),
       ],
     ),

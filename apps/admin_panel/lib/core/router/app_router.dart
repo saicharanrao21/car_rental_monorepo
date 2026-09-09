@@ -30,6 +30,7 @@ import '../../features/locations/presentation/pages/location_governance_page.dar
 import '../../features/whatsapp/presentation/pages/admin_whatsapp_page.dart';
 import '../../features/business_rules/presentation/pages/business_rules_dashboard_page.dart';
 import '../../features/wallet/presentation/pages/admin_wallet_page.dart';
+import '../../features/integrations/presentation/pages/integration_marketplace_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -173,6 +174,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/business-rules',
             builder: (context, state) => const BusinessRulesDashboardPage(),
+          ),
+          GoRoute(
+            path: '/integrations',
+            builder: (context, state) => const IntegrationMarketplacePage(),
           ),
         ],
       ),

@@ -25,6 +25,9 @@ export class IntegrationConfigService {
     [IntegrationCategory.IDENTITY_VERIFICATION]: 'surepass',
     [IntegrationCategory.VEHICLE_TRACKING]: 'mock_telematics',
     [IntegrationCategory.ACCOUNTING]: 'mock_accounting',
+    [IntegrationCategory.AI]: 'gemini',
+    [IntegrationCategory.SEARCH]: 'meilisearch',
+    [IntegrationCategory.ANALYTICS]: 'posthog',
   };
 
   constructor(

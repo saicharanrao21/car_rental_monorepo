@@ -7,6 +7,7 @@ import { RetryPolicyService } from './errors/retry-policy.service';
 import { WebhookDispatcherService } from './webhooks/webhook-dispatcher.service';
 import { AdminIntegrationsService } from './admin/admin-integrations.service';
 import { AdminIntegrationsController } from './admin/admin-integrations.controller';
+import { ProviderCatalogService } from './catalog/provider-catalog.service';
 
 // Concrete Adapters
 import { RazorpayAdapter } from './adapters/payments/razorpay.adapter';
@@ -47,6 +48,7 @@ import { AdminModule } from '../admin/admin.module';
     RetryPolicyService,
     WebhookDispatcherService,
     AdminIntegrationsService,
+    ProviderCatalogService,
 
     // Adapters
     RazorpayAdapter,
@@ -79,6 +81,7 @@ import { AdminModule } from '../admin/admin.module';
     RetryPolicyService,
     WebhookDispatcherService,
     AdminIntegrationsService,
+    ProviderCatalogService,
 
     // Adapters exported for direct injection or test wiring
     RazorpayAdapter,

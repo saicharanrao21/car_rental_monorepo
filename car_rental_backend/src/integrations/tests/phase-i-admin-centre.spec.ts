@@ -14,6 +14,7 @@ import {
 } from '../registry/provider.types';
 import { MockPaymentAdapter } from '../adapters/payments/mock-payment.adapter';
 import { MockWhatsAppAdapter } from '../adapters/messaging/mock-whatsapp.adapter';
+import { ProviderCatalogService } from '../catalog/provider-catalog.service';
 
 describe('Phase I — Admin Integration Centre Service', () => {
   let adminService: AdminIntegrationsService;
@@ -70,6 +71,7 @@ describe('Phase I — Admin Integration Centre Service', () => {
         ProviderHealthService,
         WebhookDispatcherService,
         SecretVaultService,
+        ProviderCatalogService,
         MockPaymentAdapter,
         MockWhatsAppAdapter,
         { provide: PrismaService, useValue: mockPrisma },

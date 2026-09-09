@@ -4,6 +4,14 @@ import { IntegrationConfigService } from '../config/integration-config.service';
 import { ProviderHealthService } from '../health/provider-health.service';
 import { WebhookDispatcherService } from '../webhooks/webhook-dispatcher.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ProviderCatalogService } from '../catalog/provider-catalog.service';
+import {
+  CatalogFilter,
+  CatalogProviderMetadata,
+  MarketplaceProviderView,
+  ProviderActivationState,
+  ProviderEnvironment,
+} from '../catalog/provider-catalog.types';
 import {
   IntegrationCategory,
   IntegrationContext,
@@ -13,6 +21,8 @@ import {
 import {
   UpdateIntegrationConfigDto,
   TestConnectionDto,
+  RegisterCatalogProviderDto,
+  ValidateCredentialsDto,
 } from './dto/admin-integrations.dto';
 
 @Injectable()
@@ -23,6 +33,7 @@ export class AdminIntegrationsService {
     private readonly healthService: ProviderHealthService,
     private readonly webhookDispatcher: WebhookDispatcherService,
     private readonly prisma: PrismaService,
+    private readonly catalogService: ProviderCatalogService,
   ) {}
 
   /**
@@ -209,4 +220,124 @@ export class AdminIntegrationsService {
       return { replayed: true, eventId: event.eventId, timestamp: new Date() };
     });
   }
+
+  // =========================================================================
+  // PHASE J: MARKETPLACE & CATALOG REGISTRY METHODS
+  // =========================================================================
+
+  /**
+   * Retrieves unified Marketplace view combining catalog metadata with configured states.
+   */
+  async getMarketplace(query?: {
+    category?: IntegrationCategory;
+    vendorId?: string;
+    branchId?: string;
+    tenantTier?: string;
+    environment?: ProviderEnvironment;
+    search?: string;
+  }): Promise<MarketplaceProviderView[]> {
+    return this.catalogService.getMarketplaceOverview(query);
+  }
+
+  /**
+   * Lists providers from the catalog with dynamic discovery filters.
+   */
+  getCatalog(filter?: CatalogFilter): CatalogProviderMetadata[] {
+    return this.catalogService.getAllProviders(filter);
+  }
+
+  /**
+   * Retrieves a specific catalog provider by category and ID.
+   */
+  getCatalogProvider(
+    category: IntegrationCategory,
+    providerId: string,
+  ): CatalogProviderMetadata {
+    return this.catalogService.getProvider(category, providerId);
+  }
+
+  /**
+   * Dynamically registers a new provider into the catalog registry.
+   */
+  registerCatalogProvider(dto: RegisterCatalogProviderDto): CatalogProviderMetadata {
+    const metadata: CatalogProviderMetadata = {
+      providerId: dto.providerId,
+      category: dto.category,
+      name: dto.name,
+      tagline: dto.tagline,
+      description: dto.description,
+      icon: dto.icon,
+      websiteUrl: dto.websiteUrl,
+      documentation: dto.documentation,
+      version: dto.version,
+      apiVersion: dto.apiVersion,
+      author: dto.author,
+      tags: dto.tags || [],
+      supportedEnvironments: (dto.supportedEnvironments as ProviderEnvironment[]) || [
+        ProviderEnvironment.SANDBOX,
+        ProviderEnvironment.LIVE,
+      ],
+      defaultEnvironment:
+        (dto.defaultEnvironment as ProviderEnvironment) || ProviderEnvironment.SANDBOX,
+      credentialSchema: dto.credentialSchema || [],
+      supportedCapabilities: dto.supportedCapabilities || [],
+      supportedCurrencies: dto.supportedCurrencies || ['INR'],
+      supportedCountries: dto.supportedCountries || ['IN'],
+      supportedWebhookEvents: dto.supportedWebhookEvents || [],
+      webhookSignatureHeader: dto.webhookSignatureHeader,
+      platformAvailability: dto.platformAvailability ?? true,
+      tenantTierAvailability: dto.tenantTierAvailability || ['ALL'],
+      activationState:
+        (dto.activationState as ProviderActivationState) ||
+        ProviderActivationState.ACTIVE,
+      priority: dto.priority || 10,
+      fallbackProviderId: dto.fallbackProviderId,
+    };
+
+    this.catalogService.registerProvider(metadata);
+    return metadata;
+  }
+
+  /**
+   * Updates provider activation state.
+   */
+  updateActivationState(
+    category: IntegrationCategory,
+    providerId: string,
+    state: ProviderActivationState,
+  ): CatalogProviderMetadata {
+    return this.catalogService.updateActivationState(category, providerId, state);
+  }
+
+  /**
+   * Validates credentials against catalog schema.
+   */
+  validateCredentials(
+    category: IntegrationCategory,
+    providerId: string,
+    dto: ValidateCredentialsDto,
+  ): { isValid: boolean; errors: string[] } {
+    return this.catalogService.validateCredentials(
+      category,
+      providerId,
+      dto.credentials,
+      dto.environment as ProviderEnvironment,
+    );
+  }
+
+  /**
+   * Resolves fallback priority chain for category.
+   */
+  resolveFallbackChain(
+    category: IntegrationCategory,
+    options?: {
+      region?: string;
+      currency?: string;
+      environment?: ProviderEnvironment;
+      tenantTier?: string;
+    },
+  ): CatalogProviderMetadata[] {
+    return this.catalogService.resolveFallbackChain(category, options);
+  }
 }
+

@@ -9,6 +9,9 @@ export enum IntegrationCategory {
   IDENTITY_VERIFICATION = 'IDENTITY_VERIFICATION',
   VEHICLE_TRACKING = 'VEHICLE_TRACKING',
   ACCOUNTING = 'ACCOUNTING',
+  AI = 'AI',
+  SEARCH = 'SEARCH',
+  ANALYTICS = 'ANALYTICS',
 }
 
 export enum ProviderHealthStatus {

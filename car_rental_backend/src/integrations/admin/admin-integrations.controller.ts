@@ -16,10 +16,17 @@ import { Role } from '@prisma/client';
 import { AdminIntegrationsService } from './admin-integrations.service';
 import { IntegrationCategory } from '../registry/provider.types';
 import {
+  ProviderActivationState,
+  ProviderEnvironment,
+} from '../catalog/provider-catalog.types';
+import {
   UpdateIntegrationConfigDto,
   ToggleProviderDto,
   SetActiveProviderDto,
   TestConnectionDto,
+  RegisterCatalogProviderDto,
+  UpdateActivationStateDto,
+  ValidateCredentialsDto,
 } from './dto/admin-integrations.dto';
 
 @Controller('admin/integrations')
@@ -132,4 +139,102 @@ export class AdminIntegrationsController {
   async replayWebhook(@Param('eventId') eventId: string) {
     return this.integrationsService.replayWebhookEvent(eventId);
   }
+
+  // =========================================================================
+  // PHASE J: MARKETPLACE & CATALOG ENDPOINTS
+  // =========================================================================
+
+  @Get('marketplace')
+  async getMarketplace(
+    @Query('category') category?: IntegrationCategory,
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+    @Query('tenantTier') tenantTier?: string,
+    @Query('environment') environment?: ProviderEnvironment,
+    @Query('search') search?: string,
+  ) {
+    return this.integrationsService.getMarketplace({
+      category,
+      vendorId,
+      branchId,
+      tenantTier,
+      environment,
+      search,
+    });
+  }
+
+  @Get('catalog')
+  async getCatalog(
+    @Query('category') category?: IntegrationCategory,
+    @Query('capability') capability?: string,
+    @Query('country') country?: string,
+    @Query('currency') currency?: string,
+    @Query('environment') environment?: ProviderEnvironment,
+    @Query('activationState') activationState?: ProviderActivationState,
+    @Query('tenantTier') tenantTier?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.integrationsService.getCatalog({
+      category,
+      capability,
+      country,
+      currency,
+      environment,
+      activationState,
+      tenantTier,
+      search,
+    });
+  }
+
+  @Post('catalog')
+  async registerCatalogProvider(@Body() dto: RegisterCatalogProviderDto) {
+    return this.integrationsService.registerCatalogProvider(dto);
+  }
+
+  @Get('catalog/:category/:providerId')
+  async getCatalogProvider(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+  ) {
+    return this.integrationsService.getCatalogProvider(category, providerId);
+  }
+
+  @Put('catalog/:category/:providerId/activation')
+  async updateActivationState(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: UpdateActivationStateDto,
+  ) {
+    return this.integrationsService.updateActivationState(
+      category,
+      providerId,
+      dto.activationState as ProviderActivationState,
+    );
+  }
+
+  @Post('catalog/:category/:providerId/validate')
+  async validateCredentials(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: ValidateCredentialsDto,
+  ) {
+    return this.integrationsService.validateCredentials(category, providerId, dto);
+  }
+
+  @Get('fallback-chain/:category')
+  async getFallbackChain(
+    @Param('category') category: IntegrationCategory,
+    @Query('region') region?: string,
+    @Query('currency') currency?: string,
+    @Query('environment') environment?: ProviderEnvironment,
+    @Query('tenantTier') tenantTier?: string,
+  ) {
+    return this.integrationsService.resolveFallbackChain(category, {
+      region,
+      currency,
+      environment,
+      tenantTier,
+    });
+  }
 }
+

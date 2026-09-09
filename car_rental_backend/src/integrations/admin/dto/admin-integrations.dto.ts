@@ -54,3 +54,108 @@ export class TestConnectionDto {
   @IsOptional()
   credentials?: Record<string, string>;
 }
+
+export class UpdateActivationStateDto {
+  @IsString()
+  activationState: string;
+}
+
+export class ValidateCredentialsDto {
+  @IsObject()
+  credentials: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  environment?: string;
+}
+
+export class RegisterCatalogProviderDto {
+  @IsString()
+  providerId: string;
+
+  @IsEnum(IntegrationCategory)
+  category: IntegrationCategory;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  tagline: string;
+
+  @IsString()
+  description: string;
+
+  @IsString()
+  icon: string;
+
+  @IsString()
+  websiteUrl: string;
+
+  @IsObject()
+  documentation: {
+    overview: string;
+    docsUrl: string;
+    setupGuide: string;
+    webhookGuide?: string;
+    supportEmail?: string;
+  };
+
+  @IsString()
+  version: string;
+
+  @IsString()
+  @IsOptional()
+  apiVersion?: string;
+
+  @IsString()
+  author: string;
+
+  @IsOptional()
+  tags?: string[];
+
+  @IsOptional()
+  supportedEnvironments?: string[];
+
+  @IsString()
+  @IsOptional()
+  defaultEnvironment?: string;
+
+  @IsOptional()
+  credentialSchema?: any[];
+
+  @IsOptional()
+  supportedCapabilities?: string[];
+
+  @IsOptional()
+  supportedCurrencies?: string[];
+
+  @IsOptional()
+  supportedCountries?: string[];
+
+  @IsOptional()
+  supportedWebhookEvents?: string[];
+
+  @IsString()
+  @IsOptional()
+  webhookSignatureHeader?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  platformAvailability?: boolean;
+
+  @IsOptional()
+  tenantTierAvailability?: string[];
+
+  @IsString()
+  @IsOptional()
+  activationState?: string;
+
+  @IsNumber()
+  @IsOptional()
+  priority?: number;
+
+  @IsString()
+  @IsOptional()
+  fallbackProviderId?: string;
+}
+
