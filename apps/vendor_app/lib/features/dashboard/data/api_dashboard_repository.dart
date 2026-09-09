@@ -493,7 +493,7 @@ class ApiDashboardRepository implements DashboardRepository {
 
   @override
   Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async {
-    final response = await _safeGet('/operations/vendor/command-center', fallbackData: null);
+    final response = await _safeGet('/api/v1/operations/vendor/command-center', fallbackData: null);
     if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }

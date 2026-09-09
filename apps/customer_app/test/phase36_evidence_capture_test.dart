@@ -63,7 +63,7 @@ void main() {
       final key = GlobalKey();
       final item = CustomerBookingItem(
         booking: baseBooking,
-        paymentStatus: 'PAID',
+        paymentStatus: 'CAPTURED',
         razorpayPaymentId: 'pay_ph36_live_981245892',
       );
 

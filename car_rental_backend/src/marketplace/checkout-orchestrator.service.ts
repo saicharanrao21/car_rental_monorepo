@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketplaceQuoteService } from './marketplace-quote.service';
@@ -12,10 +13,12 @@ import { PaymentRoutingService } from '../integrations/runtime/payment-routing.s
 import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
 import { IntegrationCategory } from '../integrations/registry/provider.types';
 import { VehicleAllocationService } from '../fleet/vehicle-allocation.service';
+import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
 import {
   CheckoutSessionStatus,
   QuoteStatus,
   BookingStatus,
+  FulfillmentStage,
   Role,
   Prisma,
 } from '@prisma/client';
@@ -77,6 +80,7 @@ export class CheckoutOrchestratorService {
     private readonly paymentRouting: PaymentRoutingService,
     private readonly runtimeService: IntegrationRuntimeService,
     private readonly allocationService: VehicleAllocationService,
+    @Optional() private readonly commissionService?: MarketplaceCommissionService,
   ) {}
 
   /**
@@ -397,6 +401,69 @@ export class CheckoutOrchestratorService {
           },
         },
       });
+
+      // Synchronize physical fulfillment tracking
+      if ((tx as any).fulfillmentRecord) {
+        const initialStage = quote.carId
+          ? FulfillmentStage.ALLOCATED
+          : FulfillmentStage.PENDING_ALLOCATION;
+        await (tx as any).fulfillmentRecord.upsert({
+          where: { bookingId: booking.id },
+          create: {
+            bookingId: booking.id,
+            vendorId: quote.tenantId,
+            branchId: quote.car?.pickupHubId,
+            carId: quote.carId,
+            stage: initialStage,
+          },
+          update: {
+            vendorId: quote.tenantId,
+            branchId: quote.car?.pickupHubId,
+            carId: quote.carId,
+            stage: initialStage,
+          },
+        });
+      }
+
+      // Multilateral Commission Breakdown on Confirmation
+      if (this.commissionService) {
+        try {
+          const commissionSplit = await this.commissionService.calculateCommission({
+            grossAmount: Number(quote.totalPayable),
+            vendorId: quote.tenantId,
+            branchId: quote.car?.pickupHubId || undefined,
+            vehicleClass: quote.car?.type || ('SEDAN' as any),
+          });
+          const currentSnapshot = (booking.priceSnapshot as any) || {};
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              priceSnapshot: {
+                ...currentSnapshot,
+                commissionSplit,
+              } as any,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `Commission split resolution warning for booking ${booking.id}: ${err.message}`,
+          );
+        }
+      }
+
+      // Convert active temporary vehicle holds for this vehicle/customer
+      if ((tx as any).vehicleHold) {
+        await (tx as any).vehicleHold.updateMany({
+          where: {
+            carId: quote.carId,
+            customerId: session.customerId,
+            status: 'ACTIVE',
+          },
+          data: {
+            status: 'CONVERTED',
+          },
+        });
+      }
 
       // Update CheckoutSession to CONFIRMED
       await tx.checkoutSession.update({

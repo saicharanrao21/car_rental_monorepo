@@ -20,7 +20,7 @@ import {
   ValidateCorporateCreditDto,
 } from './dto/corporate-account.dto';
 
-@Controller('api/v1/corporate-accounts')
+@Controller(['api/v1/corporate-accounts', 'corporate-accounts'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CorporateAccountsController {
   constructor(private readonly corporateService: CorporateAccountsService) {}
@@ -60,4 +60,23 @@ export class CorporateAccountsController {
   async validateCredit(@Body() dto: ValidateCorporateCreditDto) {
     return this.corporateService.validateCredit(dto);
   }
+
+  @Post('reserve-credit')
+  @Roles(Role.CUSTOMER, Role.ADMIN)
+  async reserveCredit(@Body() dto: ValidateCorporateCreditDto) {
+    return this.corporateService.reserveCredit(
+      dto.corporateCode,
+      dto.estimatedAmount,
+    );
+  }
+
+  @Post('release-credit')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async releaseCredit(@Body() dto: ValidateCorporateCreditDto) {
+    return this.corporateService.releaseCredit(
+      dto.corporateCode,
+      dto.estimatedAmount,
+    );
+  }
 }
+

@@ -19,6 +19,24 @@ import 'package:vendor_app/features/fleet/presentation/pages/fleet_list_page.dar
 import 'package:vendor_app/features/fleet/presentation/providers/fleet_providers.dart';
 import 'package:vendor_app/features/fleet/domain/repositories/fleet_repository.dart';
 import 'package:vendor_app/features/fleet/domain/models/vendor_fleet_models.dart';
+import 'package:vendor_app/features/notifications/presentation/providers/vendor_notifications_providers.dart';
+import 'package:vendor_app/features/notifications/domain/repositories/vendor_notifications_repository.dart';
+
+class FastEvidenceNotificationsRepository implements VendorNotificationsRepository {
+  @override
+  Future<List<NotificationModel>> getNotifications(String vendorUserId) async => [];
+
+  @override
+  Future<void> markAllRead(String vendorUserId) async {}
+
+  @override
+  Future<void> markAsRead(String notificationId) async {}
+}
+
+class FastNotificationsNotifier extends VendorNotificationsNotifier {
+  @override
+  Future<List<NotificationModel>> build() async => [];
+}
 
 class FastEvidenceDashboardRepository implements DashboardRepository {
   @override
@@ -460,6 +478,9 @@ Widget createFramedSubject({
       fleetRepositoryProvider.overrideWithValue(FastEvidenceFleetRepository()),
       vendorSessionProvider.overrideWith(() => FastSessionNotifier(testVendor)),
       vendorDocumentsProvider.overrideWith((ref) async => []),
+      vendorNotificationsRepositoryProvider.overrideWithValue(FastEvidenceNotificationsRepository()),
+      vendorNotificationsProvider.overrideWith(() => FastNotificationsNotifier()),
+      vendorUnreadNotificationsCountProvider.overrideWithValue(0),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,

@@ -312,6 +312,30 @@ export class MarketplaceQuoteService {
       throw new ConflictException(`This quote is no longer active (status: ${quote.status}).`);
     }
 
+    // Cryptographic anti-tampering verification
+    const meta = (quote.metadata as any) || {};
+    if (meta.integrityChecksum) {
+      const startIso =
+        quote.startDate instanceof Date
+          ? quote.startDate.toISOString()
+          : new Date(quote.startDate).toISOString();
+      const endIso =
+        quote.endDate instanceof Date
+          ? quote.endDate.toISOString()
+          : new Date(quote.endDate).toISOString();
+      const checksumPayload = `${quote.carId}:${startIso}:${endIso}:${Number(quote.subtotal)}:${Number(quote.discountTotal)}:${Number(quote.feesTotal)}:${Number(quote.taxTotal)}:${Number(quote.depositTotal)}:${Number(quote.totalPayable)}`;
+      const expectedChecksum = crypto
+        .createHash('sha256')
+        .update(checksumPayload)
+        .digest('hex');
+
+      if (meta.integrityChecksum !== expectedChecksum) {
+        throw new ConflictException(
+          'Quote financial integrity violation: quote amounts or dates have been tampered with.',
+        );
+      }
+    }
+
     return this.mapToSnapshot(quote);
   }
 

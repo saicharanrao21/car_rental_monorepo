@@ -628,6 +628,8 @@ void main() {
         ProviderScope(
           overrides: [
             vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            locationExceptionsProvider('loc_hyd_main_yard')
+                .overrideWith((ref) => _MockLocationExceptionsNotifier(ref, 'loc_hyd_main_yard')),
           ],
           child: const MaterialApp(
             home: LocationDetailPage(locationId: 'loc_hyd_main_yard'),
@@ -648,6 +650,8 @@ void main() {
         ProviderScope(
           overrides: [
             vendorLocationsProvider.overrideWith((ref) => _MockVendorLocationsNotifier(ref)),
+            locationExceptionsProvider('loc_hyd_main_yard')
+                .overrideWith((ref) => _MockLocationExceptionsNotifier(ref, 'loc_hyd_main_yard')),
           ],
           child: const MaterialApp(
             home: LocationDetailPage(locationId: 'loc_hyd_main_yard'),
@@ -828,6 +832,15 @@ class _EmptyLocationsNotifier extends VendorLocationsNotifier {
   Future<void> loadLocations() async {
     state = const AsyncValue.data([]);
   }
+}
+
+class _MockLocationExceptionsNotifier extends LocationExceptionsNotifier {
+  _MockLocationExceptionsNotifier(super.ref, super.locationId) {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  Future<void> loadExceptions() async {}
 }
 
 

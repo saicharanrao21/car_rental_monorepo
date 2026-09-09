@@ -202,7 +202,7 @@ void main() {
       expect(find.text('Rear'), findsOneWidget);
       expect(find.text('Left Side'), findsOneWidget);
       expect(find.text('Right Side'), findsOneWidget);
-      expect(find.text('Captured'), findsNWidgets(4));
+      expect(find.text('Capture'), findsNWidgets(4));
     });
 
     testWidgets('12. Handover navigates to Step 3 (Damage Assessment)', (tester) async {
@@ -409,7 +409,7 @@ void main() {
 
       expect(find.text('STEP 2 OF 4: 4-PHOTOS RETURN'), findsOneWidget);
       expect(find.text('4-Angle Return Exterior Burst'), findsOneWidget);
-      expect(find.text('Captured'), findsNWidgets(4));
+      expect(find.text('Capture'), findsNWidgets(4));
     });
 
     testWidgets('21. Return navigates to Step 2 (Before/After Damage Comparison)', (tester) async {

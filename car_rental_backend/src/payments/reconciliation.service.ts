@@ -13,11 +13,13 @@ import {
   BookingStatus,
   PaymentStatus,
   RefundStatus,
+  FulfillmentStage,
   Role,
   Prisma,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
+import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
 
 export interface ReconciliationReport {
   candidatesFound: number;
@@ -44,6 +46,7 @@ export class FinancialReconciliationService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     @Optional() private readonly apmMonitoringService?: ApmMonitoringService,
     @Optional() private readonly invoicesService?: InvoicesService,
+    @Optional() private readonly commissionService?: MarketplaceCommissionService,
   ) {
     this.useMock =
       this.configService.get<string>('RAZORPAY_USE_MOCK') === 'true';
@@ -480,6 +483,67 @@ export class FinancialReconciliationService {
             },
           });
 
+          // Synchronize physical fulfillment tracking
+          if ((tx as any).fulfillmentRecord) {
+            const initialStage = booking.carId
+              ? FulfillmentStage.ALLOCATED
+              : FulfillmentStage.PENDING_ALLOCATION;
+            await (tx as any).fulfillmentRecord.upsert({
+              where: { bookingId },
+              create: {
+                bookingId,
+                vendorId: booking.vendorId,
+                branchId: booking.pickupHubId,
+                carId: booking.carId,
+                stage: initialStage,
+              },
+              update: {
+                vendorId: booking.vendorId,
+                branchId: booking.pickupHubId,
+                carId: booking.carId,
+                stage: initialStage,
+              },
+            });
+          }
+
+          // Multilateral Commission Breakdown on Confirmation
+          if (this.commissionService) {
+            try {
+              const commissionSplit = await this.commissionService.calculateCommission({
+                grossAmount: Number(booking.totalFare),
+                vendorId: booking.vendorId,
+                branchId: booking.pickupHubId || undefined,
+                vehicleClass: (booking as any).vehicleClass || 'SEDAN',
+              });
+              const currentSnapshot = (booking.priceSnapshot as any) || {};
+              await tx.booking.update({
+                where: { id: bookingId },
+                data: {
+                  priceSnapshot: {
+                    ...currentSnapshot,
+                    commissionSplit,
+                  } as any,
+                },
+              });
+            } catch (err: any) {
+              this.logger.warn(
+                `Commission split resolution warning for booking ${bookingId}: ${err.message}`,
+              );
+            }
+          }
+
+          // Convert active temporary vehicle holds for this vehicle/customer
+          if ((tx as any).vehicleHold) {
+            await (tx as any).vehicleHold.updateMany({
+              where: {
+                carId: booking.carId,
+                customerId: booking.customerId,
+                status: 'ACTIVE',
+              },
+              data: { status: 'CONVERTED' },
+            });
+          }
+
           if (this.invoicesService) {
             try {
               await this.invoicesService.generateInvoiceForBooking(bookingId, tx);
@@ -665,6 +729,25 @@ export class FinancialReconciliationService {
             cancellationReason: 'Reconciled: linked payment was already refunded',
           },
         });
+
+        // Synchronize physical fulfillment cancellation
+        if ((this.prisma as any).fulfillmentRecord) {
+          await (this.prisma as any).fulfillmentRecord.updateMany({
+            where: { bookingId: booking.id },
+            data: {
+              stage: FulfillmentStage.CANCELLED,
+              preparationNotes: 'Reconciled: linked payment was already refunded',
+            },
+          });
+        }
+
+        // Release any active vehicle hold
+        if ((this.prisma as any).vehicleHold) {
+          await (this.prisma as any).vehicleHold.updateMany({
+            where: { bookingId: booking.id, status: 'ACTIVE' },
+            data: { status: 'RELEASED' },
+          });
+        }
 
         await this.recordReconciliationAuditLog({
           action: 'RECONCILIATION_HEALED_CONFIRMED_TO_CANCELLED',

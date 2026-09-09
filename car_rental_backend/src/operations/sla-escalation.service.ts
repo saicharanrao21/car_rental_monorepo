@@ -71,7 +71,7 @@ export class SlaEscalationEngineService {
       take: 25,
     });
 
-    return this.processBreaches(unallocated, 'ALLOCATION', thresholdMinutes, SlaSeverity.WARNING);
+    return this.processBreaches(unallocated || [], 'ALLOCATION', thresholdMinutes, SlaSeverity.WARNING);
   }
 
   // 2. Preparation SLA
@@ -98,7 +98,7 @@ export class SlaEscalationEngineService {
       take: 25,
     });
 
-    return this.processBreaches(unprepared, 'PREPARATION', leadMinutes, SlaSeverity.CRITICAL);
+    return this.processBreaches(unprepared || [], 'PREPARATION', leadMinutes, SlaSeverity.CRITICAL);
   }
 
   // 3. Customer Wait SLA
@@ -113,7 +113,7 @@ export class SlaEscalationEngineService {
       take: 25,
     });
 
-    const bookings = waitingFulfillments.map((f) => f.booking).filter(Boolean);
+    const bookings = (waitingFulfillments || []).map((f) => f.booking).filter(Boolean);
     const severity = thresholdMinutes >= 20 ? SlaSeverity.CRITICAL : SlaSeverity.WARNING;
     return this.processBreaches(bookings, 'CUSTOMER_WAIT', thresholdMinutes, severity);
   }
@@ -129,7 +129,7 @@ export class SlaEscalationEngineService {
       take: 25,
     });
 
-    return this.processBreaches(overdueBookings, 'OVERDUE_RETURN', thresholdMinutes, SlaSeverity.CRITICAL);
+    return this.processBreaches(overdueBookings || [], 'OVERDUE_RETURN', thresholdMinutes, SlaSeverity.CRITICAL);
   }
 
   // Common breach recorder
@@ -165,7 +165,9 @@ export class SlaEscalationEngineService {
         where: {
           bookingId: b.id,
           targetProcess,
-          status: 'OPEN',
+          status: {
+            in: ['OPEN', 'TRIGGERED', 'IN_PROGRESS', 'ESCALATED', 'RESOLVED'],
+          },
         },
       });
 

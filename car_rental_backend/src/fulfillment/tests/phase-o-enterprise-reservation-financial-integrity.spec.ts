@@ -31,7 +31,7 @@ import {
   PaymentStatus,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, ConflictException } from '@nestjs/common';
 
 describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Hardening', () => {
   let fulfillmentController: FulfillmentController;
@@ -68,13 +68,13 @@ describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Har
       }),
       booking: {
         findUnique: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn(),
         update: jest.fn(),
       },
       fulfillmentRecord: {
         findUnique: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         upsert: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -102,6 +102,10 @@ describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Har
         create: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+      },
+      slaPolicyDefinition: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
       },
       corporateAccount: {
         findUnique: jest.fn(),
@@ -398,6 +402,54 @@ describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Har
       expect(res.status).toBe('RESOLVED');
       expect(res.actionTaken).toBe('Manually expedited vehicle turnaround');
     });
+
+    it('should reject customer attempting to view another customer\'s fulfillment status', async () => {
+      mockFulfillmentOrchestrator.getFulfillmentRecord.mockResolvedValue({
+        id: 'ful-10',
+        bookingId: 'b-victim',
+        vendorId: 'vendor-1',
+        booking: {
+          customerId: 'customer-legit',
+        },
+      });
+
+      const maliciousCustomerReq = {
+        user: { userId: 'customer-attacker', role: Role.CUSTOMER },
+      };
+
+      await expect(
+        fulfillmentController.getFulfillmentStatus('b-victim', maliciousCustomerReq),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject vendor attempting to query branch dashboard for another vendor', async () => {
+      const maliciousVendorReq = {
+        user: { userId: 'usr-v2', role: Role.VENDOR, vendorId: 'vendor-legit' },
+      };
+
+      await expect(
+        commandCenterController.getBranchDashboard(
+          'branch-1',
+          maliciousVendorReq,
+          'vendor-foreign-target',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject vendor attempting to query SLA incidents for another vendor', async () => {
+      const maliciousVendorReq = {
+        user: { userId: 'usr-v2', role: Role.VENDOR, vendorId: 'vendor-legit' },
+      };
+
+      await expect(
+        commandCenterController.listIncidents(
+          maliciousVendorReq,
+          undefined,
+          undefined,
+          'vendor-foreign-target',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('2. Booking <-> Fulfillment Transactional Bridge', () => {
@@ -688,6 +740,34 @@ describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Har
         take: 50,
       });
     });
+
+    it('should prevent duplicate SLA incident creation if an incident is already triggered or resolved', async () => {
+      mockPrisma.slaPolicyDefinition.findFirst.mockResolvedValue({
+        id: 'pol-1',
+        targetProcess: 'ALLOCATION',
+      });
+
+      // An incident already exists in RESOLVED status
+      mockPrisma.slaBreachIncident.findFirst.mockResolvedValue({
+        id: 'inc-prev',
+        bookingId: 'b-999',
+        targetProcess: 'ALLOCATION',
+        status: 'RESOLVED',
+      });
+
+      mockPrisma.booking.findMany.mockResolvedValue([
+        {
+          id: 'b-999',
+          vendorId: 'v-1',
+          updatedAt: new Date(Date.now() - 3600000),
+          pickupHubId: 'hub-1',
+        },
+      ]);
+
+      const result = await slaEscalation.evaluateAllSlas();
+      expect(result.incidentsCreated).toBe(0);
+      expect(mockPrisma.slaBreachIncident.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('6. B2B Corporate Accounts Credit Validation & Usage', () => {
@@ -757,6 +837,50 @@ describe('Phase O: Enterprise Reservation, Fulfillment & Financial Integrity Har
           where: { id: 'corp-1' },
           data: {
             usedCredit: { increment: expect.any(Decimal) },
+          },
+        }),
+      );
+    });
+
+    it('should reject credit reservation with ConflictException when overdraft occurs', async () => {
+      mockPrisma.corporateAccount.findUnique.mockResolvedValue({
+        id: 'corp-1',
+        corporateCode: 'CORP-GOOGLE',
+        companyName: 'Google LLC',
+        creditLimit: new Decimal(50000),
+        usedCredit: new Decimal(45000),
+        isActive: true,
+      });
+
+      await expect(
+        corporateAccounts.reserveCredit('CORP-GOOGLE', 10000),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should safely release corporate credit upon booking cancellation', async () => {
+      mockPrisma.corporateAccount.findUnique.mockResolvedValue({
+        id: 'corp-1',
+        corporateCode: 'CORP-GOOGLE',
+        companyName: 'Google LLC',
+        creditLimit: new Decimal(50000),
+        usedCredit: new Decimal(20000),
+        isActive: true,
+      });
+
+      mockPrisma.corporateAccount.update.mockResolvedValue({
+        id: 'corp-1',
+        corporateCode: 'CORP-GOOGLE',
+        companyName: 'Google LLC',
+        usedCredit: new Decimal(10000),
+      });
+
+      const released = await corporateAccounts.releaseCredit('CORP-GOOGLE', 10000);
+      expect(released).toBeDefined();
+      expect(mockPrisma.corporateAccount.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'corp-1' },
+          data: {
+            usedCredit: { decrement: expect.any(Decimal) },
           },
         }),
       );

@@ -19,7 +19,7 @@ import { InventoryRebalancingService } from '../fleet/inventory-rebalancing.serv
 import { BookingStatus, Role, SlaSeverity } from '@prisma/client';
 import { ResolveIncidentDto } from './dto/command-center.dto';
 
-@Controller('api/v1/operations')
+@Controller(['api/v1/operations', 'operations'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CommandCenterController {
   constructor(
@@ -206,7 +206,22 @@ export class CommandCenterController {
     @Request() req: any,
     @Query('vendorId') queryVendorId?: string,
   ) {
-    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
+    let vendorId: string | undefined;
+    if (req.user.role === Role.VENDOR) {
+      if (!req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Vendor user profile has no associated vendor ID.',
+        );
+      }
+      if (queryVendorId && queryVendorId !== req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Cannot query branch metrics for another vendor.',
+        );
+      }
+      vendorId = req.user.vendorId;
+    } else {
+      vendorId = queryVendorId;
+    }
     return this.branchOperations.getBranchDashboard(branchId, vendorId);
   }
 
@@ -248,7 +263,22 @@ export class CommandCenterController {
     @Query('severity') severity?: SlaSeverity,
     @Query('vendorId') queryVendorId?: string,
   ) {
-    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
+    let vendorId: string | undefined;
+    if (req.user.role === Role.VENDOR) {
+      if (!req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Vendor user profile has no associated vendor ID.',
+        );
+      }
+      if (queryVendorId && queryVendorId !== req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Cannot query incidents for another vendor.',
+        );
+      }
+      vendorId = req.user.vendorId;
+    } else {
+      vendorId = queryVendorId;
+    }
     return this.slaEngine.listIncidents({ status, severity, vendorId });
   }
 

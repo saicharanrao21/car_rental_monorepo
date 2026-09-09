@@ -25,7 +25,7 @@ import {
   ExecuteSubstitutionDto,
 } from './dto/fulfillment-requests.dto';
 
-@Controller('api/v1/fulfillment')
+@Controller(['api/v1/fulfillment', 'fulfillment'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class FulfillmentController {
   constructor(
@@ -151,8 +151,12 @@ export class FulfillmentController {
   async getFulfillmentStatus(@Param('bookingId') bookingId: string, @Request() req: any) {
     const record = await this.fulfillmentOrchestrator.getFulfillmentRecord(bookingId);
     // Tenant check: if caller is vendor, ensure vendor owns the record
-    if (req.user.role === Role.VENDOR && req.user.vendorId && record.vendorId !== req.user.vendorId) {
+    if (req.user.role === Role.VENDOR && (!req.user.vendorId || record.vendorId !== req.user.vendorId)) {
       throw new ForbiddenException('Access denied: Record belongs to another vendor.');
+    }
+    // Customer check: if caller is customer, ensure customer owns the booking
+    if (req.user.role === Role.CUSTOMER && record.booking?.customerId !== req.user.userId) {
+      throw new ForbiddenException('Access denied: You can only access your own booking fulfillment.');
     }
     return record;
   }
@@ -164,8 +168,22 @@ export class FulfillmentController {
     @Request() req: any,
     @Query('vendorId') queryVendorId?: string,
   ) {
-    // If vendor, force vendorId to their own authenticated vendorId
-    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
+    let vendorId: string | undefined;
+    if (req.user.role === Role.VENDOR) {
+      if (!req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Vendor user profile has no associated vendor ID.',
+        );
+      }
+      if (queryVendorId && queryVendorId !== req.user.vendorId) {
+        throw new ForbiddenException(
+          'Access denied: Cannot query operational queue for another vendor.',
+        );
+      }
+      vendorId = req.user.vendorId;
+    } else {
+      vendorId = queryVendorId;
+    }
     return this.fulfillmentOrchestrator.getBranchOperationalQueue(branchId, vendorId);
   }
 }

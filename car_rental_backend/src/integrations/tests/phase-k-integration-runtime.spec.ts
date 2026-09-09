@@ -267,7 +267,7 @@ describe('Phase K — Enterprise Integration Runtime, Routing & Intelligent Fail
   it('Scenario 6: Circuit transitions to HALF_OPEN after cooldown and recovers to CLOSED', () => {
     circuitBreakerService.setProviderConfig('razorpay', {
       failureThreshold: 2,
-      openDurationMs: 10,
+      openDurationMs: 100,
       successThreshold: 2,
     });
 
@@ -286,7 +286,7 @@ describe('Phase K — Enterprise Integration Runtime, Routing & Intelligent Fail
         const finalState = circuitBreakerService.recordSuccess('razorpay');
         expect(finalState).toBe(CircuitState.CLOSED);
         resolve();
-      }, 25);
+      }, 120);
     });
   });
 

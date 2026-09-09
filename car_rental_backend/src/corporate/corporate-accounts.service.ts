@@ -155,20 +155,129 @@ export class CorporateAccountsService {
   }
 
   /**
-   * 6. RECORD CORPORATE BOOKING USAGE:
-   * Increments used credit when a corporate billing reservation is created.
+   * 6. ATOMIC CREDIT RESERVATION (With Overdraft Prevention):
+   * Enforces transactional concurrency control so simultaneous checkout reservations
+   * cannot overdraft the credit line.
+   */
+  async reserveCredit(
+    corporateCode: string,
+    amount: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Reservation amount must be strictly positive.');
+    }
+
+    const execute = async (prismaTx: Prisma.TransactionClient) => {
+      const account = await prismaTx.corporateAccount.findUnique({
+        where: { corporateCode: corporateCode.toUpperCase() },
+      });
+
+      if (!account) {
+        throw new NotFoundException(
+          `Corporate account with code ${corporateCode} not found.`,
+        );
+      }
+
+      if (!account.isActive) {
+        throw new BadRequestException(
+          `Corporate account ${corporateCode} is inactive.`,
+        );
+      }
+
+      const availableCredit = account.creditLimit.sub(account.usedCredit);
+      const required = new Prisma.Decimal(amount);
+
+      if (availableCredit.lt(required)) {
+        throw new ConflictException(
+          `Insufficient corporate credit. Available: ₹${availableCredit.toNumber()}, Required: ₹${amount}`,
+        );
+      }
+
+      const updated = await prismaTx.corporateAccount.update({
+        where: { id: account.id },
+        data: {
+          usedCredit: { increment: required },
+        },
+      });
+
+      this.logger.log(
+        `[CORPORATE] Reserved ₹${amount} against credit line of ${account.companyName} (${account.corporateCode}). New used: ₹${updated.usedCredit}`,
+      );
+
+      return updated;
+    };
+
+    if (tx) {
+      return execute(tx);
+    }
+    return this.prisma.$transaction(execute);
+  }
+
+  /**
+   * 7. RELEASE CORPORATE CREDIT (On Cancellation or Downward Modification):
+   */
+  async releaseCredit(
+    corporateCode: string,
+    amount: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Release amount must be strictly positive.');
+    }
+
+    const execute = async (prismaTx: Prisma.TransactionClient) => {
+      const account = await prismaTx.corporateAccount.findUnique({
+        where: { corporateCode: corporateCode.toUpperCase() },
+      });
+
+      if (!account) {
+        throw new NotFoundException(
+          `Corporate account with code ${corporateCode} not found.`,
+        );
+      }
+
+      const decrementAmount = Prisma.Decimal.min(
+        account.usedCredit,
+        new Prisma.Decimal(amount),
+      );
+
+      const updated = await prismaTx.corporateAccount.update({
+        where: { id: account.id },
+        data: {
+          usedCredit: { decrement: decrementAmount },
+        },
+      });
+
+      this.logger.log(
+        `[CORPORATE] Released ₹${decrementAmount} to credit line of ${account.companyName} (${account.corporateCode}). New used: ₹${updated.usedCredit}`,
+      );
+
+      return updated;
+    };
+
+    if (tx) {
+      return execute(tx);
+    }
+    return this.prisma.$transaction(execute);
+  }
+
+  /**
+   * 8. SETTLE CORPORATE CREDIT (Invoice Settlement):
+   */
+  async settleCredit(
+    corporateCode: string,
+    amount: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.releaseCredit(corporateCode, amount, tx);
+  }
+
+  /**
+   * 9. RECORD CORPORATE BOOKING USAGE:
+   * Delegates to atomic reserveCredit to guarantee overdraft prevention on all usage recordings.
    */
   async recordUsage(corporateCode: string, amount: number) {
-    const account = await this.getAccountByCode(corporateCode);
-    const updated = await this.prisma.corporateAccount.update({
-      where: { id: account.id },
-      data: {
-        usedCredit: { increment: new Prisma.Decimal(amount) },
-      },
-    });
-    this.logger.log(
-      `[CORPORATE] Debited ₹${amount} against credit line of ${account.companyName} (${account.corporateCode}). New used: ₹${updated.usedCredit}`,
-    );
-    return updated;
+    return this.reserveCredit(corporateCode, amount);
   }
 }

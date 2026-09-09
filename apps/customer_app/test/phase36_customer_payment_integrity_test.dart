@@ -70,7 +70,7 @@ void main() {
         (tester) async {
       final item = CustomerBookingItem(
         booking: baseBooking.copyWith(status: 'confirmed'),
-        paymentStatus: 'PAID',
+        paymentStatus: 'CAPTURED',
         razorpayPaymentId: 'pay_p36_verified_123',
       );
 

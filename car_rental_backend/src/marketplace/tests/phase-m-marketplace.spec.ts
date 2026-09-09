@@ -78,6 +78,12 @@ describe('Phase M: Enterprise Rental Marketplace, Discovery & Booking Experience
       cancellationPolicyDefinition: {
         findFirst: jest.fn(),
       },
+      fulfillmentRecord: {
+        upsert: jest.fn(),
+      },
+      vehicleHold: {
+        updateMany: jest.fn(),
+      },
       $transaction: jest.fn((cb) => cb(mockPrisma)),
     };
 
@@ -720,6 +726,11 @@ describe('Phase M: Enterprise Rental Marketplace, Discovery & Booking Experience
 
       expect(confirmed.bookingId).toBe('booking_confirmed_123');
       expect(confirmed.bookingStatus).toBe(BookingStatus.CONFIRMED);
+      expect(mockPrisma.fulfillmentRecord.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { bookingId: 'booking_confirmed_123' },
+        }),
+      );
     });
 
     it('prevents dangerous failovers when payment state on gateway is indeterminate (double-debit guard)', async () => {
