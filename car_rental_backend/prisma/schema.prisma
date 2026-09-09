@@ -500,6 +500,10 @@ model Vendor {
   ancillaryProducts      AncillaryProduct[]
   scopedCoupons          Coupon[]
   cancellationPolicies   CancellationPolicyDefinition[]
+  fulfillmentRecords     FulfillmentRecord[]
+  dynamicPricingPolicies DynamicPricingPolicy[]
+  commissionRules        MarketplaceCommissionRule[]
+  corporateAccounts      CorporateAccount[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -543,6 +547,11 @@ model PickupHub {
   ancillaryProducts    AncillaryProduct[]
   scopedCoupons        Coupon[]
   cancellationPolicies CancellationPolicyDefinition[]
+  fulfillmentRecords   FulfillmentRecord[]
+  dynamicPricingPolicies DynamicPricingPolicy[]
+  transferRecommendationsSource InventoryTransferRecommendation[] @relation("SourceBranchTransfers")
+  transferRecommendationsDest InventoryTransferRecommendation[] @relation("DestBranchTransfers")
+  commissionRules      MarketplaceCommissionRule[]
 
   @@index([vendorId])
   @@index([city])
@@ -687,6 +696,9 @@ model Car {
   auditLogs              VehicleAuditLog[]
   allocationRecords      VehicleAllocationRecord[]
   rentalPricingRules     RentalPricingRule[]
+  fulfillmentRecords     FulfillmentRecord[]
+  substitutionsAsOriginal VehicleSubstitutionRecord[] @relation("OriginalCarSubstitutions")
+  substitutionsAsReplacement VehicleSubstitutionRecord[] @relation("ReplacementCarSubstitutions")
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -849,6 +861,8 @@ model Booking {
   allocationStrategy String?             @default("EXACT_VEHICLE")
   allocationRecords  VehicleAllocationRecord[]
   checkoutSession    CheckoutSession?
+  fulfillmentRecord  FulfillmentRecord?
+  substitutionRecords VehicleSubstitutionRecord[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -2761,6 +2775,299 @@ model CancellationPolicyDefinition {
   @@index([vendorId])
   @@index([branchId])
   @@index([vehicleClass])
+}
+
+// =========================================================================
+// PHASE N: ENTERPRISE FULFILLMENT, PRICING INTELLIGENCE & OPERATIONS MODELS
+// =========================================================================
+
+enum FulfillmentStage {
+  PENDING_ALLOCATION
+  ALLOCATED
+  PREPARATION_SCHEDULED
+  PREPARATION_IN_PROGRESS
+  CLEANING_COMPLETED
+  INSPECTION_COMPLETED
+  READY_FOR_PICKUP
+  CUSTOMER_CHECKED_IN
+  HANDOVER_IN_PROGRESS
+  ACTIVE_RENTAL
+  RETURN_INSPECTION_PENDING
+  SETTLEMENT_PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum SubstitutionDecision {
+  AUTO_SUBSTITUTE
+  MANUAL_SUBSTITUTE
+  CUSTOMER_APPROVAL_REQUIRED
+  UPGRADE_REQUIRED
+  NO_ALTERNATIVE
+}
+
+enum SubstitutionReason {
+  MECHANICAL_BREAKDOWN
+  SCHEDULED_MAINTENANCE
+  ACCIDENT_DAMAGE
+  CLEANING_DELAY
+  GPS_TELEMATICS_FAILURE
+  LATE_RETURN_OVERLAP
+  COMPLIANCE_HOLD
+  ADMIN_OVERRIDE
+}
+
+enum SlaSeverity {
+  INFO
+  WARNING
+  CRITICAL
+  EMERGENCY
+}
+
+enum InventoryTransferStatus {
+  PROPOSED
+  APPROVED
+  DISPATCHED
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+enum SalesChannel {
+  CUSTOMER_APP
+  WEB_MARKETPLACE
+  VENDOR_DIRECT
+  BRANCH_DESK
+  ADMIN_PORTAL
+  CORPORATE_B2B
+  AFFILIATE_PARTNER
+}
+
+model FulfillmentRecord {
+  id                    String            @id @default(cuid())
+  bookingId             String            @unique
+  booking               Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId              String
+  vendor                Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId              String?
+  branch                PickupHub?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  carId                 String?
+  car                   Car?              @relation(fields: [carId], references: [id], onDelete: SetNull)
+  stage                 FulfillmentStage  @default(PENDING_ALLOCATION)
+  preparationNotes      String?
+  cleanedAt             DateTime?
+  inspectedAt           DateTime?
+  readyForPickupAt      DateTime?
+  customerCheckedInAt   DateTime?
+  handoverStartedAt     DateTime?
+  handoverCompletedAt   DateTime?
+  returnStartedAt       DateTime?
+  returnCompletedAt     DateTime?
+  settlementCompletedAt DateTime?
+  assignedStaffId       String?
+  metadata              Json?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([vendorId, stage])
+  @@index([branchId, stage])
+  @@index([stage])
+  @@index([bookingId])
+}
+
+model VehicleSubstitutionRecord {
+  id                 String               @id @default(cuid())
+  bookingId          String
+  booking            Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  originalCarId      String
+  originalCar        Car                  @relation("OriginalCarSubstitutions", fields: [originalCarId], references: [id], onDelete: Cascade)
+  substitutedCarId   String?
+  substitutedCar     Car?                 @relation("ReplacementCarSubstitutions", fields: [substitutedCarId], references: [id], onDelete: SetNull)
+  decision           SubstitutionDecision
+  reason             SubstitutionReason
+  reasonDetails      String?
+  originalClass      CarCategory
+  substitutedClass   CarCategory?
+  priceDifference    Decimal              @default(0) @db.Decimal(10, 2)
+  isCustomerApproved Boolean              @default(false)
+  isFreeUpgrade      Boolean              @default(false)
+  authorizedBy       String               // User ID or 'SYSTEM'
+  authorizedRole     Role                 @default(ADMIN)
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+
+  @@index([bookingId])
+  @@index([originalCarId])
+  @@index([substitutedCarId])
+  @@index([decision])
+  @@index([createdAt])
+}
+
+model DynamicPricingPolicy {
+  id                       String           @id @default(cuid())
+  scope                    PricingRuleScope @default(PLATFORM)
+  vendorId                 String?
+  vendor                   Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId                 String?
+  branch                   PickupHub?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  vehicleClass             CarCategory?
+  name                     String
+  minDailyPrice            Decimal          @db.Decimal(10, 2)
+  maxDailyPrice            Decimal          @db.Decimal(10, 2)
+  maxSurgeMultiplier       Decimal          @default(1.50) @db.Decimal(3, 2)
+  minDiscountMultiplier    Decimal          @default(0.80) @db.Decimal(3, 2)
+  utilizationThresholdHigh  Float            @default(0.85)
+  utilizationThresholdLow   Float            @default(0.30)
+  surgeStepPct             Float            @default(0.05)
+  discountStepPct          Float            @default(0.05)
+  leadTimeCurveDays        Int              @default(7)
+  isActive                 Boolean          @default(true)
+  metadata                 Json?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@index([scope])
+  @@index([vendorId])
+  @@index([branchId])
+  @@index([vehicleClass])
+  @@index([isActive])
+}
+
+model CompetitorPriceObservation {
+  id                 String      @id @default(cuid())
+  providerSource     String
+  city               String
+  vehicleClass       CarCategory
+  competitorName     String
+  observedDailyPrice Decimal     @db.Decimal(10, 2)
+  currency           String      @default("INR")
+  confidenceScore    Float       @default(0.90)
+  observedAt         DateTime    @default(now())
+  metadata           Json?
+
+  @@index([city, vehicleClass])
+  @@index([providerSource])
+  @@index([observedAt])
+}
+
+model InventoryTransferRecommendation {
+  id                     String                  @id @default(cuid())
+  sourceBranchId         String
+  sourceBranch           PickupHub               @relation("SourceBranchTransfers", fields: [sourceBranchId], references: [id], onDelete: Cascade)
+  destinationBranchId    String
+  destinationBranch      PickupHub               @relation("DestBranchTransfers", fields: [destinationBranchId], references: [id], onDelete: Cascade)
+  vehicleClass           CarCategory
+  recommendedUnits       Int                     @default(1)
+  reason                 String
+  sourceUtilization      Float
+  destinationDemandScore Float
+  projectedRevenueGain   Decimal                 @default(0) @db.Decimal(10, 2)
+  estimatedTransferCost  Decimal                 @default(0) @db.Decimal(10, 2)
+  confidence             Float                   @default(0.85)
+  status                 InventoryTransferStatus @default(PROPOSED)
+  approvedBy             String?
+  dispatchedAt           DateTime?
+  completedAt            DateTime?
+  metadata               Json?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@index([sourceBranchId])
+  @@index([destinationBranchId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SlaPolicyDefinition {
+  id                 String              @id @default(cuid())
+  scope              PricingRuleScope    @default(PLATFORM)
+  vendorId           String?
+  targetProcess      String
+  thresholdMinutes   Int
+  severity           SlaSeverity         @default(WARNING)
+  action             String              @default("ALERT_AND_TASK")
+  isActive           Boolean             @default(true)
+  metadata           Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  incidents          SlaBreachIncident[]
+
+  @@index([targetProcess, isActive])
+  @@index([scope])
+}
+
+model SlaBreachIncident {
+  id               String              @id @default(cuid())
+  policyId         String
+  policy           SlaPolicyDefinition @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  bookingId        String?
+  vendorId         String?
+  branchId         String?
+  targetProcess    String
+  severity         SlaSeverity
+  elapsedMinutes   Int
+  thresholdMinutes Int
+  status           String              @default("OPEN")
+  actionTaken      String?
+  resolvedAt       DateTime?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([policyId])
+  @@index([bookingId])
+  @@index([vendorId, status])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MarketplaceCommissionRule {
+  id                 String           @id @default(cuid())
+  scope              PricingRuleScope @default(PLATFORM)
+  vendorId           String?
+  vendor             Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId           String?
+  branch             PickupHub?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  vehicleClass       CarCategory?
+  channel            SalesChannel     @default(CUSTOMER_APP)
+  platformPct        Decimal          @default(15.00) @db.Decimal(5, 2)
+  vendorPct          Decimal          @default(80.00) @db.Decimal(5, 2)
+  branchPct          Decimal          @default(5.00) @db.Decimal(5, 2)
+  fixedPlatformFee   Decimal          @default(0) @db.Decimal(10, 2)
+  gatewayFeeRecovery Decimal          @default(2.00) @db.Decimal(5, 2)
+  taxGstPct          Decimal          @default(18.00) @db.Decimal(5, 2)
+  isActive           Boolean          @default(true)
+  metadata           Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([scope, channel])
+  @@index([vendorId])
+  @@index([branchId])
+  @@index([isActive])
+}
+
+model CorporateAccount {
+  id                    String       @id @default(cuid())
+  companyName           String
+  corporateCode         String       @unique
+  contactEmail          String
+  contactPhone          String
+  taxIdNumber           String?
+  billingAddress        String
+  creditLimit           Decimal      @default(0) @db.Decimal(12, 2)
+  usedCredit            Decimal      @default(0) @db.Decimal(12, 2)
+  negotiatedDiscountPct  Decimal      @default(10.00) @db.Decimal(5, 2)
+  paymentTermsDays      Int          @default(30)
+  isActive              Boolean      @default(true)
+  preferredVendorId     String?
+  preferredVendor       Vendor?      @relation(fields: [preferredVendorId], references: [id], onDelete: SetNull)
+  metadata              Json?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([corporateCode])
+  @@index([isActive])
 }
 
 

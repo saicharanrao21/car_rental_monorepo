@@ -11,6 +11,9 @@ import { FleetTelematicsService } from './fleet-telematics.service';
 import { FleetSearchService } from './fleet-search.service';
 import { FleetIntelligenceService } from './fleet-intelligence.service';
 import { VehicleAllocationService } from './vehicle-allocation.service';
+import { VehicleSubstitutionService } from './vehicle-substitution.service';
+import { MarketplaceSupplyService } from './marketplace-supply.service';
+import { InventoryRebalancingService } from './inventory-rebalancing.service';
 
 @Module({
   imports: [
@@ -28,6 +31,9 @@ import { VehicleAllocationService } from './vehicle-allocation.service';
     FleetSearchService,
     FleetIntelligenceService,
     VehicleAllocationService,
+    VehicleSubstitutionService,
+    MarketplaceSupplyService,
+    InventoryRebalancingService,
   ],
   exports: [
     FleetLifecycleService,
@@ -38,6 +44,9 @@ import { VehicleAllocationService } from './vehicle-allocation.service';
     FleetSearchService,
     FleetIntelligenceService,
     VehicleAllocationService,
+    VehicleSubstitutionService,
+    MarketplaceSupplyService,
+    InventoryRebalancingService,
   ],
 })
 export class FleetModule {}

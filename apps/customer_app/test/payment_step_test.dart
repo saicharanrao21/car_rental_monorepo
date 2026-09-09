@@ -208,7 +208,7 @@ void main() {
 
     // Verify platform error message is shown
     expect(
-      find.textContaining("Card/UPI checkout isn't available on this platform yet"),
+      find.textContaining('Card and UPI payment checkout is optimized for the native Android and iOS mobile apps'),
       findsOneWidget,
     );
   });

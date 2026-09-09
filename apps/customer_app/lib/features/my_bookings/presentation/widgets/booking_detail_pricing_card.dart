@@ -133,6 +133,10 @@ class BookingDetailPricingCard extends StatelessWidget {
 
     switch (status) {
       case 'PAID':
+        bg = Colors.green.withValues(alpha: 0.12);
+        fg = Colors.green[800]!;
+        label = 'PAID IN FULL';
+        break;
       case 'CAPTURED':
         bg = Colors.green.withValues(alpha: 0.12);
         fg = Colors.green[800]!;

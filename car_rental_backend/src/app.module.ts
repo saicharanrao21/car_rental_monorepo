@@ -45,6 +45,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { FleetModule } from './fleet/fleet.module';
 import { OperationsModule } from './operations/operations.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
+import { FulfillmentModule } from './fulfillment/fulfillment.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 
 import { ScheduleModule } from '@nestjs/schedule';
@@ -100,6 +101,7 @@ import { validateEnv } from './common/env.validation';
     FleetModule,
     OperationsModule,
     MarketplaceModule,
+    FulfillmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
