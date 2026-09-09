@@ -1,0 +1,135 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
+import { AdminIntegrationsService } from './admin-integrations.service';
+import { IntegrationCategory } from '../registry/provider.types';
+import {
+  UpdateIntegrationConfigDto,
+  ToggleProviderDto,
+  SetActiveProviderDto,
+  TestConnectionDto,
+} from './dto/admin-integrations.dto';
+
+@Controller('admin/integrations')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
+export class AdminIntegrationsController {
+  constructor(private readonly integrationsService: AdminIntegrationsService) {}
+
+  @Get('overview')
+  async getOverview(
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.integrationsService.getOverview({ vendorId, branchId });
+  }
+
+  @Get('providers')
+  async listProviders(
+    @Query('category') category?: IntegrationCategory,
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.integrationsService.listProviders(category, { vendorId, branchId });
+  }
+
+  @Get('providers/:category/:providerId')
+  async getProviderDetails(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.integrationsService.getProviderDetails(category, providerId, {
+      vendorId,
+      branchId,
+    });
+  }
+
+  @Put('providers/:category/:providerId/config')
+  async updateProviderConfig(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: UpdateIntegrationConfigDto,
+    @Req() req: any,
+  ) {
+    return this.integrationsService.updateProviderConfig(
+      category,
+      providerId,
+      dto,
+      req.user?.id,
+    );
+  }
+
+  @Post('providers/:category/:providerId/toggle')
+  async toggleProvider(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: ToggleProviderDto,
+  ) {
+    this.integrationsService.toggleProvider(category, providerId, dto.enabled);
+    return { success: true, providerId, category, isEnabled: dto.enabled };
+  }
+
+  @Post('providers/:category/:providerId/set-active')
+  async setActiveProvider(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: SetActiveProviderDto,
+    @Req() req: any,
+  ) {
+    await this.integrationsService.setActiveProvider(
+      category,
+      providerId,
+      req.user?.id,
+      { vendorId: dto.vendorId, branchId: dto.branchId },
+    );
+    return { success: true, activeProviderId: providerId, category };
+  }
+
+  @Post('providers/:category/:providerId/test')
+  async testConnection(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: TestConnectionDto,
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.integrationsService.testConnection(category, providerId, dto, {
+      vendorId,
+      branchId,
+    });
+  }
+
+  @Get('webhooks')
+  async listWebhooks(
+    @Query('gateway') gateway?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+    @Query('skip') skip?: number,
+  ) {
+    return this.integrationsService.listWebhookEvents({
+      gateway,
+      status,
+      limit: limit ? Number(limit) : 50,
+      skip: skip ? Number(skip) : 0,
+    });
+  }
+
+  @Post('webhooks/:eventId/replay')
+  async replayWebhook(@Param('eventId') eventId: string) {
+    return this.integrationsService.replayWebhookEvent(eventId);
+  }
+}
