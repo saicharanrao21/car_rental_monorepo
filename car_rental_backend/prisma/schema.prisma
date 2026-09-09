@@ -2483,5 +2483,93 @@ model CommunicationConsent {
   @@index([identifier])
 }
 
+// =========================================================================
+// PHASE L: ENTERPRISE INTEGRATION CONTROL PLANE & GOVERNANCE MODELS
+// =========================================================================
+
+model ProviderChangeEvent {
+  id                  String    @id @default(cuid())
+  eventId             String    @unique
+  providerId          String
+  category            String
+  changeType          String
+  environment         String    @default("SANDBOX")
+  actorId             String
+  actorRole           String
+  reason              String?
+  beforeSnapshot      Json?
+  afterSnapshot       Json?
+  createdAt           DateTime  @default(now())
+
+  @@index([providerId, category])
+  @@index([changeType])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model ProviderRoutingPolicy {
+  id                  String    @id @default(cuid())
+  policyId            String    @unique
+  name                String
+  category            String
+  tenantScope         String    @default("PLATFORM")
+  scopeId             String?
+  strategy            String    @default("PRIORITY")
+  primaryProviderId   String
+  fallbackChain       Json
+  weights             Json?
+  rules               Json?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  @@index([category, tenantScope, scopeId])
+  @@index([isActive])
+}
+
+model ProviderRecommendation {
+  id                  String    @id @default(cuid())
+  recommendationId    String    @unique
+  type                String
+  category            String
+  targetProviderId    String
+  suggestedProviderId String?
+  severity            String    @default("MEDIUM")
+  title               String
+  description         String
+  estimatedImpact     Json?
+  status              String    @default("PENDING")
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  @@index([category, status])
+  @@index([targetProviderId])
+  @@index([createdAt])
+}
+
+model ProviderOperationalMetric {
+  id                  String    @id @default(cuid())
+  providerId          String
+  category            String
+  environment         String    @default("SANDBOX")
+  windowStart         DateTime
+  windowEnd           DateTime
+  requestCount        Int       @default(0)
+  successCount        Int       @default(0)
+  failureCount        Int       @default(0)
+  timeoutCount        Int       @default(0)
+  p50LatencyMs        Int       @default(0)
+  p95LatencyMs        Int       @default(0)
+  p99LatencyMs        Int       @default(0)
+  errorDistribution   Json?
+  createdAt           DateTime  @default(now())
+
+  @@index([providerId, category, environment])
+  @@index([windowStart, windowEnd])
+}
+
+
 
 

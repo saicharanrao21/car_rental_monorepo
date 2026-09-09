@@ -68,6 +68,16 @@ import { GoogleGeminiAiAdapter } from './adapters/ai/google-gemini.adapter';
 import { MeilisearchAdapter } from './adapters/search/meilisearch.adapter';
 import { PostHogAnalyticsAdapter } from './adapters/analytics/posthog-analytics.adapter';
 
+// Phase L Enterprise Control Plane Services & Controllers
+import { ProviderDirectoryService } from './directory/provider-directory.service';
+import { CapabilityMatrixService } from './directory/capability-matrix.service';
+import { ProviderOnboardingService } from './directory/provider-onboarding.service';
+import { ProviderScoringService } from './scoring/provider-scoring.service';
+import { ProviderIncidentService } from './governance/provider-incident.service';
+import { ProviderChangeAuditService } from './governance/provider-change-audit.service';
+import { ProviderRecommendationService } from './governance/provider-recommendation.service';
+import { AdminControlPlaneController } from './admin/admin-control-plane.controller';
+
 import { SystemConfigModule } from '../config-engine/system-config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AdminModule } from '../admin/admin.module';
@@ -75,7 +85,7 @@ import { AdminModule } from '../admin/admin.module';
 @Global()
 @Module({
   imports: [PrismaModule, SystemConfigModule, AdminModule],
-  controllers: [AdminIntegrationsController],
+  controllers: [AdminIntegrationsController, AdminControlPlaneController],
   providers: [
     SecretVaultService,
     IntegrationConfigService,
@@ -86,6 +96,15 @@ import { AdminModule } from '../admin/admin.module';
     AdminIntegrationsService,
     ProviderCatalogService,
     ProviderPackRegistryService,
+
+    // Phase L Enterprise Control Plane
+    ProviderDirectoryService,
+    CapabilityMatrixService,
+    ProviderOnboardingService,
+    ProviderScoringService,
+    ProviderIncidentService,
+    ProviderChangeAuditService,
+    ProviderRecommendationService,
 
     // Phase K Runtime Services
     FailureClassifierService,
@@ -157,6 +176,15 @@ import { AdminModule } from '../admin/admin.module';
     AdminIntegrationsService,
     ProviderCatalogService,
     ProviderPackRegistryService,
+
+    // Phase L Enterprise Control Plane Services
+    ProviderDirectoryService,
+    CapabilityMatrixService,
+    ProviderOnboardingService,
+    ProviderScoringService,
+    ProviderIncidentService,
+    ProviderChangeAuditService,
+    ProviderRecommendationService,
 
     // Phase K Runtime Services
     FailureClassifierService,

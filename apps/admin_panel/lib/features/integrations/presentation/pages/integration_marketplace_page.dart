@@ -8,6 +8,7 @@ import '../widgets/runtime_command_centre_widget.dart';
 import '../widgets/payment_ecosystem_widget.dart';
 import '../widgets/communication_ecosystem_widget.dart';
 import '../widgets/provider_packs_ecosystem_widget.dart';
+import '../widgets/integration_control_plane_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
   const IntegrationMarketplacePage({super.key});
@@ -19,7 +20,7 @@ class IntegrationMarketplacePage extends ConsumerStatefulWidget {
 
 class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketplacePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _activeTab = 'CATALOG'; // 'CATALOG' | 'PACKS' | 'PAYMENTS' | 'COMMUNICATIONS' | 'OPERATIONS' | 'COMPARISON'
+  String _activeTab = 'CATALOG'; // 'CATALOG' | 'PACKS' | 'PAYMENTS' | 'COMMUNICATIONS' | 'OPERATIONS' | 'CONTROL_PLANE' | 'COMPARISON'
 
   static const List<Map<String, String>> _categories = [
     {'id': 'ALL', 'label': 'All Categories'},
@@ -110,6 +111,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                             value: 'OPERATIONS',
                             label: Text('Runtime & Failover'),
                             icon: Icon(Icons.speed_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'CONTROL_PLANE',
+                            label: Text('Control Plane & Intelligence'),
+                            icon: Icon(Icons.hub_rounded, size: 16),
                           ),
                           ButtonSegment(
                             value: 'COMPARISON',
@@ -266,6 +272,10 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           else if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(
               child: RuntimeCommandCentreWidget(),
+            )
+          else if (_activeTab == 'CONTROL_PLANE')
+            const SliverToBoxAdapter(
+              child: IntegrationControlPlaneWidget(),
             )
           else if (_activeTab == 'COMPARISON')
             const SliverToBoxAdapter(

@@ -157,6 +157,53 @@ export class ProviderSimulationService {
         throw err;
       }
 
+      case SimulationScenario.AUTH_401: {
+        const err: any = new Error(`401 Unauthorized: Invalid API key or token expired for provider ${providerId}`);
+        err.status = 401;
+        err.response = { status: 401, data: { error: 'Authentication failed' } };
+        throw err;
+      }
+
+      case SimulationScenario.FORBIDDEN_403: {
+        const err: any = new Error(`403 Forbidden: Insufficient permissions for capability '${capability}' on ${providerId}`);
+        err.status = 403;
+        err.response = { status: 403, data: { error: 'Access forbidden' } };
+        throw err;
+      }
+
+      case SimulationScenario.RATE_LIMIT_429: {
+        const err: any = new Error(`429 Too Many Requests: Rate limit exceeded for ${providerId}`);
+        err.status = 429;
+        err.response = { status: 429, headers: { 'retry-after': '3' }, data: { error: 'Quota exceeded' } };
+        throw err;
+      }
+
+      case SimulationScenario.WEBHOOK_SIGNATURE_MISMATCH: {
+        const err: any = new Error(`Webhook Signature Error: Signature mismatch on provider ${providerId}`);
+        err.code = 'SIGNATURE_MISMATCH';
+        err.status = 400;
+        throw err;
+      }
+
+      case SimulationScenario.LATENCY_INJECTION: {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return {
+          simulated: true,
+          providerId,
+          capability,
+          status: 'SUCCESS',
+          latencyInjectedMs: 200,
+          referenceId: `sim_lat_${providerId}_${Date.now()}`,
+        } as unknown as TOutput;
+      }
+
+      case SimulationScenario.PARTIAL_FAILURE: {
+        const err: any = new Error(`Partial Failure: Primary action completed but webhook notification failed on ${providerId}`);
+        err.code = 'PARTIAL_FAILURE';
+        err.status = 207;
+        throw err;
+      }
+
       case SimulationScenario.WEBHOOK_FAILURE: {
         const err: any = new Error(`Webhook Delivery Error: HMAC signature verification failed for ${providerId}`);
         err.code = 'WEBHOOK_VERIFICATION_FAILED';

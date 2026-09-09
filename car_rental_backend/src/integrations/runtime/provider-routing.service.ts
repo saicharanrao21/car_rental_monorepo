@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { IntegrationCategory } from '../registry/provider.types';
 import { ProviderCatalogService } from '../catalog/provider-catalog.service';
 import { ProviderRegistryService } from '../registry/provider-registry.service';
@@ -6,6 +6,13 @@ import { CircuitBreakerService } from './circuit-breaker.service';
 import { ProviderHealthService } from '../health/provider-health.service';
 import { ProviderPolicyService } from './provider-policy.service';
 import { CostModelService } from './cost-model.service';
+import { ProviderScoringService } from '../scoring/provider-scoring.service';
+import { ProviderDirectoryService } from '../directory/provider-directory.service';
+import {
+  ProviderDirectoryMetadata,
+  ProviderPricingType,
+  CertificationLevel,
+} from '../directory/provider-directory.types';
 import {
   CircuitState,
   IntegrationExecutionRequest,
@@ -29,6 +36,8 @@ export class ProviderRoutingService {
     private readonly healthService: ProviderHealthService,
     private readonly policyService: ProviderPolicyService,
     private readonly costModelService: CostModelService,
+    @Optional() private readonly scoringService?: ProviderScoringService,
+    @Optional() private readonly directoryService?: ProviderDirectoryService,
   ) {}
 
   public setCategoryDefaultStrategy(category: IntegrationCategory, strategy: RoutingStrategy): void {
@@ -364,6 +373,50 @@ export class ProviderRoutingService {
           );
           return costA - costB;
         });
+      }
+
+      case RoutingStrategy.SCORE_OPTIMIZED: {
+        if (!this.scoringService) {
+          return list.sort((a, b) => a.priority - b.priority);
+        }
+        const scoredList = list.map((c) => {
+          let dirMeta: ProviderDirectoryMetadata;
+          if (this.directoryService && this.directoryService.hasProvider(c.providerId)) {
+            dirMeta = this.directoryService.getProvider(c.providerId);
+          } else {
+            dirMeta = {
+              providerId: c.providerId,
+              displayName: c.name,
+              category: c.category,
+              description: c.description,
+              supportedCountries: c.supportedCountries,
+              supportedCurrencies: c.supportedCurrencies,
+              supportedCapabilities: c.supportedCapabilities,
+              priority: c.priority,
+              reliabilityScore: 0.95,
+              expectedLatencyP50Ms: 250,
+              pricing: {
+                type: ProviderPricingType.FREE_TIER_THEN_USAGE,
+                fixedFee: 0,
+                percentageFee: 0,
+                currency: 'USD',
+              },
+              status: 'ACTIVE' as any,
+              certificationLevel: CertificationLevel.PRODUCTION_READY,
+            } as any;
+          }
+          const scoreResult = this.scoringService!.calculateScore(dirMeta, {
+            category: c.category,
+            region: request.region,
+            country: request.region,
+            currency: request.currency,
+            requiredCapabilities: request.capability ? [request.capability] : [],
+            maxAcceptableLatencyMs: 1000,
+          });
+          return { candidate: c, score: scoreResult.finalScore };
+        });
+        scoredList.sort((a, b) => b.score - a.score);
+        return scoredList.map((s) => s.candidate);
       }
 
       case RoutingStrategy.CUSTOM_RULE:
