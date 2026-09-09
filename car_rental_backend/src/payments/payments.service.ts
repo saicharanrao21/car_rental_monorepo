@@ -32,6 +32,8 @@ import { WalletsService } from '../wallets/wallets.service';
 import { AuditLogService } from '../admin/audit-log.service';
 import { AdminRefundDto } from './dto/admin-refund.dto';
 import * as crypto from 'crypto';
+import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
+import { IntegrationCategory } from '../integrations/registry/provider.types';
 
 @Injectable()
 export class PaymentsService {
@@ -51,6 +53,7 @@ export class PaymentsService {
     @Inject(forwardRef(() => WalletsService))
     private readonly walletsService?: WalletsService,
     @Optional() private readonly auditLogService?: AuditLogService,
+    @Optional() private readonly runtimeService?: IntegrationRuntimeService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -290,7 +293,7 @@ export class PaymentsService {
     }
 
     const isFullWallet = gatewayAmount.lte(0);
-    let orderId: string;
+    let orderId: string = '';
     let amountInPaise: number;
 
     if (isFullWallet) {
@@ -311,18 +314,46 @@ export class PaymentsService {
           `[RAZORPAY-MOCK] Created mock order ${orderId} for booking ${bookingId} of amount ${amountInPaise} paise (Total: ${totalAmount}, Wallet: ${walletApplied}, Gateway: ${gatewayAmount})`,
         );
       } else {
-        try {
-          const order = await this.razorpay!.orders.create({
-            amount: amountInPaise,
-            currency: 'INR',
-            receipt: bookingId,
-          });
-          orderId = order.id;
-        } catch (err) {
-          this.logger.error('Razorpay Order creation failed:', err);
-          throw new BadRequestException(
-            'Failed to create payment order with Razorpay. Try again.',
-          );
+        let createdViaRuntime = false;
+        if (this.runtimeService) {
+          try {
+            const runtimeRes = await this.runtimeService.execute({
+              category: IntegrationCategory.PAYMENT,
+              capability: 'CREATE_ORDER',
+              payload: {
+                bookingId,
+                amountPaise: amountInPaise,
+                currency: 'INR',
+                customerId,
+                customerEmail: (booking as any).customer?.email || undefined,
+                customerPhone: (booking as any).customer?.phone || undefined,
+              },
+              idempotencyKey: `order_${bookingId}_${amountInPaise}`,
+              isIdempotent: true,
+            });
+            if (runtimeRes.success && (runtimeRes.data?.providerOrderId || (runtimeRes.data as any)?.id)) {
+              orderId = runtimeRes.data.providerOrderId || (runtimeRes.data as any).id;
+              createdViaRuntime = true;
+            }
+          } catch (runtimeErr: any) {
+            this.logger.warn(`IntegrationRuntime payment execution failed, falling back to direct SDK: ${runtimeErr.message}`);
+          }
+        }
+
+        if (!createdViaRuntime) {
+          try {
+            const order = await this.razorpay!.orders.create({
+              amount: amountInPaise,
+              currency: 'INR',
+              receipt: bookingId,
+            });
+            orderId = order.id;
+          } catch (err) {
+            this.logger.error('Razorpay Order creation failed:', err);
+            throw new BadRequestException(
+              'Failed to create payment order with Razorpay. Try again.',
+            );
+          }
         }
       }
     }

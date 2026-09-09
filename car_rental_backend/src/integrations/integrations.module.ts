@@ -9,6 +9,18 @@ import { AdminIntegrationsService } from './admin/admin-integrations.service';
 import { AdminIntegrationsController } from './admin/admin-integrations.controller';
 import { ProviderCatalogService } from './catalog/provider-catalog.service';
 
+// Phase K Runtime Services
+import { FailureClassifierService } from './runtime/failure-classifier.service';
+import { CircuitBreakerService } from './runtime/circuit-breaker.service';
+import { ProviderRateLimiterService } from './runtime/provider-rate-limiter.service';
+import { CostModelService } from './runtime/cost-model.service';
+import { ProviderPolicyService } from './runtime/provider-policy.service';
+import { IntegrationIdempotencyService } from './runtime/integration-idempotency.service';
+import { ProviderSimulationService } from './runtime/provider-simulation.service';
+import { ProviderRoutingService } from './runtime/provider-routing.service';
+import { IntegrationAuditService } from './runtime/integration-audit.service';
+import { IntegrationRuntimeService } from './runtime/integration-runtime.service';
+
 // Concrete Adapters
 import { RazorpayAdapter } from './adapters/payments/razorpay.adapter';
 import { StripeAdapter } from './adapters/payments/stripe.adapter';
@@ -50,6 +62,18 @@ import { AdminModule } from '../admin/admin.module';
     AdminIntegrationsService,
     ProviderCatalogService,
 
+    // Phase K Runtime Services
+    FailureClassifierService,
+    CircuitBreakerService,
+    ProviderRateLimiterService,
+    CostModelService,
+    ProviderPolicyService,
+    IntegrationIdempotencyService,
+    ProviderSimulationService,
+    ProviderRoutingService,
+    IntegrationAuditService,
+    IntegrationRuntimeService,
+
     // Adapters
     RazorpayAdapter,
     StripeAdapter,
@@ -82,6 +106,18 @@ import { AdminModule } from '../admin/admin.module';
     WebhookDispatcherService,
     AdminIntegrationsService,
     ProviderCatalogService,
+
+    // Phase K Runtime Services
+    FailureClassifierService,
+    CircuitBreakerService,
+    ProviderRateLimiterService,
+    CostModelService,
+    ProviderPolicyService,
+    IntegrationIdempotencyService,
+    ProviderSimulationService,
+    ProviderRoutingService,
+    IntegrationAuditService,
+    IntegrationRuntimeService,
 
     // Adapters exported for direct injection or test wiring
     RazorpayAdapter,

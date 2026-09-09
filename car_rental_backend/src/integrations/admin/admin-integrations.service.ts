@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ProviderRegistryService } from '../registry/provider-registry.service';
 import { IntegrationConfigService } from '../config/integration-config.service';
 import { ProviderHealthService } from '../health/provider-health.service';
@@ -25,6 +25,23 @@ import {
   ValidateCredentialsDto,
 } from './dto/admin-integrations.dto';
 
+// Phase K Runtime Services & Types
+import { IntegrationRuntimeService } from '../runtime/integration-runtime.service';
+import { CircuitBreakerService } from '../runtime/circuit-breaker.service';
+import { ProviderRoutingService } from '../runtime/provider-routing.service';
+import { ProviderSimulationService } from '../runtime/provider-simulation.service';
+import { ProviderPolicyService } from '../runtime/provider-policy.service';
+import { IntegrationAuditService } from '../runtime/integration-audit.service';
+import { CostModelService } from '../runtime/cost-model.service';
+import {
+  CircuitState,
+  IntegrationExecutionRequest,
+  IntegrationExecutionResult,
+  ProviderPolicyRule,
+  RoutingStrategy,
+  SimulationScenario,
+} from '../runtime/runtime.types';
+
 @Injectable()
 export class AdminIntegrationsService {
   constructor(
@@ -34,6 +51,13 @@ export class AdminIntegrationsService {
     private readonly webhookDispatcher: WebhookDispatcherService,
     private readonly prisma: PrismaService,
     private readonly catalogService: ProviderCatalogService,
+    @Optional() private readonly runtimeService?: IntegrationRuntimeService,
+    @Optional() private readonly circuitBreakerService?: CircuitBreakerService,
+    @Optional() private readonly routingService?: ProviderRoutingService,
+    @Optional() private readonly simulationService?: ProviderSimulationService,
+    @Optional() private readonly policyService?: ProviderPolicyService,
+    @Optional() private readonly auditService?: IntegrationAuditService,
+    @Optional() private readonly costModelService?: CostModelService,
   ) {}
 
   /**
@@ -90,6 +114,10 @@ export class AdminIntegrationsService {
     );
     const health = this.healthService.getHealth(category, providerId);
     const activeProviderId = await this.configService.resolveActiveProviderId(category, context);
+    const circuitState = this.circuitBreakerService
+      ? this.circuitBreakerService.getState(providerId)
+      : CircuitState.CLOSED;
+    const rollingHealth = this.healthService.getRollingHealth(category, providerId, circuitState);
 
     return {
       providerId: provider.getProviderId(),
@@ -98,6 +126,8 @@ export class AdminIntegrationsService {
       supportedCapabilities: provider.getSupportedCapabilities(),
       isActive: activeProviderId === provider.getProviderId(),
       health,
+      circuitState,
+      rollingHealth,
       configuration: maskedConfig,
     };
   }
@@ -145,7 +175,6 @@ export class AdminIntegrationsService {
     userId?: string,
     context?: IntegrationContext,
   ): Promise<void> {
-    // Assert provider exists
     await this.registry.getProvider(category, providerId, context);
     await this.configService.setActiveProvider(category, providerId, userId, context);
   }
@@ -172,7 +201,6 @@ export class AdminIntegrationsService {
   ): Promise<TestConnectionResult> {
     const provider = await this.registry.getProvider(category, providerId, context);
 
-    // If no credentials explicitly passed in DTO, resolve configured decrypted credentials
     let creds = dto?.credentials;
     if (!creds || Object.keys(creds).length === 0) {
       const resolved = await this.configService.resolveProviderConfig(category, providerId, context);
@@ -225,9 +253,6 @@ export class AdminIntegrationsService {
   // PHASE J: MARKETPLACE & CATALOG REGISTRY METHODS
   // =========================================================================
 
-  /**
-   * Retrieves unified Marketplace view combining catalog metadata with configured states.
-   */
   async getMarketplace(query?: {
     category?: IntegrationCategory;
     vendorId?: string;
@@ -239,16 +264,10 @@ export class AdminIntegrationsService {
     return this.catalogService.getMarketplaceOverview(query);
   }
 
-  /**
-   * Lists providers from the catalog with dynamic discovery filters.
-   */
   getCatalog(filter?: CatalogFilter): CatalogProviderMetadata[] {
     return this.catalogService.getAllProviders(filter);
   }
 
-  /**
-   * Retrieves a specific catalog provider by category and ID.
-   */
   getCatalogProvider(
     category: IntegrationCategory,
     providerId: string,
@@ -256,9 +275,6 @@ export class AdminIntegrationsService {
     return this.catalogService.getProvider(category, providerId);
   }
 
-  /**
-   * Dynamically registers a new provider into the catalog registry.
-   */
   registerCatalogProvider(dto: RegisterCatalogProviderDto): CatalogProviderMetadata {
     const metadata: CatalogProviderMetadata = {
       providerId: dto.providerId,
@@ -298,9 +314,6 @@ export class AdminIntegrationsService {
     return metadata;
   }
 
-  /**
-   * Updates provider activation state.
-   */
   updateActivationState(
     category: IntegrationCategory,
     providerId: string,
@@ -309,9 +322,6 @@ export class AdminIntegrationsService {
     return this.catalogService.updateActivationState(category, providerId, state);
   }
 
-  /**
-   * Validates credentials against catalog schema.
-   */
   validateCredentials(
     category: IntegrationCategory,
     providerId: string,
@@ -325,9 +335,6 @@ export class AdminIntegrationsService {
     );
   }
 
-  /**
-   * Resolves fallback priority chain for category.
-   */
   resolveFallbackChain(
     category: IntegrationCategory,
     options?: {
@@ -339,5 +346,102 @@ export class AdminIntegrationsService {
   ): CatalogProviderMetadata[] {
     return this.catalogService.resolveFallbackChain(category, options);
   }
-}
 
+  // =========================================================================
+  // PHASE K: OPERATIONAL CONTROL CENTRE & RUNTIME MANAGEMENT
+  // =========================================================================
+
+  /**
+   * Retrieves operational command-centre metrics: circuits, rolling health, incidents, recent executions.
+   */
+  async getRuntimeOverview(context?: IntegrationContext): Promise<any> {
+    const categories = Object.values(IntegrationCategory);
+    const circuits = this.circuitBreakerService?.getAllStates() ?? {};
+    const rollingHealth = this.healthService.getAllRollingHealth((id) =>
+      this.circuitBreakerService ? this.circuitBreakerService.getState(id) : CircuitState.CLOSED,
+    );
+    const activeIncidents = this.auditService?.getIncidents({ status: 'INVESTIGATING' }) ?? [];
+    const recentExecutions = this.auditService?.getExecutions({ limit: 10 }) ?? [];
+
+    return {
+      totalCategories: categories.length,
+      circuits,
+      rollingHealth,
+      activeIncidentsCount: activeIncidents.length,
+      recentExecutions,
+    };
+  }
+
+  getCircuitStates(): Record<string, CircuitState> {
+    return this.circuitBreakerService?.getAllStates() ?? {};
+  }
+
+  resetCircuit(providerId: string): void {
+    this.circuitBreakerService?.resetCircuit(providerId);
+    this.auditService?.resolveIncident(providerId, 'Manually reset by Admin');
+  }
+
+  tripCircuit(providerId: string, reason = 'Manually tripped by Admin'): void {
+    this.circuitBreakerService?.tripCircuit(providerId, reason);
+    this.auditService?.recordIncident({
+      providerId,
+      category: 'UNKNOWN',
+      title: `Circuit tripped manually: ${providerId}`,
+      severity: 'HIGH',
+      circuitState: CircuitState.OPEN,
+      reason,
+    });
+  }
+
+  setSimulation(providerId: string, scenario: SimulationScenario): void {
+    this.simulationService?.setProviderSimulation(providerId, scenario);
+  }
+
+  clearSimulation(providerId: string): void {
+    this.simulationService?.clearProviderSimulation(providerId);
+  }
+
+  getSimulation(providerId: string): SimulationScenario {
+    return this.simulationService?.getProviderSimulation(providerId) ?? SimulationScenario.NONE;
+  }
+
+  getPolicies(): ProviderPolicyRule[] {
+    return this.policyService?.getPolicies() ?? [];
+  }
+
+  upsertPolicy(policy: ProviderPolicyRule): void {
+    this.policyService?.registerPolicy(policy);
+  }
+
+  deletePolicy(id: string): void {
+    this.policyService?.deletePolicy(id);
+  }
+
+  getIncidents(filter?: { providerId?: string; status?: string }): any[] {
+    return this.auditService?.getIncidents(filter) ?? [];
+  }
+
+  resolveIncident(providerId: string, reason?: string): void {
+    this.auditService?.resolveIncident(providerId, reason);
+    this.circuitBreakerService?.resetCircuit(providerId);
+  }
+
+  getExecutions(filter?: {
+    category?: string;
+    providerId?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): any[] {
+    return this.auditService?.getExecutions(filter) ?? [];
+  }
+
+  async executeRuntime(
+    request: IntegrationExecutionRequest,
+  ): Promise<IntegrationExecutionResult> {
+    if (!this.runtimeService) {
+      throw new Error('IntegrationRuntimeService is not configured');
+    }
+    return this.runtimeService.execute(request);
+  }
+}

@@ -2322,3 +2322,80 @@ model VendorDepositLedgerEntry {
   @@index([idempotencyKey])
 }
 
+// =========================================================================
+// PHASE K: ENTERPRISE INTEGRATION RUNTIME, ROUTING & INCIDENT MODELS
+// =========================================================================
+
+model IntegrationExecution {
+  id                  String               @id @default(cuid())
+  correlationId       String               @unique
+  category            String
+  capability          String
+  status              String               // SUCCESS, FAILURE, RETRY_EXHAUSTED, CIRCUIT_OPEN, RATE_LIMITED
+  providerId          String
+  finalProviderId     String?
+  fallbackOccurred    Boolean              @default(false)
+  environment         String               @default("SANDBOX")
+  tenantId            String?
+  vendorId            String?
+  branchId            String?
+  region              String?
+  currency            String?
+  idempotencyKey      String?
+  requestPayload      Json?
+  responsePayload     Json?
+  errorClassification String?
+  errorMessage        String?
+  latencyMs           Int                  @default(0)
+  attempts            IntegrationAttempt[]
+  metadata            Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now()) @updatedAt
+
+  @@index([correlationId])
+  @@index([category, capability])
+  @@index([providerId, status])
+  @@index([vendorId, createdAt])
+  @@index([idempotencyKey])
+  @@index([createdAt])
+}
+
+model IntegrationAttempt {
+  id                  String               @id @default(cuid())
+  executionId         String
+  execution           IntegrationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  attemptNumber       Int
+  providerId          String
+  status              String               // SUCCESS, FAILED, TIMEOUT, RATE_LIMITED, CIRCUIT_OPEN
+  errorClassification String?
+  errorMessage        String?
+  latencyMs           Int                  @default(0)
+  createdAt           DateTime             @default(now())
+
+  @@index([executionId])
+  @@index([providerId, status])
+  @@index([createdAt])
+}
+
+model ProviderIncident {
+  id           String    @id @default(cuid())
+  providerId   String
+  category     String
+  title        String
+  status       String    @default("INVESTIGATING") // INVESTIGATING, IDENTIFIED, MONITORING, RESOLVED
+  severity     String    @default("MEDIUM")        // LOW, MEDIUM, HIGH, CRITICAL
+  circuitState String    @default("CLOSED")
+  errorRate    Float?
+  startedAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([providerId, category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+

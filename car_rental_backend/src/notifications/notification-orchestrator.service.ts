@@ -24,6 +24,8 @@ import {
   NotificationPriority,
   Prisma,
 } from '@prisma/client';
+import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
+import { IntegrationCategory } from '../integrations/registry/provider.types';
 
 export interface OperationalEventVariables {
   customerName?: string;
@@ -79,6 +81,7 @@ export class NotificationOrchestratorService {
     @Optional() private readonly whatsappProvider?: WhatsAppProvider,
     @Optional() private readonly queueProducer?: QueueProducerService,
     @Optional() private readonly realtimeService?: NotificationRealtimeService,
+    @Optional() private readonly runtimeService?: IntegrationRuntimeService,
   ) {}
 
   /**
@@ -409,6 +412,38 @@ export class NotificationOrchestratorService {
     params: string[],
   ) {
     try {
+      if (this.runtimeService) {
+        try {
+          const runtimeRes = await this.runtimeService.execute({
+            category: IntegrationCategory.MESSAGING_WHATSAPP,
+            capability: 'SEND_TEMPLATE',
+            payload: {
+              to: phone,
+              templateName,
+              language: 'en_US',
+              bodyParameters: params,
+            },
+            idempotencyKey: `notif_wa_${deliveryId}`,
+            isIdempotent: true,
+          });
+          if (runtimeRes.success) {
+            const resData = runtimeRes.data as any;
+            await this.prisma.notificationDelivery.update({
+              where: { id: deliveryId },
+              data: {
+                status: DeliveryStatus.DELIVERED,
+                providerMessageId: resData?.providerMessageId || `wa_${Date.now()}`,
+                deliveredAt: new Date(),
+                attemptCount: { increment: 1 },
+              },
+            });
+            return { success: true, messageId: resData?.providerMessageId };
+          }
+        } catch (rErr: any) {
+          this.logger.warn(`Integration runtime whatsapp failed, falling back: ${rErr.message}`);
+        }
+      }
+
       if (!this.whatsappProvider) {
         this.logger.warn(`[NOTIF-ORCHESTRATOR] WhatsAppProvider not available. Skipping.`);
         return { success: true };

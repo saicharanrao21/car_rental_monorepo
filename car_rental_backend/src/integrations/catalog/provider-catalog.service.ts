@@ -95,6 +95,13 @@ export class ProviderCatalogService implements OnModuleInit {
   }
 
   /**
+   * Retrieves all catalog providers belonging to a specific category.
+   */
+  getCategoryProviders(category: IntegrationCategory): CatalogProviderMetadata[] {
+    return this.getAllProviders({ category });
+  }
+
+  /**
    * Returns all catalog providers with optional filtering, capability discovery, regional search, and sorting.
    */
   getAllProviders(filter?: CatalogFilter): CatalogProviderMetadata[] {

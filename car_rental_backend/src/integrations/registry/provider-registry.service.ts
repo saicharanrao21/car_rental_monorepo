@@ -168,6 +168,19 @@ export class ProviderRegistryService {
   }
 
   /**
+   * Returns all instantiated providers for a category.
+   */
+  getProvidersByCategory(category: IntegrationCategory): BaseProvider[] {
+    const list: BaseProvider[] = [];
+    for (const provider of this.providers.values()) {
+      if (provider.getCategory() === category) {
+        list.push(provider);
+      }
+    }
+    return list;
+  }
+
+  /**
    * Asserts that a provider supports the requested capability, or throws CapabilityNotSupportedError.
    */
   assertCapability(provider: BaseProvider, capability: string): void {

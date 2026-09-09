@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -28,6 +29,11 @@ import {
   UpdateActivationStateDto,
   ValidateCredentialsDto,
 } from './dto/admin-integrations.dto';
+import {
+  IntegrationExecutionRequest,
+  ProviderPolicyRule,
+  SimulationScenario,
+} from '../runtime/runtime.types';
 
 @Controller('admin/integrations')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -66,7 +72,7 @@ export class AdminIntegrationsController {
   }
 
   @Put('providers/:category/:providerId/config')
-  async updateProviderConfig(
+  async updateConfig(
     @Param('category') category: IntegrationCategory,
     @Param('providerId') providerId: string,
     @Body() dto: UpdateIntegrationConfigDto,
@@ -80,18 +86,8 @@ export class AdminIntegrationsController {
     );
   }
 
-  @Post('providers/:category/:providerId/toggle')
-  async toggleProvider(
-    @Param('category') category: IntegrationCategory,
-    @Param('providerId') providerId: string,
-    @Body() dto: ToggleProviderDto,
-  ) {
-    this.integrationsService.toggleProvider(category, providerId, dto.enabled);
-    return { success: true, providerId, category, isEnabled: dto.enabled };
-  }
-
   @Post('providers/:category/:providerId/set-active')
-  async setActiveProvider(
+  async setActive(
     @Param('category') category: IntegrationCategory,
     @Param('providerId') providerId: string,
     @Body() dto: SetActiveProviderDto,
@@ -103,7 +99,17 @@ export class AdminIntegrationsController {
       req.user?.id,
       { vendorId: dto.vendorId, branchId: dto.branchId },
     );
-    return { success: true, activeProviderId: providerId, category };
+    return { success: true, message: `Active provider set to ${providerId}` };
+  }
+
+  @Post('providers/:category/:providerId/toggle')
+  async toggleProvider(
+    @Param('category') category: IntegrationCategory,
+    @Param('providerId') providerId: string,
+    @Body() dto: ToggleProviderDto,
+  ) {
+    this.integrationsService.toggleProvider(category, providerId, dto.enabled);
+    return { success: true, isEnabled: dto.enabled };
   }
 
   @Post('providers/:category/:providerId/test')
@@ -111,12 +117,10 @@ export class AdminIntegrationsController {
     @Param('category') category: IntegrationCategory,
     @Param('providerId') providerId: string,
     @Body() dto: TestConnectionDto,
-    @Query('vendorId') vendorId?: string,
-    @Query('branchId') branchId?: string,
   ) {
     return this.integrationsService.testConnection(category, providerId, dto, {
-      vendorId,
-      branchId,
+      vendorId: dto.vendorId,
+      branchId: dto.branchId,
     });
   }
 
@@ -236,5 +240,112 @@ export class AdminIntegrationsController {
       tenantTier,
     });
   }
-}
 
+  // =========================================================================
+  // PHASE K: RUNTIME CONTROL CENTRE & FAILOVER MANAGEMENT
+  // =========================================================================
+
+  @Get('runtime/overview')
+  async getRuntimeOverview(
+    @Query('vendorId') vendorId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.integrationsService.getRuntimeOverview({ vendorId, branchId });
+  }
+
+  @Get('runtime/circuits')
+  async getCircuits() {
+    return this.integrationsService.getCircuitStates();
+  }
+
+  @Post('runtime/circuits/:providerId/reset')
+  async resetCircuit(@Param('providerId') providerId: string) {
+    this.integrationsService.resetCircuit(providerId);
+    return { success: true, message: `Circuit for ${providerId} reset to CLOSED` };
+  }
+
+  @Post('runtime/circuits/:providerId/trip')
+  async tripCircuit(
+    @Param('providerId') providerId: string,
+    @Body('reason') reason?: string,
+  ) {
+    this.integrationsService.tripCircuit(providerId, reason);
+    return { success: true, message: `Circuit for ${providerId} manually tripped to OPEN` };
+  }
+
+  @Get('runtime/simulations/:providerId')
+  async getSimulation(@Param('providerId') providerId: string) {
+    return { providerId, scenario: this.integrationsService.getSimulation(providerId) };
+  }
+
+  @Post('runtime/simulations/:providerId')
+  async setSimulation(
+    @Param('providerId') providerId: string,
+    @Body('scenario') scenario: SimulationScenario,
+  ) {
+    this.integrationsService.setSimulation(providerId, scenario);
+    return { success: true, providerId, scenario };
+  }
+
+  @Delete('runtime/simulations/:providerId')
+  async clearSimulation(@Param('providerId') providerId: string) {
+    this.integrationsService.clearSimulation(providerId);
+    return { success: true, message: `Simulation cleared for ${providerId}` };
+  }
+
+  @Get('runtime/policies')
+  async getPolicies() {
+    return this.integrationsService.getPolicies();
+  }
+
+  @Post('runtime/policies')
+  async upsertPolicy(@Body() policy: any) {
+    this.integrationsService.upsertPolicy(policy);
+    return { success: true, policy };
+  }
+
+  @Delete('runtime/policies/:id')
+  async deletePolicy(@Param('id') id: string) {
+    this.integrationsService.deletePolicy(id);
+    return { success: true, message: `Policy ${id} deleted` };
+  }
+
+  @Get('runtime/incidents')
+  async getIncidents(
+    @Query('providerId') providerId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.integrationsService.getIncidents({ providerId, status });
+  }
+
+  @Post('runtime/incidents/:providerId/resolve')
+  async resolveIncident(
+    @Param('providerId') providerId: string,
+    @Body('reason') reason?: string,
+  ) {
+    this.integrationsService.resolveIncident(providerId, reason);
+    return { success: true, message: `Incident for ${providerId} marked RESOLVED` };
+  }
+
+  @Get('runtime/executions')
+  async getExecutions(
+    @Query('category') category?: string,
+    @Query('providerId') providerId?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.integrationsService.getExecutions({
+      category,
+      providerId,
+      status,
+      limit: limit ? Number(limit) : 50,
+      offset: offset ? Number(offset) : 0,
+    });
+  }
+
+  @Post('runtime/execute')
+  async executeRuntime(@Body() request: any) {
+    return this.integrationsService.executeRuntime(request);
+  }
+}

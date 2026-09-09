@@ -1,8 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import * as crypto from 'crypto';
+import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
+import { IntegrationCategory } from '../integrations/registry/provider.types';
 
 @Injectable()
 export class UploadsService {
@@ -11,7 +13,10 @@ export class UploadsService {
   private readonly bucketName: string;
   private readonly publicUrl: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() private readonly runtimeService?: IntegrationRuntimeService,
+  ) {
     this.useMock = this.configService.get<string>('R2_USE_MOCK') === 'true';
     this.bucketName =
       this.configService.get<string>('R2_BUCKET_NAME') || 'drivego-uploads';

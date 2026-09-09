@@ -53,6 +53,14 @@ export class TestConnectionDto {
   @IsObject()
   @IsOptional()
   credentials?: Record<string, string>;
+
+  @IsString()
+  @IsOptional()
+  vendorId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
 }
 
 export class UpdateActivationStateDto {

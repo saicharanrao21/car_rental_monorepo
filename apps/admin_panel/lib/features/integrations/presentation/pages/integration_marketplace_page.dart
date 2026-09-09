@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import '../providers/integration_marketplace_provider.dart';
 import '../widgets/provider_card.dart';
+import '../widgets/runtime_command_centre_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
   const IntegrationMarketplacePage({super.key});
@@ -14,6 +15,7 @@ class IntegrationMarketplacePage extends ConsumerStatefulWidget {
 
 class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketplacePage> {
   final TextEditingController _searchController = TextEditingController();
+  String _activeTab = 'CATALOG'; // 'CATALOG' | 'OPERATIONS'
 
   static const List<Map<String, String>> _categories = [
     {'id': 'ALL', 'label': 'All Categories'},
@@ -62,14 +64,14 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Integration Marketplace & Provider Catalog',
+                              'Integration Marketplace & Operations Control Centre',
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const Gap(6),
                             Text(
-                              'Enterprise catalog supporting extensible third-party adapters across 13 domains with AES-256 secret vaulting.',
+                              'Enterprise integration runtime supporting capability-based routing, circuit breakers, automated failover, and telemetry.',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurface.withOpacity(0.65),
                               ),
@@ -77,6 +79,28 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                           ],
                         ),
                       ),
+                      // View Switcher (Marketplace vs Runtime Operations)
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'CATALOG',
+                            label: Text('Marketplace Catalog'),
+                            icon: Icon(Icons.grid_view_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'OPERATIONS',
+                            label: Text('Runtime & Failover'),
+                            icon: Icon(Icons.speed_rounded, size: 16),
+                          ),
+                        ],
+                        selected: {_activeTab},
+                        onSelectionChanged: (val) {
+                          setState(() {
+                            _activeTab = val.first;
+                          });
+                        },
+                      ),
+                      const Gap(16),
                       // Environment Switcher
                       SegmentedButton<String>(
                         segments: const [
@@ -99,175 +123,176 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                       const Gap(12),
                       IconButton.filledTonal(
                         icon: const Icon(Icons.refresh_rounded),
-                        tooltip: 'Refresh Marketplace',
+                        tooltip: 'Refresh',
                         onPressed: () => notifier.loadMarketplace(),
                       ),
                     ],
                   ),
                   const Gap(24),
 
-                  // Metrics KPI Row
-                  Row(
-                    children: [
-                      _kpiCard(
-                        theme,
-                        title: 'Catalog Providers',
-                        value: '${state.totalProvidersCount}',
-                        icon: Icons.hub_rounded,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const Gap(16),
-                      _kpiCard(
-                        theme,
-                        title: 'Configured & Vaulted',
-                        value: '${state.configuredCount}',
-                        icon: Icons.lock_outline_rounded,
-                        color: const Color(0xFF10B981),
-                      ),
-                      const Gap(16),
-                      _kpiCard(
-                        theme,
-                        title: 'Healthy Handshakes',
-                        value: '${state.healthyCount}',
-                        icon: Icons.check_circle_outline_rounded,
-                        color: const Color(0xFF06B6D4),
-                      ),
-                      const Gap(16),
-                      _kpiCard(
-                        theme,
-                        title: 'Active Routing',
-                        value: '${state.activeGatewaysCount}',
-                        icon: Icons.alt_route_rounded,
-                        color: const Color(0xFFF59E0B),
-                      ),
-                    ],
-                  ),
-                  const Gap(24),
-
-                  // Search & Category Filters
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search by provider, capability, currency, or country (e.g. UPI, Stripe, INR)...',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      notifier.setSearch('');
-                                    },
-                                  )
-                                : null,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          onChanged: (val) => notifier.setSearch(val),
+                  if (_activeTab == 'CATALOG') ...[
+                    // Metrics KPI Row
+                    Row(
+                      children: [
+                        _kpiCard(
+                          theme,
+                          title: 'Catalog Providers',
+                          value: '${state.totalProvidersCount}',
+                          icon: Icons.hub_rounded,
+                          color: theme.colorScheme.primary,
                         ),
-                      ),
-                    ],
-                  ),
-                  const Gap(16),
-
-                  // Horizontal Category Pills
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _categories.map((cat) {
-                        final isSelected = state.selectedCategory == cat['id'];
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: FilterChip(
-                            selected: isSelected,
-                            label: Text(cat['label']!),
-                            onSelected: (_) => notifier.setCategory(cat['id']!),
-                          ),
-                        );
-                      }).toList(),
+                        const Gap(16),
+                        _kpiCard(
+                          theme,
+                          title: 'Configured & Vaulted',
+                          value: '${state.configuredCount}',
+                          icon: Icons.lock_outline_rounded,
+                          color: const Color(0xFF10B981),
+                        ),
+                        const Gap(16),
+                        _kpiCard(
+                          theme,
+                          title: 'Healthy Handshakes',
+                          value: '${state.healthyCount}',
+                          icon: Icons.check_circle_outline_rounded,
+                          color: const Color(0xFF06B6D4),
+                        ),
+                        const Gap(16),
+                        _kpiCard(
+                          theme,
+                          title: 'Active Routing',
+                          value: '${state.activeGatewaysCount}',
+                          icon: Icons.alt_route_rounded,
+                          color: const Color(0xFFF59E0B),
+                        ),
+                      ],
                     ),
-                  ),
+                    const Gap(24),
+
+                    // Search & Category Filters
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Search by provider, capability, currency, or country (e.g. UPI, Stripe, INR)...',
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        notifier.setSearch('');
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            onChanged: (val) => notifier.setSearch(val),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(16),
+
+                    // Horizontal Category Pills
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _categories.map((cat) {
+                          final isSelected = state.selectedCategory == cat['id'];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: FilterChip(
+                              selected: isSelected,
+                              label: Text(cat['label']!),
+                              onSelected: (_) => notifier.setCategory(cat['id']!),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
 
-          // Provider Grid / List
-          if (state.isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    Gap(16),
-                    Text('Loading enterprise provider catalog...'),
-                  ],
-                ),
-              ),
+          // Render Active Tab View
+          if (_activeTab == 'OPERATIONS')
+            const SliverToBoxAdapter(
+              child: RuntimeCommandCentreWidget(),
             )
-          else if (state.filteredProviders.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 56,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    const Gap(16),
-                    Text(
-                      'No matching providers found in catalog',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const Gap(6),
-                    Text(
-                      'Try adjusting your search criteria or domain filter.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+          else ...[
+            // Provider Grid / List
+            if (state.isLoading)
+              const SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      Gap(16),
+                      Text('Loading enterprise provider catalog...'),
+                    ],
+                  ),
+                ),
+              )
+            else if (state.filteredProviders.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 56,
+                        color: theme.colorScheme.onSurface.withOpacity(0.3),
                       ),
-                    ),
-                  ],
+                      const Gap(16),
+                      Text(
+                        'No matching providers found in catalog',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const Gap(6),
+                      Text(
+                        'Try adjusting your search criteria or domain filter.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 440,
+                    mainAxisExtent: 310,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final provider = state.filteredProviders[index];
+                      return ProviderCard(provider: provider);
+                    },
+                    childCount: state.filteredProviders.length,
+                  ),
                 ),
               ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-              sliver: SliverLayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.crossAxisExtent;
-                  final crossAxisCount = width > 1200
-                      ? 3
-                      : width > 800
-                          ? 2
-                          : 1;
-
-                  return SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 20,
-                      mainAxisExtent: 310,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final provider = state.filteredProviders[index];
-                        return ProviderCard(provider: provider);
-                      },
-                      childCount: state.filteredProviders.length,
-                    ),
-                  );
-                },
-              ),
-            ),
-
+          ],
           const SliverToBoxAdapter(child: Gap(32)),
         ],
       ),
@@ -282,49 +307,48 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
     required Color color,
   }) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
               ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const Gap(14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              const Gap(14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.65),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Gap(2),
+                    Text(
+                      value,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
