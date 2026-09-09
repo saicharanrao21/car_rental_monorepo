@@ -39,6 +39,14 @@ import { ResendEmailAdapter } from './adapters/messaging/resend-email.adapter';
 import { MockEmailAdapter } from './adapters/messaging/mock-email.adapter';
 import { FcmPushAdapter } from './adapters/messaging/fcm-push.adapter';
 import { MockPushAdapter } from './adapters/messaging/mock-push.adapter';
+import { GupshupWhatsAppAdapter } from './adapters/messaging/gupshup-whatsapp.adapter';
+import { SendGridEmailAdapter } from './adapters/messaging/sendgrid-email.adapter';
+import { TwilioVoiceAdapter } from './adapters/messaging/twilio-voice.adapter';
+import { OneSignalPushAdapter } from './adapters/messaging/onesignal-push.adapter';
+import { CommunicationTemplateEngine } from './communications/communication-template.engine';
+import { CommunicationComplianceService } from './communications/communication-compliance.service';
+import { CommunicationRoutingService } from './communications/communication-routing.service';
+import { CommunicationDispatcherService } from './communications/communication-dispatcher.service';
 import { R2StorageAdapter } from './adapters/storage/r2-storage.adapter';
 import { S3StorageAdapter } from './adapters/storage/s3-storage.adapter';
 import { MockStorageAdapter } from './adapters/storage/mock-storage.adapter';
@@ -80,6 +88,12 @@ import { AdminModule } from '../admin/admin.module';
     IntegrationAuditService,
     IntegrationRuntimeService,
 
+    // Phase M Communication Services
+    CommunicationTemplateEngine,
+    CommunicationComplianceService,
+    CommunicationRoutingService,
+    CommunicationDispatcherService,
+
     // Adapters
     RazorpayAdapter,
     StripeAdapter,
@@ -97,6 +111,10 @@ import { AdminModule } from '../admin/admin.module';
     MockEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
+    GupshupWhatsAppAdapter,
+    SendGridEmailAdapter,
+    TwilioVoiceAdapter,
+    OneSignalPushAdapter,
     R2StorageAdapter,
     S3StorageAdapter,
     MockStorageAdapter,
@@ -130,6 +148,12 @@ import { AdminModule } from '../admin/admin.module';
     IntegrationAuditService,
     IntegrationRuntimeService,
 
+    // Phase M Communication Services
+    CommunicationTemplateEngine,
+    CommunicationComplianceService,
+    CommunicationRoutingService,
+    CommunicationDispatcherService,
+
     // Adapters exported for direct injection or test wiring
     RazorpayAdapter,
     StripeAdapter,
@@ -147,6 +171,10 @@ import { AdminModule } from '../admin/admin.module';
     MockEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
+    GupshupWhatsAppAdapter,
+    SendGridEmailAdapter,
+    TwilioVoiceAdapter,
+    OneSignalPushAdapter,
     R2StorageAdapter,
     S3StorageAdapter,
     MockStorageAdapter,
@@ -177,6 +205,10 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly mockEmailAdapter: MockEmailAdapter,
     private readonly fcmPushAdapter: FcmPushAdapter,
     private readonly mockPushAdapter: MockPushAdapter,
+    private readonly gupshupWhatsAppAdapter: GupshupWhatsAppAdapter,
+    private readonly sendGridEmailAdapter: SendGridEmailAdapter,
+    private readonly twilioVoiceAdapter: TwilioVoiceAdapter,
+    private readonly oneSignalPushAdapter: OneSignalPushAdapter,
     private readonly r2StorageAdapter: R2StorageAdapter,
     private readonly s3StorageAdapter: S3StorageAdapter,
     private readonly mockStorageAdapter: MockStorageAdapter,
@@ -208,6 +240,10 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.mockEmailAdapter);
     this.registry.registerProvider(this.fcmPushAdapter);
     this.registry.registerProvider(this.mockPushAdapter);
+    this.registry.registerProvider(this.gupshupWhatsAppAdapter);
+    this.registry.registerProvider(this.sendGridEmailAdapter);
+    this.registry.registerProvider(this.twilioVoiceAdapter);
+    this.registry.registerProvider(this.oneSignalPushAdapter);
 
     // Register Storage Adapters
     this.registry.registerProvider(this.r2StorageAdapter);

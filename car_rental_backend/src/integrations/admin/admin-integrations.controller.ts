@@ -424,5 +424,44 @@ export class AdminIntegrationsController {
       req.user?.id,
     );
   }
+
+  // =========================================================================
+  // PHASE M: ENTERPRISE COMMUNICATIONS & MESSAGING ECOSYSTEM
+  // =========================================================================
+
+  @Get('communication-ecosystem/overview')
+  async getCommunicationEcosystemOverview() {
+    return this.integrationsService.getCommunicationEcosystemOverview();
+  }
+
+  @Get('communication-ecosystem/providers')
+  async getCommunicationProviders(
+    @Query('channel') channel?: string,
+    @Query('country') country?: string,
+    @Query('implementationStatus') implementationStatus?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.integrationsService.getCommunicationProviders({
+      channel,
+      country,
+      implementationStatus,
+      search,
+    });
+  }
+
+  @Post('communication-ecosystem/routing-preview')
+  async previewCommunicationRoute(@Body() req: any) {
+    return this.integrationsService.previewCommunicationRoute(req);
+  }
+
+  @Post('communication-ecosystem/simulate')
+  async simulateCommunication(@Body() req: any) {
+    return this.integrationsService.simulateCommunication(req);
+  }
+
+  @Post('communication-ecosystem/templates/preview')
+  async previewCommunicationTemplate(@Body() req: any) {
+    return this.integrationsService.previewCommunicationTemplate(req);
+  }
 }
 

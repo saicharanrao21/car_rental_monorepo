@@ -8,6 +8,7 @@ import {
   ProviderImplementationStatus,
 } from './provider-catalog.types';
 import { ENTERPRISE_EXPANDED_PROVIDERS } from './enterprise-providers.data';
+import { ENTERPRISE_COMMUNICATIONS_PROVIDERS } from './enterprise-communications-providers.data';
 
 export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
   // =========================================================================
@@ -965,4 +966,5 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     priority: 100,
   },
   ...ENTERPRISE_EXPANDED_PROVIDERS,
+  ...ENTERPRISE_COMMUNICATIONS_PROVIDERS,
 ];

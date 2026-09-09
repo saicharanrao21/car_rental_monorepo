@@ -444,6 +444,9 @@ export class IntegrationRuntimeService {
       if (capUpper === 'SEND_PUSH') {
         return await pAny.sendPush(payload);
       }
+      if (capUpper === 'VOICE_CALL' || capUpper === 'VOICE_OTP') {
+        return await pAny.initiateVoiceCall(payload);
+      }
 
       // Storage
       if (capUpper === 'UPLOAD' || capUpper === 'UPLOAD_MEDIA') {

@@ -35,6 +35,10 @@ import { ProviderPolicyService } from '../runtime/provider-policy.service';
 import { IntegrationAuditService } from '../runtime/integration-audit.service';
 import { CostModelService } from '../runtime/cost-model.service';
 import { PaymentRoutingService } from '../runtime/payment-routing.service';
+import { CommunicationRoutingService } from '../communications/communication-routing.service';
+import { CommunicationDispatcherService } from '../communications/communication-dispatcher.service';
+import { CommunicationTemplateEngine } from '../communications/communication-template.engine';
+import { CommunicationChannel } from '../communications/communication.types';
 import {
   CircuitState,
   IntegrationExecutionRequest,
@@ -61,6 +65,9 @@ export class AdminIntegrationsService {
     @Optional() private readonly auditService?: IntegrationAuditService,
     @Optional() private readonly costModelService?: CostModelService,
     @Optional() private readonly paymentRoutingService?: PaymentRoutingService,
+    @Optional() private readonly commRoutingService?: CommunicationRoutingService,
+    @Optional() private readonly commDispatcherService?: CommunicationDispatcherService,
+    @Optional() private readonly commTemplateEngine?: CommunicationTemplateEngine,
   ) {}
 
   /**
@@ -576,6 +583,127 @@ export class AdminIntegrationsService {
         resolvedAt: new Date(),
       },
     });
+  }
+
+  // --- Phase M Enterprise Communications Ecosystem ---
+
+  async getCommunicationEcosystemOverview() {
+    const wa = this.catalogService.getCategoryProviders(IntegrationCategory.MESSAGING_WHATSAPP);
+    const sms = this.catalogService.getCategoryProviders(IntegrationCategory.MESSAGING_SMS);
+    const email = this.catalogService.getCategoryProviders(IntegrationCategory.MESSAGING_EMAIL);
+    const push = this.catalogService.getCategoryProviders(IntegrationCategory.MESSAGING_PUSH);
+    const voice = this.catalogService.getCategoryProviders(IntegrationCategory.VOICE_IVR);
+
+    const all = [...wa, ...sms, ...email, ...push, ...voice];
+
+    const liveReady = all.filter((p) => p.implementationStatus === 'LIVE_READY' || p.lifecycleState === 'LIVE_READY');
+    const adapterImplemented = all.filter((p) => p.implementationStatus === 'ADAPTER_IMPLEMENTED' || p.adapterImplemented);
+    const contractReady = all.filter((p) => p.implementationStatus === 'CONTRACT_READY');
+    const catalogOnly = all.filter((p) => p.implementationStatus === 'CATALOG_ONLY');
+
+    return {
+      totalCommunicationProviders: all.length,
+      channelBreakdown: {
+        whatsapp: wa.length,
+        sms: sms.length,
+        email: email.length,
+        push: push.length,
+        voice: voice.length,
+      },
+      statusBreakdown: {
+        liveReady: liveReady.length,
+        adapterImplemented: adapterImplemented.length,
+        contractReady: contractReady.length,
+        catalogOnly: catalogOnly.length,
+      },
+      providers: all.map((p) => ({
+        providerId: p.providerId,
+        name: p.name,
+        category: p.category,
+        implementationStatus: p.implementationStatus,
+        adapterImplemented: p.adapterImplemented ?? false,
+        priority: p.priority ?? 100,
+        costModel: p.costModel,
+        supportedCountries: p.supportedCountries,
+        supportedCapabilities: p.supportedCapabilities,
+      })),
+    };
+  }
+
+  async getCommunicationProviders(filter?: {
+    channel?: string;
+    country?: string;
+    implementationStatus?: string;
+    search?: string;
+  }) {
+    let categories: IntegrationCategory[] = [
+      IntegrationCategory.MESSAGING_WHATSAPP,
+      IntegrationCategory.MESSAGING_SMS,
+      IntegrationCategory.MESSAGING_EMAIL,
+      IntegrationCategory.MESSAGING_PUSH,
+      IntegrationCategory.VOICE_IVR,
+    ];
+
+    if (filter?.channel) {
+      const chUpper = filter.channel.toUpperCase();
+      if (chUpper === 'WHATSAPP') categories = [IntegrationCategory.MESSAGING_WHATSAPP];
+      else if (chUpper === 'SMS') categories = [IntegrationCategory.MESSAGING_SMS];
+      else if (chUpper === 'EMAIL') categories = [IntegrationCategory.MESSAGING_EMAIL];
+      else if (chUpper === 'PUSH') categories = [IntegrationCategory.MESSAGING_PUSH];
+      else if (chUpper === 'VOICE') categories = [IntegrationCategory.VOICE_IVR];
+    }
+
+    let all: any[] = [];
+    for (const cat of categories) {
+      all = all.concat(this.catalogService.getCategoryProviders(cat));
+    }
+
+    if (filter?.country) {
+      const cUpper = filter.country.toUpperCase();
+      all = all.filter(
+        (p) =>
+          p.supportedCountries.length === 0 ||
+          p.supportedCountries.includes('GLOBAL') ||
+          p.supportedCountries.includes(cUpper),
+      );
+    }
+
+    if (filter?.implementationStatus) {
+      all = all.filter((p) => p.implementationStatus === filter.implementationStatus);
+    }
+
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      all = all.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.providerId.toLowerCase().includes(q) ||
+          p.tagline.toLowerCase().includes(q),
+      );
+    }
+
+    return all;
+  }
+
+  async previewCommunicationRoute(req: any) {
+    if (!this.commRoutingService) {
+      throw new Error('CommunicationRoutingService is not configured');
+    }
+    return this.commRoutingService.resolveCommunicationRoute(req);
+  }
+
+  async simulateCommunication(req: any) {
+    if (!this.commDispatcherService) {
+      throw new Error('CommunicationDispatcherService is not configured');
+    }
+    return this.commDispatcherService.dispatchCommunication(req);
+  }
+
+  async previewCommunicationTemplate(params: any) {
+    if (!this.commTemplateEngine) {
+      throw new Error('CommunicationTemplateEngine is not configured');
+    }
+    return this.commTemplateEngine.renderTemplate(params);
   }
 }
 

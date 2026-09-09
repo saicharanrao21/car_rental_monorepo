@@ -130,7 +130,7 @@ export interface CredentialFieldSchema {
 export interface ProviderDocumentationMetadata {
   overview: string;
   docsUrl: string;
-  setupGuide: string;
+  setupGuide?: string;
   webhookGuide?: string;
   supportEmail?: string;
 }

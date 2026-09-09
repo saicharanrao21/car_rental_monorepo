@@ -6,6 +6,7 @@ import '../widgets/provider_card.dart';
 import '../widgets/provider_comparison_widget.dart';
 import '../widgets/runtime_command_centre_widget.dart';
 import '../widgets/payment_ecosystem_widget.dart';
+import '../widgets/communication_ecosystem_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
   const IntegrationMarketplacePage({super.key});
@@ -93,6 +94,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                             value: 'PAYMENTS',
                             label: Text('Payment Ecosystem'),
                             icon: Icon(Icons.account_balance_wallet_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'COMMUNICATIONS',
+                            label: Text('Communications'),
+                            icon: Icon(Icons.mark_chat_unread_rounded, size: 16),
                           ),
                           ButtonSegment(
                             value: 'OPERATIONS',
@@ -242,6 +248,10 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           if (_activeTab == 'PAYMENTS')
             const SliverToBoxAdapter(
               child: PaymentEcosystemWidget(),
+            )
+          else if (_activeTab == 'COMMUNICATIONS')
+            const SliverToBoxAdapter(
+              child: CommunicationEcosystemWidget(),
             )
           else if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(
