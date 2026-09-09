@@ -451,6 +451,7 @@ model User {
   devices          UserDevice[]
   notificationPreference NotificationPreference?
   financialAdjustmentsApproved FinancialAdjustment[]
+  checkoutSessions CheckoutSession[]
 
   @@index([phone])
   @@index([role])
@@ -496,6 +497,9 @@ model Vendor {
   onboardingRequirements VendorRequirementState[]
   vendorSecurityDeposit  VendorSecurityDeposit?
   rentalPricingRules     RentalPricingRule[]
+  ancillaryProducts      AncillaryProduct[]
+  scopedCoupons          Coupon[]
+  cancellationPolicies   CancellationPolicyDefinition[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -536,6 +540,9 @@ model PickupHub {
   cars            Car[]
   exceptions      LocationException[]
   rentalPricingRules RentalPricingRule[]
+  ancillaryProducts    AncillaryProduct[]
+  scopedCoupons        Coupon[]
+  cancellationPolicies CancellationPolicyDefinition[]
 
   @@index([vendorId])
   @@index([city])
@@ -841,6 +848,7 @@ model Booking {
   allocationStatus   String              @default("ALLOCATED")
   allocationStrategy String?             @default("EXACT_VEHICLE")
   allocationRecords  VehicleAllocationRecord[]
+  checkoutSession    CheckoutSession?
 
   @@index([customerId])
   @@index([vendorId])
@@ -1336,9 +1344,17 @@ model Coupon {
   bookings          Booking[]
   usages            CouponUsage[]
   attributions      BookingAttribution[]
+  vendorId          String?
+  vendor            Vendor?       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId          String?
+  branch            PickupHub?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  minRentalDays     Int?
+  stackable         Boolean       @default(false)
 
   @@index([code])
   @@index([isActive])
+  @@index([vendorId])
+  @@index([branchId])
 }
 
 model CouponUsage {
@@ -2210,6 +2226,7 @@ model BookingQuote {
   metadata       Json?
   lineItems      BookingQuoteLineItem[]
   bookings       Booking[]
+  checkoutSessions CheckoutSession[]
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
@@ -2650,6 +2667,102 @@ model RentalPricingRule {
   @@index([isActive])
   @@index([priority])
 }
+
+// =========================================================================
+// PHASE M: ENTERPRISE MARKETPLACE, CHECKOUT ORCHESTRATION & ANCILLARIES
+// =========================================================================
+
+enum CheckoutSessionStatus {
+  DRAFT
+  QUOTE_LOCKED
+  PAYMENT_PENDING
+  PAYMENT_PROCESSING
+  CONFIRMED
+  PAYMENT_FAILED
+  EXPIRED
+  CANCELLED
+}
+
+model CheckoutSession {
+  id                      String                @id @default(cuid())
+  sessionId               String                @unique
+  customerId              String
+  customer                User                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quoteId                 String
+  quote                   BookingQuote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  status                  CheckoutSessionStatus @default(QUOTE_LOCKED)
+  driverDetails           Json?
+  customerDetails         Json?
+  ancillarySelections     Json?
+  selectedPaymentMethod   String?
+  selectedPaymentProvider String?
+  paymentAttempts         Int                   @default(0)
+  lastPaymentError        Json?
+  bookingId               String?               @unique
+  booking                 Booking?              @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  expiresAt               DateTime
+  completedAt             DateTime?
+  metadata                Json?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  @@index([customerId, status])
+  @@index([quoteId])
+  @@index([status, expiresAt])
+}
+
+model AncillaryProduct {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  name         String
+  description  String?
+  category     String       // DRIVER, CHILD_SEAT, GPS, ROADSIDE_ASSISTANCE, DELIVERY, CLEANING, EV_PACKAGE, MILEAGE, PROTECTION
+  pricingModel String       @default("PER_DAY") // PER_DAY, FLAT, PER_KM, PERCENTAGE
+  basePrice    Decimal      @db.Decimal(10, 2)
+  taxRate      Decimal      @default(0.18) @db.Decimal(5, 2)
+  vendorId     String?
+  vendor       Vendor?      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       PickupHub?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  vehicleClass CarCategory?
+  isRequired   Boolean      @default(false)
+  isActive     Boolean      @default(true)
+  maxQuantity  Int          @default(1)
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([category, isActive])
+  @@index([vendorId])
+  @@index([branchId])
+}
+
+model CancellationPolicyDefinition {
+  id                     String           @id @default(cuid())
+  scope                  PricingRuleScope @default(PLATFORM)
+  vendorId               String?
+  vendor                 Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId               String?
+  branch                 PickupHub?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  vehicleClass           CarCategory?
+  name                   String
+  freeCancellationHours  Int              @default(24)
+  tier1HoursBeforePickup Int              @default(6)
+  tier1PenaltyPercent    Float            @default(25.0)
+  tier2HoursBeforePickup Int              @default(0)
+  tier2PenaltyPercent    Float            @default(50.0)
+  afterStartFeePercent   Float            @default(100.0)
+  isActive               Boolean          @default(true)
+  metadata               Json?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@index([scope])
+  @@index([vendorId])
+  @@index([branchId])
+  @@index([vehicleClass])
+}
+
 
 
 
