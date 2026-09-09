@@ -28,11 +28,15 @@ export interface DistanceMatrixElement {
   destinationIndex: number;
   distanceKm: number;
   durationMinutes: number;
+  distanceMeters?: number;
+  durationSeconds?: number;
   status: 'OK' | 'NOT_FOUND' | 'ZERO_RESULTS';
 }
 
 export interface DistanceMatrixResult {
   elements: DistanceMatrixElement[];
+  matrix?: DistanceMatrixElement[][];
+  provider?: string;
 }
 
 export interface DirectionsResult {

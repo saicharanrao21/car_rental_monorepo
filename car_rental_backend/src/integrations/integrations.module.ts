@@ -58,6 +58,16 @@ import { MockKycAdapter } from './adapters/verification/mock-kyc.adapter';
 import { MockTelematicsAdapter } from './adapters/tracking/mock-telematics.adapter';
 import { MockAccountingAdapter } from './adapters/accounting/mock-accounting.adapter';
 
+// Phase L Connector Packs & Adapters
+import { ProviderPackRegistryService } from './packs/provider-pack-registry.service';
+import { MapboxMapsAdapter } from './adapters/maps/mapbox-maps.adapter';
+import { TraccarTelematicsAdapter } from './adapters/tracking/traccar-telematics.adapter';
+import { HyperVergeKycAdapter } from './adapters/verification/hyperverge-kyc.adapter';
+import { ZohoBooksAccountingAdapter } from './adapters/accounting/zoho-books.adapter';
+import { GoogleGeminiAiAdapter } from './adapters/ai/google-gemini.adapter';
+import { MeilisearchAdapter } from './adapters/search/meilisearch.adapter';
+import { PostHogAnalyticsAdapter } from './adapters/analytics/posthog-analytics.adapter';
+
 import { SystemConfigModule } from '../config-engine/system-config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AdminModule } from '../admin/admin.module';
@@ -75,6 +85,7 @@ import { AdminModule } from '../admin/admin.module';
     WebhookDispatcherService,
     AdminIntegrationsService,
     ProviderCatalogService,
+    ProviderPackRegistryService,
 
     // Phase K Runtime Services
     FailureClassifierService,
@@ -126,6 +137,15 @@ import { AdminModule } from '../admin/admin.module';
     MockKycAdapter,
     MockTelematicsAdapter,
     MockAccountingAdapter,
+
+    // Phase L Adapters
+    MapboxMapsAdapter,
+    TraccarTelematicsAdapter,
+    HyperVergeKycAdapter,
+    ZohoBooksAccountingAdapter,
+    GoogleGeminiAiAdapter,
+    MeilisearchAdapter,
+    PostHogAnalyticsAdapter,
   ],
   exports: [
     SecretVaultService,
@@ -136,6 +156,7 @@ import { AdminModule } from '../admin/admin.module';
     WebhookDispatcherService,
     AdminIntegrationsService,
     ProviderCatalogService,
+    ProviderPackRegistryService,
 
     // Phase K Runtime Services
     FailureClassifierService,
@@ -187,11 +208,21 @@ import { AdminModule } from '../admin/admin.module';
     MockKycAdapter,
     MockTelematicsAdapter,
     MockAccountingAdapter,
+
+    // Phase L Adapters
+    MapboxMapsAdapter,
+    TraccarTelematicsAdapter,
+    HyperVergeKycAdapter,
+    ZohoBooksAccountingAdapter,
+    GoogleGeminiAiAdapter,
+    MeilisearchAdapter,
+    PostHogAnalyticsAdapter,
   ],
 })
 export class IntegrationsModule implements OnModuleInit {
   constructor(
     private readonly registry: ProviderRegistryService,
+    private readonly packRegistry: ProviderPackRegistryService,
     private readonly razorpayAdapter: RazorpayAdapter,
     private readonly stripeAdapter: StripeAdapter,
     private readonly cashfreeAdapter: CashfreeAdapter,
@@ -221,6 +252,14 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly mockKycAdapter: MockKycAdapter,
     private readonly mockTelematicsAdapter: MockTelematicsAdapter,
     private readonly mockAccountingAdapter: MockAccountingAdapter,
+    // Phase L Adapters
+    private readonly mapboxMapsAdapter: MapboxMapsAdapter,
+    private readonly traccarTelematicsAdapter: TraccarTelematicsAdapter,
+    private readonly hyperVergeKycAdapter: HyperVergeKycAdapter,
+    private readonly zohoBooksAccountingAdapter: ZohoBooksAccountingAdapter,
+    private readonly googleGeminiAiAdapter: GoogleGeminiAiAdapter,
+    private readonly meilisearchAdapter: MeilisearchAdapter,
+    private readonly postHogAnalyticsAdapter: PostHogAnalyticsAdapter,
   ) {}
 
   onModuleInit() {
@@ -256,13 +295,22 @@ export class IntegrationsModule implements OnModuleInit {
     // Register Maps Adapters
     this.registry.registerProvider(this.googleMapsAdapter);
     this.registry.registerProvider(this.mockMapsAdapter);
+    this.registry.registerProvider(this.mapboxMapsAdapter);
 
     // Register Identity Verification Adapters
     this.registry.registerProvider(this.surepassKycAdapter);
     this.registry.registerProvider(this.mockKycAdapter);
+    this.registry.registerProvider(this.hyperVergeKycAdapter);
 
     // Register Telematics & Accounting Adapters
     this.registry.registerProvider(this.mockTelematicsAdapter);
+    this.registry.registerProvider(this.traccarTelematicsAdapter);
     this.registry.registerProvider(this.mockAccountingAdapter);
+    this.registry.registerProvider(this.zohoBooksAccountingAdapter);
+
+    // Register AI, Search & Analytics Adapters
+    this.registry.registerProvider(this.googleGeminiAiAdapter);
+    this.registry.registerProvider(this.meilisearchAdapter);
+    this.registry.registerProvider(this.postHogAnalyticsAdapter);
   }
 }

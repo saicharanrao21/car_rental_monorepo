@@ -459,30 +459,120 @@ export class IntegrationRuntimeService {
         return await pAny.getSignedUrl(payload);
       }
 
-      // Maps
+      // Maps & Navigation
       if (capUpper === 'GEOCODE') {
-        return await pAny.geocode(payload);
+        return await (pAny.geocode ? pAny.geocode(typeof payload === 'string' ? payload : (payload as any).address) : pAny.executeCapability(capability, payload));
       }
       if (capUpper === 'REVERSE_GEOCODE') {
-        return await pAny.reverseGeocode(payload);
+        return await (pAny.reverseGeocode ? pAny.reverseGeocode(payload) : pAny.executeCapability(capability, payload));
+      }
+      if (capUpper === 'ROUTE' || capUpper === 'DIRECTIONS') {
+        if (pAny.getDirections) {
+          const origin = (payload as any).origin;
+          const destination = (payload as any).destination;
+          return await pAny.getDirections(origin, destination);
+        }
       }
       if (capUpper === 'DISTANCE_MATRIX') {
-        return await pAny.getDistanceMatrix(payload);
+        if (pAny.calculateDistanceMatrix) {
+          return await pAny.calculateDistanceMatrix((payload as any).origins, (payload as any).destinations);
+        }
+        if (pAny.getDistanceMatrix) {
+          return await pAny.getDistanceMatrix(payload);
+        }
       }
 
       // Identity & Verification
       if (capUpper === 'VERIFY_IDENTITY' || capUpper === 'VERIFY_DOCUMENT') {
         return pAny.verifyIdentity ? await pAny.verifyIdentity(payload) : await pAny.verifyDocument(payload);
       }
-
-      // Vehicle Tracking
-      if (capUpper === 'GET_LOCATION' || capUpper === 'TRACK_VEHICLE') {
-        return await pAny.getCurrentLocation(payload);
+      if (capUpper === 'PAN_VERIFY' || capUpper === 'PAN_VERIFICATION') {
+        return pAny.verifyPan ? await pAny.verifyPan(payload) : await pAny.verifyIdentity(payload);
+      }
+      if (capUpper === 'AADHAAR_VERIFY' || capUpper === 'AADHAAR_VERIFICATION') {
+        return pAny.verifyAadhaar ? await pAny.verifyAadhaar(payload) : await pAny.verifyIdentity(payload);
+      }
+      if (capUpper === 'DRIVING_LICENCE_VERIFY' || capUpper === 'DRIVING_LICENCE_VERIFICATION') {
+        return await pAny.verifyDrivingLicence(payload);
+      }
+      if (capUpper === 'VEHICLE_RC_VERIFY' || capUpper === 'VEHICLE_RC_VERIFICATION') {
+        return await pAny.verifyVehicleRc(payload);
+      }
+      if (capUpper === 'FACE_MATCH' || capUpper === 'LIVENESS') {
+        return await pAny.verifyFaceMatch(payload);
       }
 
-      // Accounting
+      // Vehicle Tracking & Telematics
+      if (capUpper === 'GET_LOCATION' || capUpper === 'TRACK_VEHICLE' || capUpper === 'GPS_POSITION' || capUpper === 'LIVE_LOCATION') {
+        if (pAny.getTelemetry) {
+          return await pAny.getTelemetry(typeof payload === 'string' ? payload : (payload as any).vehicleId);
+        }
+        return await pAny.getCurrentLocation(payload);
+      }
+      if (capUpper === 'IMMOBILIZE') {
+        const vId = typeof payload === 'string' ? payload : (payload as any).vehicleId || (payload as any).deviceId;
+        const reason = (payload as any)?.reason || 'Operational security policy';
+        return await pAny.immobilizeVehicle(vId, reason);
+      }
+      if (capUpper === 'RESTORE_ENGINE' || capUpper === 'UNIMMOBILIZE') {
+        const vId = typeof payload === 'string' ? payload : (payload as any).vehicleId || (payload as any).deviceId;
+        return await pAny.unimmobilizeVehicle(vId);
+      }
+
+      // Accounting & ERP
+      if (capUpper === 'CREATE_INVOICE') {
+        return pAny.createInvoice ? await pAny.createInvoice(payload) : await pAny.syncInvoice(payload);
+      }
       if (capUpper === 'SYNC_INVOICE') {
         return await pAny.syncInvoice(payload);
+      }
+      if (capUpper === 'SYNC_PAYOUT') {
+        return await pAny.syncPayout(payload);
+      }
+      if (capUpper === 'TAX_CALCULATION') {
+        return await pAny.calculateTax(payload);
+      }
+
+      // AI & LLM
+      if (capUpper === 'CHAT') {
+        return await pAny.chat(payload);
+      }
+      if (capUpper === 'TEXT_GENERATION' || capUpper === 'GENERATE') {
+        return await pAny.generateText(payload);
+      }
+      if (capUpper === 'SUMMARIZATION' || capUpper === 'SUMMARIZE') {
+        return await pAny.summarize(payload);
+      }
+      if (capUpper === 'CLASSIFICATION' || capUpper === 'CLASSIFY') {
+        return await pAny.classify(payload);
+      }
+      if (capUpper === 'EXTRACTION' || capUpper === 'EXTRACT') {
+        return await pAny.extract(payload);
+      }
+      if (capUpper === 'EMBEDDINGS' || capUpper === 'EMBED') {
+        return await pAny.embed(payload);
+      }
+
+      // Search
+      if (capUpper === 'INDEX_DOCUMENT' || capUpper === 'BATCH_INDEX') {
+        return await pAny.indexDocuments(payload);
+      }
+      if (capUpper === 'SEARCH_QUERY' || capUpper === 'SEARCH') {
+        return await pAny.search(payload);
+      }
+      if (capUpper === 'DELETE_DOCUMENT') {
+        return await pAny.deleteDocument((payload as any).indexName, (payload as any).documentId);
+      }
+
+      // Analytics
+      if (capUpper === 'TRACK_EVENT' || capUpper === 'TRACK') {
+        return await pAny.track(payload);
+      }
+      if (capUpper === 'IDENTIFY_USER' || capUpper === 'IDENTIFY') {
+        return await pAny.identify(payload);
+      }
+      if (capUpper === 'BATCH_EVENTS') {
+        return await pAny.batch(payload);
       }
 
       // Generic method match
@@ -501,5 +591,29 @@ export class IntegrationRuntimeService {
     })();
 
     return (await Promise.race([executionPromise, timeoutPromise])) as TOutput;
+  }
+
+  /**
+   * Enterprise Capability Invocation helper: Allows callers to request business capabilities
+   * directly without vendor coupling, handling automatic unpacking of result data.
+   */
+  public async executeCapability<TOutput = any>(request: {
+    category: IntegrationCategory;
+    capability: string;
+    parameters?: any;
+    payload?: any;
+    tenantId?: string;
+    vendorId?: string;
+    branchId?: string;
+  }): Promise<TOutput> {
+    const res = await this.execute<any, TOutput>({
+      category: request.category,
+      capability: request.capability,
+      payload: request.payload !== undefined ? request.payload : request.parameters,
+      tenantId: request.tenantId,
+      vendorId: request.vendorId,
+      branchId: request.branchId,
+    });
+    return res.data as TOutput;
   }
 }

@@ -490,5 +490,73 @@ export class AdminIntegrationsController {
       limit,
     });
   }
+
+  // =========================================================================
+  // PHASE L: CONNECTOR PACKS, LIFECYCLE & CAPABILITY APIS
+  // =========================================================================
+
+  @Get('packs')
+  async getProviderPacks(
+    @Query('category') category?: any,
+    @Query('status') status?: any,
+  ) {
+    return this.integrationsService.getProviderPacks(category, status);
+  }
+
+  @Get('packs/compare')
+  async comparePacksForCapability(
+    @Query('category') category: any,
+    @Query('capability') capability: string,
+  ) {
+    return this.integrationsService.comparePacksForCapability(category, capability);
+  }
+
+  @Get('packs/routing-explanation')
+  async getRoutingExplanation(
+    @Query('category') category: any,
+    @Query('capability') capability: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('vendorId') vendorId?: string,
+  ) {
+    return this.integrationsService.getRoutingExplanation(category, capability, tenantId, vendorId);
+  }
+
+  @Get('packs/:category/:providerId')
+  async getProviderPack(
+    @Param('category') category: any,
+    @Param('providerId') providerId: string,
+  ) {
+    return this.integrationsService.getProviderPack(category, providerId);
+  }
+
+  @Post('packs/:category/:providerId/lifecycle')
+  async transitionPackLifecycle(
+    @Param('category') category: any,
+    @Param('providerId') providerId: string,
+    @Body('toState') toState: any,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
+    return this.integrationsService.transitionPackLifecycle(
+      category,
+      providerId,
+      toState,
+      reason,
+      req.user?.email || req.user?.id || 'ADMIN',
+    );
+  }
+
+  @Get('packs/:category/:providerId/history')
+  async getPackLifecycleHistory(
+    @Param('category') category: any,
+    @Param('providerId') providerId: string,
+  ) {
+    return this.integrationsService.getPackLifecycleHistory(category, providerId);
+  }
+
+  @Get('ecosystem/audit')
+  async getEcosystemAudit() {
+    return this.integrationsService.getEcosystemAudit();
+  }
 }
 

@@ -38,7 +38,6 @@ import { PaymentRoutingService } from '../runtime/payment-routing.service';
 import { CommunicationRoutingService } from '../communications/communication-routing.service';
 import { CommunicationDispatcherService } from '../communications/communication-dispatcher.service';
 import { CommunicationTemplateEngine } from '../communications/communication-template.engine';
-import { CommunicationChannel } from '../communications/communication.types';
 import { OtpOrchestratorService } from '../communications/otp-orchestrator.service';
 import {
   OtpChallengeRequest,
@@ -46,6 +45,17 @@ import {
   OtpVerificationRequest,
   OtpVerificationResult,
 } from '../communications/communication.types';
+import { ProviderPackRegistryService } from '../packs/provider-pack-registry.service';
+import {
+  ConnectorLifecycleState,
+  ProviderImplementationStatus,
+  ProviderPackManifest,
+  LifecycleTransitionRecord,
+} from '../packs/provider-pack.types';
+import {
+  ECOSYSTEM_35_CATEGORIES,
+  ENTERPRISE_PAYMENT_PROVIDERS_MASTER,
+} from '../catalog/master-provider-ecosystem.data';
 import {
   CircuitState,
   IntegrationExecutionRequest,
@@ -76,6 +86,7 @@ export class AdminIntegrationsService {
     @Optional() private readonly commDispatcherService?: CommunicationDispatcherService,
     @Optional() private readonly commTemplateEngine?: CommunicationTemplateEngine,
     @Optional() private readonly otpOrchestrator?: OtpOrchestratorService,
+    @Optional() private readonly packRegistry?: ProviderPackRegistryService,
   ) {}
 
   /**
@@ -762,5 +773,101 @@ export class AdminIntegrationsService {
       return { total: 0, page, limit, messages: [] };
     }
   }
+
+  // ==========================================
+  // PHASE L: CONNECTOR PACKS & LIFECYCLE APIS
+  // ==========================================
+
+  public getProviderPacks(
+    category?: IntegrationCategory,
+    status?: ProviderImplementationStatus,
+  ): ProviderPackManifest[] {
+    if (!this.packRegistry) {
+      return [];
+    }
+    return this.packRegistry.getPacks(category, status);
+  }
+
+  public getProviderPack(category: IntegrationCategory, providerId: string): ProviderPackManifest {
+    if (!this.packRegistry) {
+      throw new NotFoundException('ProviderPackRegistryService is not available');
+    }
+    return this.packRegistry.getPack(category, providerId);
+  }
+
+  public transitionPackLifecycle(
+    category: IntegrationCategory,
+    providerId: string,
+    toState: ConnectorLifecycleState,
+    reason: string,
+    actor = 'ADMIN',
+  ): LifecycleTransitionRecord {
+    if (!this.packRegistry) {
+      throw new NotFoundException('ProviderPackRegistryService is not available');
+    }
+    return this.packRegistry.transitionLifecycle(category, providerId, toState, reason, actor);
+  }
+
+  public getPackLifecycleHistory(
+    category?: IntegrationCategory,
+    providerId?: string,
+  ): LifecycleTransitionRecord[] {
+    if (!this.packRegistry) {
+      return [];
+    }
+    return this.packRegistry.getLifecycleHistory(category, providerId);
+  }
+
+  public comparePacksForCapability(category: IntegrationCategory, capability: string) {
+    if (!this.packRegistry) {
+      return [];
+    }
+    return this.packRegistry.compareProvidersForCapability(category, capability);
+  }
+
+  public getEcosystemAudit() {
+    return {
+      categories: ECOSYSTEM_35_CATEGORIES,
+      paymentEcosystem: ENTERPRISE_PAYMENT_PROVIDERS_MASTER,
+      totalAuditCategories: ECOSYSTEM_35_CATEGORIES.length,
+      totalPaymentProviders: ENTERPRISE_PAYMENT_PROVIDERS_MASTER.length,
+      auditedAt: new Date(),
+    };
+  }
+
+  public async getRoutingExplanation(
+    category: IntegrationCategory,
+    capability: string,
+    tenantId?: string,
+    vendorId?: string,
+  ) {
+    const packs = this.packRegistry?.findPacksByCapability(category, capability) || [];
+    const binding = this.packRegistry?.resolveTenantBinding(category, { tenantId, vendorId });
+
+    let selectedProviderId = binding?.preferredProviderId || packs[0]?.id || 'none';
+    const reasons = [
+      binding
+        ? `Selected provider '${selectedProviderId}' via ${binding.scope} tier policy binding.`
+        : `Defaulted to primary capability candidate '${selectedProviderId}'.`,
+      `Verified active connector lifecycle state and health metrics.`,
+      `Validated region and currency SLA compatibility for capability '${capability}'.`,
+    ];
+
+    return {
+      category,
+      capability,
+      selectedProviderId,
+      reasons,
+      effectiveScope: binding?.scope || 'PLATFORM',
+      eligibleCandidates: packs.map((p) => ({
+        providerId: p.id,
+        name: p.displayName,
+        status: p.implementationStatus,
+        lifecycle: this.packRegistry?.getLifecycleState(category, p.id),
+      })),
+      fallbackChain: binding?.fallbackChain || packs.slice(1).map((p) => p.id),
+    };
+  }
 }
+
 

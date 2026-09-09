@@ -7,6 +7,7 @@ import '../widgets/provider_comparison_widget.dart';
 import '../widgets/runtime_command_centre_widget.dart';
 import '../widgets/payment_ecosystem_widget.dart';
 import '../widgets/communication_ecosystem_widget.dart';
+import '../widgets/provider_packs_ecosystem_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
   const IntegrationMarketplacePage({super.key});
@@ -18,7 +19,7 @@ class IntegrationMarketplacePage extends ConsumerStatefulWidget {
 
 class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketplacePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _activeTab = 'CATALOG'; // 'CATALOG' | 'OPERATIONS' | 'COMPARISON'
+  String _activeTab = 'CATALOG'; // 'CATALOG' | 'PACKS' | 'PAYMENTS' | 'COMMUNICATIONS' | 'OPERATIONS' | 'COMPARISON'
 
   static const List<Map<String, String>> _categories = [
     {'id': 'ALL', 'label': 'All Categories'},
@@ -87,8 +88,13 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                         segments: const [
                           ButtonSegment(
                             value: 'CATALOG',
-                            label: Text('Marketplace Catalog'),
+                            label: Text('Catalog'),
                             icon: Icon(Icons.grid_view_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'PACKS',
+                            label: Text('Capability Packs'),
+                            icon: Icon(Icons.extension_rounded, size: 16),
                           ),
                           ButtonSegment(
                             value: 'PAYMENTS',
@@ -245,7 +251,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           ),
 
           // Render Active Tab View
-          if (_activeTab == 'PAYMENTS')
+          if (_activeTab == 'PACKS')
+            const SliverToBoxAdapter(
+              child: ProviderPacksEcosystemWidget(),
+            )
+          else if (_activeTab == 'PAYMENTS')
             const SliverToBoxAdapter(
               child: PaymentEcosystemWidget(),
             )
