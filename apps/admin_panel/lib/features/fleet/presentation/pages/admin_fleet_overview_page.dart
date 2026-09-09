@@ -9,6 +9,7 @@ import '../providers/admin_fleet_providers.dart';
 import '../../../vendors/presentation/providers/admin_vendor_providers.dart';
 import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../../../../core/widgets/admin_data_grid.dart';
+import '../widgets/fleet_command_centre_widget.dart';
 
 class AdminFleetOverviewPage extends ConsumerStatefulWidget {
   const AdminFleetOverviewPage({super.key});
@@ -19,6 +20,7 @@ class AdminFleetOverviewPage extends ConsumerStatefulWidget {
 
 class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage> {
   final _searchController = TextEditingController();
+  int _selectedSegment = 0;
 
   @override
   void dispose() {
@@ -94,11 +96,45 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
             ),
             const Gap(20),
 
-            // ─── Filters Bar ───
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
+            // ─── View Mode Switcher ───
+            Row(
+              children: [
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 0,
+                      label: Text('Operations Data Grid'),
+                      icon: Icon(Icons.table_chart_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 1,
+                      label: Text('Command Centre & Intelligence'),
+                      icon: Icon(Icons.hub_outlined, size: 16),
+                    ),
+                  ],
+                  selected: {_selectedSegment},
+                  onSelectionChanged: (set) {
+                    setState(() {
+                      _selectedSegment = set.first;
+                    });
+                  },
+                ),
+              ],
+            ),
+            const Gap(16),
+
+            if (_selectedSegment == 1) ...[
+              const Expanded(
+                child: SingleChildScrollView(
+                  child: FleetCommandCentreWidget(),
+                ),
+              ),
+            ] else ...[
+              // ─── Filters Bar ───
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
                   // Search Input
                   SizedBox(
                     width: 220,
@@ -327,9 +363,10 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
               ),
             ),
           ],
-        ),
+        ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildKpiRow(FleetKpisModel kpis) {
