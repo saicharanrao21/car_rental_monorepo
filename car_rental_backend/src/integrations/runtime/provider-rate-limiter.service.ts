@@ -70,6 +70,14 @@ export class ProviderRateLimiterService {
     this.configs.set(key, { ...current, ...actualConfig });
   }
 
+  public setLimit(providerId: string, maxRequests: number, windowMs?: number): void {
+    this.setProviderConfig(providerId, { rps: maxRequests });
+  }
+
+  public tryConsume(providerId: string): boolean {
+    return this.isAllowed(providerId);
+  }
+
   private getConfig(key: string): RateLimitConfig {
     return this.configs.get(key.toLowerCase()) || DEFAULT_RATE_LIMIT_CONFIG;
   }

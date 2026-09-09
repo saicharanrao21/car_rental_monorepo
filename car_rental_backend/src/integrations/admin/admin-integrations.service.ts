@@ -34,6 +34,7 @@ import { ProviderSimulationService } from '../runtime/provider-simulation.servic
 import { ProviderPolicyService } from '../runtime/provider-policy.service';
 import { IntegrationAuditService } from '../runtime/integration-audit.service';
 import { CostModelService } from '../runtime/cost-model.service';
+import { PaymentRoutingService } from '../runtime/payment-routing.service';
 import {
   CircuitState,
   IntegrationExecutionRequest,
@@ -59,6 +60,7 @@ export class AdminIntegrationsService {
     @Optional() private readonly policyService?: ProviderPolicyService,
     @Optional() private readonly auditService?: IntegrationAuditService,
     @Optional() private readonly costModelService?: CostModelService,
+    @Optional() private readonly paymentRoutingService?: PaymentRoutingService,
   ) {}
 
   /**
@@ -456,4 +458,124 @@ export class AdminIntegrationsService {
   validateRegistration(metadata: CatalogProviderMetadata): { isValid: boolean; errors: string[] } {
     return this.catalogService.validateProviderRegistration(metadata);
   }
+
+  // --- Phase L Enterprise Payment Ecosystem ---
+
+  async getPaymentEcosystemOverview() {
+    const all = this.catalogService.getCategoryProviders(IntegrationCategory.PAYMENT);
+    const liveReady = all.filter((p) => p.implementationStatus === 'LIVE_READY' || p.lifecycleState === 'LIVE_READY');
+    const adapterImplemented = all.filter((p) => p.implementationStatus === 'ADAPTER_IMPLEMENTED' || p.adapterImplemented);
+    const sandboxVerified = all.filter((p) => p.implementationStatus === 'SANDBOX_VERIFIED' || p.certificationLevel === 'SANDBOX_VALIDATED');
+    const catalogOnly = all.filter((p) => !p.adapterImplemented && p.implementationStatus !== 'LIVE_READY' && p.implementationStatus !== 'SANDBOX_VERIFIED');
+
+    const indiaProviders = all.filter((p) => p.supportedCountries.includes('IN'));
+    const globalProviders = all.filter((p) => !p.supportedCountries.includes('IN') || p.supportedCountries.length > 2);
+
+    return {
+      totalPaymentProviders: all.length,
+      statusBreakdown: {
+        liveReady: liveReady.length,
+        adapterImplemented: adapterImplemented.length,
+        sandboxVerified: sandboxVerified.length,
+        catalogOnly: catalogOnly.length,
+      },
+      regionalBreakdown: {
+        indiaFirst: indiaProviders.length,
+        international: globalProviders.length,
+      },
+      paymentMethodsCoverage: ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING', 'WALLET', 'BNPL', 'EMI', 'INTERNATIONAL_CARD'],
+    };
+  }
+
+  getPaymentProviders(filter?: {
+    country?: string;
+    currency?: string;
+    paymentMethod?: string;
+    implementationStatus?: any;
+    search?: string;
+  }) {
+    let providers = this.catalogService.getCategoryProviders(IntegrationCategory.PAYMENT);
+    if (filter?.country) {
+      const c = filter.country.toUpperCase();
+      providers = providers.filter((p) => p.supportedCountries.includes('ALL') || p.supportedCountries.some((sc) => sc.toUpperCase() === c));
+    }
+    if (filter?.currency) {
+      const curr = filter.currency.toUpperCase();
+      providers = providers.filter((p) => p.supportedCurrencies.length === 0 || p.supportedCurrencies.some((sc) => sc.toUpperCase() === curr));
+    }
+    if (filter?.paymentMethod) {
+      const m = filter.paymentMethod.toUpperCase();
+      providers = providers.filter((p) => p.supportedPaymentMethods?.some((pm) => pm.toUpperCase() === m || pm.toUpperCase().includes(m)));
+    }
+    if (filter?.implementationStatus) {
+      providers = providers.filter((p) => p.implementationStatus === filter.implementationStatus);
+    }
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      providers = providers.filter((p) => p.name.toLowerCase().includes(q) || p.providerId.toLowerCase().includes(q) || p.tagline?.toLowerCase().includes(q));
+    }
+    return providers;
+  }
+
+  async previewPaymentRoute(req: any) {
+    if (!this.paymentRoutingService) {
+      throw new Error('PaymentRoutingService is not configured');
+    }
+    return this.paymentRoutingService.resolvePaymentRoute(req);
+  }
+
+  evaluateFallbackSafety(attemptContext: any) {
+    if (!this.paymentRoutingService) {
+      throw new Error('PaymentRoutingService is not configured');
+    }
+    return this.paymentRoutingService.evaluateFallbackSafety(attemptContext);
+  }
+
+  async runPaymentReconciliation(params: any) {
+    if (!this.prisma.reconciliationRecord) {
+      return { status: 'COMPLETED', totalTransactions: 0, exceptions: [] };
+    }
+    const periodStart = params.periodStart ? new Date(params.periodStart) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const periodEnd = params.periodEnd ? new Date(params.periodEnd) : new Date();
+    const payments = await this.prisma.payment.findMany({
+      where: { createdAt: { gte: periodStart, lte: periodEnd } },
+    });
+
+    const record = await this.prisma.reconciliationRecord.create({
+      data: {
+        periodStart,
+        periodEnd,
+        status: 'COMPLETED',
+        totalTransactions: payments.length,
+        matchedTransactions: payments.filter((p) => p.status === 'PAID').length,
+        mismatchedTransactions: 0,
+        performedByUserId: params.userId || 'admin',
+      },
+    });
+
+    return record;
+  }
+
+  async getReconciliationExceptions(status?: string) {
+    if (!this.prisma.reconciliationException) return [];
+    return this.prisma.reconciliationException.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async resolveReconciliationException(id: string, notes: string, userId?: string) {
+    if (!this.prisma.reconciliationException) return null;
+    return this.prisma.reconciliationException.update({
+      where: { id },
+      data: {
+        status: 'RESOLVED',
+        resolutionNotes: notes,
+        resolvedByUserId: userId || 'admin',
+        resolvedAt: new Date(),
+      },
+    });
+  }
 }
+

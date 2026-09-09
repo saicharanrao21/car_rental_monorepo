@@ -97,6 +97,19 @@ export class ProviderRegistryService {
     this.logger.log(`[PROVIDER_STATE] Provider [${category}/${providerId}] enabled=${enabled}`);
   }
 
+  setProviderEnabled(
+    category: IntegrationCategory,
+    providerId: string,
+    enabled: boolean,
+  ): void {
+    this.enableProvider(category, providerId, enabled);
+  }
+
+  isProviderAvailable(category: IntegrationCategory, providerId: string): boolean {
+    const key = this.getKey(category, providerId);
+    return (this.enabledStates.get(key) ?? true) && this.providers.has(key);
+  }
+
   /**
    * Returns list of all registered provider descriptors, optionally filtered by category.
    */

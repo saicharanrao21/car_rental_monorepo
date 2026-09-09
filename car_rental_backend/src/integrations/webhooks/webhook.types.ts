@@ -11,6 +11,7 @@ export interface WebhookProcessResult {
   received: boolean;
   duplicate?: boolean;
   alreadyProcessed?: boolean;
+  replayed?: boolean;
   eventId: string;
   eventType?: string;
   status: 'PROCESSED' | 'FAILED' | 'DUPLICATE' | 'RECEIVED';

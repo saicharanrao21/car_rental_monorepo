@@ -34,6 +34,15 @@ export enum ProviderCertificationLevel {
   PRODUCTION_VALIDATED = 'PRODUCTION_VALIDATED',
 }
 
+export enum ProviderImplementationStatus {
+  CATALOG_ONLY = 'CATALOG_ONLY',
+  CONTRACT_READY = 'CONTRACT_READY',
+  ADAPTER_IMPLEMENTED = 'ADAPTER_IMPLEMENTED',
+  SANDBOX_VERIFIED = 'SANDBOX_VERIFIED',
+  LIVE_READY = 'LIVE_READY',
+  LIVE_VERIFIED = 'LIVE_VERIFIED',
+}
+
 export enum PaymentCapability {
   CREATE_PAYMENT = 'CREATE_PAYMENT',
   CREATE_ORDER = 'CREATE_ORDER',
@@ -45,33 +54,56 @@ export enum PaymentCapability {
   UPI = 'UPI',
   UPI_INTENT = 'UPI_INTENT',
   UPI_COLLECT = 'UPI_COLLECT',
+  UPI_QR = 'UPI_QR',
+  CARD_PAYMENT = 'CARD_PAYMENT',
+  UPI_PAYMENT = 'UPI_PAYMENT',
   NET_BANKING = 'NET_BANKING',
   WALLET = 'WALLET',
   EMI = 'EMI',
   BNPL = 'BNPL',
   INTERNATIONAL_CARD = 'INTERNATIONAL_CARD',
   TOKENIZATION = 'TOKENIZATION',
+  TOKENIZE_PAYMENT_METHOD = 'TOKENIZE_PAYMENT_METHOD',
+  SAVE_PAYMENT_METHOD = 'SAVE_PAYMENT_METHOD',
+  DELETE_PAYMENT_METHOD = 'DELETE_PAYMENT_METHOD',
   PAYMENT_STATUS = 'PAYMENT_STATUS',
+  PAYMENT_VERIFICATION = 'PAYMENT_VERIFICATION',
+  VERIFY_PAYMENT = 'VERIFY_PAYMENT',
+  CAPTURE = 'CAPTURE',
+  CAPTURE_PAYMENT = 'CAPTURE_PAYMENT',
+  AUTHORIZE_PAYMENT = 'AUTHORIZE_PAYMENT',
+  VOID = 'VOID',
+  VOID_PAYMENT = 'VOID_PAYMENT',
   REFUND = 'REFUND',
+  REFUND_PAYMENT = 'REFUND_PAYMENT',
   PARTIAL_REFUND = 'PARTIAL_REFUND',
   REFUND_STATUS = 'REFUND_STATUS',
-  CAPTURE = 'CAPTURE',
-  VOID = 'VOID',
-  PAYMENT_VERIFICATION = 'PAYMENT_VERIFICATION',
+  PAYMENT_INTENT = 'PAYMENT_INTENT',
+  CURRENCY_CONVERSION = 'CURRENCY_CONVERSION',
+  PAYOUT = 'PAYOUT',
+  PAYOUTS = 'PAYOUTS',
+  TRANSFER = 'TRANSFER',
+  SETTLEMENT = 'SETTLEMENT',
+  SETTLEMENT_STATUS = 'SETTLEMENT_STATUS',
+  RECONCILIATION = 'RECONCILIATION',
+  SETTLEMENT_RECONCILIATION = 'SETTLEMENT_RECONCILIATION',
+  DISPUTE = 'DISPUTE',
+  DISPUTE_STATUS = 'DISPUTE_STATUS',
+  CHARGEBACK = 'CHARGEBACK',
   WEBHOOKS = 'WEBHOOKS',
+  PAYMENT_WEBHOOK = 'PAYMENT_WEBHOOK',
+  PAYOUT_WEBHOOK = 'PAYOUT_WEBHOOK',
+  REFUND_WEBHOOK = 'REFUND_WEBHOOK',
+  SETTLEMENT_WEBHOOK = 'SETTLEMENT_WEBHOOK',
+  DISPUTE_WEBHOOK = 'DISPUTE_WEBHOOK',
   SUBSCRIPTIONS = 'SUBSCRIPTIONS',
   RECURRING_PAYMENTS = 'RECURRING_PAYMENTS',
-  PAYOUTS = 'PAYOUTS',
   SPLIT_PAYMENTS = 'SPLIT_PAYMENTS',
   MARKETPLACE_PAYMENTS = 'MARKETPLACE_PAYMENTS',
   ROUTE_SPLIT = 'ROUTE_SPLIT',
   INVOICE = 'INVOICE',
   TAX_INVOICE = 'TAX_INVOICE',
   FRAUD_CHECK = 'FRAUD_CHECK',
-  DISPUTE = 'DISPUTE',
-  CHARGEBACK = 'CHARGEBACK',
-  SETTLEMENT = 'SETTLEMENT',
-  SETTLEMENT_RECONCILIATION = 'SETTLEMENT_RECONCILIATION',
 }
 
 export type CredentialFieldType =
@@ -132,6 +164,7 @@ export interface CatalogProviderMetadata {
   // Phase L Enterprise Extensions
   lifecycleState?: ProviderLifecycleState;
   certificationLevel?: ProviderCertificationLevel;
+  implementationStatus?: ProviderImplementationStatus;
   adapterImplemented?: boolean;
   supportedPaymentMethods?: string[];
   costModel?: any;
@@ -148,6 +181,7 @@ export interface CatalogFilter {
   activationState?: ProviderActivationState;
   lifecycleState?: ProviderLifecycleState;
   certificationLevel?: ProviderCertificationLevel;
+  implementationStatus?: ProviderImplementationStatus;
   tenantTier?: string;
   search?: string;
 }
@@ -175,6 +209,7 @@ export interface ProviderComparisonItem {
   category: IntegrationCategory;
   lifecycleState: ProviderLifecycleState;
   certificationLevel: ProviderCertificationLevel;
+  implementationStatus: ProviderImplementationStatus;
   adapterImplemented: boolean;
   supportedCapabilities: string[];
   supportedCurrencies: string[];

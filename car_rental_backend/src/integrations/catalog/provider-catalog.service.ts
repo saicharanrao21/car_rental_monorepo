@@ -14,6 +14,7 @@ import {
   ProviderEnvironment,
   ProviderLifecycleState,
   ProviderCertificationLevel,
+  ProviderImplementationStatus,
   ProviderComparisonItem,
   ProviderComparisonResult,
 } from './provider-catalog.types';
@@ -86,6 +87,15 @@ export class ProviderCatalogService implements OnModuleInit {
   }
 
   /**
+   * Safely retrieves a catalog provider by category and provider ID, or undefined if not found.
+   */
+  getCatalogProvider(category: IntegrationCategory, providerId: string): CatalogProviderMetadata | undefined {
+    const key = this.getKey(category, providerId);
+    const provider = this.catalog.get(key);
+    return provider ? { ...provider } : undefined;
+  }
+
+  /**
    * Finds a provider across any category by ID.
    */
   findProviderById(providerId: string): CatalogProviderMetadata | undefined {
@@ -103,6 +113,27 @@ export class ProviderCatalogService implements OnModuleInit {
    */
   getCategoryProviders(category: IntegrationCategory): CatalogProviderMetadata[] {
     return this.getAllProviders({ category });
+  }
+
+  /**
+   * Discovers catalog providers supporting a specific capability.
+   */
+  getProvidersByCapability(category: IntegrationCategory, capability: string): CatalogProviderMetadata[] {
+    return this.getAllProviders({ category, capability });
+  }
+
+  /**
+   * Discovers catalog providers supporting a specific currency.
+   */
+  getProvidersForCurrency(category: IntegrationCategory, currency: string): CatalogProviderMetadata[] {
+    return this.getAllProviders({ category, currency });
+  }
+
+  /**
+   * Discovers catalog providers supporting a specific country/region.
+   */
+  getProvidersForRegion(category: IntegrationCategory, country: string): CatalogProviderMetadata[] {
+    return this.getAllProviders({ category, country });
   }
 
   /**
@@ -153,6 +184,10 @@ export class ProviderCatalogService implements OnModuleInit {
 
       if (filter.certificationLevel) {
         results = results.filter((p) => p.certificationLevel === filter.certificationLevel);
+      }
+
+      if (filter.implementationStatus) {
+        results = results.filter((p) => p.implementationStatus === filter.implementationStatus);
       }
 
       if (filter.tenantTier) {
@@ -478,6 +513,7 @@ export class ProviderCatalogService implements OnModuleInit {
         category: p.category,
         lifecycleState: p.lifecycleState || ProviderLifecycleState.CATALOG_ONLY,
         certificationLevel: p.certificationLevel || ProviderCertificationLevel.CATALOG,
+        implementationStatus: p.implementationStatus || ProviderImplementationStatus.CATALOG_ONLY,
         adapterImplemented: !!p.adapterImplemented,
         supportedCapabilities: p.supportedCapabilities || [],
         supportedCurrencies: p.supportedCurrencies || [],

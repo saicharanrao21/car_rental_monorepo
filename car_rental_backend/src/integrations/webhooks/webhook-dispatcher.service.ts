@@ -215,6 +215,7 @@ export class WebhookDispatcherService {
 
       return {
         received: true,
+        replayed: true,
         eventId,
         eventType: record.eventType,
         status: 'PROCESSED',
@@ -364,4 +365,34 @@ export class WebhookDispatcherService {
       );
     } catch (_) {}
   }
+
+  /**
+   * Dispatches a webhook directly for testing and programmatic ingestion.
+   */
+  async dispatchWebhook(
+    gateway: string,
+    event: string,
+    eventId: string,
+    payload: any,
+    handler?: any,
+    signature?: string,
+  ): Promise<any> {
+    const rawBody = JSON.stringify(payload);
+    const result = await this.ingestWebhook(
+      {
+        gateway,
+        rawBody,
+        signature: signature || 'mock_signature',
+        headers: { 'x-event-id': eventId, 'x-event-type': event },
+      },
+      handler,
+    );
+    return {
+      processed: !result.duplicate && result.status === 'PROCESSED',
+      duplicate: result.duplicate ?? false,
+      eventId: result.eventId,
+      status: result.status,
+    };
+  }
 }
+

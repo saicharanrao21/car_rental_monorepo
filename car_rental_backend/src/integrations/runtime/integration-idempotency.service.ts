@@ -145,6 +145,18 @@ export class IntegrationIdempotencyService {
     });
   }
 
+  async acquire(key: string, payload?: any): Promise<{ isNew: boolean; cachedResult?: any }> {
+    const cached = await this.checkIdempotency(key);
+    if (cached) {
+      return { isNew: false, cachedResult: cached };
+    }
+    return { isNew: true };
+  }
+
+  async complete(key: string, result: any): Promise<void> {
+    await this.recordSuccess(key, result);
+  }
+
   /**
    * Clears all cached idempotency results and active locks.
    */

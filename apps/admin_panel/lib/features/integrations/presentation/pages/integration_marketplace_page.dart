@@ -5,6 +5,7 @@ import '../providers/integration_marketplace_provider.dart';
 import '../widgets/provider_card.dart';
 import '../widgets/provider_comparison_widget.dart';
 import '../widgets/runtime_command_centre_widget.dart';
+import '../widgets/payment_ecosystem_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
   const IntegrationMarketplacePage({super.key});
@@ -87,6 +88,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                             value: 'CATALOG',
                             label: Text('Marketplace Catalog'),
                             icon: Icon(Icons.grid_view_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'PAYMENTS',
+                            label: Text('Payment Ecosystem'),
+                            icon: Icon(Icons.account_balance_wallet_rounded, size: 16),
                           ),
                           ButtonSegment(
                             value: 'OPERATIONS',
@@ -233,7 +239,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           ),
 
           // Render Active Tab View
-          if (_activeTab == 'OPERATIONS')
+          if (_activeTab == 'PAYMENTS')
+            const SliverToBoxAdapter(
+              child: PaymentEcosystemWidget(),
+            )
+          else if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(
               child: RuntimeCommandCentreWidget(),
             )

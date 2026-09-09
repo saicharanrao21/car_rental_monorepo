@@ -247,6 +247,18 @@ export class CircuitBreakerService {
     circuit.consecutiveSuccesses = 0;
   }
 
+  trip(providerId: string, reason?: string): void {
+    this.tripCircuit(providerId, reason);
+  }
+
+  reset(providerId: string): void {
+    this.resetCircuit(providerId);
+  }
+
+  isAvailable(providerId: string): boolean {
+    return this.canExecute(providerId);
+  }
+
   resetAll(): void {
     for (const circuit of this.circuits.values()) {
       circuit.state = CircuitState.CLOSED;

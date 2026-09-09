@@ -18,12 +18,17 @@ import { ProviderPolicyService } from './runtime/provider-policy.service';
 import { IntegrationIdempotencyService } from './runtime/integration-idempotency.service';
 import { ProviderSimulationService } from './runtime/provider-simulation.service';
 import { ProviderRoutingService } from './runtime/provider-routing.service';
+import { PaymentRoutingService } from './runtime/payment-routing.service';
 import { IntegrationAuditService } from './runtime/integration-audit.service';
 import { IntegrationRuntimeService } from './runtime/integration-runtime.service';
 
 // Concrete Adapters
 import { RazorpayAdapter } from './adapters/payments/razorpay.adapter';
 import { StripeAdapter } from './adapters/payments/stripe.adapter';
+import { CashfreeAdapter } from './adapters/payments/cashfree.adapter';
+import { PayUAdapter } from './adapters/payments/payu.adapter';
+import { PhonePeAdapter } from './adapters/payments/phonepe.adapter';
+import { AdyenAdapter } from './adapters/payments/adyen.adapter';
 import { MockPaymentAdapter } from './adapters/payments/mock-payment.adapter';
 import { MetaWhatsAppAdapter } from './adapters/messaging/meta-whatsapp.adapter';
 import { MockWhatsAppAdapter } from './adapters/messaging/mock-whatsapp.adapter';
@@ -71,12 +76,17 @@ import { AdminModule } from '../admin/admin.module';
     IntegrationIdempotencyService,
     ProviderSimulationService,
     ProviderRoutingService,
+    PaymentRoutingService,
     IntegrationAuditService,
     IntegrationRuntimeService,
 
     // Adapters
     RazorpayAdapter,
     StripeAdapter,
+    CashfreeAdapter,
+    PayUAdapter,
+    PhonePeAdapter,
+    AdyenAdapter,
     MockPaymentAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
@@ -116,12 +126,17 @@ import { AdminModule } from '../admin/admin.module';
     IntegrationIdempotencyService,
     ProviderSimulationService,
     ProviderRoutingService,
+    PaymentRoutingService,
     IntegrationAuditService,
     IntegrationRuntimeService,
 
     // Adapters exported for direct injection or test wiring
     RazorpayAdapter,
     StripeAdapter,
+    CashfreeAdapter,
+    PayUAdapter,
+    PhonePeAdapter,
+    AdyenAdapter,
     MockPaymentAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
@@ -148,6 +163,10 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly registry: ProviderRegistryService,
     private readonly razorpayAdapter: RazorpayAdapter,
     private readonly stripeAdapter: StripeAdapter,
+    private readonly cashfreeAdapter: CashfreeAdapter,
+    private readonly payUAdapter: PayUAdapter,
+    private readonly phonePeAdapter: PhonePeAdapter,
+    private readonly adyenAdapter: AdyenAdapter,
     private readonly mockPaymentAdapter: MockPaymentAdapter,
     private readonly metaWhatsAppAdapter: MetaWhatsAppAdapter,
     private readonly mockWhatsAppAdapter: MockWhatsAppAdapter,
@@ -173,6 +192,10 @@ export class IntegrationsModule implements OnModuleInit {
     // Register Payment Adapters
     this.registry.registerProvider(this.razorpayAdapter);
     this.registry.registerProvider(this.stripeAdapter);
+    this.registry.registerProvider(this.cashfreeAdapter);
+    this.registry.registerProvider(this.payUAdapter);
+    this.registry.registerProvider(this.phonePeAdapter);
+    this.registry.registerProvider(this.adyenAdapter);
     this.registry.registerProvider(this.mockPaymentAdapter);
 
     // Register Messaging Adapters

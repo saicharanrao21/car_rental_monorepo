@@ -329,4 +329,12 @@ export class IntegrationConfigService {
 
     return { isEnabled, credentials, settings };
   }
+
+  /**
+   * Masks sensitive credentials for display or logging using SecretVaultService.
+   */
+  maskCredentials(credentials: Record<string, any>): Record<string, any> {
+    return this.secretVault.sanitizeObject(credentials);
+  }
 }
+

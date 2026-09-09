@@ -362,4 +362,67 @@ export class AdminIntegrationsController {
   async validateRegistration(@Body() metadata: any) {
     return this.integrationsService.validateRegistration(metadata);
   }
+
+  // =========================================================================
+  // PHASE L: ENTERPRISE PAYMENT & FINANCIAL GATEWAY ECOSYSTEM
+  // =========================================================================
+
+  @Get('payment-ecosystem/overview')
+  async getPaymentEcosystemOverview() {
+    return this.integrationsService.getPaymentEcosystemOverview();
+  }
+
+  @Get('payment-ecosystem/providers')
+  async getPaymentProviders(
+    @Query('country') country?: string,
+    @Query('currency') currency?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('implementationStatus') implementationStatus?: any,
+    @Query('search') search?: string,
+  ) {
+    return this.integrationsService.getPaymentProviders({
+      country,
+      currency,
+      paymentMethod,
+      implementationStatus,
+      search,
+    });
+  }
+
+  @Post('payment-ecosystem/routing-preview')
+  async previewPaymentRoute(@Body() req: any) {
+    return this.integrationsService.previewPaymentRoute(req);
+  }
+
+  @Post('payment-ecosystem/fallback-safety')
+  async evaluateFallbackSafety(@Body() attemptContext: any) {
+    return this.integrationsService.evaluateFallbackSafety(attemptContext);
+  }
+
+  @Post('payment-ecosystem/reconciliation/run')
+  async runPaymentReconciliation(@Body() params: any, @Req() req: any) {
+    return this.integrationsService.runPaymentReconciliation({
+      ...params,
+      userId: req.user?.id,
+    });
+  }
+
+  @Get('payment-ecosystem/reconciliation/exceptions')
+  async getReconciliationExceptions(@Query('status') status?: string) {
+    return this.integrationsService.getReconciliationExceptions(status);
+  }
+
+  @Post('payment-ecosystem/reconciliation/exceptions/:id/resolve')
+  async resolveReconciliationException(
+    @Param('id') id: string,
+    @Body('notes') notes: string,
+    @Req() req: any,
+  ) {
+    return this.integrationsService.resolveReconciliationException(
+      id,
+      notes || 'Manually resolved by administrator',
+      req.user?.id,
+    );
+  }
 }
+

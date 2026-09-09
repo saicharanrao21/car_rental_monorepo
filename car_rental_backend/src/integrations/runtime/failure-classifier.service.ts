@@ -75,6 +75,8 @@ export class FailureClassifierService {
       code === 'ETIMEDOUT' ||
       code === 'ESOCKETTIMEDOUT' ||
       message.toLowerCase().includes('timeout') ||
+      message.toLowerCase().includes('timed out') ||
+      message.toLowerCase().includes('time out') ||
       status === 504
     ) {
       classification = FailureClassification.TIMEOUT;
@@ -140,6 +142,14 @@ export class FailureClassifierService {
     ) {
       classification = FailureClassification.TRANSIENT;
       isRetryable = true;
+      isFallbackEligible = true;
+    } else if (
+      message.toLowerCase().includes('declined') ||
+      message.toLowerCase().includes('insufficient') ||
+      message.toLowerCase().includes('do_not_honor')
+    ) {
+      classification = FailureClassification.PROVIDER_DECLINED;
+      isRetryable = false;
       isFallbackEligible = true;
     }
 
