@@ -26,5 +26,6 @@ abstract class DashboardRepository {
   Future<BookingMatrix> getBookingMatrix(String vendorId);
   Future<FleetSummary> getFleetSummary(String vendorId);
   Future<EarningsSnapshot> getEarningsSnapshot(String vendorId);
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId);
 }
 

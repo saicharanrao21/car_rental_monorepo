@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SlaSeverity, BookingStatus, FulfillmentStage } from '@prisma/client';
 
@@ -190,5 +190,39 @@ export class SlaEscalationEngineService {
     }
 
     return { breaches, created, details };
+  }
+
+  async resolveIncident(incidentId: string, resolvedBy: string, resolutionNotes: string) {
+    const incident = await this.prisma.slaBreachIncident.findUnique({
+      where: { id: incidentId },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`SLA breach incident #${incidentId} not found.`);
+    }
+
+    return this.prisma.slaBreachIncident.update({
+      where: { id: incidentId },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+        actionTaken: resolutionNotes,
+      },
+    });
+  }
+
+  async listIncidents(params?: { status?: string; vendorId?: string; severity?: SlaSeverity; take?: number }) {
+    return this.prisma.slaBreachIncident.findMany({
+      where: {
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.vendorId ? { vendorId: params.vendorId } : {}),
+        ...(params?.severity ? { severity: params.severity } : {}),
+      },
+      include: {
+        policy: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: params?.take || 50,
+    });
   }
 }

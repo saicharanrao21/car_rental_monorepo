@@ -259,6 +259,9 @@ class MockDashboardRepository implements DashboardRepository {
         totalEarnings: 185000.0,
         totalPaidOut: 144500.0,
       );
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async => null;
 }
 
 class MockSessionNotifier extends VendorSessionNotifier {

@@ -27,7 +27,9 @@ import {
   VehicleVerificationStatus,
   VehicleBlockType,
   DamageClaimStatus,
+  FulfillmentStage,
 } from '@prisma/client';
+import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
 import { VehicleOperationsEligibilityService } from '../cars/vehicle-operations-eligibility.service';
 import { SystemConfigService } from '../config-engine/system-config.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
@@ -55,6 +57,7 @@ export class BookingLifecycleService {
     @Optional() private readonly vehicleEligibilityService?: VehicleOperationsEligibilityService,
     @Optional() private readonly configService?: SystemConfigService,
     @Optional() private readonly cacheService?: RedisCacheService,
+    @Optional() private readonly commissionService?: MarketplaceCommissionService,
   ) {}
 
   /**
@@ -528,6 +531,84 @@ export class BookingLifecycleService {
                 },
               },
             });
+          }
+
+          // 5.5 Fulfillment Synchronization: Keep physical fulfillment stages in lockstep with commercial lifecycle
+          if ((tx as any).fulfillmentRecord) {
+            if (targetStatus === BookingStatus.CONFIRMED) {
+              const initialStage = booking.carId
+                ? FulfillmentStage.ALLOCATED
+                : FulfillmentStage.PENDING_ALLOCATION;
+              await (tx as any).fulfillmentRecord.upsert({
+                where: { bookingId },
+                create: {
+                  bookingId,
+                  vendorId: booking.vendorId,
+                  branchId: booking.pickupHubId || booking.car?.pickupHubId,
+                  carId: booking.carId,
+                  stage: initialStage,
+                },
+                update: {
+                  vendorId: booking.vendorId,
+                  branchId: booking.pickupHubId || booking.car?.pickupHubId,
+                  carId: booking.carId,
+                  stage: initialStage,
+                },
+              });
+            } else if (targetStatus === BookingStatus.CANCELLED || targetStatus === BookingStatus.EXPIRED) {
+              await (tx as any).fulfillmentRecord.updateMany({
+                where: { bookingId },
+                data: {
+                  stage: FulfillmentStage.CANCELLED,
+                  preparationNotes: reason ? `Fulfillment cancelled: ${reason}` : 'Fulfillment cancelled',
+                },
+              });
+            } else if (targetStatus === BookingStatus.HANDOVER_READY) {
+              await (tx as any).fulfillmentRecord.updateMany({
+                where: { bookingId },
+                data: {
+                  stage: FulfillmentStage.READY_FOR_PICKUP,
+                },
+              });
+            } else if (targetStatus === BookingStatus.ONGOING) {
+              await (tx as any).fulfillmentRecord.updateMany({
+                where: { bookingId },
+                data: {
+                  stage: FulfillmentStage.ACTIVE_RENTAL,
+                },
+              });
+            } else if (targetStatus === BookingStatus.COMPLETED) {
+              await (tx as any).fulfillmentRecord.updateMany({
+                where: { bookingId },
+                data: {
+                  stage: FulfillmentStage.COMPLETED,
+                },
+              });
+            }
+          }
+
+          // 5.6 Multilateral Commission Breakdown on Confirmation
+          if (targetStatus === BookingStatus.CONFIRMED && this.commissionService) {
+            try {
+              const commissionSplit = await this.commissionService.calculateCommission({
+                grossAmount: Number(booking.totalFare),
+                vendorId: booking.vendorId,
+                branchId: booking.pickupHubId || undefined,
+                vehicleClass: booking.car?.type || ('SEDAN' as any),
+              });
+              const currentSnapshot = (updated.priceSnapshot as any) || {};
+              await tx.booking.update({
+                where: { id: bookingId },
+                data: {
+                  priceSnapshot: {
+                    ...currentSnapshot,
+                    commissionSplit,
+                  } as any,
+                },
+              });
+            } catch (err: any) {
+              this.logger.warn(`Commission split resolution warning for booking ${bookingId}: ${err.message}`);
+            }
           }
 
           // Persist the transactional outbox event

@@ -81,6 +81,11 @@ class FakeDashboardRepository implements DashboardRepository {
       totalPaidOut: 70000.0,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async {
+    return null;
+  }
 }
 
 void main() {

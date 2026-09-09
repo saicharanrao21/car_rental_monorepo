@@ -22,4 +22,6 @@ abstract interface class AdminDashboardRepository {
   Future<List<VendorModel>> getPendingVendorApprovals();
   Future<List<VendorModel>> getTopVendorsByBookings({int limit = 5});
   Future<void> setVendorApprovalStatus(String vendorId, String status);
+  Future<Map<String, dynamic>> getOperationsCommandCenter();
+  Future<List<Map<String, dynamic>>> getOpenSlaIncidents();
 }

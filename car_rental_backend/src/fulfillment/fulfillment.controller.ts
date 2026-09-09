@@ -7,20 +7,26 @@ import {
   Query,
   UseGuards,
   Request,
-  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { FulfillmentOrchestratorService } from './fulfillment-orchestrator.service';
 import { VehicleSubstitutionService } from '../fleet/vehicle-substitution.service';
 import {
-  StartPreparationRequest,
-  MarkCleanedRequest,
-  MarkInspectedRequest,
-  MarkReadyForPickupRequest,
-  CustomerArrivalRequest,
-} from './fulfillment-domain.types';
-import { SubstitutionDecision, SubstitutionReason, Role } from '@prisma/client';
+  StartPreparationDto,
+  MarkCleanedDto,
+  MarkInspectedDto,
+  MarkReadyForPickupDto,
+  CustomerArrivalDto,
+  EvaluateSubstitutionDto,
+  ExecuteSubstitutionDto,
+} from './dto/fulfillment-requests.dto';
 
 @Controller('api/v1/fulfillment')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class FulfillmentController {
   constructor(
     private readonly fulfillmentOrchestrator: FulfillmentOrchestratorService,
@@ -28,9 +34,10 @@ export class FulfillmentController {
   ) {}
 
   @Post('preparation/start')
-  async startPreparation(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async startPreparation(@Body() body: StartPreparationDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.fulfillmentOrchestrator.startPreparation({
       bookingId: body.bookingId,
@@ -42,9 +49,10 @@ export class FulfillmentController {
   }
 
   @Post('preparation/clean')
-  async markCleaned(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async markCleaned(@Body() body: MarkCleanedDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.fulfillmentOrchestrator.markCleaned({
       bookingId: body.bookingId,
@@ -56,9 +64,10 @@ export class FulfillmentController {
   }
 
   @Post('preparation/inspect')
-  async markInspected(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async markInspected(@Body() body: MarkInspectedDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.fulfillmentOrchestrator.markInspected({
       bookingId: body.bookingId,
@@ -72,9 +81,10 @@ export class FulfillmentController {
   }
 
   @Post('preparation/ready')
-  async markReadyForPickup(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async markReadyForPickup(@Body() body: MarkReadyForPickupDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.fulfillmentOrchestrator.markReadyForPickup({
       bookingId: body.bookingId,
@@ -86,9 +96,10 @@ export class FulfillmentController {
   }
 
   @Post('customer-arrival')
-  async recordCustomerArrival(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async recordCustomerArrival(@Body() body: CustomerArrivalDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.fulfillmentOrchestrator.recordCustomerArrival({
       bookingId: body.bookingId,
@@ -101,30 +112,32 @@ export class FulfillmentController {
   }
 
   @Post('substitute/evaluate')
-  async evaluateSubstitution(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async evaluateSubstitution(@Body() body: EvaluateSubstitutionDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.substitutionService.evaluateSubstitution({
       bookingId: body.bookingId,
-      reason: body.reason || SubstitutionReason.SCHEDULED_MAINTENANCE,
+      reason: body.reason,
       reasonDetails: body.reasonDetails,
       actorId,
       actorRole,
-      allowUpgrade: body.allowUpgrade !== false,
+      allowUpgrade: true,
     });
   }
 
   @Post('substitute/execute')
-  async executeSubstitution(@Body() body: any, @Request() req: any) {
-    const actorId = req.user?.id || body.actorId || 'SYSTEM';
-    const actorRole = req.user?.role || body.actorRole || Role.VENDOR;
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async executeSubstitution(@Body() body: ExecuteSubstitutionDto, @Request() req: any) {
+    const actorId = req.user.userId;
+    const actorRole = req.user.role;
 
     return this.substitutionService.executeSubstitution({
       bookingId: body.bookingId,
       targetCarId: body.targetCarId,
-      decision: body.decision || SubstitutionDecision.AUTO_SUBSTITUTE,
-      reason: body.reason || SubstitutionReason.SCHEDULED_MAINTENANCE,
+      decision: body.decision,
+      reason: body.reason,
       reasonDetails: body.reasonDetails,
       customerApproved: body.customerApproved,
       waivePriceDifference: body.waivePriceDifference,
@@ -134,15 +147,25 @@ export class FulfillmentController {
   }
 
   @Get('booking/:bookingId')
-  async getFulfillmentStatus(@Param('bookingId') bookingId: string) {
-    return this.fulfillmentOrchestrator.getFulfillmentRecord(bookingId);
+  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
+  async getFulfillmentStatus(@Param('bookingId') bookingId: string, @Request() req: any) {
+    const record = await this.fulfillmentOrchestrator.getFulfillmentRecord(bookingId);
+    // Tenant check: if caller is vendor, ensure vendor owns the record
+    if (req.user.role === Role.VENDOR && req.user.vendorId && record.vendorId !== req.user.vendorId) {
+      throw new ForbiddenException('Access denied: Record belongs to another vendor.');
+    }
+    return record;
   }
 
   @Get('branch/:branchId/queue')
+  @Roles(Role.VENDOR, Role.ADMIN)
   async getBranchQueue(
     @Param('branchId') branchId: string,
-    @Query('vendorId') vendorId?: string,
+    @Request() req: any,
+    @Query('vendorId') queryVendorId?: string,
   ) {
+    // If vendor, force vendorId to their own authenticated vendorId
+    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
     return this.fulfillmentOrchestrator.getBranchOperationalQueue(branchId, vendorId);
   }
 }

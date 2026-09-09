@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingLifecycleService } from './booking-lifecycle.service';
-import { BookingStatus, QuoteStatus, Role } from '@prisma/client';
+import { BookingStatus, QuoteStatus, Role, VehicleHoldStatus } from '@prisma/client';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { SlaEscalationEngineService } from '../operations/sla-escalation.service';
 
 export interface AutomationRunResult {
   jobName: string;
@@ -18,6 +20,7 @@ export class RentalAutomationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bookingLifecycle: BookingLifecycleService,
+    @Optional() private readonly slaEngine?: SlaEscalationEngineService,
   ) {}
 
   /**
@@ -244,5 +247,86 @@ export class RentalAutomationService {
       failedCount: upcoming.length - successCount,
       details,
     };
+  }
+
+  /**
+   * 5. Expire stale temporary vehicle holds where checkout was abandoned.
+   */
+  async expireStaleVehicleHolds(): Promise<AutomationRunResult> {
+    const now = new Date();
+    const staleHolds = await this.prisma.vehicleHold.findMany({
+      where: {
+        status: VehicleHoldStatus.ACTIVE,
+        expiresAt: { lt: now },
+      },
+      take: 100,
+    });
+
+    let successCount = 0;
+    const details: string[] = [];
+
+    for (const hold of staleHolds) {
+      try {
+        await this.prisma.vehicleHold.update({
+          where: { id: hold.id },
+          data: { status: VehicleHoldStatus.EXPIRED },
+        });
+        successCount++;
+        details.push(`Hold #${hold.id} on Car #${hold.carId} marked EXPIRED`);
+      } catch (err: any) {
+        this.logger.warn(`Failed to expire hold #${hold.id}: ${err.message}`);
+      }
+    }
+
+    this.logger.log(`[AUTOMATION] Expired ${successCount}/${staleHolds.length} stale vehicle holds.`);
+
+    return {
+      jobName: 'EXPIRE_STALE_VEHICLE_HOLDS',
+      processedCount: staleHolds.length,
+      successCount,
+      failedCount: staleHolds.length - successCount,
+      details,
+    };
+  }
+
+  /**
+   * 6. Evaluate operational SLA policies across bookings and fulfillment records.
+   */
+  async evaluateOperationalSlas(): Promise<AutomationRunResult> {
+    if (!this.slaEngine) {
+      return {
+        jobName: 'EVALUATE_OPERATIONAL_SLAS',
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        details: ['SlaEscalationEngineService not injected'],
+      };
+    }
+
+    const res = await this.slaEngine.evaluateAllSlas();
+    return {
+      jobName: 'EVALUATE_OPERATIONAL_SLAS',
+      processedCount: res.totalEvaluated,
+      successCount: res.incidentsCreated,
+      failedCount: 0,
+      details: res.details,
+    };
+  }
+
+  /**
+   * Periodic Automated Maintenance Sweep running every 5 minutes.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async runScheduledAutomationCycle() {
+    this.logger.log('[AUTOMATION] Starting 5-minute automated maintenance sweep...');
+    await Promise.allSettled([
+      this.expireStaleQuotes(),
+      this.expireUnconfirmedReservations(),
+      this.expireStaleVehicleHolds(),
+      this.detectOverdueReturns(),
+      this.processPickupReminders(),
+      this.evaluateOperationalSlas(),
+    ]);
+    this.logger.log('[AUTOMATION] 5-minute automated maintenance sweep completed.');
   }
 }

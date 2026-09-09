@@ -110,4 +110,17 @@ class ApiAdminDashboardRepository implements AdminDashboardRepository {
       'status': status.toUpperCase(),
     });
   }
+
+  @override
+  Future<Map<String, dynamic>> getOperationsCommandCenter() async {
+    final res = await apiClient.dio.get('/api/v1/operations/admin/command-center');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getOpenSlaIncidents() async {
+    final res = await apiClient.dio.get('/api/v1/operations/sla/incidents', queryParameters: {'status': 'OPEN'});
+    final list = res.data as List;
+    return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
 }

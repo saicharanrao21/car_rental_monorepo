@@ -141,4 +141,23 @@ class MockAdminDashboardRepository with LatencySimulator implements AdminDashboa
       MockData.vendors[idx] = old.copyWith(verificationStatus: status);
     }
   }
+
+  @override
+  Future<Map<String, dynamic>> getOperationsCommandCenter() async {
+    await simulateLatency();
+    return {
+      'systemHealth': 'OPTIMAL',
+      'activeRentals': 12,
+      'pendingAllocations': 2,
+      'readyForPickup': 4,
+      'openSlaBreaches': 0,
+      'unresolvedRebalancing': 1,
+    };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getOpenSlaIncidents() async {
+    await simulateLatency();
+    return [];
+  }
 }

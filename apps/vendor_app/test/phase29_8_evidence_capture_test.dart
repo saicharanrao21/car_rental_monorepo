@@ -162,6 +162,11 @@ class FastEvidenceDashboardRepository implements DashboardRepository {
       totalPaidOut: 138700.0,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async {
+    return null;
+  }
 }
 
 class FastEvidenceBookingsRepository implements VendorBookingsRepository {

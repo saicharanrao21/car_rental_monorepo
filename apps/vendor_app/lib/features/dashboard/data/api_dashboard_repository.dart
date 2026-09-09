@@ -490,5 +490,14 @@ class ApiDashboardRepository implements DashboardRepository {
       totalPaidOut: double.tryParse(data['totalPaidOut']?.toString() ?? '0.0') ?? 0.0,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async {
+    final response = await _safeGet('/operations/vendor/command-center', fallbackData: null);
+    if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    return null;
+  }
 }
 

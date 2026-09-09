@@ -15,6 +15,7 @@ import { DepositRulesService } from '../deposits/deposit-rules.service';
 import { LocationsService } from '../locations/locations.service';
 import { VehicleAvailabilityService } from '../cars/vehicle-availability.service';
 import { SystemConfigService } from '../config-engine/system-config.service';
+import { DemandAwarePricingService } from './demand-aware-pricing.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import {
   QuoteLineItemDto,
@@ -44,6 +45,7 @@ export class PricingService {
     @Optional() private readonly locationsService?: LocationsService,
     @Optional() private readonly availabilityService?: VehicleAvailabilityService,
     @Optional() private readonly configService?: SystemConfigService,
+    @Optional() private readonly demandAwarePricingService?: DemandAwarePricingService,
   ) {}
 
   /**
@@ -186,6 +188,29 @@ export class PricingService {
       baseUnitPrice = new Prisma.Decimal(car.pricePerHour);
       baseQuantity = new Prisma.Decimal(durationHours);
       initialBaseFare = baseUnitPrice.mul(baseQuantity);
+    } else if (this.demandAwarePricingService) {
+      try {
+        const dynamicResult = await this.demandAwarePricingService.evaluatePrice({
+          vendorId: car.vendorId,
+          branchId: car.pickupHubId || undefined,
+          vehicleClass: car.type,
+          baseDailyRate: Number(car.pricePerDay),
+          startDate: start,
+          endDate: end,
+        });
+
+        if (dynamicResult && dynamicResult.effectiveDailyRate > 0) {
+          baseUnitPrice = new Prisma.Decimal(dynamicResult.effectiveDailyRate);
+          initialBaseFare = baseUnitPrice.mul(baseQuantity);
+          if (dynamicResult.multiplier > 1.0) {
+            baseRateDesc = `${durationDays} day(s) @ ₹${Number(baseUnitPrice).toFixed(2)}/day (Demand Surge ${dynamicResult.multiplier}x)`;
+          } else if (dynamicResult.multiplier < 1.0) {
+            baseRateDesc = `${durationDays} day(s) @ ₹${Number(baseUnitPrice).toFixed(2)}/day (Value Saver ${dynamicResult.multiplier}x)`;
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Dynamic pricing resolution fallback: ${err.message}`);
+      }
     }
 
     lineItems.push({

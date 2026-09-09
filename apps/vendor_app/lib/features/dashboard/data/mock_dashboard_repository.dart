@@ -178,5 +178,17 @@ class MockDashboardRepository with LatencySimulator implements DashboardReposito
       totalPaidOut: 107500.0,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async {
+    await simulateLatency();
+    return {
+      'systemHealth': 'OPTIMAL',
+      'activeRentals': 2,
+      'pendingAllocations': 1,
+      'readyForPickup': 1,
+      'openSlaBreaches': 0,
+    };
+  }
 }
 

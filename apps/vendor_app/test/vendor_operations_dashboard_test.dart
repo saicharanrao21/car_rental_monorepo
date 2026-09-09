@@ -77,6 +77,9 @@ class MockOperationsDashboardRepository implements DashboardRepository {
       totalPaidOut: 144500.0,
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getVendorOperationsCenter(String vendorId) async => null;
 }
 
 void main() {

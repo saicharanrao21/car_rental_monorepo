@@ -9,13 +9,18 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { BranchOperationsService } from './branch-operations.service';
 import { SlaEscalationEngineService } from './sla-escalation.service';
 import { InventoryRebalancingService } from '../fleet/inventory-rebalancing.service';
-import { BookingStatus, Role, FulfillmentStage } from '@prisma/client';
+import { BookingStatus, Role, SlaSeverity } from '@prisma/client';
+import { ResolveIncidentDto } from './dto/command-center.dto';
 
 @Controller('api/v1/operations')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CommandCenterController {
   constructor(
     private readonly prisma: PrismaService,
@@ -29,6 +34,7 @@ export class CommandCenterController {
    * Aggregates enterprise-wide real-time operational health
    */
   @Get('admin/command-center')
+  @Roles(Role.ADMIN)
   async getAdminCommandCenter(@Request() req: any) {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -60,38 +66,35 @@ export class CommandCenterController {
       this.prisma.booking.count({
         where: {
           startDate: { gte: startOfToday, lte: endOfToday },
-          status: { in: [BookingStatus.CONFIRMED, BookingStatus.HANDOVER_READY, BookingStatus.ONGOING] },
+          status: { in: [BookingStatus.CONFIRMED, BookingStatus.HANDOVER_READY] },
         },
       }),
       // Returns scheduled today
       this.prisma.booking.count({
         where: {
           endDate: { gte: startOfToday, lte: endOfToday },
-          status: { in: [BookingStatus.ONGOING, BookingStatus.RETURN_PENDING, BookingStatus.COMPLETED] },
+          status: { in: [BookingStatus.ONGOING, BookingStatus.RETURN_PENDING] },
         },
       }),
-      // Unallocated bookings
+      // Unallocated confirmed bookings
       this.prisma.booking.count({
         where: {
           status: BookingStatus.CONFIRMED,
-          allocationStatus: 'PENDING_ALLOCATION',
+          carId: '',
         },
       }),
-      // Maintenance / unavailable cars
+      // Vehicles under maintenance
       this.prisma.car.count({
         where: { operationalStatus: 'MAINTENANCE' },
       }),
-      // Open SLA breaches
+      // Active SLA breaches
       this.prisma.slaBreachIncident.count({
         where: { status: 'OPEN' },
       }),
-      // Substitution incidents
-      this.prisma.vehicleSubstitutionRecord.count({
-        where: { createdAt: { gte: startOfToday } },
-      }),
-      // Total fleet
+      // Total vehicle substitutions executed
+      this.prisma.vehicleSubstitutionRecord.count(),
+      // Fleet stats
       this.prisma.car.count(),
-      // Active fleet
       this.prisma.car.count({
         where: { operationalStatus: 'ACTIVE', isAvailable: true },
       }),
@@ -133,9 +136,22 @@ export class CommandCenterController {
    * Multi-tenant isolated operational dashboard for vendor staff
    */
   @Get('vendor/command-center')
-  async getVendorCommandCenter(@Query('vendorId') vendorId: string, @Request() req: any) {
-    if (!vendorId) {
-      throw new ForbiddenException('Vendor ID is required.');
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async getVendorCommandCenter(@Request() req: any, @Query('vendorId') queryVendorId?: string) {
+    let vendorId: string;
+    if (req.user.role === Role.VENDOR) {
+      if (!req.user.vendorId) {
+        throw new ForbiddenException('Access denied: Vendor user profile has no associated vendor ID.');
+      }
+      if (queryVendorId && queryVendorId !== req.user.vendorId) {
+        throw new ForbiddenException('Access denied: Cannot query metrics for another vendor.');
+      }
+      vendorId = req.user.vendorId;
+    } else {
+      vendorId = queryVendorId || '';
+      if (!vendorId) {
+        throw new ForbiddenException('Vendor ID query parameter is required for admin viewing.');
+      }
     }
 
     const startOfToday = new Date();
@@ -184,10 +200,13 @@ export class CommandCenterController {
    * Returns operational queues, vehicle readiness, and bottlenecks for a specific branch
    */
   @Get('branch/:branchId/dashboard')
+  @Roles(Role.VENDOR, Role.ADMIN)
   async getBranchDashboard(
     @Param('branchId') branchId: string,
-    @Query('vendorId') vendorId?: string,
+    @Request() req: any,
+    @Query('vendorId') queryVendorId?: string,
   ) {
+    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
     return this.branchOperations.getBranchDashboard(branchId, vendorId);
   }
 
@@ -195,6 +214,7 @@ export class CommandCenterController {
    * 4. INVENTORY REBALANCING RECOMMENDATIONS:
    */
   @Get('rebalancing/recommendations')
+  @Roles(Role.ADMIN)
   async getRebalancingRecommendations(
     @Query('city') city?: string,
     @Query('status') status?: any,
@@ -203,6 +223,7 @@ export class CommandCenterController {
   }
 
   @Post('rebalancing/generate')
+  @Roles(Role.ADMIN)
   async generateRebalancingRecommendations(@Body() body: any) {
     return this.rebalancingService.generateRebalancingRecommendations(body.city);
   }
@@ -211,7 +232,36 @@ export class CommandCenterController {
    * 5. RUN SLA EVALUATION:
    */
   @Post('sla/evaluate')
+  @Roles(Role.ADMIN)
   async evaluateSlas() {
     return this.slaEngine.evaluateAllSlas();
+  }
+
+  /**
+   * 6. LIST SLA INCIDENTS:
+   */
+  @Get('sla/incidents')
+  @Roles(Role.ADMIN, Role.VENDOR)
+  async listIncidents(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('severity') severity?: SlaSeverity,
+    @Query('vendorId') queryVendorId?: string,
+  ) {
+    const vendorId = req.user.role === Role.VENDOR ? (req.user.vendorId || queryVendorId) : queryVendorId;
+    return this.slaEngine.listIncidents({ status, severity, vendorId });
+  }
+
+  /**
+   * 7. RESOLVE SLA INCIDENT:
+   */
+  @Post('sla/incidents/:id/resolve')
+  @Roles(Role.ADMIN)
+  async resolveIncident(
+    @Param('id') id: string,
+    @Body() dto: ResolveIncidentDto,
+    @Request() req: any,
+  ) {
+    return this.slaEngine.resolveIncident(id, req.user.userId, dto.resolutionNotes);
   }
 }
