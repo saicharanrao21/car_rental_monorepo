@@ -245,6 +245,13 @@ enum InspectionType {
   POST_TRIP
 }
 
+enum PricingRuleScope {
+  PLATFORM
+  VENDOR
+  BRANCH
+  VEHICLE_CLASS
+}
+
 enum HandoverOtpType {
   PICKUP
   RETURN
@@ -488,6 +495,7 @@ model Vendor {
   serviceAreaAssignments VendorServiceArea[]
   onboardingRequirements VendorRequirementState[]
   vendorSecurityDeposit  VendorSecurityDeposit?
+  rentalPricingRules     RentalPricingRule[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -527,6 +535,7 @@ model PickupHub {
   updatedAt       DateTime           @updatedAt
   cars            Car[]
   exceptions      LocationException[]
+  rentalPricingRules RentalPricingRule[]
 
   @@index([vendorId])
   @@index([city])
@@ -669,6 +678,8 @@ model Car {
   holds                  VehicleHold[]
   quotes                 BookingQuote[]
   auditLogs              VehicleAuditLog[]
+  allocationRecords      VehicleAllocationRecord[]
+  rentalPricingRules     RentalPricingRule[]
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -826,6 +837,10 @@ model Booking {
   quoteId            String?
   quote              BookingQuote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   priceSnapshot      Json?
+  vehicleClass       CarCategory?
+  allocationStatus   String              @default("ALLOCATED")
+  allocationStrategy String?             @default("EXACT_VEHICLE")
+  allocationRecords  VehicleAllocationRecord[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -838,6 +853,8 @@ model Booking {
   @@index([vendorId, status])
   @@index([status, createdAt])
   @@index([quoteId])
+  @@index([allocationStatus])
+  @@index([vehicleClass])
 }
 
 model MileagePackage {
@@ -2568,6 +2585,70 @@ model ProviderOperationalMetric {
 
   @@index([providerId, category, environment])
   @@index([windowStart, windowEnd])
+}
+
+model VehicleAllocationRecord {
+  id             String   @id @default(cuid())
+  bookingId      String
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  carId          String
+  car            Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  strategy       String   // EXACT_VEHICLE, SAME_CLASS, AUTOMATIC, BRANCH_BASED, MANUAL_OVERRIDE
+  reason         String?
+  allocatedBy    String   // User ID or 'SYSTEM'
+  allocatedByRole Role    @default(ADMIN)
+  isActive       Boolean  @default(true)
+  allocatedAt    DateTime @default(now())
+  releasedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([carId])
+  @@index([isActive])
+  @@index([allocatedAt])
+}
+
+model RentalPricingRule {
+  id                    String           @id @default(cuid())
+  scope                 PricingRuleScope
+  vendorId              String?
+  vendor                Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId              String?
+  branch                PickupHub?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  vehicleClass          CarCategory?
+  carId                 String?
+  car                   Car?             @relation(fields: [carId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?
+  hourlyRateMultiplier  Decimal?         @db.Decimal(5, 2)
+  dailyRate             Decimal?         @db.Decimal(10, 2)
+  weeklyDiscountPct     Float?           @default(0)
+  monthlyDiscountPct    Float?           @default(0)
+  weekendMultiplier     Decimal?         @default(1.0) @db.Decimal(5, 2)
+  peakSeasonMultiplier  Decimal?         @default(1.0) @db.Decimal(5, 2)
+  holidayMultiplier     Decimal?         @default(1.0) @db.Decimal(5, 2)
+  extraKmRate           Decimal?         @db.Decimal(10, 2)
+  lateReturnHourlyFee   Decimal?         @db.Decimal(10, 2)
+  securityDepositAmount Decimal?         @db.Decimal(10, 2)
+  convenienceFee        Decimal?         @default(0) @db.Decimal(10, 2)
+  oneWayBaseFee         Decimal?         @default(0) @db.Decimal(10, 2)
+  isActive              Boolean          @default(true)
+  priority              Int              @default(0)
+  effectiveFrom         DateTime?
+  effectiveTo           DateTime?
+  metadata              Json?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([scope])
+  @@index([vendorId])
+  @@index([branchId])
+  @@index([vehicleClass])
+  @@index([carId])
+  @@index([isActive])
+  @@index([priority])
 }
 
 

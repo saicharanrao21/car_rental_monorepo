@@ -9,6 +9,8 @@ import { CarsModule } from '../cars/cars.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 
+import { RentalPricingResolutionService } from './rental-pricing-resolution.service';
+
 @Module({
   imports: [
     CommonModule,
@@ -20,7 +22,7 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule,
   ],
   controllers: [PricingController],
-  providers: [PricingService],
-  exports: [PricingService],
+  providers: [PricingService, RentalPricingResolutionService],
+  exports: [PricingService, RentalPricingResolutionService],
 })
 export class PricingModule {}

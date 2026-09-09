@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -12,6 +13,7 @@ import {
   FleetAvailabilityExplanation,
   VehicleClass,
 } from './fleet-domain.types';
+import { CarCategory, FuelType } from '@prisma/client';
 
 export interface AvailabilityInterval {
   startDate: Date;
@@ -22,6 +24,44 @@ export interface AvailabilityEvaluationOptions {
   excludeBookingId?: string;
   bufferMinutes?: number; // Turnaround buffer time (default: 60 mins)
   includeAlternatives?: boolean;
+}
+
+export interface ClassAvailabilityQuery {
+  vendorId?: string;
+  branchId?: string; // pickupHubId
+  city?: string;
+  vehicleClass?: CarCategory;
+  startDate: Date;
+  endDate: Date;
+  minCapacity?: number;
+  fuelType?: FuelType;
+  turnaroundBufferMinutes?: number;
+}
+
+export interface ClassAvailabilitySummary {
+  vehicleClass: CarCategory;
+  totalFleet: number;
+  availableCount: number;
+  blockedCount: number;
+  availableVehicles: Array<{
+    id: string;
+    make: string;
+    model: string;
+    year: number;
+    registrationNumber: string;
+    pricePerDay: number;
+    pricePerHour: number;
+    pickupHubId: string | null;
+    pickupHubName?: string;
+    seating: number;
+    fuelType: string;
+  }>;
+  blockingReasons: Array<{
+    carId: string;
+    reason: string;
+    type: string;
+    blockedUntil?: string;
+  }>;
 }
 
 @Injectable()
@@ -222,6 +262,182 @@ export class FleetAvailabilityService {
       }));
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Enterprise Class Availability Search:
+   * Aggregates fleet availability across branches and vehicle classes,
+   * factoring in turnaround buffers, active bookings, blocks, and lifecycle states.
+   */
+  async searchClassAvailability(query: ClassAvailabilityQuery): Promise<ClassAvailabilitySummary[]> {
+    const bufferMinutes = query.turnaroundBufferMinutes ?? FleetAvailabilityService.DEFAULT_TURNAROUND_BUFFER_MINUTES;
+    const bufferMs = bufferMinutes * 60 * 1000;
+    const start = new Date(query.startDate);
+    const end = new Date(query.endDate);
+    const bufferedStart = new Date(start.getTime() - bufferMs);
+    const bufferedEnd = new Date(end.getTime() + bufferMs);
+
+    // Filter vehicles by branch / city / vendor / capacity / fuel
+    const where: any = {
+      isAvailable: true,
+      operationalStatus: { in: ['ACTIVE', 'AVAILABLE'] },
+    };
+
+    if (query.vendorId) where.vendorId = query.vendorId;
+    if (query.branchId) where.pickupHubId = query.branchId;
+    if (query.vehicleClass) where.type = query.vehicleClass;
+    if (query.minCapacity) where.seating = { gte: query.minCapacity };
+    if (query.fuelType) where.fuelType = query.fuelType;
+    if (query.city) {
+      where.OR = [
+        { pickupHub: { city: { equals: query.city, mode: 'insensitive' } } },
+        { vendor: { city: { equals: query.city, mode: 'insensitive' } } },
+      ];
+    }
+
+    const cars = await this.prisma.car.findMany({
+      where,
+      include: {
+        pickupHub: true,
+        blocks: {
+          where: {
+            startDate: { lt: bufferedEnd },
+            endDate: { gt: bufferedStart },
+          },
+        },
+        holds: {
+          where: {
+            status: 'ACTIVE',
+            expiresAt: { gt: new Date() },
+            startDate: { lt: bufferedEnd },
+            endDate: { gt: bufferedStart },
+          },
+        },
+        bookings: {
+          where: {
+            status: { in: ['CONFIRMED', 'HANDOVER_READY', 'ONGOING', 'RETURN_PENDING'] },
+            startDate: { lt: bufferedEnd },
+            endDate: { gt: bufferedStart },
+          },
+        },
+      },
+    });
+
+    // Group by vehicle class
+    const classMap = new Map<CarCategory, {
+      total: number;
+      available: any[];
+      blockingReasons: any[];
+    }>();
+
+    for (const car of cars) {
+      const vClass = car.type;
+      if (!classMap.has(vClass)) {
+        classMap.set(vClass, { total: 0, available: [], blockingReasons: [] });
+      }
+      const entry = classMap.get(vClass)!;
+      entry.total++;
+
+      // Check lifecycle state
+      const state = await this.lifecycleService.getVehicleState(car.id);
+      let isAvailable = true;
+
+      if (state !== FleetOperationalState.AVAILABLE && state !== FleetOperationalState.ACTIVE) {
+        isAvailable = false;
+        entry.blockingReasons.push({
+          carId: car.id,
+          type: state,
+          reason: `Vehicle in ${state} operational state`,
+        });
+      } else if (car.bookings.length > 0) {
+        isAvailable = false;
+        const b = car.bookings[0];
+        entry.blockingReasons.push({
+          carId: car.id,
+          type: 'BOOKING_CONFLICT',
+          reason: `Reserved for Booking #${b.id.substring(0, 8)} (${bufferMinutes}m turnaround buffer)`,
+          blockedUntil: new Date(b.endDate.getTime() + bufferMs).toISOString(),
+        });
+      } else if (car.blocks.length > 0) {
+        isAvailable = false;
+        const blk = car.blocks[0];
+        entry.blockingReasons.push({
+          carId: car.id,
+          type: 'BLACKOUT',
+          reason: blk.reason || 'Operational blackout block',
+          blockedUntil: blk.endDate.toISOString(),
+        });
+      } else if (car.holds.length > 0) {
+        isAvailable = false;
+        const h = car.holds[0];
+        entry.blockingReasons.push({
+          carId: car.id,
+          type: 'CHECKOUT_HOLD',
+          reason: 'Temporarily held in checkout',
+          blockedUntil: h.expiresAt.toISOString(),
+        });
+      }
+
+      if (isAvailable) {
+        entry.available.push({
+          id: car.id,
+          make: car.make,
+          model: car.model,
+          year: car.year,
+          registrationNumber: car.registrationNumber,
+          pricePerDay: Number(car.pricePerDay),
+          pricePerHour: Number(car.pricePerHour),
+          pickupHubId: car.pickupHubId,
+          pickupHubName: car.pickupHub?.name,
+          seating: car.seating,
+          fuelType: car.fuelType,
+        });
+      }
+    }
+
+    const results: ClassAvailabilitySummary[] = [];
+    for (const [vClass, data] of classMap.entries()) {
+      results.push({
+        vehicleClass: vClass,
+        totalFleet: data.total,
+        availableCount: data.available.length,
+        blockedCount: data.total - data.available.length,
+        availableVehicles: data.available,
+        blockingReasons: data.blockingReasons,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Deterministic Double-Booking Guard:
+   * Asserts that a vehicle is completely free of conflicting bookings,
+   * blocks, holds, and maintenance intervals. Throws ConflictException if unavailable.
+   */
+  async assertVehicleAvailableForBooking(
+    carId: string,
+    startDate: Date,
+    endDate: Date,
+    bufferMinutes = 60,
+    excludeBookingId?: string,
+  ): Promise<void> {
+    const isAvail = await this.isVehicleAvailable(
+      carId,
+      { startDate, endDate },
+      { bufferMinutes, excludeBookingId },
+    );
+
+    if (!isAvail) {
+      const explanation = await this.explainAvailability(
+        carId,
+        { startDate, endDate },
+        { bufferMinutes, excludeBookingId },
+      );
+      throw new ConflictException(
+        explanation.reason || 'Vehicle is not available for the requested reservation timeframe.',
+      );
     }
   }
 }

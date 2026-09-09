@@ -21,6 +21,11 @@ import { TripExtensionsService } from './trip-extensions.service';
 import { TripExtensionsController } from './trip-extensions.controller';
 import { BookingLifecycleService } from './booking-lifecycle.service';
 import { BookingOutboxService } from './booking-outbox.service';
+import { RentalOperationsService } from './rental-operations.service';
+import { RentalAutomationService } from './rental-automation.service';
+import { RentalCoreController } from './rental-core.controller';
+import { FleetModule } from '../fleet/fleet.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -36,8 +41,13 @@ import { BookingOutboxService } from './booking-outbox.service';
     LocationsModule,
     CarsModule,
     PricingModule,
+    forwardRef(() => FleetModule),
   ],
-  controllers: [BookingsController, TripExtensionsController],
+  controllers: [
+    BookingsController,
+    TripExtensionsController,
+    RentalCoreController,
+  ],
   providers: [
     BookingsService,
     BookingLifecycleService,
@@ -46,6 +56,8 @@ import { BookingOutboxService } from './booking-outbox.service';
     InspectionsService,
     HandoverOtpService,
     TripExtensionsService,
+    RentalOperationsService,
+    RentalAutomationService,
   ],
   exports: [
     BookingsService,
@@ -55,6 +67,8 @@ import { BookingOutboxService } from './booking-outbox.service';
     InspectionsService,
     HandoverOtpService,
     TripExtensionsService,
+    RentalOperationsService,
+    RentalAutomationService,
   ],
 })
 export class BookingsModule {}

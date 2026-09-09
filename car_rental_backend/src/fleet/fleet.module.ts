@@ -10,6 +10,7 @@ import { FleetComplianceService } from './fleet-compliance.service';
 import { FleetTelematicsService } from './fleet-telematics.service';
 import { FleetSearchService } from './fleet-search.service';
 import { FleetIntelligenceService } from './fleet-intelligence.service';
+import { VehicleAllocationService } from './vehicle-allocation.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { FleetIntelligenceService } from './fleet-intelligence.service';
     FleetTelematicsService,
     FleetSearchService,
     FleetIntelligenceService,
+    VehicleAllocationService,
   ],
   exports: [
     FleetLifecycleService,
@@ -35,6 +37,7 @@ import { FleetIntelligenceService } from './fleet-intelligence.service';
     FleetTelematicsService,
     FleetSearchService,
     FleetIntelligenceService,
+    VehicleAllocationService,
   ],
 })
 export class FleetModule {}
