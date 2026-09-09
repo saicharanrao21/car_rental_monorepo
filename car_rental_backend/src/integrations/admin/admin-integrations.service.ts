@@ -11,6 +11,7 @@ import {
   MarketplaceProviderView,
   ProviderActivationState,
   ProviderEnvironment,
+  ProviderComparisonResult,
 } from '../catalog/provider-catalog.types';
 import {
   IntegrationCategory,
@@ -443,5 +444,16 @@ export class AdminIntegrationsService {
       throw new Error('IntegrationRuntimeService is not configured');
     }
     return this.runtimeService.execute(request);
+  }
+
+  compareProviders(
+    category: IntegrationCategory,
+    providerIds?: string[],
+  ): ProviderComparisonResult {
+    return this.catalogService.compareProviders(category, providerIds);
+  }
+
+  validateRegistration(metadata: CatalogProviderMetadata): { isValid: boolean; errors: string[] } {
+    return this.catalogService.validateProviderRegistration(metadata);
   }
 }

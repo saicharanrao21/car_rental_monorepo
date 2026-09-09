@@ -348,4 +348,18 @@ export class AdminIntegrationsController {
   async executeRuntime(@Body() request: any) {
     return this.integrationsService.executeRuntime(request);
   }
+
+  @Get('comparison')
+  async compareProviders(
+    @Query('category') category: IntegrationCategory,
+    @Query('providerIds') providerIds?: string,
+  ) {
+    const ids = providerIds ? providerIds.split(',').map((id) => id.trim()) : undefined;
+    return this.integrationsService.compareProviders(category, ids);
+  }
+
+  @Post('validate-registration')
+  async validateRegistration(@Body() metadata: any) {
+    return this.integrationsService.validateRegistration(metadata);
+  }
 }

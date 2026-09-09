@@ -3,7 +3,10 @@ import {
   CatalogProviderMetadata,
   ProviderActivationState,
   ProviderEnvironment,
+  ProviderLifecycleState,
+  ProviderCertificationLevel,
 } from './provider-catalog.types';
+import { ENTERPRISE_EXPANDED_PROVIDERS } from './enterprise-providers.data';
 
 export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
   // =========================================================================
@@ -90,6 +93,13 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     platformAvailability: true,
     tenantTierAvailability: ['ALL'],
     activationState: ProviderActivationState.ACTIVE,
+    lifecycleState: ProviderLifecycleState.LIVE_READY,
+    certificationLevel: ProviderCertificationLevel.PRODUCTION_VALIDATED,
+    adapterImplemented: true,
+    supportedPaymentMethods: ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING', 'WALLET', 'EMI'],
+    costModel: { percentageFee: 2.0, fixedFee: 0, currency: 'INR' },
+    slaUptimePercent: 99.95,
+    maxRps: 200,
     priority: 1,
     fallbackProviderId: 'cashfree',
   },
@@ -168,6 +178,13 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     platformAvailability: true,
     tenantTierAvailability: ['ALL'],
     activationState: ProviderActivationState.ACTIVE,
+    lifecycleState: ProviderLifecycleState.LIVE_READY,
+    certificationLevel: ProviderCertificationLevel.PRODUCTION_VALIDATED,
+    adapterImplemented: true,
+    supportedPaymentMethods: ['CREDIT_CARD', 'DEBIT_CARD', 'INTERNATIONAL_CARD', 'APPLE_PAY', 'GOOGLE_PAY'],
+    costModel: { percentageFee: 2.9, fixedFee: 0.30, currency: 'USD' },
+    slaUptimePercent: 99.99,
+    maxRps: 300,
     priority: 90,
     fallbackProviderId: 'razorpay',
   },
@@ -217,6 +234,13 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     platformAvailability: true,
     tenantTierAvailability: ['PRO', 'ENTERPRISE'],
     activationState: ProviderActivationState.ACTIVE,
+    lifecycleState: ProviderLifecycleState.SANDBOX_READY,
+    certificationLevel: ProviderCertificationLevel.SANDBOX_VALIDATED,
+    adapterImplemented: false,
+    supportedPaymentMethods: ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING', 'WALLET'],
+    costModel: { percentageFee: 1.9, fixedFee: 0, currency: 'INR' },
+    slaUptimePercent: 99.9,
+    maxRps: 150,
     priority: 2,
   },
   {
@@ -335,6 +359,13 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     platformAvailability: true,
     tenantTierAvailability: ['ALL'],
     activationState: ProviderActivationState.ACTIVE,
+    lifecycleState: ProviderLifecycleState.SANDBOX_READY,
+    certificationLevel: ProviderCertificationLevel.SANDBOX_VALIDATED,
+    adapterImplemented: true,
+    supportedPaymentMethods: ['UPI', 'CARD', 'WALLET'],
+    costModel: { percentageFee: 0, fixedFee: 0, currency: 'INR' },
+    slaUptimePercent: 100,
+    maxRps: 1000,
     priority: 99,
   },
 
@@ -908,4 +939,5 @@ export const INITIAL_PROVIDER_CATALOG: CatalogProviderMetadata[] = [
     activationState: ProviderActivationState.ACTIVE,
     priority: 100,
   },
+  ...ENTERPRISE_EXPANDED_PROVIDERS,
 ];

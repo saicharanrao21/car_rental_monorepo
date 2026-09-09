@@ -13,6 +13,67 @@ export enum ProviderActivationState {
   COMING_SOON = 'COMING_SOON',
 }
 
+export enum ProviderLifecycleState {
+  DISCOVERED = 'DISCOVERED',
+  CATALOG_ONLY = 'CATALOG_ONLY',
+  CONFIGURABLE = 'CONFIGURABLE',
+  SANDBOX_READY = 'SANDBOX_READY',
+  LIVE_READY = 'LIVE_READY',
+  HEALTHY = 'HEALTHY',
+  DEGRADED = 'DEGRADED',
+  DISABLED = 'DISABLED',
+  DEPRECATED = 'DEPRECATED',
+}
+
+export enum ProviderCertificationLevel {
+  CATALOG = 'CATALOG',
+  CONTRACT_VALIDATED = 'CONTRACT_VALIDATED',
+  SANDBOX_VALIDATED = 'SANDBOX_VALIDATED',
+  WEBHOOK_VALIDATED = 'WEBHOOK_VALIDATED',
+  FAILOVER_VALIDATED = 'FAILOVER_VALIDATED',
+  PRODUCTION_VALIDATED = 'PRODUCTION_VALIDATED',
+}
+
+export enum PaymentCapability {
+  CREATE_PAYMENT = 'CREATE_PAYMENT',
+  CREATE_ORDER = 'CREATE_ORDER',
+  PAYMENT_LINK = 'PAYMENT_LINK',
+  CHECKOUT = 'CHECKOUT',
+  CARD = 'CARD',
+  CREDIT_CARD = 'CREDIT_CARD',
+  DEBIT_CARD = 'DEBIT_CARD',
+  UPI = 'UPI',
+  UPI_INTENT = 'UPI_INTENT',
+  UPI_COLLECT = 'UPI_COLLECT',
+  NET_BANKING = 'NET_BANKING',
+  WALLET = 'WALLET',
+  EMI = 'EMI',
+  BNPL = 'BNPL',
+  INTERNATIONAL_CARD = 'INTERNATIONAL_CARD',
+  TOKENIZATION = 'TOKENIZATION',
+  PAYMENT_STATUS = 'PAYMENT_STATUS',
+  REFUND = 'REFUND',
+  PARTIAL_REFUND = 'PARTIAL_REFUND',
+  REFUND_STATUS = 'REFUND_STATUS',
+  CAPTURE = 'CAPTURE',
+  VOID = 'VOID',
+  PAYMENT_VERIFICATION = 'PAYMENT_VERIFICATION',
+  WEBHOOKS = 'WEBHOOKS',
+  SUBSCRIPTIONS = 'SUBSCRIPTIONS',
+  RECURRING_PAYMENTS = 'RECURRING_PAYMENTS',
+  PAYOUTS = 'PAYOUTS',
+  SPLIT_PAYMENTS = 'SPLIT_PAYMENTS',
+  MARKETPLACE_PAYMENTS = 'MARKETPLACE_PAYMENTS',
+  ROUTE_SPLIT = 'ROUTE_SPLIT',
+  INVOICE = 'INVOICE',
+  TAX_INVOICE = 'TAX_INVOICE',
+  FRAUD_CHECK = 'FRAUD_CHECK',
+  DISPUTE = 'DISPUTE',
+  CHARGEBACK = 'CHARGEBACK',
+  SETTLEMENT = 'SETTLEMENT',
+  SETTLEMENT_RECONCILIATION = 'SETTLEMENT_RECONCILIATION',
+}
+
 export type CredentialFieldType =
   | 'string'
   | 'password'
@@ -68,6 +129,14 @@ export interface CatalogProviderMetadata {
   activationState: ProviderActivationState;
   priority: number;
   fallbackProviderId?: string;
+  // Phase L Enterprise Extensions
+  lifecycleState?: ProviderLifecycleState;
+  certificationLevel?: ProviderCertificationLevel;
+  adapterImplemented?: boolean;
+  supportedPaymentMethods?: string[];
+  costModel?: any;
+  slaUptimePercent?: number;
+  maxRps?: number;
 }
 
 export interface CatalogFilter {
@@ -77,6 +146,8 @@ export interface CatalogFilter {
   currency?: string;
   environment?: ProviderEnvironment;
   activationState?: ProviderActivationState;
+  lifecycleState?: ProviderLifecycleState;
+  certificationLevel?: ProviderCertificationLevel;
   tenantTier?: string;
   search?: string;
 }
@@ -96,4 +167,35 @@ export interface MarketplaceProviderView extends CatalogProviderMetadata {
   maskedCredentials: Record<string, string>;
   effectiveSettings: Record<string, any>;
   lastHealthCheck?: Date | null;
+}
+
+export interface ProviderComparisonItem {
+  providerId: string;
+  name: string;
+  category: IntegrationCategory;
+  lifecycleState: ProviderLifecycleState;
+  certificationLevel: ProviderCertificationLevel;
+  adapterImplemented: boolean;
+  supportedCapabilities: string[];
+  supportedCurrencies: string[];
+  supportedCountries: string[];
+  supportedPaymentMethods: string[];
+  healthStatus: ProviderHealthStatus;
+  latencyP50Ms: number;
+  successRatePercent: number;
+  costEstimate: {
+    percentageFee: number;
+    fixedFee: number;
+    currency: string;
+  };
+  webhookSupported: boolean;
+  refundSupported: boolean;
+  payoutSupported: boolean;
+}
+
+export interface ProviderComparisonResult {
+  category: IntegrationCategory;
+  providers: ProviderComparisonItem[];
+  commonCapabilities: string[];
+  uniqueCapabilities: Record<string, string[]>;
 }

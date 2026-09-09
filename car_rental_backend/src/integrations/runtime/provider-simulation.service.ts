@@ -48,6 +48,13 @@ export class ProviderSimulationService {
     scenario: SimulationScenario,
     payload: any,
   ): Promise<TOutput> {
+    // Safety check: Prevent simulation in LIVE production environment
+    if (payload?.environment === 'LIVE' || payload?.isProduction === true) {
+      throw new Error(
+        `[SIMULATION_SAFETY] Sandbox simulation cannot execute against LIVE production credentials for provider ${providerId}`,
+      );
+    }
+
     this.logger.log(`Simulating execution for provider=${providerId}, capability=${capability}, scenario=${scenario}`);
 
     switch (scenario) {
@@ -118,6 +125,41 @@ export class ProviderSimulationService {
       case SimulationScenario.MALFORMED_RESPONSE: {
         const err: any = new Error(`SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`);
         err.code = 'MALFORMED_RESPONSE';
+        throw err;
+      }
+
+      case SimulationScenario.INVALID_REQUEST: {
+        const err: any = new Error(`400 Bad Request: Invalid request parameters supplied to ${providerId}`);
+        err.status = 400;
+        err.code = 'INVALID_REQUEST';
+        err.response = { status: 400, data: { error: 'Invalid payload structure' } };
+        throw err;
+      }
+
+      case SimulationScenario.DUPLICATE: {
+        const err: any = new Error(`409 Conflict: Duplicate transaction detected on provider ${providerId}`);
+        err.status = 409;
+        err.code = 'DUPLICATE_TRANSACTION';
+        err.response = { status: 409, data: { error: 'Duplicate transaction' } };
+        throw err;
+      }
+
+      case SimulationScenario.NOT_SUPPORTED: {
+        const err: any = new Error(`501 Not Implemented: Capability '${capability}' is not supported by ${providerId}`);
+        err.status = 501;
+        err.code = 'NOT_SUPPORTED';
+        throw err;
+      }
+
+      case SimulationScenario.CONFIGURATION_FAILURE: {
+        const err: any = new Error(`Configuration Error: Missing credentials or webhook secret for provider ${providerId}`);
+        err.code = 'CONFIGURATION_ERROR';
+        throw err;
+      }
+
+      case SimulationScenario.WEBHOOK_FAILURE: {
+        const err: any = new Error(`Webhook Delivery Error: HMAC signature verification failed for ${providerId}`);
+        err.code = 'WEBHOOK_VERIFICATION_FAILED';
         throw err;
       }
 

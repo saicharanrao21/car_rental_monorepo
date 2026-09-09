@@ -45,6 +45,11 @@ export enum SimulationScenario {
   PROVIDER_DECLINED = 'PROVIDER_DECLINED',
   SLOW_RESPONSE = 'SLOW_RESPONSE',
   MALFORMED_RESPONSE = 'MALFORMED_RESPONSE',
+  INVALID_REQUEST = 'INVALID_REQUEST',
+  DUPLICATE = 'DUPLICATE',
+  NOT_SUPPORTED = 'NOT_SUPPORTED',
+  CONFIGURATION_FAILURE = 'CONFIGURATION_FAILURE',
+  WEBHOOK_FAILURE = 'WEBHOOK_FAILURE',
 }
 
 export interface CircuitBreakerConfig {
@@ -63,6 +68,13 @@ export interface RateLimitConfig {
   concurrencyLimit: number;
 }
 
+export interface CostTierRate {
+  minVolume: number;
+  maxVolume?: number;
+  percentageFee: number;
+  fixedFee: number;
+}
+
 export interface ProviderCostModel {
   providerId: string;
   category: IntegrationCategory;
@@ -70,6 +82,9 @@ export interface ProviderCostModel {
   percentageFee: number;
   perRequestCost: number;
   perMessageCost: number;
+  perGbCost?: number;
+  minimumCharge?: number;
+  tierRates?: CostTierRate[];
   currency: string;
   regionSpecificCosts: Record<string, number>;
 }
@@ -127,6 +142,29 @@ export interface IntegrationAttemptRecord {
   timestamp: Date;
 }
 
+export interface CandidateEvaluationExplanation {
+  providerId: string;
+  score: number;
+  eligible: boolean;
+  rejectionReason?: string;
+  factorScores: {
+    healthScore: number;
+    latencyScore: number;
+    costScore: number;
+    capabilityScore: number;
+    priorityScore: number;
+    policyScore: number;
+  };
+}
+
+export interface RoutingDecisionExplanation {
+  selectedProviderId: string;
+  strategyUsed: RoutingStrategy;
+  reasons: string[];
+  candidatesEvaluated: CandidateEvaluationExplanation[];
+  fallbackChain: string[];
+}
+
 export interface IntegrationExecutionResult<TOutput = any> {
   success: boolean;
   data?: TOutput;
@@ -146,6 +184,7 @@ export interface IntegrationExecutionResult<TOutput = any> {
   latencyMs: number;
   correlationId: string;
   idempotencyKey?: string;
+  explanation?: RoutingDecisionExplanation;
 }
 
 export interface ProviderRollingHealth {

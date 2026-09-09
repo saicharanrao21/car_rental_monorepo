@@ -103,7 +103,8 @@ export class IntegrationRuntimeService {
       return failureResult;
     }
 
-    const { primaryProviderId, fallbackChain, allCandidates } = routingResolution;
+    const { primaryProviderId, fallbackChain, allCandidates, explanation } =
+      routingResolution;
     const candidatesToTry = [primaryProviderId, ...fallbackChain];
     const attempts: IntegrationAttemptRecord[] = [];
     let fallbackOccurred = false;
@@ -340,6 +341,7 @@ export class IntegrationRuntimeService {
         latencyMs: totalLatencyMs,
         correlationId,
         idempotencyKey: request.idempotencyKey,
+        explanation,
       };
 
       // Persist idempotency result if key provided
@@ -370,6 +372,7 @@ export class IntegrationRuntimeService {
         latencyMs: totalLatencyMs,
         correlationId,
         idempotencyKey: request.idempotencyKey,
+        explanation,
       };
 
       await this.auditService.recordExecution(request, failureResult);

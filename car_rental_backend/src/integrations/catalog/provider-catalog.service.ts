@@ -12,6 +12,10 @@ import {
   MarketplaceProviderView,
   ProviderActivationState,
   ProviderEnvironment,
+  ProviderLifecycleState,
+  ProviderCertificationLevel,
+  ProviderComparisonItem,
+  ProviderComparisonResult,
 } from './provider-catalog.types';
 import { INITIAL_PROVIDER_CATALOG } from './provider-catalog.data';
 import { IntegrationConfigService } from '../config/integration-config.service';
@@ -141,6 +145,14 @@ export class ProviderCatalogService implements OnModuleInit {
 
       if (filter.activationState) {
         results = results.filter((p) => p.activationState === filter.activationState);
+      }
+
+      if (filter.lifecycleState) {
+        results = results.filter((p) => p.lifecycleState === filter.lifecycleState);
+      }
+
+      if (filter.certificationLevel) {
+        results = results.filter((p) => p.certificationLevel === filter.certificationLevel);
       }
 
       if (filter.tenantTier) {
@@ -430,5 +442,138 @@ export class ProviderCatalogService implements OnModuleInit {
     }
 
     return marketplaceViews;
+  }
+
+  /**
+   * Compares providers side-by-side within a category for capabilities, currencies, pricing, and health.
+   */
+  compareProviders(
+    category: IntegrationCategory,
+    providerIds?: string[],
+  ): ProviderComparisonResult {
+    let list = this.getAllProviders({ category });
+    if (providerIds && providerIds.length > 0) {
+      const idSet = new Set(providerIds.map((id) => id.toLowerCase()));
+      list = list.filter((p) => idSet.has(p.providerId.toLowerCase()));
+    }
+
+    const items: ProviderComparisonItem[] = list.map((p) => {
+      let healthRecord: any = { latencyP50: 30, successRate: 100, status: ProviderHealthStatus.ACTIVE };
+      try {
+        const rolling = this.healthService?.getRollingHealth(p.category, p.providerId);
+        if (rolling) {
+          healthRecord = {
+            latencyP50: rolling.latencyP50 || 30,
+            successRate: rolling.successRate || 100,
+            status: rolling.circuitState === 'OPEN' ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.ACTIVE,
+          };
+        }
+      } catch {
+        // Fallback gracefully
+      }
+
+      return {
+        providerId: p.providerId,
+        name: p.name,
+        category: p.category,
+        lifecycleState: p.lifecycleState || ProviderLifecycleState.CATALOG_ONLY,
+        certificationLevel: p.certificationLevel || ProviderCertificationLevel.CATALOG,
+        adapterImplemented: !!p.adapterImplemented,
+        supportedCapabilities: p.supportedCapabilities || [],
+        supportedCurrencies: p.supportedCurrencies || [],
+        supportedCountries: p.supportedCountries || [],
+        supportedPaymentMethods: p.supportedPaymentMethods || [],
+        healthStatus: healthRecord.status,
+        latencyP50Ms: healthRecord.latencyP50,
+        successRatePercent: healthRecord.successRate,
+        costEstimate: {
+          percentageFee: p.costModel?.percentageFee || 0,
+          fixedFee: p.costModel?.fixedFee || 0,
+          currency: p.costModel?.currency || 'INR',
+        },
+        webhookSupported: !!p.webhookSignatureHeader || (p.supportedCapabilities || []).includes('WEBHOOKS'),
+        refundSupported: (p.supportedCapabilities || []).some((c) => c.includes('REFUND')),
+        payoutSupported: (p.supportedCapabilities || []).some((c) => c.includes('PAYOUT')),
+      };
+    });
+
+    const allCaps = items.map((i) => i.supportedCapabilities);
+    const commonCapabilities =
+      allCaps.length > 0
+        ? allCaps[0].filter((cap) => allCaps.every((caps) => caps.includes(cap)))
+        : [];
+
+    const uniqueCapabilities: Record<string, string[]> = {};
+    for (const item of items) {
+      uniqueCapabilities[item.providerId] = item.supportedCapabilities.filter(
+        (cap) => !commonCapabilities.includes(cap),
+      );
+    }
+
+    return {
+      category,
+      providers: items,
+      commonCapabilities,
+      uniqueCapabilities,
+    };
+  }
+
+  /**
+   * Validates a provider registration to prevent incomplete or invalid provider configurations.
+   */
+  validateProviderRegistration(metadata: CatalogProviderMetadata): {
+    isValid: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+
+    if (!metadata.providerId || metadata.providerId.trim() === '') {
+      errors.push('Provider ID is required');
+    }
+
+    if (!metadata.name || metadata.name.trim() === '') {
+      errors.push('Provider name is required');
+    }
+
+    if (!metadata.category) {
+      errors.push('Category is required');
+    }
+
+    if (!metadata.supportedCapabilities || metadata.supportedCapabilities.length === 0) {
+      errors.push('At least one supported capability must be specified');
+    }
+
+    // Validation rule: If claiming REFUND, ensure either credential schema or capabilities declare it
+    if (
+      metadata.supportedCapabilities?.some((c) => c.toUpperCase().includes('REFUND')) &&
+      metadata.adapterImplemented &&
+      !metadata.supportedCapabilities.includes('REFUND_PAYMENT') &&
+      !metadata.supportedCapabilities.includes('REFUND')
+    ) {
+      errors.push('Provider declares refund capability but does not declare standard REFUND_PAYMENT capability');
+    }
+
+    // Validation rule: If declaring WEBHOOK support, ensure webhook signature or events are defined
+    if (
+      metadata.supportedCapabilities?.includes('WEBHOOKS') ||
+      metadata.supportedCapabilities?.includes('WEBHOOK_HANDLING')
+    ) {
+      if (!metadata.webhookSignatureHeader && (!metadata.supportedWebhookEvents || metadata.supportedWebhookEvents.length === 0)) {
+        errors.push('Provider declaring webhook support must specify webhookSignatureHeader or supportedWebhookEvents');
+      }
+    }
+
+    // Validation rule: If claiming SANDBOX, must declare SANDBOX in supportedEnvironments
+    if (
+      metadata.lifecycleState === ProviderLifecycleState.SANDBOX_READY &&
+      !metadata.supportedEnvironments?.includes(ProviderEnvironment.SANDBOX)
+    ) {
+      errors.push('Provider with SANDBOX_READY lifecycle state must support SANDBOX environment');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
   }
 }

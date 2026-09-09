@@ -89,13 +89,31 @@ export class CostModelService {
   }
 
   /**
-   * Estimates cost for provider routing.
+   * Currency exchange rates relative to USD.
+   */
+  private readonly exchangeRatesToUsd: Record<string, number> = {
+    USD: 1.0,
+    INR: 0.012, // 1 INR = 0.012 USD (~83 INR/USD)
+    EUR: 1.08,
+    GBP: 1.28,
+    AED: 0.272,
+    SGD: 0.74,
+  };
+
+  /**
+   * Estimates cost for provider routing with tiered pricing, per-GB usage, and minimum charges.
    */
   estimateCost(
     providerId: string,
     amount = 0,
     currency?: string,
     region?: string,
+    options?: {
+      gbUsed?: number;
+      messagesSent?: number;
+      requestsCount?: number;
+      targetCurrency?: string;
+    },
   ): number {
     let model = this.costModels.get(providerId.toLowerCase());
     if (!model) {
@@ -109,18 +127,49 @@ export class CostModelService {
     if (!model) return 0;
 
     let percentage = model.percentageFee;
-    if (percentage > 1) {
-      percentage = percentage / 100; // convert 2.0% to 0.02
+    let fixed = model.fixedFee;
+
+    // Check volume-tiered pricing
+    if (model.tierRates && model.tierRates.length > 0) {
+      for (const tier of model.tierRates) {
+        if (amount >= tier.minVolume && (!tier.maxVolume || amount <= tier.maxVolume)) {
+          percentage = tier.percentageFee;
+          fixed = tier.fixedFee;
+          break;
+        }
+      }
     }
-    if (region && model.regionSpecificCosts[region.toUpperCase()] !== undefined) {
+
+    if (percentage >= 1) {
+      percentage = percentage / 100; // convert 2.0% or 1.0% to 0.02 or 0.01
+    }
+    if (region && model.regionSpecificCosts && model.regionSpecificCosts[region.toUpperCase()] !== undefined) {
       percentage = model.regionSpecificCosts[region.toUpperCase()];
       if (percentage > 1) percentage = percentage / 100;
     }
 
     const variableFee = amount * percentage;
-    const baseFee = model.fixedFee + model.perRequestCost + model.perMessageCost;
+    const gbCost = (options?.gbUsed || 0) * (model.perGbCost || 0);
+    const msgCost = (options?.messagesSent || 1) * model.perMessageCost;
+    const reqCost = (options?.requestsCount || 1) * model.perRequestCost;
+    const baseFee = fixed + (model.perRequestCost > 0 ? reqCost : 0) + (model.perMessageCost > 0 ? msgCost : 0) + gbCost;
 
-    return Number((baseFee + variableFee).toFixed(4));
+    let total = baseFee + variableFee;
+
+    // Apply minimum charge if specified
+    if (model.minimumCharge && total < model.minimumCharge) {
+      total = model.minimumCharge;
+    }
+
+    // Currency conversion if target currency requested
+    if (options?.targetCurrency && options.targetCurrency.toUpperCase() !== model.currency.toUpperCase()) {
+      const sourceRate = this.exchangeRatesToUsd[model.currency.toUpperCase()] || 1.0;
+      const targetRate = this.exchangeRatesToUsd[options.targetCurrency.toUpperCase()] || 1.0;
+      const inUsd = total * sourceRate;
+      total = inUsd / targetRate;
+    }
+
+    return Number(total.toFixed(4));
   }
 
   /**

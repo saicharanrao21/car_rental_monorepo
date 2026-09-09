@@ -14,7 +14,7 @@ export class IntegrationConfigService {
   private readonly logger = new Logger(IntegrationConfigService.name);
 
   // Default active providers per category if none explicitly set in DB
-  private static readonly DEFAULT_ACTIVE_PROVIDERS: Record<IntegrationCategory, string> = {
+  private static readonly DEFAULT_ACTIVE_PROVIDERS: Partial<Record<IntegrationCategory, string>> = {
     [IntegrationCategory.PAYMENT]: 'razorpay',
     [IntegrationCategory.MESSAGING_WHATSAPP]: 'meta',
     [IntegrationCategory.MESSAGING_SMS]: 'msg91',

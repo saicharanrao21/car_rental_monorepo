@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import '../providers/integration_marketplace_provider.dart';
 import '../widgets/provider_card.dart';
+import '../widgets/provider_comparison_widget.dart';
 import '../widgets/runtime_command_centre_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
@@ -15,7 +16,7 @@ class IntegrationMarketplacePage extends ConsumerStatefulWidget {
 
 class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketplacePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _activeTab = 'CATALOG'; // 'CATALOG' | 'OPERATIONS'
+  String _activeTab = 'CATALOG'; // 'CATALOG' | 'OPERATIONS' | 'COMPARISON'
 
   static const List<Map<String, String>> _categories = [
     {'id': 'ALL', 'label': 'All Categories'},
@@ -79,7 +80,7 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                           ],
                         ),
                       ),
-                      // View Switcher (Marketplace vs Runtime Operations)
+                      // View Switcher (Marketplace vs Runtime Operations vs Comparison)
                       SegmentedButton<String>(
                         segments: const [
                           ButtonSegment(
@@ -91,6 +92,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                             value: 'OPERATIONS',
                             label: Text('Runtime & Failover'),
                             icon: Icon(Icons.speed_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'COMPARISON',
+                            label: Text('Comparison Matrix'),
+                            icon: Icon(Icons.compare_arrows_rounded, size: 16),
                           ),
                         ],
                         selected: {_activeTab},
@@ -230,6 +236,10 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(
               child: RuntimeCommandCentreWidget(),
+            )
+          else if (_activeTab == 'COMPARISON')
+            const SliverToBoxAdapter(
+              child: ProviderComparisonWidget(),
             )
           else ...[
             // Provider Grid / List

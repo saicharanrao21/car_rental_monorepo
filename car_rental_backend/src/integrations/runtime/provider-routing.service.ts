@@ -10,6 +10,8 @@ import {
   CircuitState,
   IntegrationExecutionRequest,
   RoutingStrategy,
+  RoutingDecisionExplanation,
+  CandidateEvaluationExplanation,
 } from './runtime.types';
 import { CatalogProviderMetadata } from '../catalog/provider-catalog.types';
 
@@ -49,6 +51,7 @@ export class ProviderRoutingService {
     fallbackChain: string[];
     allCandidates: string[];
     strategyUsed: RoutingStrategy;
+    explanation?: RoutingDecisionExplanation;
   }> {
     const category = request.category;
     const capability = request.capability;
@@ -245,11 +248,21 @@ export class ProviderRoutingService {
     const primaryProviderId = candidateIds[0];
     const fallbackChain = candidateIds.slice(1);
 
+    const explanation = this.computeDecisionExplanation(
+      request,
+      finalCandidates,
+      primaryProviderId,
+      fallbackChain,
+      effectiveStrategy,
+      policyDecision,
+    );
+
     return {
       primaryProviderId,
       fallbackChain,
       allCandidates: candidateIds,
       strategyUsed: effectiveStrategy,
+      explanation,
     };
   }
 
@@ -357,5 +370,117 @@ export class ProviderRoutingService {
       default:
         return list.sort((a, b) => a.priority - b.priority);
     }
+  }
+
+  private computeDecisionExplanation(
+    request: IntegrationExecutionRequest,
+    candidates: CatalogProviderMetadata[],
+    primaryId: string,
+    fallbackChain: string[],
+    strategy: RoutingStrategy,
+    policyDecision: any,
+  ): RoutingDecisionExplanation {
+    const candidateEvaluations: CandidateEvaluationExplanation[] = [];
+    const reasons: string[] = [];
+
+    const primaryCandidate = candidates.find(
+      (c) => c.providerId.toLowerCase() === primaryId?.toLowerCase(),
+    );
+
+    if (primaryCandidate) {
+      if (request.preferredProviderId?.toLowerCase() === primaryId.toLowerCase()) {
+        reasons.push(`Explicitly requested preferred provider [${primaryId}] by caller`);
+      } else if (policyDecision?.preferredProviderId?.toLowerCase() === primaryId.toLowerCase()) {
+        reasons.push(`Selected [${primaryId}] as preferred by active policy rule`);
+      } else {
+        reasons.push(`Selected [${primaryId}] via ${strategy} routing strategy`);
+      }
+
+      if (request.region) {
+        reasons.push(`Supports region ${request.region}`);
+      }
+      if (request.currency) {
+        reasons.push(`Supports currency ${request.currency}`);
+      }
+
+      const circuit = this.circuitBreakerService.getState(primaryId);
+      reasons.push(`Circuit state is ${circuit}`);
+
+      const health = this.healthService.getRollingHealth(
+        primaryCandidate.category,
+        primaryId,
+      );
+      if (health) {
+        reasons.push(
+          `Rolling success rate: ${health.successRate.toFixed(1)}%, p50 latency: ${health.latencyP50}ms`,
+        );
+      }
+    }
+
+    for (const c of candidates) {
+      const isSelected = c.providerId.toLowerCase() === primaryId?.toLowerCase();
+      const circuit = this.circuitBreakerService.getState(c.providerId);
+      const health = this.healthService.getRollingHealth(c.category, c.providerId);
+      const costEstimate = this.costModelService.estimateCost(
+        c.providerId,
+        100,
+        request.currency,
+        request.region,
+      );
+
+      const healthScore =
+        circuit === CircuitState.OPEN ? 0 : health ? health.successRate : 100;
+      const latencyScore = Math.max(0, 100 - (health?.latencyP50 || 20) / 10);
+      const costScore = Math.max(0, 100 - costEstimate * 10);
+      const capabilityScore = 100;
+      const priorityScore = Math.max(0, 100 - c.priority * 5);
+      const policyScore = policyDecision?.deniedProviders?.includes(c.providerId)
+        ? 0
+        : 100;
+
+      const totalScore = Number(
+        (
+          healthScore * 0.3 +
+          latencyScore * 0.2 +
+          costScore * 0.15 +
+          priorityScore * 0.25 +
+          policyScore * 0.1
+        ).toFixed(1),
+      );
+
+      let rejectionReason: string | undefined;
+      if (!isSelected) {
+        if (circuit === CircuitState.OPEN) {
+          rejectionReason = `Circuit is OPEN due to past failure threshold`;
+        } else if (c.priority > (primaryCandidate?.priority || 1)) {
+          rejectionReason = `Lower priority ranking (${c.priority}) compared to selected (${primaryCandidate?.priority || 1})`;
+        } else {
+          rejectionReason = `Secondary choice in fallback chain; placed at standby position`;
+        }
+      }
+
+      candidateEvaluations.push({
+        providerId: c.providerId,
+        score: totalScore,
+        eligible: circuit !== CircuitState.OPEN && policyScore > 0,
+        rejectionReason,
+        factorScores: {
+          healthScore,
+          latencyScore,
+          costScore,
+          capabilityScore,
+          priorityScore,
+          policyScore,
+        },
+      });
+    }
+
+    return {
+      selectedProviderId: primaryId,
+      strategyUsed: strategy,
+      reasons,
+      candidatesEvaluated: candidateEvaluations,
+      fallbackChain,
+    };
   }
 }
