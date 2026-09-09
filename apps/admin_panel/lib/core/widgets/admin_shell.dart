@@ -106,6 +106,7 @@ class AdminShell extends ConsumerWidget {
       domainName: 'Security & Governance',
       icon: Icons.security_outlined,
       items: [
+        AdminNavItem(label: 'Automation Command Centre', icon: Icons.precision_manufacturing_outlined, route: '/automation', badgeText: 'PHASE L', badgeColor: Color(0xFF10B981)),
         AdminNavItem(label: 'Business Rules Engine', icon: Icons.tune_rounded, route: '/business-rules'),
         AdminNavItem(label: 'Audit Log', icon: Icons.history_outlined, route: '/audit-log'),
         AdminNavItem(label: 'Fraud & Risk', icon: Icons.security_outlined, route: '/fraud'),
