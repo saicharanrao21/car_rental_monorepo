@@ -30,19 +30,40 @@ import { PayUAdapter } from './adapters/payments/payu.adapter';
 import { PhonePeAdapter } from './adapters/payments/phonepe.adapter';
 import { AdyenAdapter } from './adapters/payments/adyen.adapter';
 import { MockPaymentAdapter } from './adapters/payments/mock-payment.adapter';
+import { CCAvenueAdapter } from './adapters/payments/ccavenue.adapter';
+import { PaytmAdapter } from './adapters/payments/paytm.adapter';
+import { BillDeskAdapter } from './adapters/payments/billdesk.adapter';
+import { PayPalAdapter } from './adapters/payments/paypal.adapter';
+import { SquareAdapter } from './adapters/payments/square.adapter';
+import { CheckoutComAdapter } from './adapters/payments/checkout-com.adapter';
+import { PaystackAdapter } from './adapters/payments/paystack.adapter';
+import { MollieAdapter } from './adapters/payments/mollie.adapter';
+
 import { MetaWhatsAppAdapter } from './adapters/messaging/meta-whatsapp.adapter';
 import { MockWhatsAppAdapter } from './adapters/messaging/mock-whatsapp.adapter';
 import { Msg91SmsAdapter } from './adapters/messaging/msg91-sms.adapter';
 import { TwilioSmsAdapter } from './adapters/messaging/twilio-sms.adapter';
 import { MockSmsAdapter } from './adapters/messaging/mock-sms.adapter';
+import { Fast2SmsAdapter } from './adapters/messaging/fast2sms.adapter';
+import { TextlocalAdapter } from './adapters/messaging/textlocal.adapter';
+import { KarixSmsAdapter } from './adapters/messaging/karix-sms.adapter';
+import { SinchSmsAdapter } from './adapters/messaging/sinch-sms.adapter';
+import { VonageSmsAdapter } from './adapters/messaging/vonage-sms.adapter';
+import { InfobipSmsAdapter } from './adapters/messaging/infobip-sms.adapter';
+import { PlivoSmsAdapter } from './adapters/messaging/plivo-sms.adapter';
+
 import { ResendEmailAdapter } from './adapters/messaging/resend-email.adapter';
 import { MockEmailAdapter } from './adapters/messaging/mock-email.adapter';
+import { SendGridEmailAdapter } from './adapters/messaging/sendgrid-email.adapter';
+import { PostmarkEmailAdapter } from './adapters/messaging/postmark-email.adapter';
+import { AwsSesEmailAdapter } from './adapters/messaging/aws-ses-email.adapter';
+
 import { FcmPushAdapter } from './adapters/messaging/fcm-push.adapter';
 import { MockPushAdapter } from './adapters/messaging/mock-push.adapter';
-import { GupshupWhatsAppAdapter } from './adapters/messaging/gupshup-whatsapp.adapter';
-import { SendGridEmailAdapter } from './adapters/messaging/sendgrid-email.adapter';
-import { TwilioVoiceAdapter } from './adapters/messaging/twilio-voice.adapter';
 import { OneSignalPushAdapter } from './adapters/messaging/onesignal-push.adapter';
+import { GupshupWhatsAppAdapter } from './adapters/messaging/gupshup-whatsapp.adapter';
+import { TwilioVoiceAdapter } from './adapters/messaging/twilio-voice.adapter';
+
 import { CommunicationTemplateEngine } from './communications/communication-template.engine';
 import { CommunicationComplianceService } from './communications/communication-compliance.service';
 import { CommunicationRoutingService } from './communications/communication-routing.service';
@@ -134,17 +155,34 @@ import { AdminModule } from '../admin/admin.module';
     PhonePeAdapter,
     AdyenAdapter,
     MockPaymentAdapter,
+    CCAvenueAdapter,
+    PaytmAdapter,
+    BillDeskAdapter,
+    PayPalAdapter,
+    SquareAdapter,
+    CheckoutComAdapter,
+    PaystackAdapter,
+    MollieAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
     Msg91SmsAdapter,
     TwilioSmsAdapter,
     MockSmsAdapter,
+    Fast2SmsAdapter,
+    TextlocalAdapter,
+    KarixSmsAdapter,
+    SinchSmsAdapter,
+    VonageSmsAdapter,
+    InfobipSmsAdapter,
+    PlivoSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
+    SendGridEmailAdapter,
+    PostmarkEmailAdapter,
+    AwsSesEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
     GupshupWhatsAppAdapter,
-    SendGridEmailAdapter,
     TwilioVoiceAdapter,
     OneSignalPushAdapter,
     R2StorageAdapter,
@@ -214,17 +252,34 @@ import { AdminModule } from '../admin/admin.module';
     PhonePeAdapter,
     AdyenAdapter,
     MockPaymentAdapter,
+    CCAvenueAdapter,
+    PaytmAdapter,
+    BillDeskAdapter,
+    PayPalAdapter,
+    SquareAdapter,
+    CheckoutComAdapter,
+    PaystackAdapter,
+    MollieAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
     Msg91SmsAdapter,
     TwilioSmsAdapter,
     MockSmsAdapter,
+    Fast2SmsAdapter,
+    TextlocalAdapter,
+    KarixSmsAdapter,
+    SinchSmsAdapter,
+    VonageSmsAdapter,
+    InfobipSmsAdapter,
+    PlivoSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
+    SendGridEmailAdapter,
+    PostmarkEmailAdapter,
+    AwsSesEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
     GupshupWhatsAppAdapter,
-    SendGridEmailAdapter,
     TwilioVoiceAdapter,
     OneSignalPushAdapter,
     R2StorageAdapter,
@@ -258,17 +313,34 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly phonePeAdapter: PhonePeAdapter,
     private readonly adyenAdapter: AdyenAdapter,
     private readonly mockPaymentAdapter: MockPaymentAdapter,
+    private readonly ccavenueAdapter: CCAvenueAdapter,
+    private readonly paytmAdapter: PaytmAdapter,
+    private readonly billDeskAdapter: BillDeskAdapter,
+    private readonly payPalAdapter: PayPalAdapter,
+    private readonly squareAdapter: SquareAdapter,
+    private readonly checkoutComAdapter: CheckoutComAdapter,
+    private readonly paystackAdapter: PaystackAdapter,
+    private readonly mollieAdapter: MollieAdapter,
     private readonly metaWhatsAppAdapter: MetaWhatsAppAdapter,
     private readonly mockWhatsAppAdapter: MockWhatsAppAdapter,
     private readonly msg91SmsAdapter: Msg91SmsAdapter,
     private readonly twilioSmsAdapter: TwilioSmsAdapter,
     private readonly mockSmsAdapter: MockSmsAdapter,
+    private readonly fast2SmsAdapter: Fast2SmsAdapter,
+    private readonly textlocalAdapter: TextlocalAdapter,
+    private readonly karixSmsAdapter: KarixSmsAdapter,
+    private readonly sinchSmsAdapter: SinchSmsAdapter,
+    private readonly vonageSmsAdapter: VonageSmsAdapter,
+    private readonly infobipSmsAdapter: InfobipSmsAdapter,
+    private readonly plivoSmsAdapter: PlivoSmsAdapter,
     private readonly resendEmailAdapter: ResendEmailAdapter,
     private readonly mockEmailAdapter: MockEmailAdapter,
+    private readonly sendGridEmailAdapter: SendGridEmailAdapter,
+    private readonly postmarkEmailAdapter: PostmarkEmailAdapter,
+    private readonly awsSesEmailAdapter: AwsSesEmailAdapter,
     private readonly fcmPushAdapter: FcmPushAdapter,
     private readonly mockPushAdapter: MockPushAdapter,
     private readonly gupshupWhatsAppAdapter: GupshupWhatsAppAdapter,
-    private readonly sendGridEmailAdapter: SendGridEmailAdapter,
     private readonly twilioVoiceAdapter: TwilioVoiceAdapter,
     private readonly oneSignalPushAdapter: OneSignalPushAdapter,
     private readonly r2StorageAdapter: R2StorageAdapter,
@@ -299,6 +371,14 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.phonePeAdapter);
     this.registry.registerProvider(this.adyenAdapter);
     this.registry.registerProvider(this.mockPaymentAdapter);
+    this.registry.registerProvider(this.ccavenueAdapter);
+    this.registry.registerProvider(this.paytmAdapter);
+    this.registry.registerProvider(this.billDeskAdapter);
+    this.registry.registerProvider(this.payPalAdapter);
+    this.registry.registerProvider(this.squareAdapter);
+    this.registry.registerProvider(this.checkoutComAdapter);
+    this.registry.registerProvider(this.paystackAdapter);
+    this.registry.registerProvider(this.mollieAdapter);
 
     // Register Messaging Adapters
     this.registry.registerProvider(this.metaWhatsAppAdapter);
@@ -306,12 +386,25 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.msg91SmsAdapter);
     this.registry.registerProvider(this.twilioSmsAdapter);
     this.registry.registerProvider(this.mockSmsAdapter);
+    this.registry.registerProvider(this.fast2SmsAdapter);
+    this.registry.registerProvider(this.textlocalAdapter);
+    this.registry.registerProvider(this.karixSmsAdapter);
+    this.registry.registerProvider(this.sinchSmsAdapter);
+    this.registry.registerProvider(this.vonageSmsAdapter);
+    this.registry.registerProvider(this.infobipSmsAdapter);
+    this.registry.registerProvider(this.plivoSmsAdapter);
+
+    // Register Email Adapters
     this.registry.registerProvider(this.resendEmailAdapter);
     this.registry.registerProvider(this.mockEmailAdapter);
+    this.registry.registerProvider(this.sendGridEmailAdapter);
+    this.registry.registerProvider(this.postmarkEmailAdapter);
+    this.registry.registerProvider(this.awsSesEmailAdapter);
+
+    // Register Push & Voice Adapters
     this.registry.registerProvider(this.fcmPushAdapter);
     this.registry.registerProvider(this.mockPushAdapter);
     this.registry.registerProvider(this.gupshupWhatsAppAdapter);
-    this.registry.registerProvider(this.sendGridEmailAdapter);
     this.registry.registerProvider(this.twilioVoiceAdapter);
     this.registry.registerProvider(this.oneSignalPushAdapter);
 
