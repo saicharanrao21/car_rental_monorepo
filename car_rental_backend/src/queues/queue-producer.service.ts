@@ -43,8 +43,9 @@ export interface WebhookJobData {
 }
 
 export interface CleanupJobData {
-  task: 'PURGE_EXPIRED_OTPS' | 'EXPIRE_STALE_BOOKINGS';
+  task: 'PURGE_EXPIRED_OTPS' | 'EXPIRE_STALE_BOOKINGS' | 'CLEAN_TEMP_STORAGE';
   olderThanDate?: string;
+  timeoutMinutes?: number;
 }
 
 @Injectable()
@@ -139,9 +140,17 @@ export class QueueProducerService {
    */
   async dispatchCleanupTask(data: CleanupJobData) {
     const jobId = `cleanup-${data.task}-${Date.now()}`;
+    let jobType: string;
+    if (data.task === 'EXPIRE_STALE_BOOKINGS') {
+      jobType = JOB_TYPES.CLEANUP.EXPIRE_STALE_BOOKINGS;
+    } else if (data.task === 'CLEAN_TEMP_STORAGE') {
+      jobType = JOB_TYPES.CLEANUP.CLEAN_TEMP_STORAGE;
+    } else {
+      jobType = JOB_TYPES.CLEANUP.PURGE_EXPIRED_OTPS;
+    }
     return this.queueFactory.addJob(
       QUEUE_NAMES.CLEANUP,
-      JOB_TYPES.CLEANUP.PURGE_EXPIRED_OTPS,
+      jobType,
       data,
       { jobId },
     );

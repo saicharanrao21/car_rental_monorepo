@@ -93,12 +93,61 @@ describe('Phase 27.1 — Background Worker & BullMQ Queue Foundation Tests', () 
     });
 
     it('dispatches Cleanup maintenance tasks', async () => {
-      const res = await queueProducer.dispatchCleanupTask({
+      const resOtp = await queueProducer.dispatchCleanupTask({
         task: 'PURGE_EXPIRED_OTPS',
       });
+      expect(resOtp.jobId).toContain('cleanup-PURGE_EXPIRED_OTPS');
+      expect(resOtp.status).toBe('PROCESSED_MOCK');
 
-      expect(res.jobId).toContain('cleanup-PURGE_EXPIRED_OTPS');
-      expect(res.status).toBe('PROCESSED_MOCK');
+      const resBookings = await queueProducer.dispatchCleanupTask({
+        task: 'EXPIRE_STALE_BOOKINGS',
+      });
+      expect(resBookings.jobId).toContain('cleanup-EXPIRE_STALE_BOOKINGS');
+      expect(resBookings.status).toBe('PROCESSED_MOCK');
+    });
+  });
+
+  describe('CleanupProcessor execution', () => {
+    it('executes purge-expired-otps and expire-stale-bookings correctly', async () => {
+      const mockPrisma = {
+        otpRequest: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 4 }),
+        },
+        booking: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'b_stale_1' }]),
+          update: jest.fn().mockResolvedValue({ id: 'b_stale_1' }),
+        },
+      };
+
+      const mockModuleRef = {
+        get: jest.fn().mockReturnValue(null),
+      };
+
+      const { CleanupProcessor } = require('./processors/cleanup.processor');
+      const processor = new CleanupProcessor(queueFactory, mockPrisma as any, mockModuleRef as any);
+
+      const otpResult = await processor.process({
+        id: 'job-otp-1',
+        name: 'purge-expired-otps',
+        data: {},
+      } as any);
+      expect(otpResult).toEqual({ purgedOtps: 4 });
+      expect(mockPrisma.otpRequest.deleteMany).toHaveBeenCalled();
+
+      const staleResult = await processor.process({
+        id: 'job-stale-1',
+        name: 'expire-stale-bookings',
+        data: { timeoutMinutes: 30 },
+      } as any);
+      expect(staleResult).toEqual({ expiredBookings: 1 });
+      expect(mockPrisma.booking.findMany).toHaveBeenCalled();
+      expect(mockPrisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'b_stale_1' },
+          data: expect.objectContaining({ status: 'EXPIRED' }),
+        }),
+      );
     });
   });
 });
+
