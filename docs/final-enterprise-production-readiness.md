@@ -113,6 +113,18 @@ The DriveGo platform is structured as an enterprise-grade multi-application mono
 2. **`QueueProducerService` Cleanup Task Job Type Mapping:**
    - *Discovered Gap:* `QueueProducerService.dispatchCleanupTask` hardcoded `JOB_TYPES.CLEANUP.PURGE_EXPIRED_OTPS` for all cleanup tasks.
    - *Fix:* Updated `dispatchCleanupTask` to inspect `data.task` and map `EXPIRE_STALE_BOOKINGS` to `JOB_TYPES.CLEANUP.EXPIRE_STALE_BOOKINGS` and `CLEAN_TEMP_STORAGE` to `JOB_TYPES.CLEANUP.CLEAN_TEMP_STORAGE`. Added unit tests in `src/queues/queues.spec.ts` proving end-to-end routing.
+3. **Trip Extensions Ledger Invariant & Production Mock Guard:**
+   - *Discovered Gap:* `trip-extensions.service.ts` allowed `RAZORPAY_USE_MOCK` to silently bypass payment verification even if `NODE_ENV === 'production'`, and did not record double-entry accounting journals in `LedgerCore` upon extension payment verification.
+   - *Fix:* Enforced a strict production guard throwing a critical security error if `RAZORPAY_USE_MOCK` is active in production. Integrated `LedgerCore.recordJournal` within the atomic extension transaction, debiting `GATEWAY_CLEARING` and crediting host `VENDOR_PAYABLE`, `PLATFORM_COMMISSION_REVENUE`, and `TAX_GST_LIABILITY`.
+4. **Corporate Account Credit Settlement Double-Entry Accounting:**
+   - *Discovered Gap:* `CorporateAccountsService.settleCredit` updated account balances without generating balanced general ledger journal lines in `LedgerCore`.
+   - *Fix:* Injected `LedgerCoreService` into `CorporateAccountsService` and recorded balanced double-entry journals (`Debit: GATEWAY_CLEARING (BANK_TRANSFER)`, `Credit: CORPORATE_RECEIVABLE`) atomically upon corporate invoice payment settlement.
+5. **Corporate Booking Journal Line Entity Disambiguation:**
+   - *Discovered Gap:* Corporate bookings in `payments.service.ts` routed debits to generic `GATEWAY_CLEARING` without attributing to `CORPORATE_RECEIVABLE`.
+   - *Fix:* Updated `PaymentsService.recordPaymentLedgerEntries` to classify corporate credit payments under `CORPORATE_RECEIVABLE` with the corporate account entity identifier.
+6. **Meta WhatsApp Provider Fallback Hardening:**
+   - *Discovered Gap:* In `whatsapp.module.ts`, missing `WHATSAPP_ACCESS_TOKEN` in production silently fell back to `MockWhatsAppProvider`.
+   - *Fix:* Removed the silent mock fallback in production, ensuring production strictly resolves to `MetaWhatsAppProvider` which enforces external credential validation and error logging.
 
 ---
 

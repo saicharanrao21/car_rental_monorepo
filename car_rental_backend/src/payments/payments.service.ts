@@ -1902,12 +1902,23 @@ export class PaymentsService {
     }
 
     if (gatewayPaid.gt(0)) {
+      const isCorporate =
+        payment.paymentMethod === 'CORPORATE_CREDIT' ||
+        Boolean(booking?.corporateAccountId);
       journalLines.push({
-        accountType: LedgerAccountType.GATEWAY_CLEARING,
-        accountEntityId: isFullWalletOrder ? 'WALLET' : (payment.gatewayProvider || 'RAZORPAY'),
+        accountType: isCorporate
+          ? LedgerAccountType.CORPORATE_RECEIVABLE
+          : LedgerAccountType.GATEWAY_CLEARING,
+        accountEntityId: isCorporate
+          ? (booking?.corporateAccountId || 'CORPORATE')
+          : (isFullWalletOrder
+              ? 'WALLET'
+              : (payment.gatewayProvider || 'RAZORPAY')),
         side: LedgerEntrySide.DEBIT,
         amount: gatewayPaid,
-        narration: `Payment gateway clearing for booking ${booking.id}`,
+        narration: isCorporate
+          ? `Corporate credit receivable for booking ${booking.id}`
+          : `Payment gateway clearing for booking ${booking.id}`,
         bookingId: booking.id,
         paymentId: payment.id,
       });

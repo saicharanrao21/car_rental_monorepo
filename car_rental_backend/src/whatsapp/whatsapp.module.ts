@@ -26,8 +26,7 @@ import {
         mockProvider: MockWhatsAppProvider,
       ) => {
         const isProd = configService.get<string>('NODE_ENV') === 'production';
-        const hasToken = !!configService.get<string>('WHATSAPP_ACCESS_TOKEN');
-        return isProd && hasToken ? metaProvider : mockProvider;
+        return isProd ? metaProvider : mockProvider;
       },
       inject: [ConfigService, MetaWhatsAppProvider, MockWhatsAppProvider],
     },

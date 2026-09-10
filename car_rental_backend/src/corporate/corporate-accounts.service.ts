@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
@@ -15,12 +16,17 @@ import {
   AddCorporateEmployeeDto,
 } from './dto/corporate-account.dto';
 import * as crypto from 'crypto';
+import { LedgerCoreService } from '../finance/ledger-core.service';
+import { LedgerAccountType, LedgerEntrySide } from '../finance/dto/ledger-core.dto';
 
 @Injectable()
 export class CorporateAccountsService {
   private readonly logger = new Logger(CorporateAccountsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly ledgerCore?: LedgerCoreService,
+  ) {}
 
   /**
    * 1. CREATE CORPORATE ACCOUNT:
@@ -545,6 +551,41 @@ export class CorporateAccountsService {
           notes: `Corporate invoice payment settled${bookingId ? ` for booking ${bookingId}` : ''}`,
         },
       });
+
+      if (this.ledgerCore) {
+        try {
+          await this.ledgerCore.recordJournal(
+            {
+              referenceType: 'CORPORATE_CREDIT_SETTLEMENT',
+              referenceId: lockedAccount.id,
+              bookingId: bookingId || undefined,
+              narration: `Corporate invoice payment settled for ${lockedAccount.companyName} (${lockedAccount.corporateCode})`,
+              idempotencyKey: `jrn_corp_stl_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+              lines: [
+                {
+                  accountType: LedgerAccountType.GATEWAY_CLEARING,
+                  accountEntityId: 'BANK_TRANSFER',
+                  side: LedgerEntrySide.DEBIT,
+                  amount: decrementAmount,
+                  narration: `Settlement funds received for corporate account ${lockedAccount.corporateCode}`,
+                },
+                {
+                  accountType: LedgerAccountType.CORPORATE_RECEIVABLE,
+                  accountEntityId: lockedAccount.id,
+                  side: LedgerEntrySide.CREDIT,
+                  amount: decrementAmount,
+                  narration: `Corporate credit line cleared for ${lockedAccount.corporateCode}`,
+                },
+              ],
+            },
+            prismaTx,
+          );
+        } catch (ledgerErr: any) {
+          this.logger.error(
+            `Failed to record corporate settlement ledger journal: ${ledgerErr.message}`,
+          );
+        }
+      }
 
       return updated;
     };

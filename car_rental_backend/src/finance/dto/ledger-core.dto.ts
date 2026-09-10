@@ -1,6 +1,8 @@
 import { LedgerAccountType, LedgerEntrySide } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
+export { LedgerAccountType, LedgerEntrySide };
+
 export interface JournalEntryLineInput {
   accountType: LedgerAccountType;
   accountEntityId?: string; // vendorId, customerId, or corporateAccountId

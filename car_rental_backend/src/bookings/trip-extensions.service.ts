@@ -24,6 +24,8 @@ import {
 } from '@prisma/client';
 import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
+import { LedgerCoreService } from '../finance/ledger-core.service';
+import { LedgerAccountType, LedgerEntrySide } from '../finance/dto/ledger-core.dto';
 
 export interface ExtensionQuote {
   bookingId: string;
@@ -52,9 +54,16 @@ export class TripExtensionsService {
     private readonly invoicesService: InvoicesService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
+    @Optional() private readonly ledgerCore?: LedgerCoreService,
   ) {
     this.useMock =
       this.configService.get<string>('RAZORPAY_USE_MOCK') === 'true';
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (this.useMock && nodeEnv === 'production') {
+      throw new Error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: RAZORPAY_USE_MOCK is set to true in TripExtensionsService, but NODE_ENV is production! Bypassing payments in production is forbidden.',
+      );
+    }
     const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
     const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
 
@@ -192,6 +201,13 @@ export class TripExtensionsService {
     const amountInPaise = Math.round(quote.totalFare * 100);
     let orderId = `ext_mock_${Date.now()}`;
 
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (nodeEnv === 'production' && !this.razorpay) {
+      throw new BadRequestException(
+        'Live payment gateway credentials not configured in production.',
+      );
+    }
+
     if (!this.useMock && this.razorpay) {
       try {
         const order = await this.razorpay.orders.create({
@@ -275,6 +291,13 @@ export class TripExtensionsService {
       return { success: true, message: 'Extension already confirmed.' };
     }
 
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (nodeEnv === 'production' && this.useMock) {
+      throw new BadRequestException(
+        'Mock payment verification forbidden in production.',
+      );
+    }
+
     // Verify HMAC signature in live mode
     if (!this.useMock) {
       const secret = this.configService.get<string>('RAZORPAY_KEY_SECRET') || '';
@@ -334,6 +357,76 @@ export class TripExtensionsService {
           endDate: extension.requestedEndDate,
         },
       });
+
+      if (this.ledgerCore) {
+        try {
+          const totalFareDecimal = new Prisma.Decimal(extension.totalFare);
+          const vendorPayableDecimal = new Prisma.Decimal(extension.netToVendor);
+          const gstAmountDecimal = new Prisma.Decimal(extension.gstAmount);
+          const platformFeeDecimal = new Prisma.Decimal(extension.platformFee);
+
+          // Guarantee exact zero-sum balance: totalFare == vendorPayable + adjustedPlatformFee + gstAmount
+          const sub = vendorPayableDecimal.add(platformFeeDecimal).add(gstAmountDecimal);
+          const delta = totalFareDecimal.sub(sub);
+          const adjustedPlatformFee = platformFeeDecimal.add(delta);
+
+          const journalLines: any[] = [
+            {
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              accountEntityId: 'RAZORPAY',
+              side: LedgerEntrySide.DEBIT,
+              amount: totalFareDecimal,
+              narration: `Trip extension payment gateway clearing for booking ${bookingId}`,
+              bookingId,
+            },
+            {
+              accountType: LedgerAccountType.VENDOR_PAYABLE,
+              accountEntityId: extension.booking.vendorId,
+              side: LedgerEntrySide.CREDIT,
+              amount: vendorPayableDecimal,
+              narration: `Net rental revenue payable to host for extension on booking ${bookingId}`,
+              bookingId,
+            },
+          ];
+
+          if (adjustedPlatformFee.gt(0)) {
+            journalLines.push({
+              accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+              side: LedgerEntrySide.CREDIT,
+              amount: adjustedPlatformFee,
+              narration: `Platform commission for extension on booking ${bookingId}`,
+              bookingId,
+            });
+          }
+
+          if (gstAmountDecimal.gt(0)) {
+            journalLines.push({
+              accountType: LedgerAccountType.TAX_GST_LIABILITY,
+              side: LedgerEntrySide.CREDIT,
+              amount: gstAmountDecimal,
+              narration: `GST tax liability for extension on booking ${bookingId}`,
+              bookingId,
+            });
+          }
+
+          await this.ledgerCore.recordJournal(
+            {
+              referenceType: 'TRIP_EXTENSION_PAYMENT',
+              referenceId: extension.id,
+              narration: `Trip extension payment verification financial journal for booking ${bookingId}`,
+              lines: journalLines,
+              idempotencyKey: `jrn_ext_verify_${extension.id}`,
+              bookingId,
+              vendorId: extension.booking.vendorId,
+            },
+            tx,
+          );
+        } catch (ledgerErr: any) {
+          this.logger.error(
+            `Trip extension ledger journal recording note: ${ledgerErr.message}`,
+          );
+        }
+      }
     });
 
     // Generate supplementary extension invoice
