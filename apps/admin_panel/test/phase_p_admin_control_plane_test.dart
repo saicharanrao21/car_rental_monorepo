@@ -9,12 +9,20 @@ import 'package:admin_panel/features/corporate/presentation/pages/admin_corporat
 import 'package:admin_panel/features/reconciliation/presentation/pages/admin_reconciliation_page.dart';
 import 'package:admin_panel/features/operations_center/presentation/pages/admin_operations_command_center_page.dart';
 
-ApiClient createMockApiClient() {
+ApiClient createMockApiClient({List<Map<String, dynamic>>? recordedRequests}) {
   final testDio = Dio();
   testDio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (options.path.contains('/payouts/admin/summary')) {
+        recordedRequests?.add({
+          'method': options.method,
+          'path': options.path,
+          'data': options.data,
+          'query': options.queryParameters,
+        });
+
+        // 1. Admin finance summary (GET /admin/finance/summary)
+        if (options.path == '/admin/finance/summary' && options.method == 'GET') {
           return handler.resolve(Response(
             requestOptions: options,
             statusCode: 200,
@@ -27,7 +35,9 @@ ApiClient createMockApiClient() {
             },
           ));
         }
-        if (options.path.contains('/admin/payouts')) {
+
+        // 2. Admin payouts list (GET /admin/payouts)
+        if (options.path == '/admin/payouts' && options.method == 'GET') {
           return handler.resolve(Response(
             requestOptions: options,
             statusCode: 200,
@@ -63,35 +73,45 @@ ApiClient createMockApiClient() {
             },
           ));
         }
-        if (options.path.contains('/corporate-accounts')) {
+
+        // 3. Corporate accounts paginated contract (GET /api/v1/corporate-accounts)
+        if (options.path == '/api/v1/corporate-accounts' && options.method == 'GET') {
           return handler.resolve(Response(
             requestOptions: options,
             statusCode: 200,
-            data: [
-              {
-                'id': 'corp_1',
-                'companyName': 'Infosys Enterprise Travel',
-                'corporateCode': 'CORP-INFY-2026',
-                'creditLimit': 5000000,
-                'usedCredit': 1200000,
-                'isActive': true,
-                'contactEmail': 'fleet-admin@infosys.com',
-                'billingCycle': 'MONTHLY',
-              },
-              {
-                'id': 'corp_2',
-                'companyName': 'Tata Consultancy Services',
-                'corporateCode': 'CORP-TCS-BLR',
-                'creditLimit': 10000000,
-                'usedCredit': 4500000,
-                'isActive': true,
-                'contactEmail': 'mobility@tcs.com',
-                'billingCycle': 'MONTHLY',
-              },
-            ],
+            data: {
+              'data': [
+                {
+                  'id': 'corp_1',
+                  'companyName': 'Infosys Enterprise Travel',
+                  'corporateCode': 'CORP-INFY-2026',
+                  'creditLimit': 5000000,
+                  'usedCredit': 1200000,
+                  'isActive': true,
+                  'contactEmail': 'fleet-admin@infosys.com',
+                  'billingCycle': 'MONTHLY',
+                },
+                {
+                  'id': 'corp_2',
+                  'companyName': 'Tata Consultancy Services',
+                  'corporateCode': 'CORP-TCS-BLR',
+                  'creditLimit': 10000000,
+                  'usedCredit': 4500000,
+                  'isActive': true,
+                  'contactEmail': 'mobility@tcs.com',
+                  'billingCycle': 'MONTHLY',
+                },
+              ],
+              'total': 2,
+              'page': 1,
+              'limit': 50,
+              'totalPages': 1,
+            },
           ));
         }
-        if (options.path.contains('/reconciliation/exceptions')) {
+
+        // 4. Reconciliation exceptions (GET /api/v1/integrations/admin/payment-ecosystem/reconciliation/exceptions)
+        if (options.path.contains('/reconciliation/exceptions') && options.method == 'GET') {
           return handler.resolve(Response(
             requestOptions: options,
             statusCode: 200,
@@ -121,20 +141,25 @@ ApiClient createMockApiClient() {
             ],
           ));
         }
-        if (options.path.contains('/operations/admin/command-center')) {
+
+        // 5. Operations command center (GET /api/v1/operations/admin/command-center)
+        if (options.path == '/api/v1/operations/admin/command-center' && options.method == 'GET') {
           return handler.resolve(Response(
             requestOptions: options,
             statusCode: 200,
             data: {
-              'activeRentals': 34,
-              'pickupsToday': 8,
-              'returnsToday': 12,
-              'unallocatedCount': 0,
-              'slaBreachesCount': 2,
-              'maintenanceVehicles': 3,
-              'activeCars': 45,
-              'totalCars': 50,
-              'substitutionsCount': 1,
+              'timestamp': '2026-09-10T04:00:00Z',
+              'overview': {
+                'activeRentals': 34,
+                'pickupsToday': 8,
+                'returnsToday': 12,
+                'unallocatedCount': 0,
+                'slaBreachesCount': 2,
+                'maintenanceVehicles': 3,
+                'activeCars': 45,
+                'totalCars': 50,
+                'substitutionsCount': 1,
+              },
               'recentIncidents': [
                 {
                   'id': 'inc_1',
@@ -149,6 +174,33 @@ ApiClient createMockApiClient() {
             },
           ));
         }
+
+        // 6. SLA evaluate (POST /api/v1/operations/sla/evaluate)
+        if (options.path == '/api/v1/operations/sla/evaluate' && options.method == 'POST') {
+          return handler.resolve(Response(
+            requestOptions: options,
+            statusCode: 200,
+            data: {
+              'totalEvaluated': 24,
+              'incidentsCreated': 1,
+            },
+          ));
+        }
+
+        // 7. Resolve SLA incident (POST /api/v1/operations/sla/incidents/:id/resolve)
+        if (options.path.startsWith('/api/v1/operations/sla/incidents/') &&
+            options.path.endsWith('/resolve') &&
+            options.method == 'POST') {
+          return handler.resolve(Response(
+            requestOptions: options,
+            statusCode: 200,
+            data: {
+              'id': 'inc_1',
+              'status': 'RESOLVED',
+            },
+          ));
+        }
+
         return handler.resolve(Response(requestOptions: options, statusCode: 200, data: {}));
       },
     ),
@@ -277,6 +329,63 @@ void main() {
 
       // Check Incidents
       expect(find.textContaining('OVERDUE_RETURN'), findsOneWidget);
+    });
+
+    testWidgets('evaluates SLA via POST /api/v1/operations/sla/evaluate and resolves incident with resolutionNotes', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final recorded = <Map<String, dynamic>>[];
+      final mockApi = createMockApiClient(recordedRequests: recorded);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            apiClientProvider.overrideWithValue(mockApi),
+          ],
+          child: const MaterialApp(
+            home: AdminOperationsCommandCenterPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Evaluate SLAs button
+      final evalButton = find.text('Evaluate SLAs');
+      expect(evalButton, findsOneWidget);
+      await tester.tap(evalButton);
+      await tester.pumpAndSettle();
+
+      // Verify POST /api/v1/operations/sla/evaluate was called
+      final evalRequest = recorded.firstWhere(
+        (r) => r['path'] == '/api/v1/operations/sla/evaluate',
+        orElse: () => {},
+      );
+      expect(evalRequest, isNotEmpty);
+      expect(evalRequest['method'], 'POST');
+
+      // Tap Resolve on incident
+      final resolveButton = find.text('Resolve');
+      expect(resolveButton, findsOneWidget);
+      await tester.tap(resolveButton);
+      await tester.pumpAndSettle();
+
+      // Submit resolution
+      final submitButton = find.text('Resolve Incident');
+      expect(submitButton, findsOneWidget);
+      await tester.tap(submitButton);
+      await tester.pumpAndSettle();
+
+      // Verify POST /api/v1/operations/sla/incidents/inc_1/resolve
+      final resolveRequest = recorded.firstWhere(
+        (r) => (r['path'] as String).contains('/sla/incidents/inc_1/resolve'),
+        orElse: () => {},
+      );
+      expect(resolveRequest, isNotEmpty);
+      expect(resolveRequest['method'], 'POST');
+      expect(resolveRequest['data'], isNotNull);
+      expect((resolveRequest['data'] as Map).containsKey('resolutionNotes'), isTrue);
     });
   });
 }

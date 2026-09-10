@@ -22,6 +22,8 @@ import {
   WalletStatus,
   LedgerEntryType,
   WalletBucketType,
+  LedgerAccountType,
+  LedgerEntrySide,
   Prisma,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -34,6 +36,7 @@ import { AdminRefundDto } from './dto/admin-refund.dto';
 import * as crypto from 'crypto';
 import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
 import { IntegrationCategory } from '../integrations/registry/provider.types';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 
 @Injectable()
 export class PaymentsService {
@@ -54,6 +57,9 @@ export class PaymentsService {
     private readonly walletsService?: WalletsService,
     @Optional() private readonly auditLogService?: AuditLogService,
     @Optional() private readonly runtimeService?: IntegrationRuntimeService,
+    @Optional()
+    @Inject(forwardRef(() => LedgerCoreService))
+    private readonly ledgerCore?: LedgerCoreService,
   ) {
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
@@ -732,6 +738,43 @@ export class PaymentsService {
         });
       }
 
+      // Record General Ledger Journal via LedgerCore
+      await this.recordPaymentLedgerJournal(
+        booking,
+        payment,
+        totalExpected,
+        gatewayPaid,
+        walletRequired,
+        isFullWalletOrder,
+        tx,
+      );
+
+      // Record Transactional Outbox Event
+      if ((tx as any).bookingOutboxEvent) {
+        try {
+          await (tx as any).bookingOutboxEvent.create({
+            data: {
+              bookingId: booking.id,
+              eventType: 'PAYMENT_VERIFIED',
+              aggregateType: 'PAYMENT',
+              aggregateId: payment.id,
+              tenantId: booking.vendorId,
+              actorId: customerId,
+              actorRole: 'CUSTOMER',
+              previousStatus: payment.status,
+              newStatus: PaymentStatus.PAID,
+              correlationId: `evt_pay_verified_${payment.id}_${Date.now()}`,
+              payload: {
+                paymentId: payment.id,
+                bookingId: booking.id,
+                amount: totalExpected.toNumber(),
+                gatewayPaymentId: resolvedPaymentId,
+              },
+            },
+          });
+        } catch (_) {}
+      }
+
       // Keep Booking in PENDING status - Payment does NOT confirm booking (Phase 23A Owner Confirmation Gate)
       const b = await tx.booking.findUnique({
         where: { id: booking.id },
@@ -980,7 +1023,48 @@ export class PaymentsService {
 
         const b = await tx.booking.findUnique({
           where: { id: payment.bookingId },
+          include: { securityDeposit: true },
         });
+
+        if (b) {
+          const totalExpected = b.totalFare.add(
+            b.securityDeposit?.amount || new Decimal(0),
+          );
+          await this.recordPaymentLedgerJournal(
+            b,
+            payment,
+            totalExpected,
+            totalExpected,
+            new Decimal(0),
+            false,
+            tx,
+          );
+
+          if ((tx as any).bookingOutboxEvent) {
+            try {
+              await (tx as any).bookingOutboxEvent.create({
+                data: {
+                  bookingId: b.id,
+                  eventType: 'PAYMENT_CAPTURED',
+                  aggregateType: 'PAYMENT',
+                  aggregateId: payment.id,
+                  tenantId: b.vendorId,
+                  actorId: 'SYSTEM',
+                  actorRole: 'SYSTEM',
+                  previousStatus: payment.status,
+                  newStatus: PaymentStatus.PAID,
+                  correlationId: `evt_pay_captured_${payment.id}_${Date.now()}`,
+                  payload: {
+                    paymentId: payment.id,
+                    bookingId: b.id,
+                    amount: totalExpected.toNumber(),
+                    gatewayPaymentId: paymentId,
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+        }
 
         return b;
       });
@@ -1767,4 +1851,116 @@ export class PaymentsService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  private async recordPaymentLedgerJournal(
+    booking: any,
+    payment: any,
+    totalExpected: Decimal,
+    gatewayPaid: Decimal,
+    walletRequired: Decimal,
+    isFullWalletOrder: boolean,
+    tx: any,
+  ): Promise<void> {
+    if (!this.ledgerCore) return;
+
+    const secDeposit = booking.securityDeposit?.amount || new Decimal(0);
+    const vendorPayable = booking.netToVendor;
+    const gstTax = booking.gstAmount || new Decimal(0);
+    const platformFee = booking.platformFee || new Decimal(0);
+
+    // Guarantee exact zero-sum balance: totalExpected == vendorPayable + adjustedPlatformFee + gstTax + secDeposit
+    const subComponents = vendorPayable.add(platformFee).add(gstTax).add(secDeposit);
+    const delta = totalExpected.sub(subComponents);
+    const adjustedPlatformFee = platformFee.add(delta);
+
+    const journalLines: any[] = [];
+
+    // Debit Side
+    if (walletRequired.gt(0)) {
+      journalLines.push({
+        accountType: LedgerAccountType.CUSTOMER_WALLET,
+        accountEntityId: booking.customerId,
+        side: LedgerEntrySide.DEBIT,
+        amount: walletRequired,
+        narration: `Wallet checkout debit for booking ${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+      });
+    }
+
+    if (gatewayPaid.gt(0)) {
+      journalLines.push({
+        accountType: LedgerAccountType.GATEWAY_CLEARING,
+        accountEntityId: isFullWalletOrder ? 'WALLET' : (payment.gatewayProvider || 'RAZORPAY'),
+        side: LedgerEntrySide.DEBIT,
+        amount: gatewayPaid,
+        narration: `Payment gateway clearing for booking ${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+      });
+    }
+
+    // Credit Side: Vendor Payable
+    journalLines.push({
+      accountType: LedgerAccountType.VENDOR_PAYABLE,
+      accountEntityId: booking.vendorId,
+      side: LedgerEntrySide.CREDIT,
+      amount: vendorPayable,
+      narration: `Net rental revenue payable to vendor for booking ${booking.id}`,
+      bookingId: booking.id,
+      paymentId: payment.id,
+    });
+
+    // Credit Side: Platform Commission
+    if (adjustedPlatformFee.gt(0)) {
+      journalLines.push({
+        accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+        side: LedgerEntrySide.CREDIT,
+        amount: adjustedPlatformFee,
+        narration: `Platform commission revenue for booking ${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+      });
+    }
+
+    // Credit Side: GST Tax Liability
+    if (gstTax.gt(0)) {
+      journalLines.push({
+        accountType: LedgerAccountType.TAX_GST_LIABILITY,
+        side: LedgerEntrySide.CREDIT,
+        amount: gstTax,
+        narration: `GST tax liability for booking ${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+      });
+    }
+
+    // Credit Side: Security Deposit Escrow
+    if (secDeposit.gt(0)) {
+      journalLines.push({
+        accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+        accountEntityId: booking.customerId,
+        side: LedgerEntrySide.CREDIT,
+        amount: secDeposit,
+        narration: `Security deposit held in escrow for booking ${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+      });
+    }
+
+    await this.ledgerCore.recordJournal(
+      {
+        referenceType: 'BOOKING_PAYMENT_VERIFIED',
+        referenceId: booking.id,
+        narration: `Payment verification financial journal for booking ${booking.id}`,
+        lines: journalLines,
+        idempotencyKey: `jrn_pay_verify_${booking.id}`,
+        bookingId: booking.id,
+        paymentId: payment.id,
+        vendorId: booking.vendorId,
+      },
+      tx,
+    );
+  }
 }
+

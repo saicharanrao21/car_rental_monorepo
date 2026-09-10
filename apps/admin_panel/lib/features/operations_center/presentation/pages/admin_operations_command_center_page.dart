@@ -53,7 +53,7 @@ class _AdminOperationsCommandCenterPageState
   Future<void> _triggerSlaEvaluation() async {
     try {
       final apiClient = ref.read(apiClientProvider);
-      final res = await apiClient.dio.get('/api/v1/operations/sla/evaluate');
+      final res = await apiClient.dio.post('/api/v1/operations/sla/evaluate');
       if (mounted) {
         final data = res.data is Map ? res.data as Map<String, dynamic> : {};
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,11 +117,13 @@ class _AdminOperationsCommandCenterPageState
 
     try {
       final apiClient = ref.read(apiClientProvider);
+      final resolutionNotes = notesCtrl.text.trim().isNotEmpty
+          ? '${actionCtrl.text.trim()}: ${notesCtrl.text.trim()}'
+          : actionCtrl.text.trim();
       await apiClient.dio.post(
-        '/api/v1/operations/incidents/$id/resolve',
+        '/api/v1/operations/sla/incidents/$id/resolve',
         data: {
-          'actionTaken': actionCtrl.text.trim(),
-          'notes': notesCtrl.text.trim(),
+          'resolutionNotes': resolutionNotes,
         },
       );
 
@@ -143,6 +145,7 @@ class _AdminOperationsCommandCenterPageState
   @override
   Widget build(BuildContext context) {
     final d = _commandData;
+    final m = d != null && d['overview'] is Map ? (d['overview'] as Map<String, dynamic>) : (d ?? {});
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -178,25 +181,29 @@ class _AdminOperationsCommandCenterPageState
                         // High-Level Operational Metrics Grid
                         Row(
                           children: [
-                            _buildStatCard('Active Rentals', '${d['activeRentals'] ?? 0}', Colors.blue),
+                            _buildStatCard('Active Rentals', '${m['activeRentals'] ?? d['activeRentals'] ?? 0}', Colors.blue),
                             const Gap(12),
-                            _buildStatCard('Pickups Today', '${d['pickupsToday'] ?? 0}', Colors.green),
+                            _buildStatCard('Pickups Today', '${m['pickupsToday'] ?? d['pickupsToday'] ?? 0}', Colors.green),
                             const Gap(12),
-                            _buildStatCard('Returns Today', '${d['returnsToday'] ?? 0}', Colors.teal),
+                            _buildStatCard('Returns Today', '${m['returnsToday'] ?? d['returnsToday'] ?? 0}', Colors.teal),
                             const Gap(12),
-                            _buildStatCard('Unallocated', '${d['unallocatedCount'] ?? 0}', Colors.orange),
+                            _buildStatCard('Unallocated', '${m['unallocatedCount'] ?? d['unallocatedCount'] ?? 0}', Colors.orange),
                           ],
                         ),
                         const Gap(12),
                         Row(
                           children: [
-                            _buildStatCard('SLA Breaches', '${d['slaBreachesCount'] ?? 0}', Colors.red),
+                            _buildStatCard('SLA Breaches', '${m['slaBreachesCount'] ?? d['slaBreachesCount'] ?? 0}', Colors.red),
                             const Gap(12),
-                            _buildStatCard('Maintenance', '${d['maintenanceVehicles'] ?? 0}', Colors.amber[800]!),
+                            _buildStatCard('Maintenance', '${m['maintenanceVehicles'] ?? d['maintenanceVehicles'] ?? 0}', Colors.amber[800]!),
                             const Gap(12),
-                            _buildStatCard('Active Fleet', '${d['activeCars'] ?? 0} / ${d['totalCars'] ?? 0}', Colors.indigo),
+                            _buildStatCard(
+                              'Active Fleet',
+                              '${m['availableFleet'] ?? m['activeCars'] ?? d['activeCars'] ?? 0} / ${m['totalFleet'] ?? m['totalCars'] ?? d['totalCars'] ?? 0}',
+                              Colors.indigo,
+                            ),
                             const Gap(12),
-                            _buildStatCard('Substitutions', '${d['substitutionsCount'] ?? 0}', Colors.purple),
+                            _buildStatCard('Substitutions', '${m['substitutionsCount'] ?? d['substitutionsCount'] ?? 0}', Colors.purple),
                           ],
                         ),
                         const Gap(24),

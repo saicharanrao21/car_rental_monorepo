@@ -250,7 +250,25 @@ export class CorporateAccountsService {
         );
       }
 
-      if (!account.isActive) {
+      // 1. Pessimistic row-level lock on CorporateAccount to serialize concurrent reservations
+      if (typeof (prismaTx as any).$queryRaw === 'function') {
+        await prismaTx.$queryRaw`
+          SELECT id FROM "CorporateAccount" WHERE id = ${account.id} FOR UPDATE
+        `;
+      }
+
+      // 2. Re-read under lock to get authoritative state
+      const lockedAccount = await prismaTx.corporateAccount.findUnique({
+        where: { id: account.id },
+      });
+
+      if (!lockedAccount) {
+        throw new NotFoundException(
+          `Corporate account with code ${corporateCode} not found under lock.`,
+        );
+      }
+
+      if (!lockedAccount.isActive) {
         throw new BadRequestException(
           `Corporate account ${corporateCode} is inactive.`,
         );
@@ -261,10 +279,18 @@ export class CorporateAccountsService {
         if (!callerUserId) {
           throw new ForbiddenException('Corporate authentication required.');
         }
+
+        // Lock employee row under transaction
+        if (typeof (prismaTx as any).$queryRaw === 'function') {
+          await prismaTx.$queryRaw`
+            SELECT id FROM "CorporateEmployee" WHERE "corporateAccountId" = ${lockedAccount.id} AND "userId" = ${callerUserId} FOR UPDATE
+          `;
+        }
+
         const employee = await prismaTx.corporateEmployee.findUnique({
           where: {
             corporateAccountId_userId: {
-              corporateAccountId: account.id,
+              corporateAccountId: lockedAccount.id,
               userId: callerUserId,
             },
           },
@@ -272,7 +298,7 @@ export class CorporateAccountsService {
 
         if (!employee || !employee.isActive) {
           throw new ForbiddenException(
-            `Unauthorized: Caller is not an active authorized employee of corporate account ${account.corporateCode}.`,
+            `Unauthorized: Caller is not an active authorized employee of corporate account ${lockedAccount.corporateCode}.`,
           );
         }
 
@@ -283,7 +309,7 @@ export class CorporateAccountsService {
 
           const monthlySpent = await prismaTx.corporateCreditLedgerEntry.aggregate({
             where: {
-              corporateAccountId: account.id,
+              corporateAccountId: lockedAccount.id,
               userId: callerUserId,
               type: 'CREDIT_RESERVATION',
               createdAt: { gte: startOfMonth },
@@ -300,7 +326,7 @@ export class CorporateAccountsService {
         }
       }
 
-      const availableCredit = account.creditLimit.sub(account.usedCredit);
+      const availableCredit = lockedAccount.creditLimit.sub(lockedAccount.usedCredit);
       const required = new Prisma.Decimal(amount);
 
       if (availableCredit.lt(required)) {
@@ -310,7 +336,7 @@ export class CorporateAccountsService {
       }
 
       const updated = await prismaTx.corporateAccount.update({
-        where: { id: account.id },
+        where: { id: lockedAccount.id },
         data: {
           usedCredit: { increment: required },
         },
@@ -321,19 +347,19 @@ export class CorporateAccountsService {
       // Record in CorporateCreditLedgerEntry
       await prismaTx.corporateCreditLedgerEntry.create({
         data: {
-          corporateAccountId: account.id,
+          corporateAccountId: lockedAccount.id,
           userId: callerUserId || 'SYSTEM',
           bookingId: bookingId || null,
           type: 'CREDIT_RESERVATION',
           amount: required,
           balanceAfter,
-          referenceKey: `cc_res_${account.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+          referenceKey: `cc_res_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
           notes: `Credit reserved for ${bookingId ? `booking ${bookingId}` : 'checkout'} by user ${callerUserId || 'admin'}`,
         },
       });
 
       this.logger.log(
-        `[CORPORATE] Reserved ₹${amount} against credit line of ${account.companyName} (${account.corporateCode}). New used: ₹${updated.usedCredit}`,
+        `[CORPORATE] Reserved ₹${amount} against credit line of ${lockedAccount.companyName} (${lockedAccount.corporateCode}). New used: ₹${updated.usedCredit}`,
       );
 
       return updated;
@@ -370,13 +396,30 @@ export class CorporateAccountsService {
         );
       }
 
+      // Pessimistic row-level lock on CorporateAccount to serialize releases
+      if (typeof (prismaTx as any).$queryRaw === 'function') {
+        await prismaTx.$queryRaw`
+          SELECT id FROM "CorporateAccount" WHERE id = ${account.id} FOR UPDATE
+        `;
+      }
+
+      const lockedAccount = await prismaTx.corporateAccount.findUnique({
+        where: { id: account.id },
+      });
+
+      if (!lockedAccount) {
+        throw new NotFoundException(
+          `Corporate account with code ${corporateCode} not found under lock.`,
+        );
+      }
+
       const decrementAmount = Prisma.Decimal.min(
-        account.usedCredit,
+        lockedAccount.usedCredit,
         new Prisma.Decimal(amount),
       );
 
       const updated = await prismaTx.corporateAccount.update({
-        where: { id: account.id },
+        where: { id: lockedAccount.id },
         data: {
           usedCredit: { decrement: decrementAmount },
         },
@@ -386,19 +429,19 @@ export class CorporateAccountsService {
 
       await prismaTx.corporateCreditLedgerEntry.create({
         data: {
-          corporateAccountId: account.id,
+          corporateAccountId: lockedAccount.id,
           userId: callerUserId || 'SYSTEM',
           bookingId: bookingId || null,
           type: 'CREDIT_RELEASE',
           amount: decrementAmount,
           balanceAfter,
-          referenceKey: `cc_rel_${account.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+          referenceKey: `cc_rel_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
           notes: `Credit released for ${bookingId ? `booking ${bookingId}` : 'cancellation'}`,
         },
       });
 
       this.logger.log(
-        `[CORPORATE] Released ₹${decrementAmount} to credit line of ${account.companyName} (${account.corporateCode}). New used: ₹${updated.usedCredit}`,
+        `[CORPORATE] Released ₹${decrementAmount} to credit line of ${lockedAccount.companyName} (${lockedAccount.corporateCode}). New used: ₹${updated.usedCredit}`,
       );
 
       return updated;
@@ -443,13 +486,30 @@ export class CorporateAccountsService {
         );
       }
 
+      // Pessimistic row-level lock on CorporateAccount to serialize settlements
+      if (typeof (prismaTx as any).$queryRaw === 'function') {
+        await prismaTx.$queryRaw`
+          SELECT id FROM "CorporateAccount" WHERE id = ${account.id} FOR UPDATE
+        `;
+      }
+
+      const lockedAccount = await prismaTx.corporateAccount.findUnique({
+        where: { id: account.id },
+      });
+
+      if (!lockedAccount) {
+        throw new NotFoundException(
+          `Corporate account with code ${corporateCode} not found under lock.`,
+        );
+      }
+
       const decrementAmount = Prisma.Decimal.min(
-        account.usedCredit,
+        lockedAccount.usedCredit,
         new Prisma.Decimal(amount),
       );
 
       const updated = await prismaTx.corporateAccount.update({
-        where: { id: account.id },
+        where: { id: lockedAccount.id },
         data: {
           usedCredit: { decrement: decrementAmount },
         },
@@ -459,13 +519,13 @@ export class CorporateAccountsService {
 
       await prismaTx.corporateCreditLedgerEntry.create({
         data: {
-          corporateAccountId: account.id,
+          corporateAccountId: lockedAccount.id,
           userId: callerUserId || 'SYSTEM',
           bookingId: bookingId || null,
           type: 'INVOICE_SETTLEMENT',
           amount: decrementAmount,
           balanceAfter,
-          referenceKey: `cc_stl_${account.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+          referenceKey: `cc_stl_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
           notes: `Corporate invoice payment settled${bookingId ? ` for booking ${bookingId}` : ''}`,
         },
       });

@@ -319,13 +319,20 @@ export class BookingsService {
         }
       }
 
-      let deliveryFee = dto.deliveryFee ? new Prisma.Decimal(dto.deliveryFee) : new Prisma.Decimal(0);
-      let pickupFee = dto.pickupFee ? new Prisma.Decimal(dto.pickupFee) : new Prisma.Decimal(0);
-      let returnFee = dto.returnFee ? new Prisma.Decimal(dto.returnFee) : new Prisma.Decimal(0);
-      let oneWayFee = dto.oneWayFee ? new Prisma.Decimal(dto.oneWayFee) : new Prisma.Decimal(0);
+      let deliveryFee = new Prisma.Decimal(0);
+      let pickupFee = new Prisma.Decimal(0);
+      let returnFee = new Prisma.Decimal(0);
+      let oneWayFee = new Prisma.Decimal(0);
 
       // Authoritative fulfillment quotation & availability validation
-      if (this.locationsService && (dto.pickupHubId || dto.returnHubId || dto.deliveryLatitude !== undefined || dto.deliveryAddress)) {
+      if (
+        this.locationsService &&
+        (dto.pickupHubId ||
+          dto.returnHubId ||
+          dto.deliveryLatitude !== undefined ||
+          dto.deliveryAddress ||
+          (dto.deliveryType && dto.deliveryType !== 'NONE'))
+      ) {
         try {
           const quote = await this.locationsService.calculateDeliveryQuote({
             vendorId: car.vendorId,
@@ -342,7 +349,9 @@ export class BookingsService {
           });
 
           if (!quote.isAvailable && dto.deliveryType && dto.deliveryType !== 'NONE') {
-            throw new BadRequestException(quote.reason || 'Requested fulfillment delivery is unavailable.');
+            throw new BadRequestException(
+              quote.reason || 'Requested fulfillment delivery is unavailable.',
+            );
           }
 
           deliveryFee = new Prisma.Decimal(quote.deliveryFee);
@@ -354,6 +363,9 @@ export class BookingsService {
             throw err;
           }
           this.logger.warn(`Fulfillment quote resolution warning: ${err.message}`);
+          if (dto.deliveryType && dto.deliveryType !== 'NONE') {
+            throw new BadRequestException('Could not calculate authoritative delivery quote.');
+          }
         }
       }
 

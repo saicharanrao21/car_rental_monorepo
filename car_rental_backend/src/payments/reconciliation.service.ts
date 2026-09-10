@@ -16,10 +16,14 @@ import {
   FulfillmentStage,
   Role,
   Prisma,
+  LedgerAccountType,
+  LedgerEntrySide,
+  SecurityDepositStatus,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 
 export interface ReconciliationReport {
   candidatesFound: number;
@@ -47,6 +51,7 @@ export class FinancialReconciliationService {
     @Optional() private readonly apmMonitoringService?: ApmMonitoringService,
     @Optional() private readonly invoicesService?: InvoicesService,
     @Optional() private readonly commissionService?: MarketplaceCommissionService,
+    @Optional() private readonly ledgerCore?: LedgerCoreService,
   ) {
     this.useMock =
       this.configService.get<string>('RAZORPAY_USE_MOCK') === 'true';
@@ -174,7 +179,7 @@ export class FinancialReconciliationService {
         },
         updatedAt: { lte: lookbackDate },
       },
-      include: { booking: true },
+      include: { booking: { include: { securityDeposit: true } } },
       take: 50,
       orderBy: { updatedAt: 'asc' },
     });
@@ -277,6 +282,208 @@ export class FinancialReconciliationService {
               cancellationReason: 'Reconciled from existing gateway refund',
             },
           });
+
+          // Record Reversal Journal via LedgerCore if available
+          if (this.ledgerCore) {
+            const bookingRecord = payment.booking;
+            const existingJournal = await (tx as any).platformLedgerEntry?.findFirst?.({
+              where: {
+                bookingId,
+                referenceType: { in: ['BOOKING_PAYMENT_VERIFIED', 'BOOKING_CONFIRMATION'] },
+              },
+            });
+
+            if (!existingJournal) {
+              const secDeposit = (bookingRecord as any).securityDeposit?.amount || new Decimal(0);
+              const vendorPayable = bookingRecord.netToVendor;
+              const gstTax = bookingRecord.gstAmount || new Decimal(0);
+              const platformFee = bookingRecord.platformFee || new Decimal(0);
+              const totalExpected = bookingRecord.totalFare.add(secDeposit);
+
+              const subComponents = vendorPayable.add(platformFee).add(gstTax).add(secDeposit);
+              const delta = totalExpected.sub(subComponents);
+              const adjustedPlatformFee = platformFee.add(delta);
+
+              const initialLines: any[] = [
+                {
+                  accountType: LedgerAccountType.GATEWAY_CLEARING,
+                  accountEntityId: payment.gatewayProvider || 'RAZORPAY',
+                  side: LedgerEntrySide.DEBIT,
+                  amount: totalExpected,
+                  narration: `Payment clearing baseline for auto-healed refund booking ${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                },
+                {
+                  accountType: LedgerAccountType.VENDOR_PAYABLE,
+                  accountEntityId: bookingRecord.vendorId,
+                  side: LedgerEntrySide.CREDIT,
+                  amount: vendorPayable,
+                  narration: `Net rental revenue payable to vendor for booking ${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                },
+              ];
+
+              if (adjustedPlatformFee.gt(0)) {
+                initialLines.push({
+                  accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+                  side: LedgerEntrySide.CREDIT,
+                  amount: adjustedPlatformFee,
+                  narration: `Platform commission revenue for booking ${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                });
+              }
+
+              if (gstTax.gt(0)) {
+                initialLines.push({
+                  accountType: LedgerAccountType.TAX_GST_LIABILITY,
+                  side: LedgerEntrySide.CREDIT,
+                  amount: gstTax,
+                  narration: `GST tax liability for booking ${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                });
+              }
+
+              if (secDeposit.gt(0)) {
+                initialLines.push({
+                  accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+                  accountEntityId: bookingRecord.customerId,
+                  side: LedgerEntrySide.CREDIT,
+                  amount: secDeposit,
+                  narration: `Security deposit held in escrow for booking ${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                });
+              }
+
+              await this.ledgerCore.recordJournal(
+                {
+                  referenceType: 'BOOKING_PAYMENT_VERIFIED',
+                  referenceId: bookingId,
+                  narration: `Payment verification baseline journal for booking ${bookingId}`,
+                  lines: initialLines,
+                  idempotencyKey: `jrn_pay_verify_${bookingId}`,
+                  bookingId,
+                  paymentId: payment.id,
+                  vendorId: bookingRecord.vendorId,
+                },
+                tx,
+              );
+            }
+
+            // Build economically balanced reversal journal
+            const depositAmount = (bookingRecord as any).securityDeposit?.amount || new Decimal(0);
+            const depositRefund =
+              depositAmount.gt(0) &&
+              (bookingRecord as any).securityDeposit?.status !== SecurityDepositStatus.CANCELLED
+                ? Decimal.min(depositAmount, refundRupees)
+                : new Decimal(0);
+            const fareRefund = refundRupees.sub(depositRefund).gte(0)
+              ? refundRupees.sub(depositRefund)
+              : new Decimal(0);
+
+            let vendorReversal = new Decimal(0);
+            let platformReversal = new Decimal(0);
+            let gstReversal = new Decimal(0);
+
+            if (bookingRecord.totalFare.gt(0) && fareRefund.gt(0)) {
+              const ratio = fareRefund.div(bookingRecord.totalFare);
+              vendorReversal = Decimal.min(
+                bookingRecord.netToVendor,
+                bookingRecord.netToVendor.mul(ratio),
+              );
+              platformReversal = (bookingRecord.platformFee || new Decimal(0)).mul(ratio);
+              gstReversal = (bookingRecord.gstAmount || new Decimal(0)).mul(ratio);
+
+              const sub = vendorReversal
+                .add(platformReversal)
+                .add(gstReversal)
+                .add(depositRefund);
+              const diff = refundRupees.sub(sub);
+              platformReversal = platformReversal.add(diff);
+            } else if (depositRefund.lt(refundRupees)) {
+              vendorReversal = Decimal.min(
+                bookingRecord.netToVendor,
+                refundRupees.sub(depositRefund),
+              );
+              platformReversal = refundRupees.sub(depositRefund).sub(vendorReversal);
+            }
+
+            const reversalLines: any[] = [];
+
+            if (depositRefund.gt(0)) {
+              reversalLines.push({
+                accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+                accountEntityId: bookingRecord.customerId,
+                side: LedgerEntrySide.DEBIT,
+                amount: depositRefund,
+                narration: `Security deposit refund release for booking ${bookingId}`,
+                bookingId,
+                paymentId: payment.id,
+              });
+            }
+
+            if (vendorReversal.gt(0)) {
+              reversalLines.push({
+                accountType: LedgerAccountType.VENDOR_PAYABLE,
+                accountEntityId: bookingRecord.vendorId,
+                side: LedgerEntrySide.DEBIT,
+                amount: vendorReversal,
+                narration: `Vendor payable cancellation clawback for booking ${bookingId}`,
+                bookingId,
+                paymentId: payment.id,
+              });
+            }
+
+            if (platformReversal.gt(0)) {
+              reversalLines.push({
+                accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+                side: LedgerEntrySide.DEBIT,
+                amount: platformReversal,
+                narration: `Platform commission reversal for booking ${bookingId}`,
+                bookingId,
+                paymentId: payment.id,
+              });
+            }
+
+            if (gstReversal.gt(0)) {
+              reversalLines.push({
+                accountType: LedgerAccountType.TAX_GST_LIABILITY,
+                side: LedgerEntrySide.DEBIT,
+                amount: gstReversal,
+                narration: `GST tax liability reversal for booking ${bookingId}`,
+                bookingId,
+                paymentId: payment.id,
+              });
+            }
+
+            reversalLines.push({
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              accountEntityId: payment.gatewayProvider || 'RAZORPAY',
+              side: LedgerEntrySide.CREDIT,
+              amount: refundRupees,
+              narration: `Payment gateway clearing refund for booking ${bookingId}`,
+              bookingId,
+              paymentId: payment.id,
+            });
+
+            await this.ledgerCore.recordJournal(
+              {
+                referenceType: 'BOOKING_CANCELLATION_REFUND',
+                referenceId: bookingId,
+                narration: `Reconciliation auto-healed refund journal for booking ${bookingId}`,
+                lines: reversalLines,
+                idempotencyKey: `jrn_reconcile_refund_${bookingId}_${validRefund.id}`,
+                bookingId,
+                paymentId: payment.id,
+                vendorId: bookingRecord.vendorId,
+              },
+              tx,
+            );
+          }
         });
 
         // Record Audit Log entry
@@ -550,6 +757,86 @@ export class FinancialReconciliationService {
             } catch (invErr: any) {
               this.logger.warn(`Invoice generation during reconciliation: ${invErr.message}`);
             }
+          }
+
+          // Record General Ledger Journal via LedgerCore
+          if (this.ledgerCore) {
+            const secDeposit = booking.securityDeposit?.amount || new Decimal(0);
+            const vendorPayable = booking.netToVendor;
+            const gstTax = booking.gstAmount || new Decimal(0);
+            const platformFee = booking.platformFee || new Decimal(0);
+            const subComponents = vendorPayable.add(platformFee).add(gstTax).add(secDeposit);
+            const delta = totalExpected.sub(subComponents);
+            const adjustedPlatformFee = platformFee.add(delta);
+
+            const journalLines: any[] = [
+              {
+                accountType: LedgerAccountType.GATEWAY_CLEARING,
+                accountEntityId: payment.gatewayProvider || 'RAZORPAY',
+                side: LedgerEntrySide.DEBIT,
+                amount: totalExpected,
+                narration: `Payment gateway clearing (auto-reconciled) for booking ${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+              },
+              {
+                accountType: LedgerAccountType.VENDOR_PAYABLE,
+                accountEntityId: booking.vendorId,
+                side: LedgerEntrySide.CREDIT,
+                amount: vendorPayable,
+                narration: `Net rental revenue payable to vendor for booking ${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+              },
+            ];
+
+            if (adjustedPlatformFee.gt(0)) {
+              journalLines.push({
+                accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+                side: LedgerEntrySide.CREDIT,
+                amount: adjustedPlatformFee,
+                narration: `Platform commission revenue for booking ${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+              });
+            }
+
+            if (gstTax.gt(0)) {
+              journalLines.push({
+                accountType: LedgerAccountType.TAX_GST_LIABILITY,
+                side: LedgerEntrySide.CREDIT,
+                amount: gstTax,
+                narration: `GST tax liability for booking ${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+              });
+            }
+
+            if (secDeposit.gt(0)) {
+              journalLines.push({
+                accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+                accountEntityId: booking.customerId,
+                side: LedgerEntrySide.CREDIT,
+                amount: secDeposit,
+                narration: `Security deposit held in escrow for booking ${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+              });
+            }
+
+            await this.ledgerCore.recordJournal(
+              {
+                referenceType: 'BOOKING_PAYMENT_VERIFIED',
+                referenceId: booking.id,
+                narration: `Payment auto-reconciliation financial journal for booking ${booking.id}`,
+                lines: journalLines,
+                idempotencyKey: `jrn_pay_verify_${booking.id}`,
+                bookingId: booking.id,
+                paymentId: payment.id,
+                vendorId: booking.vendorId,
+              },
+              tx,
+            );
           }
         });
 
@@ -916,10 +1203,12 @@ export class FinancialReconciliationService {
     metadata: any;
   }): Promise<void> {
     try {
-      const admin = await this.prisma.user.findFirst({
-        where: { role: Role.ADMIN },
-        select: { id: true },
-      });
+      const admin = this.prisma.user
+        ? await this.prisma.user.findFirst({
+            where: { role: Role.ADMIN },
+            select: { id: true },
+          })
+        : null;
 
       if (admin) {
         await this.auditLogService.log(

@@ -50,6 +50,7 @@ export class CommandCenterController {
       unallocatedCount,
       maintenanceVehicles,
       slaBreachesCount,
+      recentIncidents,
       substitutionsCount,
       totalCars,
       activeCars,
@@ -87,9 +88,15 @@ export class CommandCenterController {
       this.prisma.car.count({
         where: { operationalStatus: 'MAINTENANCE' },
       }),
-      // Active SLA breaches
+      // Active SLA breaches count
       this.prisma.slaBreachIncident.count({
         where: { status: 'OPEN' },
+      }),
+      // Recent open SLA breaches
+      this.prisma.slaBreachIncident.findMany({
+        where: { status: 'OPEN' },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
       }),
       // Total vehicle substitutions executed
       this.prisma.vehicleSubstitutionRecord.count(),
@@ -128,6 +135,7 @@ export class CommandCenterController {
         availableFleet: activeCars,
         fleetUtilization,
       },
+      recentIncidents,
     };
   }
 

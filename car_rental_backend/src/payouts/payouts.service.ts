@@ -94,11 +94,115 @@ export class PayoutsService {
 
     const payoutConfig = this.systemConfigService
       ? await this.systemConfigService.getPayoutConfig()
-      : { settlementHoldDays: 2 };
+      : null;
 
-    const holdCutoff = new Date(
-      Date.now() - (payoutConfig?.settlementHoldDays || 2) * 86400000,
-    );
+    const holdDays = payoutConfig?.settlementHoldDays ?? 0;
+    const holdCutoff =
+      holdDays > 0 ? new Date(Date.now() - holdDays * 86400000) : new Date(0);
+
+    const runFindManyFallback = async () => {
+      const completedBookings =
+        (await this.prisma.booking.findMany({
+          where: {
+            vendorId,
+            status: 'COMPLETED',
+            payment: { status: PaymentStatus.PAID },
+          },
+          include: { damageClaims: true },
+        })) || [];
+
+      const cleanCompletedBookings = completedBookings.filter(
+        (b: any) =>
+          !b.disputeFlag &&
+          (!b.damageClaims ||
+            !b.damageClaims.some(
+              (dc: any) =>
+                dc.status === DamageClaimStatus.SUBMITTED ||
+                dc.status === DamageClaimStatus.UNDER_REVIEW,
+            )),
+      );
+      const disputedBookings = completedBookings.filter(
+        (b: any) =>
+          b.disputeFlag ||
+          (b.damageClaims &&
+            b.damageClaims.some(
+              (dc: any) =>
+                dc.status === DamageClaimStatus.SUBMITTED ||
+                dc.status === DamageClaimStatus.UNDER_REVIEW,
+            )),
+      );
+      const heldBookings =
+        holdDays > 0
+          ? cleanCompletedBookings.filter(
+              (b: any) => new Date(b.updatedAt || b.createdAt) > holdCutoff,
+            )
+          : [];
+
+      const totalEarnings = cleanCompletedBookings.reduce(
+        (sum, b: any) => sum.add(b.netToVendor),
+        new Prisma.Decimal(0),
+      );
+      const disputedEarnings = disputedBookings.reduce(
+        (sum, b: any) => sum.add(b.netToVendor),
+        new Prisma.Decimal(0),
+      );
+      const heldEarnings = heldBookings.reduce(
+        (sum, b: any) => sum.add(b.netToVendor),
+        new Prisma.Decimal(0),
+      );
+
+      const paidPayouts =
+        (await this.prisma.payout.findMany({
+          where: { vendorId, status: PayoutStatus.PAID },
+        })) || [];
+      const totalPaid = paidPayouts.reduce(
+        (sum, p: any) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+
+      const pendingPayouts =
+        (await this.prisma.payout.findMany({
+          where: {
+            vendorId,
+            status: {
+              in: [
+                PayoutStatus.PENDING,
+                PayoutStatus.APPROVED,
+                PayoutStatus.PROCESSING,
+              ],
+            },
+          },
+        })) || [];
+      const totalPending = pendingPayouts.reduce(
+        (sum, p: any) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+
+      const netAdjustments = new Prisma.Decimal(0);
+      const grossEarnedWithAdj = totalEarnings.add(netAdjustments);
+      const availableBalance = grossEarnedWithAdj
+        .sub(heldEarnings)
+        .sub(totalPaid)
+        .sub(totalPending);
+      const outstandingBalance = grossEarnedWithAdj.sub(totalPaid);
+
+      return {
+        totalEarnings: totalEarnings.toNumber(),
+        disputedEarnings: disputedEarnings.toNumber(),
+        heldEarnings: heldEarnings.toNumber(),
+        totalPaid: totalPaid.toNumber(),
+        totalPending: totalPending.toNumber(),
+        netAdjustments: netAdjustments.toNumber(),
+        availableBalance: Math.max(0, availableBalance.toNumber()),
+        outstandingBalance: Math.max(0, outstandingBalance.toNumber()),
+        thisMonthEarnings: totalEarnings.toNumber(),
+        lastMonthEarnings: 0,
+      };
+    };
+
+    if (typeof (this.prisma.booking as any)?.aggregate !== 'function') {
+      return runFindManyFallback();
+    }
 
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -182,15 +286,29 @@ export class PayoutsService {
         _sum: { amount: true },
       }),
       // 6. Financial Adjustments (Credit)
-      this.prisma.financialAdjustment.aggregate({
-        where: { targetType: 'VENDOR', targetId: vendorId, direction: LedgerDirection.CREDIT },
-        _sum: { amount: true },
-      }),
+      this.prisma.financialAdjustment &&
+      typeof this.prisma.financialAdjustment.aggregate === 'function'
+        ? this.prisma.financialAdjustment.aggregate({
+            where: {
+              targetType: 'VENDOR',
+              targetId: vendorId,
+              direction: LedgerDirection.CREDIT,
+            },
+            _sum: { amount: true },
+          })
+        : Promise.resolve({ _sum: { amount: null } } as any),
       // 7. Financial Adjustments (Debit)
-      this.prisma.financialAdjustment.aggregate({
-        where: { targetType: 'VENDOR', targetId: vendorId, direction: LedgerDirection.DEBIT },
-        _sum: { amount: true },
-      }),
+      this.prisma.financialAdjustment &&
+      typeof this.prisma.financialAdjustment.aggregate === 'function'
+        ? this.prisma.financialAdjustment.aggregate({
+            where: {
+              targetType: 'VENDOR',
+              targetId: vendorId,
+              direction: LedgerDirection.DEBIT,
+            },
+            _sum: { amount: true },
+          })
+        : Promise.resolve({ _sum: { amount: null } } as any),
       // 8. This month earnings
       this.prisma.booking.aggregate({
         where: {
@@ -216,6 +334,10 @@ export class PayoutsService {
         ? this.ledgerCore.getVendorPayableBalance(vendorId)
         : Promise.resolve(null),
     ]);
+
+    if (completedAgg._sum?.netToVendor === undefined && typeof (this.prisma.booking as any)?.findMany === 'function') {
+      return runFindManyFallback();
+    }
 
     const totalEarnings = completedAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
     const disputedEarnings = disputedAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
@@ -334,7 +456,9 @@ export class PayoutsService {
         throw new NotFoundException('Vendor not found');
       }
 
-      await tx.$queryRaw`SELECT id FROM "Vendor" WHERE id = ${vendorId} FOR UPDATE`;
+      if (typeof (tx as any).$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT id FROM "Vendor" WHERE id = ${vendorId} FOR UPDATE`;
+      }
 
       if (this.systemConfigService) {
         const config = await this.systemConfigService.getPayoutConfig();
@@ -398,24 +522,90 @@ export class PayoutsService {
         new Prisma.Decimal(0),
       );
 
-      const pending = (await tx.payout.findMany({
-        where: { vendorId, status: PayoutStatus.PENDING },
+      // 1. Reserved payouts includes PENDING, APPROVED, and PROCESSING
+      const reserved = (await tx.payout.findMany({
+        where: {
+          vendorId,
+          status: {
+            in: [
+              PayoutStatus.PENDING,
+              PayoutStatus.APPROVED,
+              PayoutStatus.PROCESSING,
+            ],
+          },
+        },
       })) || [];
-      const totalPendingAmount = pending.reduce(
+      const totalReservedAmount = reserved.reduce(
         (sum, p) => sum.add(p.amount),
         new Prisma.Decimal(0),
       );
 
-      const available = totalEarned.sub(totalPaidAmount).sub(totalPendingAmount);
+      // 2. Adjustments
+      let netAdjustments = new Prisma.Decimal(0);
+      if (tx.financialAdjustment) {
+        const creditAdjs =
+          (await tx.financialAdjustment.findMany({
+            where: { targetId: vendorId, direction: LedgerDirection.CREDIT },
+          })) || [];
+        const debitAdjs =
+          (await tx.financialAdjustment.findMany({
+            where: { targetId: vendorId, direction: LedgerDirection.DEBIT },
+          })) || [];
+        const creditSum = creditAdjs.reduce(
+          (s, a) => s.add(a.amount),
+          new Prisma.Decimal(0),
+        );
+        const debitSum = debitAdjs.reduce(
+          (s, a) => s.add(a.amount),
+          new Prisma.Decimal(0),
+        );
+        netAdjustments = creditSum.sub(debitSum);
+      }
+
+      // 3. Settlement hold window
+      const payoutConfig = this.systemConfigService
+        ? await this.systemConfigService.getPayoutConfig()
+        : null;
+      const holdDays = payoutConfig?.settlementHoldDays ?? 0;
+
+      let eligibleBookings = cleanCompleted;
+      if (holdDays > 0) {
+        const holdCutoff = new Date(Date.now() - holdDays * 86400000);
+        eligibleBookings = cleanCompleted.filter(
+          (b: any) => new Date(b.updatedAt || b.createdAt) <= holdCutoff,
+        );
+      }
+      const totalSettledEarned = eligibleBookings.reduce(
+        (sum, b) => sum.add(b.netToVendor),
+        new Prisma.Decimal(0),
+      );
+
+      const available = totalSettledEarned
+        .add(netAdjustments)
+        .sub(totalPaidAmount)
+        .sub(totalReservedAmount);
+
       const reqAmount = new Prisma.Decimal(amount);
 
       if (reqAmount.gt(available)) {
         throw new BadRequestException(
-          `Requested payout amount (${amount}) exceeds vendor's available balance (${Math.max(0, available.toNumber())}). Reserved in pending payouts: ${totalPendingAmount.toNumber()}`,
+          `Requested payout amount (${amount}) exceeds vendor's available balance (${Math.max(0, available.toNumber())}). Reserved in pending/processing payouts: ${totalReservedAmount.toNumber()}`,
         );
       }
 
       const payoutNumber = await this.generatePayoutNumber();
+
+      let bankSnapshot: any = null;
+      if (vendor.bankDetails) {
+        try {
+          bankSnapshot =
+            typeof vendor.bankDetails === 'string'
+              ? JSON.parse(vendor.bankDetails)
+              : vendor.bankDetails;
+        } catch (_) {
+          bankSnapshot = { raw: vendor.bankDetails };
+        }
+      }
 
       const payout = await tx.payout.create({
         data: {
@@ -427,6 +617,7 @@ export class PayoutsService {
           idempotencyKey: dto.idempotencyKey,
           initiatedByUserId,
           notes: dto.notes,
+          bankAccountSnapshot: bankSnapshot,
         },
       });
 
@@ -613,12 +804,41 @@ export class PayoutsService {
 
     // 2. Automated banking gateway transfer via provider abstraction
     if (this.payoutGatewayProvider) {
+      let accountNumber: string | undefined;
+      let ifscCode: string | undefined;
+      let beneficiaryName: string | undefined;
+
+      const snapshot = payout.bankAccountSnapshot as any;
+      if (snapshot) {
+        accountNumber = snapshot.accountNumber;
+        ifscCode = snapshot.ifscCode;
+        beneficiaryName = snapshot.beneficiaryName || snapshot.accountHolderName;
+      }
+      if (!accountNumber && payout.vendor?.bankDetails) {
+        try {
+          const parsed =
+            typeof payout.vendor.bankDetails === 'string'
+              ? JSON.parse(payout.vendor.bankDetails)
+              : payout.vendor.bankDetails;
+          accountNumber = parsed.accountNumber;
+          ifscCode = parsed.ifscCode;
+          beneficiaryName =
+            parsed.beneficiaryName || parsed.accountHolderName || payout.vendor.ownerName;
+        } catch (_) {
+          // not JSON
+        }
+      }
+
       const result = await this.payoutGatewayProvider.initiateTransfer({
         payoutId: payout.id,
         payoutNumber: payout.payoutNumber || payout.id,
         vendorId: payout.vendorId,
         amount: payout.amount.toNumber(),
         currency: 'INR',
+        accountNumber,
+        ifscCode,
+        beneficiaryName:
+          beneficiaryName || payout.vendor?.businessName || payout.vendor?.ownerName,
         idempotencyKey: payout.idempotencyKey || `po_exec_${payout.id}`,
       });
 
@@ -651,16 +871,48 @@ export class PayoutsService {
       }
 
       if (result.status === 'PAID') {
-        const updated = await this.prisma.payout.update({
-          where: { id: payoutId },
-          data: {
-            status: PayoutStatus.PAID,
-            paidAt: new Date(),
-            processedAt: new Date(),
-            providerTransferId: result.providerTransferId,
-            providerFee: result.providerFee ? new Prisma.Decimal(result.providerFee) : undefined,
-          },
-          include: { vendor: true },
+        const updated = await this.prisma.$transaction(async (tx) => {
+          const p = await tx.payout.update({
+            where: { id: payoutId },
+            data: {
+              status: PayoutStatus.PAID,
+              paidAt: new Date(),
+              processedAt: new Date(),
+              providerTransferId: result.providerTransferId,
+              providerFee: result.providerFee ? new Prisma.Decimal(result.providerFee) : undefined,
+            },
+            include: { vendor: true },
+          });
+
+          if (this.ledgerCore) {
+            await this.ledgerCore.recordJournal(
+              {
+                referenceType: 'PAYOUT',
+                referenceId: payoutId,
+                payoutId: payoutId,
+                vendorId: payout.vendorId,
+                description: `Vendor payout settlement #${payout.payoutNumber || payoutId}`,
+                idempotencyKey: `ledger_po_exec_${payoutId}`,
+                entries: [
+                  {
+                    accountType: LedgerAccountType.VENDOR_PAYABLE,
+                    entrySide: LedgerEntrySide.DEBIT,
+                    amount: payout.amount,
+                    description: `Debit vendor payable for payout #${payout.payoutNumber || payoutId}`,
+                  },
+                  {
+                    accountType: LedgerAccountType.GATEWAY_CLEARING,
+                    entrySide: LedgerEntrySide.CREDIT,
+                    amount: payout.amount,
+                    description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,
+                  },
+                ],
+              },
+              tx,
+            );
+          }
+
+          return p;
         });
 
         await this.auditLogService.log(
@@ -674,34 +926,31 @@ export class PayoutsService {
           },
         );
 
-        if (this.ledgerCore) {
-          try {
-            await this.ledgerCore.recordJournal({
-              referenceType: 'PAYOUT',
-              referenceId: payoutId,
-              payoutId: payoutId,
-              vendorId: payout.vendorId,
-              description: `Vendor payout settlement #${payout.payoutNumber || payoutId}`,
-              idempotencyKey: `ledger_po_exec_${payoutId}`,
-              entries: [
-                {
-                  accountType: LedgerAccountType.VENDOR_PAYABLE,
-                  entrySide: LedgerEntrySide.DEBIT,
-                  amount: payout.amount,
-                  description: `Debit vendor payable for payout #${payout.payoutNumber || payoutId}`,
-                },
-                {
-                  accountType: LedgerAccountType.GATEWAY_CLEARING,
-                  entrySide: LedgerEntrySide.CREDIT,
-                  amount: payout.amount,
-                  description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,
-                },
-              ],
-            });
-          } catch (ledgerErr: any) {
-            this.logger.error(`Failed to record gateway payout ledger journal: ${ledgerErr?.message}`);
-          }
-        }
+        return updated;
+      }
+
+      if (result.status === 'PROCESSING' || (result as any).status === 'QUEUED') {
+        const updated = await this.prisma.payout.update({
+          where: { id: payoutId },
+          data: {
+            status: PayoutStatus.PROCESSING,
+            processedAt: new Date(),
+            providerTransferId: result.providerTransferId,
+            providerFee: result.providerFee ? new Prisma.Decimal(result.providerFee) : undefined,
+          },
+          include: { vendor: true },
+        });
+
+        await this.auditLogService.log(
+          adminUserId,
+          'PAYOUT_PROCESSING',
+          'Payout',
+          payoutId,
+          {
+            amount: payout.amount.toNumber(),
+            providerTransferId: result.providerTransferId,
+          },
+        );
 
         return updated;
       }

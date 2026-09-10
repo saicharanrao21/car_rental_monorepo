@@ -386,32 +386,190 @@ export class BookingLifecycleService {
             }
 
             if (this.ledgerService && booking.payment) {
+              // Guarantee baseline journal exists before reversing
+              const existingJournal = await (tx as any).platformLedgerEntry?.findFirst?.({
+                where: {
+                  bookingId,
+                  referenceType: { in: ['BOOKING_PAYMENT_VERIFIED', 'BOOKING_CONFIRMATION'] },
+                },
+              });
+
+              if (!existingJournal && booking.payment.status === PaymentStatus.PAID) {
+                const secDeposit = booking.securityDeposit?.amount || new Prisma.Decimal(0);
+                const vendorPayable = booking.netToVendor;
+                const gstTax = booking.gstAmount || new Prisma.Decimal(0);
+                const platformFee = booking.platformFee || new Prisma.Decimal(0);
+                const totalExpected = booking.totalFare.add(secDeposit);
+
+                const subComponents = vendorPayable.add(platformFee).add(gstTax).add(secDeposit);
+                const delta = totalExpected.sub(subComponents);
+                const adjustedPlatformFee = platformFee.add(delta);
+
+                const initialLines: any[] = [
+                  {
+                    accountType: LedgerAccountType.GATEWAY_CLEARING,
+                    accountEntityId: booking.payment.gatewayProvider || 'RAZORPAY',
+                    side: LedgerEntrySide.DEBIT,
+                    amount: totalExpected,
+                    narration: `Historical payment clearing baseline for booking ${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                  },
+                  {
+                    accountType: LedgerAccountType.VENDOR_PAYABLE,
+                    accountEntityId: booking.vendorId,
+                    side: LedgerEntrySide.CREDIT,
+                    amount: vendorPayable,
+                    narration: `Net rental revenue payable to vendor for booking ${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                  },
+                ];
+
+                if (adjustedPlatformFee.gt(0)) {
+                  initialLines.push({
+                    accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+                    side: LedgerEntrySide.CREDIT,
+                    amount: adjustedPlatformFee,
+                    narration: `Platform commission revenue for booking ${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                  });
+                }
+
+                if (gstTax.gt(0)) {
+                  initialLines.push({
+                    accountType: LedgerAccountType.TAX_GST_LIABILITY,
+                    side: LedgerEntrySide.CREDIT,
+                    amount: gstTax,
+                    narration: `GST tax liability for booking ${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                  });
+                }
+
+                if (secDeposit.gt(0)) {
+                  initialLines.push({
+                    accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+                    accountEntityId: booking.customerId,
+                    side: LedgerEntrySide.CREDIT,
+                    amount: secDeposit,
+                    narration: `Security deposit held in escrow for booking ${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                  });
+                }
+
+                await this.ledgerService.recordJournal(
+                  {
+                    referenceType: 'BOOKING_PAYMENT_VERIFIED',
+                    referenceId: bookingId,
+                    narration: `Payment verification baseline journal for booking ${bookingId}`,
+                    lines: initialLines,
+                    idempotencyKey: `jrn_pay_verify_${bookingId}`,
+                    bookingId,
+                    paymentId: booking.payment.id,
+                    vendorId: booking.vendorId,
+                  },
+                  tx,
+                );
+              }
+
+              // Build economically balanced reversal journal
+              const depositAmount = booking.securityDeposit?.amount || new Prisma.Decimal(0);
+              const depositRefund = depositAmount.gt(0) && booking.securityDeposit?.status !== SecurityDepositStatus.CANCELLED
+                ? Prisma.Decimal.min(depositAmount, refundRupees)
+                : new Prisma.Decimal(0);
+              const fareRefund = refundRupees.sub(depositRefund).gte(0)
+                ? refundRupees.sub(depositRefund)
+                : new Prisma.Decimal(0);
+
+              let vendorReversal = new Prisma.Decimal(0);
+              let platformReversal = new Prisma.Decimal(0);
+              let gstReversal = new Prisma.Decimal(0);
+
+              if (booking.totalFare.gt(0) && fareRefund.gt(0)) {
+                const ratio = fareRefund.div(booking.totalFare);
+                vendorReversal = Prisma.Decimal.min(booking.netToVendor, booking.netToVendor.mul(ratio));
+                platformReversal = (booking.platformFee || new Prisma.Decimal(0)).mul(ratio);
+                gstReversal = (booking.gstAmount || new Prisma.Decimal(0)).mul(ratio);
+
+                const sub = vendorReversal.add(platformReversal).add(gstReversal).add(depositRefund);
+                const diff = refundRupees.sub(sub);
+                platformReversal = platformReversal.add(diff);
+              } else if (depositRefund.lt(refundRupees)) {
+                vendorReversal = Prisma.Decimal.min(booking.netToVendor, refundRupees.sub(depositRefund));
+                platformReversal = refundRupees.sub(depositRefund).sub(vendorReversal);
+              }
+
+              const reversalLines: any[] = [];
+
+              if (depositRefund.gt(0)) {
+                reversalLines.push({
+                  accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+                  accountEntityId: booking.customerId,
+                  side: LedgerEntrySide.DEBIT,
+                  amount: depositRefund,
+                  narration: `Security deposit escrow released on cancellation of booking ${bookingId}`,
+                  bookingId,
+                  paymentId: booking.payment.id,
+                });
+              }
+
+              if (vendorReversal.gt(0)) {
+                reversalLines.push({
+                  accountType: LedgerAccountType.VENDOR_PAYABLE,
+                  accountEntityId: booking.vendorId,
+                  side: LedgerEntrySide.DEBIT,
+                  amount: vendorReversal,
+                  narration: `Vendor payable reversed on cancellation of booking ${bookingId}`,
+                  bookingId,
+                  paymentId: booking.payment.id,
+                });
+              }
+
+              if (platformReversal.gt(0)) {
+                reversalLines.push({
+                  accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+                  side: LedgerEntrySide.DEBIT,
+                  amount: platformReversal,
+                  narration: `Platform commission reversed on cancellation of booking ${bookingId}`,
+                  bookingId,
+                  paymentId: booking.payment.id,
+                });
+              }
+
+              if (gstReversal.gt(0)) {
+                reversalLines.push({
+                  accountType: LedgerAccountType.TAX_GST_LIABILITY,
+                  side: LedgerEntrySide.DEBIT,
+                  amount: gstReversal,
+                  narration: `GST tax liability reversed on cancellation of booking ${bookingId}`,
+                  bookingId,
+                  paymentId: booking.payment.id,
+                });
+              }
+
+              reversalLines.push({
+                accountType: LedgerAccountType.GATEWAY_CLEARING,
+                accountEntityId: booking.payment.gatewayProvider || 'RAZORPAY',
+                side: LedgerEntrySide.CREDIT,
+                amount: refundRupees,
+                narration: `Customer refund clearing liability for booking ${bookingId}`,
+                bookingId,
+                paymentId: booking.payment.id,
+              });
+
               await this.ledgerService.recordJournal(
                 {
                   referenceType: 'CANCELLATION_REFUND',
                   referenceId: bookingId,
                   narration: `Cancellation refund intent for booking ${bookingId} (Tier: ${cancellationCalc.tier})`,
-                  lines: [
-                    {
-                      accountType: LedgerAccountType.VENDOR_PAYABLE,
-                      accountEntityId: booking.vendorId,
-                      side: LedgerEntrySide.DEBIT,
-                      amount: refundRupees,
-                      narration: `Vendor payable reversed on cancellation of booking ${bookingId}`,
-                      bookingId,
-                      paymentId: booking.payment.id,
-                    },
-                    {
-                      accountType: LedgerAccountType.GATEWAY_CLEARING,
-                      accountEntityId: booking.payment.gatewayProvider || 'RAZORPAY',
-                      side: LedgerEntrySide.CREDIT,
-                      amount: refundRupees,
-                      narration: `Customer refund clearing liability for booking ${bookingId}`,
-                      bookingId,
-                      paymentId: booking.payment.id,
-                    },
-                  ],
+                  lines: reversalLines,
                   idempotencyKey: `jrn_refund_intent_${bookingId}`,
+                  bookingId,
+                  paymentId: booking.payment.id,
+                  vendorId: booking.vendorId,
                 },
                 tx,
               );

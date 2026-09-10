@@ -53,7 +53,13 @@ class _AdminCorporateAccountsPageState
 
       if (mounted) {
         setState(() {
-          _accounts = res.data is List ? res.data as List<dynamic> : [];
+          if (res.data is Map && res.data['data'] is List) {
+            _accounts = res.data['data'] as List<dynamic>;
+          } else if (res.data is List) {
+            _accounts = res.data as List<dynamic>;
+          } else {
+            _accounts = [];
+          }
           _isLoading = false;
         });
       }

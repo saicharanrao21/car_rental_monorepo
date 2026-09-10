@@ -35,7 +35,7 @@ import {
   SimulationScenario,
 } from '../runtime/runtime.types';
 
-@Controller('admin/integrations')
+@Controller(['api/v1/integrations/admin', 'admin/integrations'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminIntegrationsController {

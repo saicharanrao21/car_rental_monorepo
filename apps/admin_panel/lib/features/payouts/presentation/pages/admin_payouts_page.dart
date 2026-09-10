@@ -60,7 +60,7 @@ class _AdminPayoutsPageState extends ConsumerState<AdminPayoutsPage>
   Future<void> _fetchSummary() async {
     try {
       final apiClient = ref.read(apiClientProvider);
-      final res = await apiClient.dio.get('/payouts/admin/summary');
+      final res = await apiClient.dio.get('/admin/finance/summary');
       if (mounted && res.data is Map) {
         setState(() {
           _financialSummary = res.data as Map<String, dynamic>;
