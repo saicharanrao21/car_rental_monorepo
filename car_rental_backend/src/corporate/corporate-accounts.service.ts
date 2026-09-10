@@ -653,4 +653,72 @@ export class CorporateAccountsService {
   async recordUsage(corporateCode: string, amount: number) {
     return this.reserveCredit(corporateCode, amount);
   }
+
+  /**
+   * 12. GENERATE CORPORATE BILLING STATEMENT:
+   */
+  async getStatement(
+    corporateAccountId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const account = await this.getAccountById(corporateAccountId);
+
+    const whereClause: any = { corporateAccountId };
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) whereClause.createdAt.gte = startDate;
+      if (endDate) whereClause.createdAt.lte = endDate;
+    }
+
+    const [entries, reservedAgg, settledAgg, releasedAgg] = await Promise.all([
+      this.prisma.corporateCreditLedgerEntry.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      this.prisma.corporateCreditLedgerEntry.aggregate({
+        where: { ...whereClause, type: 'CREDIT_RESERVATION' },
+        _sum: { amount: true },
+      }),
+      this.prisma.corporateCreditLedgerEntry.aggregate({
+        where: { ...whereClause, type: 'INVOICE_SETTLEMENT' },
+        _sum: { amount: true },
+      }),
+      this.prisma.corporateCreditLedgerEntry.aggregate({
+        where: { ...whereClause, type: 'CREDIT_RELEASE' },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const totalReserved = reservedAgg._sum?.amount?.toNumber() || 0;
+    const totalSettled = settledAgg._sum?.amount?.toNumber() || 0;
+    const totalReleased = releasedAgg._sum?.amount?.toNumber() || 0;
+
+    return {
+      corporateAccount: {
+        id: account.id,
+        corporateCode: account.corporateCode,
+        companyName: account.companyName,
+        taxIdNumber: account.taxIdNumber,
+        billingAddress: account.billingAddress,
+        creditLimit: account.creditLimit.toNumber(),
+        usedCredit: account.usedCredit.toNumber(),
+        availableCredit: account.creditLimit.sub(account.usedCredit).toNumber(),
+        paymentTermsDays: account.paymentTermsDays,
+      },
+      period: {
+        startDate: startDate || null,
+        endDate: endDate || null,
+      },
+      summary: {
+        totalReserved,
+        totalSettled,
+        totalReleased,
+        netBilled: Math.max(0, totalReserved - totalReleased),
+        outstandingDue: account.usedCredit.toNumber(),
+      },
+      entries,
+    };
+  }
 }

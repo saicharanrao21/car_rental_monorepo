@@ -137,5 +137,33 @@ export class CorporateAccountsController {
   ) {
     return this.corporateService.getCreditLedger(id, limit);
   }
+
+  @Post(':id/settle-credit')
+  @Roles(Role.ADMIN)
+  async settleCredit(
+    @Param('id') id: string,
+    @Body() body: { amount: number; bookingId?: string },
+    @Req() req: any,
+  ) {
+    const account = await this.corporateService.getAccountById(id);
+    return this.corporateService.settleCredit(
+      account.corporateCode,
+      body.amount,
+      req.user?.userId || req.user?.id,
+      body.bookingId,
+    );
+  }
+
+  @Get(':id/statement')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async getStatement(
+    @Param('id') id: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+    return this.corporateService.getStatement(id, start, end);
+  }
 }
 

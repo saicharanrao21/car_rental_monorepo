@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./car_rental_backend
+      dockerfile: Dockerfile
+    container_name: drivego_prod_backend
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://drivego_admin:${PROD_DB_PASSWORD:-prod_secure_db_pass_2026}@postgres:5432/drivego_production?schema=public
+      REDIS_URL: redis://:${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}@redis:6379
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://admin.drivego.in,https://app.drivego.in,https://vendor.drivego.in}
+      JWT_ACCESS_SECRET: ${PROD_JWT_ACCESS_SECRET:-drivego_prod_jwt_access_secret_min_32_chars_2026}
+      JWT_REFRESH_SECRET: ${PROD_JWT_REFRESH_SECRET:-drivego_prod_jwt_refresh_secret_min_32_chars_2026}
+      BANK_ENCRYPTION_KEY: ${PROD_BANK_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      # Payment Gateway (Razorpay & RazorpayX)
+      PAYMENT_PROVIDER_MODE: ${PAYMENT_PROVIDER_MODE:-LIVE}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+      RAZORPAYX_KEY_ID: ${RAZORPAYX_KEY_ID}
+      RAZORPAYX_KEY_SECRET: ${RAZORPAYX_KEY_SECRET}
+      RAZORPAYX_ACCOUNT_NUMBER: ${RAZORPAYX_ACCOUNT_NUMBER}
+      RAZORPAYX_WEBHOOK_SECRET: ${RAZORPAYX_WEBHOOK_SECRET}
+      # Cloud Storage (Cloudflare R2)
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-R2}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      # Communications (Meta WhatsApp Business API & SendGrid)
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-support@drivego.in}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '20m'
+        max-file: '5'
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: drivego_prod_postgres
+    restart: always
+    ports:
+      - '127.0.0.1:5432:5432'
+    environment:
+      POSTGRES_USER: drivego_admin
+      POSTGRES_PASSWORD: ${PROD_DB_PASSWORD:-prod_secure_db_pass_2026}
+      POSTGRES_DB: drivego_production
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U drivego_admin -d drivego_production']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '20m'
+        max-file: '5'
+
+  redis:
+    image: redis:7-alpine
+    container_name: drivego_prod_redis
+    restart: always
+    ports:
+      - '127.0.0.1:6379:6379'
+    command: ["redis-server", "--requirepass", "${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}", "--appendonly", "yes"]
+    volumes:
+      - prod_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  prod_postgres_data:
+    driver: local
+  prod_redis_data:
+    driver: local

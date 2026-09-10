@@ -21,6 +21,8 @@ import {
   LedgerEntrySide,
   DamageClaimStatus,
 } from '@prisma/client';
+import Razorpay from 'razorpay';
+import * as crypto from 'crypto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../admin/audit-log.service';
 import { SystemConfigService } from '../config-engine/system-config.service';
@@ -470,7 +472,7 @@ export class PayoutsService {
             where: {
               vendorId,
               createdAt: { gte: todayStart },
-              status: { notIn: [PayoutStatus.REJECTED, PayoutStatus.FAILED] },
+              status: { notIn: [PayoutStatus.REJECTED, PayoutStatus.FAILED, PayoutStatus.REVERSED] },
             },
           })) || [];
 
@@ -1065,6 +1067,356 @@ export class PayoutsService {
     }
 
     return updated;
+  }
+
+  async reversePayout(
+    payoutId: string,
+    adminUserId: string,
+    reason?: string,
+  ) {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      include: { vendor: true },
+    });
+
+    if (!payout) {
+      throw new NotFoundException('Payout record not found.');
+    }
+
+    if (payout.status === PayoutStatus.REVERSED) {
+      this.logger.log(`Payout ${payoutId} already reversed (idempotent skip)`);
+      return payout;
+    }
+
+    if (
+      payout.status !== PayoutStatus.PAID &&
+      payout.status !== PayoutStatus.PROCESSING
+    ) {
+      throw new BadRequestException(
+        `Payout in status '${payout.status}' cannot be reversed. Only PAID or PROCESSING payouts can be reversed.`,
+      );
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const p = await tx.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: PayoutStatus.REVERSED,
+          providerFailureReason:
+            reason || 'Payout reversed by banking network/operator.',
+          notes: reason
+            ? `${payout.notes || ''} | Reversal: ${reason}`
+            : payout.notes,
+        },
+        include: { vendor: true },
+      });
+
+      // If payout was previously marked PAID, reverse the general ledger journal
+      if (payout.status === PayoutStatus.PAID && this.ledgerCore) {
+        await this.ledgerCore.recordJournal(
+          {
+            referenceType: 'PAYOUT_REVERSAL',
+            referenceId: payoutId,
+            payoutId: payoutId,
+            vendorId: payout.vendorId,
+            description: `Vendor payout reversal #${payout.payoutNumber || payoutId}: ${reason || 'Reversed'}`,
+            idempotencyKey: `ledger_po_rev_${payoutId}`,
+            entries: [
+              {
+                accountType: LedgerAccountType.GATEWAY_CLEARING,
+                accountEntityId: 'RAZORPAY',
+                entrySide: LedgerEntrySide.DEBIT,
+                amount: payout.amount,
+                description: `Debit gateway clearing (reversal) for payout #${payout.payoutNumber || payoutId}`,
+              },
+              {
+                accountType: LedgerAccountType.VENDOR_PAYABLE,
+                entrySide: LedgerEntrySide.CREDIT,
+                amount: payout.amount,
+                description: `Credit vendor payable (reversal) for payout #${payout.payoutNumber || payoutId}`,
+              },
+            ],
+          },
+          tx,
+        );
+      }
+
+      return p;
+    });
+
+    await this.auditLogService.log(
+      adminUserId,
+      'PAYOUT_REVERSED',
+      'Payout',
+      payoutId,
+      {
+        amount: payout.amount.toNumber(),
+        previousStatus: payout.status,
+        reason,
+      },
+    );
+
+    if (updated.vendor?.userId) {
+      this.notificationsService
+        .notifyUser(
+          updated.vendor.userId,
+          'Payout Reversed',
+          `Your payout #${updated.payoutNumber || updated.id} for ₹${updated.amount} was reversed. Reason: ${reason || 'Bank reversal'}. Funds have been restored to your available balance.`,
+          'VENDOR',
+          'PAYOUT_REVERSED',
+          'Payout',
+          updated.id,
+          `notif_po_rev_${updated.id}`,
+        )
+        .catch((err) =>
+          this.logger.error('Failed to notify vendor of payout reversal', err),
+        );
+    }
+
+    return updated;
+  }
+
+  /**
+   * Handles asynchronous webhook events from RazorpayX for automated payouts.
+   */
+  async handlePayoutWebhook(rawBody: string, signature: string, headers?: any) {
+    const webhookSecret =
+      process.env.RAZORPAYX_WEBHOOK_SECRET ||
+      process.env.RAZORPAY_WEBHOOK_SECRET ||
+      'rzp_mock_webhook_secret';
+
+    const isMock =
+      process.env.PAYMENT_PROVIDER_MODE === 'MOCK' ||
+      process.env.NODE_ENV === 'test';
+
+    if (isMock && (!signature || signature === 'mock_signature')) {
+      this.logger.log(
+        '[RAZORPAYX-MOCK] Skipping signature verification for mock_signature',
+      );
+    } else {
+      if (!signature) {
+        throw new BadRequestException('Webhook signature is missing');
+      }
+      const isValid = Razorpay.validateWebhookSignature(
+        rawBody,
+        signature,
+        webhookSecret,
+      );
+      if (!isValid) {
+        this.logger.warn(
+          'Invalid signature detected in RazorpayX Payout Webhook request',
+        );
+        throw new BadRequestException('Invalid payout webhook signature');
+      }
+    }
+
+    const payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
+    const event = payload.event;
+    const payoutEntity = payload.payload?.payout?.entity;
+
+    if (!payoutEntity) {
+      this.logger.warn('Payout webhook received without payout entity');
+      return { received: true };
+    }
+
+    const providerTransferId = payoutEntity.id;
+    const payoutNumber = payoutEntity.reference_id;
+
+    // Deduplication via WebhookEvent
+    const eventId =
+      (headers && (headers['x-razorpay-event-id'] || headers['x-event-id'])) ||
+      payload.event_id ||
+      payload.id ||
+      crypto.createHash('sha256').update(rawBody).digest('hex');
+
+    if (this.prisma.webhookEvent) {
+      try {
+        await this.prisma.webhookEvent.create({
+          data: {
+            gateway: 'RAZORPAYX',
+            eventId: String(eventId),
+            eventType: String(event),
+            payload: payload,
+            signature: signature || 'none',
+            status: 'RECEIVED',
+          },
+        });
+      } catch (err: any) {
+        if (
+          err.code === 'P2002' ||
+          err.message?.includes('Unique constraint') ||
+          err.message?.includes('duplicate key')
+        ) {
+          this.logger.log(
+            `[PAYOUT-WEBHOOK-DEDUPLICATION] Duplicate webhook event ${eventId} already received. Skipping.`,
+          );
+          return { received: true, duplicate: true, alreadyProcessed: true };
+        }
+      }
+    }
+
+    const payout = await this.prisma.payout.findFirst({
+      where: {
+        OR: [
+          ...(providerTransferId ? [{ providerTransferId }] : []),
+          ...(payoutNumber ? [{ payoutNumber }] : []),
+        ],
+      },
+      include: { vendor: true },
+    });
+
+    if (!payout) {
+      this.logger.warn(
+        `Payout not found for providerTransferId=${providerTransferId}, payoutNumber=${payoutNumber}`,
+      );
+      return { received: true, error: 'Payout not found' };
+    }
+
+    // Process event types
+    if (event === 'payout.processed' || event === 'payout.paid') {
+      if (payout.status === PayoutStatus.PAID) {
+        this.logger.log(`Payout #${payout.payoutNumber || payout.id} already marked PAID`);
+        return { received: true, alreadyProcessed: true };
+      }
+
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const p = await tx.payout.update({
+          where: { id: payout.id },
+          data: {
+            status: PayoutStatus.PAID,
+            paidAt: new Date(),
+            processedAt: new Date(),
+            providerTransferId: providerTransferId || payout.providerTransferId,
+            providerFee: payoutEntity.fees
+              ? new Prisma.Decimal(payoutEntity.fees / 100)
+              : payout.providerFee,
+          },
+          include: { vendor: true },
+        });
+
+        if (this.ledgerCore) {
+          await this.ledgerCore.recordJournal(
+            {
+              referenceType: 'PAYOUT',
+              referenceId: payout.id,
+              payoutId: payout.id,
+              vendorId: payout.vendorId,
+              description: `Vendor payout settlement #${payout.payoutNumber || payout.id}`,
+              idempotencyKey: `ledger_po_exec_${payout.id}`,
+              entries: [
+                {
+                  accountType: LedgerAccountType.VENDOR_PAYABLE,
+                  entrySide: LedgerEntrySide.DEBIT,
+                  amount: payout.amount,
+                  description: `Debit vendor payable for payout #${payout.payoutNumber || payout.id}`,
+                },
+                {
+                  accountType: LedgerAccountType.GATEWAY_CLEARING,
+                  accountEntityId: 'RAZORPAY',
+                  entrySide: LedgerEntrySide.CREDIT,
+                  amount: payout.amount,
+                  description: `Credit gateway clearing for payout #${payout.payoutNumber || payout.id}`,
+                },
+              ],
+            },
+            tx,
+          );
+        }
+
+        return p;
+      });
+
+      await this.auditLogService.log(
+        'WEBHOOK_RAZORPAYX',
+        'PAYOUT_EXECUTED_WEBHOOK',
+        'Payout',
+        payout.id,
+        {
+          amount: payout.amount.toNumber(),
+          providerTransferId,
+        },
+      );
+
+      if (updated.vendor?.userId) {
+        this.notificationsService
+          .notifyUser(
+            updated.vendor.userId,
+            'Payout Processed',
+            `Your payout #${updated.payoutNumber || updated.id} for ₹${updated.amount} has been successfully settled to your bank account.`,
+            'VENDOR',
+            'PAYOUT_EXECUTED',
+            'Payout',
+            updated.id,
+            `notif_po_proc_${updated.id}`,
+          )
+          .catch((err) =>
+            this.logger.error('Failed to notify vendor of payout completion', err),
+          );
+      }
+
+      return { received: true, status: PayoutStatus.PAID };
+    }
+
+    if (event === 'payout.reversed') {
+      await this.reversePayout(
+        payout.id,
+        'WEBHOOK_RAZORPAYX',
+        payoutEntity.failure_reason || 'Reversed by banking network',
+      );
+      return { received: true, status: PayoutStatus.REVERSED };
+    }
+
+    if (event === 'payout.failed' || event === 'payout.rejected') {
+      if (
+        payout.status !== PayoutStatus.FAILED &&
+        payout.status !== PayoutStatus.REJECTED &&
+        payout.status !== PayoutStatus.REVERSED
+      ) {
+        const failureReason =
+          payoutEntity.failure_reason || `Payout was ${event} by RazorpayX.`;
+
+        const updated = await this.prisma.payout.update({
+          where: { id: payout.id },
+          data: {
+            status: PayoutStatus.FAILED,
+            providerFailureReason: failureReason,
+          },
+          include: { vendor: true },
+        });
+
+        await this.auditLogService.log(
+          'WEBHOOK_RAZORPAYX',
+          'PAYOUT_FAILED_WEBHOOK',
+          'Payout',
+          payout.id,
+          {
+            amount: payout.amount.toNumber(),
+            reason: failureReason,
+          },
+        );
+
+        if (updated.vendor?.userId) {
+          this.notificationsService
+            .notifyUser(
+              updated.vendor.userId,
+              'Payout Failed',
+              `Your payout request #${updated.payoutNumber || updated.id} for ₹${updated.amount} failed. Reason: ${failureReason}. The amount is returned to your available balance.`,
+              'VENDOR',
+              'PAYOUT_FAILED',
+              'Payout',
+              updated.id,
+              `notif_po_fail_${updated.id}`,
+            )
+            .catch((err) =>
+              this.logger.error('Failed to notify vendor of payout failure', err),
+            );
+        }
+
+        return { received: true, status: PayoutStatus.FAILED };
+      }
+    }
+
+    return { received: true, event };
   }
 
   async createFinancialAdjustment(

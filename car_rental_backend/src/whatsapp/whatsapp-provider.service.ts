@@ -53,7 +53,22 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     bodyParameters: string[],
   ): Promise<WhatsAppProviderSendResult> {
     if (!this.accessToken || !this.phoneNumberId) {
-      this.logger.warn('WhatsApp credentials missing. Falling back to mock response.');
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        this.logger.error(
+          '[EXTERNAL CREDENTIAL BLOCKER] WhatsApp dispatch failed in production: Missing WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID.',
+        );
+        return {
+          providerMessageId: `wamid.blocked_${Date.now()}`,
+          status: 'FAILED',
+          errorCode: 'EXTERNAL_CREDENTIAL_BLOCKER',
+          errorMessage:
+            'EXTERNAL CREDENTIAL BLOCKER: Live WhatsApp Meta credentials (WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID) are not configured in production.',
+        };
+      }
+      this.logger.warn(
+        'WhatsApp credentials missing in dev/test. Returning simulated acceptance.',
+      );
       return {
         providerMessageId: `wamid.noop_${Date.now()}`,
         status: 'ACCEPTED',
