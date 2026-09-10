@@ -55,19 +55,28 @@ async function bootstrap() {
           'http://127.0.0.1:3000',
         ];
 
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        origin.endsWith('.onrender.com')
-      ) {
+
+      if (allowedOrigins.includes(origin) || origin.endsWith('.drivego.in')) {
         return callback(null, true);
       }
-      return callback(null, true); // Allow cross-origin for staging admin/customer clients
+
+      if (!isProduction) {
+        if (
+          origin.includes('localhost') ||
+          origin.includes('127.0.0.1') ||
+          origin.endsWith('.onrender.com')
+        ) {
+          return callback(null, true);
+        }
+      }
+
+      return callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
     },
     credentials: true,
   });

@@ -776,6 +776,7 @@ export class PayoutsService {
               },
               {
                 accountType: LedgerAccountType.GATEWAY_CLEARING,
+                accountEntityId: 'RAZORPAY',
                 entrySide: LedgerEntrySide.CREDIT,
                 amount: payout.amount,
                 description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,
@@ -902,6 +903,7 @@ export class PayoutsService {
                   },
                   {
                     accountType: LedgerAccountType.GATEWAY_CLEARING,
+                    accountEntityId: 'RAZORPAY',
                     entrySide: LedgerEntrySide.CREDIT,
                     amount: payout.amount,
                     description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,

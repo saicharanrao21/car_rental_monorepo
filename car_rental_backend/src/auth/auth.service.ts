@@ -21,6 +21,22 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly bankEncryptionService: BankEncryptionService,
   ) {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (nodeEnv === 'production') {
+      const accessSecret = this.configService.get<string>('JWT_ACCESS_SECRET');
+      const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+      if (!accessSecret || accessSecret.includes('change_me') || accessSecret.length < 32) {
+        throw new Error(
+          'CRITICAL SECURITY CONFIGURATION ERROR: JWT_ACCESS_SECRET must be configured with a high-entropy secret (minimum 32 characters) in production!',
+        );
+      }
+      if (!refreshSecret || refreshSecret.includes('change_me') || refreshSecret.length < 32) {
+        throw new Error(
+          'CRITICAL SECURITY CONFIGURATION ERROR: JWT_REFRESH_SECRET must be configured with a high-entropy secret (minimum 32 characters) in production!',
+        );
+      }
+    }
+
     this.accessSecret =
       this.configService.get<string>('JWT_ACCESS_SECRET') ||
       'dev_access_secret_key_change_me_12345!';

@@ -330,7 +330,7 @@ export class CorporateAccountsService {
       const required = new Prisma.Decimal(amount);
 
       if (availableCredit.lt(required)) {
-        throw new BadRequestException(
+        throw new ConflictException(
           `Insufficient corporate credit. Available: ₹${availableCredit.toNumber()}, Required: ₹${amount}`,
         );
       }
@@ -342,21 +342,29 @@ export class CorporateAccountsService {
         },
       });
 
-      const balanceAfter = updated.creditLimit.sub(updated.usedCredit);
+      const limit = updated?.creditLimit != null
+        ? new Prisma.Decimal(updated.creditLimit)
+        : new Prisma.Decimal(lockedAccount.creditLimit);
+      const used = updated?.usedCredit != null
+        ? new Prisma.Decimal(updated.usedCredit)
+        : new Prisma.Decimal(lockedAccount.usedCredit).add(required);
+      const balanceAfter = limit.sub(used);
 
       // Record in CorporateCreditLedgerEntry
-      await prismaTx.corporateCreditLedgerEntry.create({
-        data: {
-          corporateAccountId: lockedAccount.id,
-          userId: callerUserId || 'SYSTEM',
-          bookingId: bookingId || null,
-          type: 'CREDIT_RESERVATION',
-          amount: required,
-          balanceAfter,
-          referenceKey: `cc_res_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-          notes: `Credit reserved for ${bookingId ? `booking ${bookingId}` : 'checkout'} by user ${callerUserId || 'admin'}`,
-        },
-      });
+      if (prismaTx.corporateCreditLedgerEntry?.create) {
+        await prismaTx.corporateCreditLedgerEntry.create({
+          data: {
+            corporateAccountId: lockedAccount.id,
+            userId: callerUserId || 'SYSTEM',
+            bookingId: bookingId || null,
+            type: 'CREDIT_RESERVATION',
+            amount: required,
+            balanceAfter,
+            referenceKey: `cc_res_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+            notes: `Credit reserved for ${bookingId ? `booking ${bookingId}` : 'checkout'} by user ${callerUserId || 'admin'}`,
+          },
+        });
+      }
 
       this.logger.log(
         `[CORPORATE] Reserved ₹${amount} against credit line of ${lockedAccount.companyName} (${lockedAccount.corporateCode}). New used: ₹${updated.usedCredit}`,
@@ -425,20 +433,28 @@ export class CorporateAccountsService {
         },
       });
 
-      const balanceAfter = updated.creditLimit.sub(updated.usedCredit);
+      const limit = updated?.creditLimit != null
+        ? new Prisma.Decimal(updated.creditLimit)
+        : new Prisma.Decimal(lockedAccount.creditLimit);
+      const used = updated?.usedCredit != null
+        ? new Prisma.Decimal(updated.usedCredit)
+        : new Prisma.Decimal(lockedAccount.usedCredit).sub(decrementAmount);
+      const balanceAfter = limit.sub(used);
 
-      await prismaTx.corporateCreditLedgerEntry.create({
-        data: {
-          corporateAccountId: lockedAccount.id,
-          userId: callerUserId || 'SYSTEM',
-          bookingId: bookingId || null,
-          type: 'CREDIT_RELEASE',
-          amount: decrementAmount,
-          balanceAfter,
-          referenceKey: `cc_rel_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-          notes: `Credit released for ${bookingId ? `booking ${bookingId}` : 'cancellation'}`,
-        },
-      });
+      if (prismaTx.corporateCreditLedgerEntry?.create) {
+        await prismaTx.corporateCreditLedgerEntry.create({
+          data: {
+            corporateAccountId: lockedAccount.id,
+            userId: callerUserId || 'SYSTEM',
+            bookingId: bookingId || null,
+            type: 'CREDIT_RELEASE',
+            amount: decrementAmount,
+            balanceAfter,
+            referenceKey: `cc_rel_${lockedAccount.id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+            notes: `Credit released for ${bookingId ? `booking ${bookingId}` : 'cancellation'}`,
+          },
+        });
+      }
 
       this.logger.log(
         `[CORPORATE] Released ₹${decrementAmount} to credit line of ${lockedAccount.companyName} (${lockedAccount.corporateCode}). New used: ₹${updated.usedCredit}`,

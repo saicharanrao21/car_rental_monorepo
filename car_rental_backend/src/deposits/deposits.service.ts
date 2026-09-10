@@ -5,13 +5,23 @@ import {
   ForbiddenException,
   ConflictException,
   Logger,
+  Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../admin/audit-log.service';
-import { SecurityDepositStatus, Role, Prisma } from '@prisma/client';
+import {
+  SecurityDepositStatus,
+  Role,
+  Prisma,
+  LedgerAccountType,
+  LedgerEntrySide,
+} from '@prisma/client';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 
 @Injectable()
 export class DepositsService {
@@ -22,6 +32,9 @@ export class DepositsService {
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
+    @Optional()
+    @Inject(forwardRef(() => LedgerCoreService))
+    private readonly ledgerCore?: LedgerCoreService,
   ) {}
 
   /**
@@ -246,6 +259,38 @@ export class DepositsService {
       },
     });
 
+    if (this.ledgerCore && deposit.booking) {
+      try {
+        await this.ledgerCore.recordJournal({
+          referenceType: 'SECURITY_DEPOSIT_RELEASE',
+          referenceId: deposit.id,
+          bookingId: deposit.bookingId,
+          narration: `Security deposit refund for booking ${deposit.bookingId} (${reason || 'Standard release'})`,
+          idempotencyKey: `jrn_dep_rel_${deposit.id}`,
+          lines: [
+            {
+              accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+              accountEntityId: deposit.booking.customerId,
+              side: LedgerEntrySide.DEBIT,
+              amount: remainingToRefund,
+              narration: `Escrow liability released on deposit refund for booking ${deposit.bookingId}`,
+              bookingId: deposit.bookingId,
+            },
+            {
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              accountEntityId: 'RAZORPAY',
+              side: LedgerEntrySide.CREDIT,
+              amount: remainingToRefund,
+              narration: `Gateway refund clearing for released security deposit on booking ${deposit.bookingId}`,
+              bookingId: deposit.bookingId,
+            },
+          ],
+        });
+      } catch (ledgerErr: any) {
+        this.logger.error(`Failed to record deposit release ledger journal: ${ledgerErr.message}`);
+      }
+    }
+
     if (adminUserId) {
       this.auditLogService.log(
         adminUserId,
@@ -370,6 +415,55 @@ export class DepositsService {
         razorpayRefundId: razorpayRefundId || deposit.razorpayRefundId,
       },
     });
+
+    if (this.ledgerCore && deposit.booking) {
+      try {
+        const journalLines: any[] = [
+          {
+            accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+            accountEntityId: deposit.booking.customerId,
+            side: LedgerEntrySide.DEBIT,
+            amount: deposit.amount,
+            narration: `Total escrow deposit settled after damage assessment for booking ${deposit.bookingId}`,
+            bookingId: deposit.bookingId,
+          },
+        ];
+
+        if (actualDeductDecimal.gt(0)) {
+          journalLines.push({
+            accountType: LedgerAccountType.VENDOR_PAYABLE,
+            accountEntityId: deposit.booking.vendorId,
+            side: LedgerEntrySide.CREDIT,
+            amount: actualDeductDecimal,
+            narration: `Damage compensation payable to host from security deposit for booking ${deposit.bookingId}: ${reason}`,
+            bookingId: deposit.bookingId,
+          });
+        }
+
+        if (remainingRefund.gt(0)) {
+          journalLines.push({
+            accountType: LedgerAccountType.GATEWAY_CLEARING,
+            accountEntityId: 'RAZORPAY',
+            side: LedgerEntrySide.CREDIT,
+            amount: remainingRefund,
+            narration: `Remaining security deposit refunded to customer for booking ${deposit.bookingId}`,
+            bookingId: deposit.bookingId,
+          });
+        }
+
+        await this.ledgerCore.recordJournal({
+          referenceType: 'DAMAGE_DEDUCTION',
+          referenceId: deposit.id,
+          bookingId: deposit.bookingId,
+          vendorId: deposit.booking.vendorId,
+          narration: `Security deposit damage deduction settlement for booking ${deposit.bookingId} (${reason})`,
+          idempotencyKey: `jrn_dep_deduct_${deposit.id}`,
+          lines: journalLines,
+        });
+      } catch (ledgerErr: any) {
+        this.logger.error(`Failed to record deposit deduction ledger journal: ${ledgerErr.message}`);
+      }
+    }
 
     this.auditLogService.log(
       adminUserId,

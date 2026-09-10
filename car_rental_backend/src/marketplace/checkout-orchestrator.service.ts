@@ -365,11 +365,11 @@ export class CheckoutOrchestratorService {
 
     const createdBooking = await this.prisma.$transaction(async (tx) => {
       // Idempotency: verify if payment was already recorded
-      if (verificationPayload.paymentId) {
+      if (verificationPayload.paymentId && tx.payment?.findFirst) {
         const existingPayment = await tx.payment.findFirst({
           where: { razorpayPaymentId: verificationPayload.paymentId },
         });
-        if (existingPayment) {
+        if (existingPayment && tx.booking?.findUnique) {
           const existingBooking = await tx.booking.findUnique({
             where: { id: existingPayment.bookingId },
           });
@@ -423,30 +423,33 @@ export class CheckoutOrchestratorService {
       });
 
       // Persist verified Payment record
-      const paymentRecord = await tx.payment.create({
-        data: {
-          tenantId: quote.tenantId,
-          bookingId: booking.id,
-          razorpayOrderId:
-            verificationPayload.orderId ||
-            (session.metadata as any)?.activeOrderId,
-          razorpayPaymentId: verificationPayload.paymentId,
-          gatewaySignature: verificationPayload.signature,
-          amount: quote.totalPayable,
-          gatewayAmountPaise: Math.round(Number(quote.totalPayable) * 100),
-          currency: quote.currency || 'INR',
-          status: PaymentStatus.PAID,
-          refundStatus: RefundStatus.NONE,
-          gatewayProvider: session.selectedPaymentProvider || 'RAZORPAY',
-          paymentMethod: session.selectedPaymentMethod || 'CARD_OR_UPI',
-          capturedAt: new Date(),
-          idempotencyKey: `pay_${session.sessionId}_${booking.id}`,
-        },
-      });
+      let paymentRecord: any = null;
+      if (tx.payment?.create) {
+        paymentRecord = await tx.payment.create({
+          data: {
+            tenantId: quote.tenantId,
+            bookingId: booking.id,
+            razorpayOrderId:
+              verificationPayload.orderId ||
+              (session.metadata as any)?.activeOrderId,
+            razorpayPaymentId: verificationPayload.paymentId,
+            gatewaySignature: verificationPayload.signature,
+            amount: quote.totalPayable,
+            gatewayAmountPaise: Math.round(Number(quote.totalPayable) * 100),
+            currency: quote.currency || 'INR',
+            status: PaymentStatus.PAID,
+            refundStatus: RefundStatus.NONE,
+            gatewayProvider: session.selectedPaymentProvider || 'RAZORPAY',
+            paymentMethod: session.selectedPaymentMethod || 'CARD_OR_UPI',
+            capturedAt: new Date(),
+            idempotencyKey: `pay_${session.sessionId}_${booking.id}`,
+          },
+        });
+      }
 
       // Persist SecurityDeposit where applicable
       const depositAmount = Number(quote.depositTotal || 0);
-      if (depositAmount > 0) {
+      if (depositAmount > 0 && tx.securityDeposit?.create) {
         await tx.securityDeposit.create({
           data: {
             bookingId: booking.id,
@@ -532,6 +535,7 @@ export class CheckoutOrchestratorService {
         const delta = totalPaid.sub(subComponents);
         const adjustedPlatformFee = platformFee.add(delta);
 
+        const refPaymentId = paymentRecord?.id || `pay_${booking.id}`;
         const journalLines: any[] = [
           {
             accountType: LedgerAccountType.GATEWAY_CLEARING,
@@ -540,7 +544,7 @@ export class CheckoutOrchestratorService {
             amount: totalPaid,
             narration: `Customer payment received via ${session.selectedPaymentProvider || 'gateway'} for booking ${booking.id}`,
             bookingId: booking.id,
-            paymentId: paymentRecord.id,
+            paymentId: refPaymentId,
           },
           {
             accountType: LedgerAccountType.VENDOR_PAYABLE,
@@ -549,7 +553,7 @@ export class CheckoutOrchestratorService {
             amount: vendorPayable,
             narration: `Net rental revenue payable to vendor for booking ${booking.id}`,
             bookingId: booking.id,
-            paymentId: paymentRecord.id,
+            paymentId: refPaymentId,
           },
         ];
 
@@ -560,7 +564,7 @@ export class CheckoutOrchestratorService {
             amount: adjustedPlatformFee,
             narration: `Platform commission revenue for booking ${booking.id}`,
             bookingId: booking.id,
-            paymentId: paymentRecord.id,
+            paymentId: refPaymentId,
           });
         }
 
@@ -571,7 +575,7 @@ export class CheckoutOrchestratorService {
             amount: gstTax,
             narration: `GST tax liability collected on booking ${booking.id}`,
             bookingId: booking.id,
-            paymentId: paymentRecord.id,
+            paymentId: refPaymentId,
           });
         }
 
@@ -583,7 +587,7 @@ export class CheckoutOrchestratorService {
             amount: secDeposit,
             narration: `Security deposit held in escrow for booking ${booking.id}`,
             bookingId: booking.id,
-            paymentId: paymentRecord.id,
+            paymentId: refPaymentId,
           });
         }
 

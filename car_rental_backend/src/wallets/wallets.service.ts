@@ -6,6 +6,8 @@ import {
   ConflictException,
   Logger,
   Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,11 +22,14 @@ import {
   WalletBucketType,
   LedgerEntryType,
   LedgerDirection,
+  LedgerAccountType,
+  LedgerEntrySide,
   Prisma,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VerifyDepositDto } from './dto/verify-deposit.dto';
 import { AdminAdjustWalletDto } from './dto/admin-adjust-wallet.dto';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 
 export const MAX_SINGLE_DEPOSIT = 50000;
 export const MIN_SINGLE_DEPOSIT = 100;
@@ -45,7 +50,11 @@ export class WalletsService {
     private readonly notificationsService: NotificationsService,
     @Optional() private readonly apmMonitoringService?: ApmMonitoringService,
     @Optional() private readonly systemConfigService?: SystemConfigService,
+    @Optional()
+    @Inject(forwardRef(() => LedgerCoreService))
+    private readonly ledgerCore?: LedgerCoreService,
   ) {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
     this.keyId =
       this.configService.get<string>('RAZORPAY_KEY_ID') ||
       'rzp_test_placeholderKeyId';
@@ -55,6 +64,12 @@ export class WalletsService {
     this.useMock =
       this.configService.get<string>('RAZORPAY_USE_MOCK') === 'true';
 
+    if (this.useMock && nodeEnv === 'production') {
+      throw new Error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: RAZORPAY_USE_MOCK is set to true in WalletsService, but NODE_ENV is production! Bypassing wallet payments in production is forbidden.',
+      );
+    }
+
     if (!this.useMock) {
       try {
         this.razorpay = new Razorpay({
@@ -62,6 +77,11 @@ export class WalletsService {
           key_secret: this.keySecret,
         });
       } catch (err: any) {
+        if (nodeEnv === 'production') {
+          throw new Error(
+            `CRITICAL PRODUCTION PAYMENT ERROR: Failed to initialize Razorpay SDK in WalletsService: ${err.message}`,
+          );
+        }
         this.logger.error(
           'Failed to initialize Razorpay SDK for Wallets. Falling back to mock mode.',
           err,
@@ -751,6 +771,38 @@ export class WalletsService {
       undefined,
       { razorpayOrderId, razorpayPaymentId },
     );
+
+    // 3.1 Unify with General Ledger (PlatformLedgerEntry)
+    if (this.ledgerCore) {
+      try {
+        await this.ledgerCore.recordJournal({
+          referenceType: 'WALLET_DEPOSIT',
+          referenceId: razorpayPaymentId,
+          narration: `DriveGo Wallet recharge via Razorpay for user ${userId}`,
+          idempotencyKey: `jrn_wlt_dep_${razorpayPaymentId}`,
+          lines: [
+            {
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              accountEntityId: 'RAZORPAY',
+              side: LedgerEntrySide.DEBIT,
+              amount: depositAmount,
+              narration: `Gateway clearing received for wallet recharge (${razorpayPaymentId})`,
+            },
+            {
+              accountType: LedgerAccountType.CUSTOMER_WALLET,
+              accountEntityId: userId,
+              side: LedgerEntrySide.CREDIT,
+              amount: depositAmount,
+              narration: `Customer wallet liability credited for recharge (${razorpayPaymentId})`,
+            },
+          ],
+        });
+      } catch (ledgerErr: any) {
+        this.logger.error(
+          `Failed to record wallet recharge ledger journal: ${ledgerErr.message}`,
+        );
+      }
+    }
 
     // 4. Send Confirmation Notification
     try {

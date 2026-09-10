@@ -476,7 +476,9 @@ export class BookingLifecycleService {
               }
 
               // Build economically balanced reversal journal
-              const depositAmount = booking.securityDeposit?.amount || new Prisma.Decimal(0);
+              const depositAmount = booking.securityDeposit?.amount
+                ? new Prisma.Decimal(booking.securityDeposit.amount)
+                : new Prisma.Decimal(0);
               const depositRefund = depositAmount.gt(0) && booking.securityDeposit?.status !== SecurityDepositStatus.CANCELLED
                 ? Prisma.Decimal.min(depositAmount, refundRupees)
                 : new Prisma.Decimal(0);
@@ -484,21 +486,28 @@ export class BookingLifecycleService {
                 ? refundRupees.sub(depositRefund)
                 : new Prisma.Decimal(0);
 
+              const bookingTotalFare = booking.totalFare ? new Prisma.Decimal(booking.totalFare) : new Prisma.Decimal(0);
+              const bookingPlatformFee = booking.platformFee ? new Prisma.Decimal(booking.platformFee) : new Prisma.Decimal(0);
+              const bookingGstAmount = booking.gstAmount ? new Prisma.Decimal(booking.gstAmount) : new Prisma.Decimal(0);
+              const bookingNetToVendor = booking.netToVendor
+                ? new Prisma.Decimal(booking.netToVendor)
+                : Prisma.Decimal.max(new Prisma.Decimal(0), bookingTotalFare.sub(bookingPlatformFee).sub(bookingGstAmount));
+
               let vendorReversal = new Prisma.Decimal(0);
               let platformReversal = new Prisma.Decimal(0);
               let gstReversal = new Prisma.Decimal(0);
 
-              if (booking.totalFare.gt(0) && fareRefund.gt(0)) {
-                const ratio = fareRefund.div(booking.totalFare);
-                vendorReversal = Prisma.Decimal.min(booking.netToVendor, booking.netToVendor.mul(ratio));
-                platformReversal = (booking.platformFee || new Prisma.Decimal(0)).mul(ratio);
-                gstReversal = (booking.gstAmount || new Prisma.Decimal(0)).mul(ratio);
+              if (bookingTotalFare.gt(0) && fareRefund.gt(0)) {
+                const ratio = fareRefund.div(bookingTotalFare);
+                vendorReversal = Prisma.Decimal.min(bookingNetToVendor, bookingNetToVendor.mul(ratio));
+                platformReversal = bookingPlatformFee.mul(ratio);
+                gstReversal = bookingGstAmount.mul(ratio);
 
                 const sub = vendorReversal.add(platformReversal).add(gstReversal).add(depositRefund);
                 const diff = refundRupees.sub(sub);
                 platformReversal = platformReversal.add(diff);
               } else if (depositRefund.lt(refundRupees)) {
-                vendorReversal = Prisma.Decimal.min(booking.netToVendor, refundRupees.sub(depositRefund));
+                vendorReversal = Prisma.Decimal.min(bookingNetToVendor, refundRupees.sub(depositRefund));
                 platformReversal = refundRupees.sub(depositRefund).sub(vendorReversal);
               }
 

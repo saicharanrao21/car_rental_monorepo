@@ -1,6 +1,6 @@
 import { CorporateAccountsService } from '../corporate-accounts.service';
 import { Prisma, Role } from '@prisma/client';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('Phase Q: Corporate Credit Pessimistic Locking & Concurrency Protection (HIGH-Q-01)', () => {
   let service: CorporateAccountsService;
@@ -102,7 +102,7 @@ describe('Phase Q: Corporate Credit Pessimistic Locking & Concurrency Protection
         'booking_q_02',
         Role.ADMIN,
       ),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(ConflictException);
 
     // Update must NOT have been called
     expect(mockPrisma.corporateAccount.update).not.toHaveBeenCalled();

@@ -73,13 +73,26 @@ export class PaymentsService {
     this.useMock =
       this.configService.get<string>('RAZORPAY_USE_MOCK') === 'true';
 
-    if (
-      this.useMock &&
-      this.configService.get<string>('NODE_ENV') === 'production'
-    ) {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (this.useMock && nodeEnv === 'production') {
       throw new Error(
         'CRITICAL SECURITY CONFIGURATION ERROR: RAZORPAY_USE_MOCK is set to true, but NODE_ENV is production! Bypassing payment verification in production is forbidden.',
       );
+    }
+
+    if (nodeEnv === 'production') {
+      if (
+        !this.configService.get<string>('RAZORPAY_KEY_ID') ||
+        this.keyId.includes('placeholder') ||
+        !this.configService.get<string>('RAZORPAY_KEY_SECRET') ||
+        this.keySecret.includes('placeholder') ||
+        !this.configService.get<string>('RAZORPAY_WEBHOOK_SECRET') ||
+        this.webhookSecret.includes('placeholder')
+      ) {
+        throw new Error(
+          'CRITICAL SECURITY CONFIGURATION ERROR: Production Razorpay credentials (RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET) are missing or set to placeholder values!',
+        );
+      }
     }
 
     if (!this.useMock) {
@@ -494,9 +507,9 @@ export class PaymentsService {
       );
     }
 
-    const totalExpected = booking.totalFare.add(
-      booking.securityDeposit?.amount || new Decimal(0),
-    );
+    const fare = booking.totalFare ? new Decimal(booking.totalFare) : new Decimal(0);
+    const dep = booking.securityDeposit?.amount ? new Decimal(booking.securityDeposit.amount) : new Decimal(0);
+    const totalExpected = fare.add(dep);
     const expectedAmountInPaise = Math.round(totalExpected.toNumber() * 100);
 
     const isFullWalletOrder =
@@ -1027,9 +1040,9 @@ export class PaymentsService {
         });
 
         if (b) {
-          const totalExpected = b.totalFare.add(
-            b.securityDeposit?.amount || new Decimal(0),
-          );
+          const fare = b.totalFare ? new Decimal(b.totalFare) : new Decimal(0);
+          const dep = b.securityDeposit?.amount ? new Decimal(b.securityDeposit.amount) : new Decimal(0);
+          const totalExpected = fare.add(dep);
           await this.recordPaymentLedgerJournal(
             b,
             payment,
