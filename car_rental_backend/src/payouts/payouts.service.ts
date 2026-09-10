@@ -6,6 +6,8 @@ import {
   ForbiddenException,
   Logger,
   Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -15,6 +17,9 @@ import {
   LedgerDirection,
   WalletBucketType,
   Role,
+  LedgerAccountType,
+  LedgerEntrySide,
+  DamageClaimStatus,
 } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../admin/audit-log.service';
@@ -25,6 +30,7 @@ import { ExecutePayoutDto } from './dto/execute-payout.dto';
 import { CreateFinancialAdjustmentDto } from './dto/create-adjustment.dto';
 import { WalletsService } from '../wallets/wallets.service';
 import { RazorpayXPayoutProvider } from './providers/razorpayx-payout.provider';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 
 @Injectable()
 export class PayoutsService {
@@ -37,6 +43,9 @@ export class PayoutsService {
     @Optional() private readonly systemConfigService?: SystemConfigService,
     @Optional() private readonly walletsService?: WalletsService,
     @Optional() private readonly payoutGatewayProvider?: RazorpayXPayoutProvider,
+    @Optional()
+    @Inject(forwardRef(() => LedgerCoreService))
+    private readonly ledgerCore?: LedgerCoreService,
   ) {}
 
   private async generatePayoutNumber(): Promise<string> {
@@ -91,92 +100,131 @@ export class PayoutsService {
       Date.now() - (payoutConfig?.settlementHoldDays || 2) * 86400000,
     );
 
-    // 1. Fetch completed bookings with verified PAID payment
-    const completedBookings = (await this.prisma.booking.findMany({
-      where: {
-        vendorId,
-        status: 'COMPLETED',
-        payment: { status: PaymentStatus.PAID },
-      },
-      include: {
-        damageClaims: true,
-      },
-    })) || [];
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    // Filter out disputed bookings and open damage claims for escrow security
-    const disputedBookings = completedBookings.filter(
-      (b: any) =>
-        b.disputeFlag === true ||
-        (b.damageClaims &&
-          b.damageClaims.some(
-            (dc: any) =>
-              dc.status === 'OPEN' || dc.status === 'UNDER_REVIEW',
-          )),
-    );
-    const cleanCompletedBookings = completedBookings.filter(
-      (b: any) =>
-        !b.disputeFlag &&
-        (!b.damageClaims ||
-          !b.damageClaims.some(
-            (dc: any) =>
-              dc.status === 'OPEN' || dc.status === 'UNDER_REVIEW',
-          )),
-    );
+    // Database-level parallel aggregation to eliminate unbounded in-memory processing
+    const [
+      completedAgg,
+      disputedAgg,
+      heldAgg,
+      paidPayoutsAgg,
+      pendingPayoutsAgg,
+      creditAdjAgg,
+      debitAdjAgg,
+      thisMonthAgg,
+      lastMonthAgg,
+      ledgerPayableBalance,
+    ] = await Promise.all([
+      // 1. Clean completed bookings with payment confirmed PAID
+      this.prisma.booking.aggregate({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+          disputeFlag: false,
+          damageClaims: {
+            none: {
+              status: { in: [DamageClaimStatus.SUBMITTED, DamageClaimStatus.UNDER_REVIEW] },
+            },
+          },
+        },
+        _sum: { netToVendor: true },
+      }),
+      // 2. Disputed or active damage claims
+      this.prisma.booking.aggregate({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+          OR: [
+            { disputeFlag: true },
+            {
+              damageClaims: {
+                some: {
+                  status: { in: [DamageClaimStatus.SUBMITTED, DamageClaimStatus.UNDER_REVIEW] },
+                },
+              },
+            },
+          ],
+        },
+        _sum: { netToVendor: true },
+      }),
+      // 3. Bookings within settlement hold window
+      this.prisma.booking.aggregate({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+          disputeFlag: false,
+          damageClaims: {
+            none: {
+              status: { in: [DamageClaimStatus.SUBMITTED, DamageClaimStatus.UNDER_REVIEW] },
+            },
+          },
+          updatedAt: { gt: holdCutoff },
+        },
+        _sum: { netToVendor: true },
+      }),
+      // 4. Sum amounts for PAID payouts
+      this.prisma.payout.aggregate({
+        where: { vendorId, status: PayoutStatus.PAID },
+        _sum: { amount: true },
+      }),
+      // 5. Sum amounts for PENDING / PROCESSING payouts
+      this.prisma.payout.aggregate({
+        where: {
+          vendorId,
+          status: { in: [PayoutStatus.PENDING, PayoutStatus.APPROVED, PayoutStatus.PROCESSING] },
+        },
+        _sum: { amount: true },
+      }),
+      // 6. Financial Adjustments (Credit)
+      this.prisma.financialAdjustment.aggregate({
+        where: { targetType: 'VENDOR', targetId: vendorId, direction: LedgerDirection.CREDIT },
+        _sum: { amount: true },
+      }),
+      // 7. Financial Adjustments (Debit)
+      this.prisma.financialAdjustment.aggregate({
+        where: { targetType: 'VENDOR', targetId: vendorId, direction: LedgerDirection.DEBIT },
+        _sum: { amount: true },
+      }),
+      // 8. This month earnings
+      this.prisma.booking.aggregate({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+          createdAt: { gte: thisMonthStart },
+        },
+        _sum: { netToVendor: true },
+      }),
+      // 9. Last month earnings
+      this.prisma.booking.aggregate({
+        where: {
+          vendorId,
+          status: 'COMPLETED',
+          payment: { status: PaymentStatus.PAID },
+          createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { netToVendor: true },
+      }),
+      // 10. Direct immutable ledger payable balance
+      this.ledgerCore
+        ? this.ledgerCore.getVendorPayableBalance(vendorId)
+        : Promise.resolve(null),
+    ]);
 
-    const totalEarnings = cleanCompletedBookings.reduce(
-      (sum, b) => sum.add(b.netToVendor),
-      new Prisma.Decimal(0),
-    );
-    const disputedEarnings = disputedBookings.reduce(
-      (sum, b: any) => sum.add(b.netToVendor),
-      new Prisma.Decimal(0),
-    );
+    const totalEarnings = completedAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
+    const disputedEarnings = disputedAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
+    const heldEarnings = heldAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
+    const totalPaid = paidPayoutsAgg._sum?.amount ?? new Prisma.Decimal(0);
+    const totalPending = pendingPayoutsAgg._sum?.amount ?? new Prisma.Decimal(0);
+    const netAdjustments = (creditAdjAgg._sum?.amount ?? new Prisma.Decimal(0))
+      .sub(debitAdjAgg._sum?.amount ?? new Prisma.Decimal(0));
 
-    // 2. Identify bookings within settlement hold window
-    const heldBookings = cleanCompletedBookings.filter(
-      (b) => b.updatedAt && b.updatedAt > holdCutoff,
-    );
-    const heldEarnings = heldBookings.reduce(
-      (sum, b) => sum.add(b.netToVendor),
-      new Prisma.Decimal(0),
-    );
-
-    // 3. Sum amounts for PAID and PENDING payouts
-    const paidPayouts = (await this.prisma.payout.findMany({
-      where: { vendorId, status: PayoutStatus.PAID },
-    })) || [];
-
-    const pendingPayouts = (await this.prisma.payout.findMany({
-      where: {
-        vendorId,
-        status: { in: [PayoutStatus.PENDING, PayoutStatus.APPROVED, PayoutStatus.PROCESSING] },
-      },
-    })) || [];
-
-    const totalPaid = paidPayouts.reduce(
-      (sum, p) => sum.add(p.amount),
-      new Prisma.Decimal(0),
-    );
-
-    const totalPending = pendingPayouts.reduce(
-      (sum, p) => sum.add(p.amount),
-      new Prisma.Decimal(0),
-    );
-
-    // 4. Financial Adjustments for vendor
-    const adjustments = this.prisma.financialAdjustment?.findMany
-      ? (await this.prisma.financialAdjustment.findMany({
-          where: { targetType: 'VENDOR', targetId: vendorId },
-        })) || []
-      : [];
-
-    const netAdjustments = adjustments.reduce((sum, adj) => {
-      return adj.direction === LedgerDirection.CREDIT
-        ? sum.add(adj.amount)
-        : sum.sub(adj.amount);
-    }, new Prisma.Decimal(0));
-
-    // 5. Compute available and outstanding balances
     const grossEarnedWithAdj = totalEarnings.add(netAdjustments);
     const availableBalance = grossEarnedWithAdj
       .sub(heldEarnings)
@@ -184,19 +232,8 @@ export class PayoutsService {
       .sub(totalPending);
     const outstandingBalance = grossEarnedWithAdj.sub(totalPaid);
 
-    // 6. Monthly breakdowns
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-    const thisMonthBookings = completedBookings.filter((b) => b.createdAt >= thisMonthStart);
-    const thisMonthEarnings = thisMonthBookings.reduce((sum, b) => sum.add(b.netToVendor), new Prisma.Decimal(0));
-
-    const lastMonthBookings = completedBookings.filter(
-      (b) => b.createdAt >= lastMonthStart && b.createdAt <= lastMonthEnd,
-    );
-    const lastMonthEarnings = lastMonthBookings.reduce((sum, b) => sum.add(b.netToVendor), new Prisma.Decimal(0));
+    const thisMonthEarnings = thisMonthAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
+    const lastMonthEarnings = lastMonthAgg._sum?.netToVendor ?? new Prisma.Decimal(0);
 
     return {
       totalEarnings: totalEarnings.toNumber(),
@@ -208,6 +245,7 @@ export class PayoutsService {
       outstandingBalance: Math.max(0, outstandingBalance.toNumber()),
       thisMonthEarnings: thisMonthEarnings.toNumber(),
       lastMonthEarnings: lastMonthEarnings.toNumber(),
+      ledgerPayableBalance: ledgerPayableBalance ? ledgerPayableBalance.toNumber() : undefined,
     };
   }
 
@@ -529,6 +567,35 @@ export class PayoutsService {
         },
       );
 
+      if (this.ledgerCore) {
+        try {
+          await this.ledgerCore.recordJournal({
+            referenceType: 'PAYOUT',
+            referenceId: payoutId,
+            payoutId: payoutId,
+            vendorId: payout.vendorId,
+            description: `Vendor payout settlement #${payout.payoutNumber || payoutId}`,
+            idempotencyKey: `ledger_po_exec_${payoutId}`,
+            entries: [
+              {
+                accountType: LedgerAccountType.VENDOR_PAYABLE,
+                entrySide: LedgerEntrySide.DEBIT,
+                amount: payout.amount,
+                description: `Debit vendor payable for payout #${payout.payoutNumber || payoutId}`,
+              },
+              {
+                accountType: LedgerAccountType.GATEWAY_CLEARING,
+                entrySide: LedgerEntrySide.CREDIT,
+                amount: payout.amount,
+                description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,
+              },
+            ],
+          });
+        } catch (ledgerErr: any) {
+          this.logger.error(`Failed to record manual payout ledger journal: ${ledgerErr?.message}`);
+        }
+      }
+
       const vendorUserId = updated.vendor?.userId || payout.vendor?.userId;
       if (vendorUserId) {
         this.notificationsService
@@ -606,6 +673,35 @@ export class PayoutsService {
             providerTransferId: result.providerTransferId,
           },
         );
+
+        if (this.ledgerCore) {
+          try {
+            await this.ledgerCore.recordJournal({
+              referenceType: 'PAYOUT',
+              referenceId: payoutId,
+              payoutId: payoutId,
+              vendorId: payout.vendorId,
+              description: `Vendor payout settlement #${payout.payoutNumber || payoutId}`,
+              idempotencyKey: `ledger_po_exec_${payoutId}`,
+              entries: [
+                {
+                  accountType: LedgerAccountType.VENDOR_PAYABLE,
+                  entrySide: LedgerEntrySide.DEBIT,
+                  amount: payout.amount,
+                  description: `Debit vendor payable for payout #${payout.payoutNumber || payoutId}`,
+                },
+                {
+                  accountType: LedgerAccountType.GATEWAY_CLEARING,
+                  entrySide: LedgerEntrySide.CREDIT,
+                  amount: payout.amount,
+                  description: `Credit gateway clearing for payout #${payout.payoutNumber || payoutId}`,
+                },
+              ],
+            });
+          } catch (ledgerErr: any) {
+            this.logger.error(`Failed to record gateway payout ledger journal: ${ledgerErr?.message}`);
+          }
+        }
 
         return updated;
       }

@@ -14,11 +14,17 @@ import { IntegrationRuntimeService } from '../integrations/runtime/integration-r
 import { IntegrationCategory } from '../integrations/registry/provider.types';
 import { VehicleAllocationService } from '../fleet/vehicle-allocation.service';
 import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 import {
   CheckoutSessionStatus,
   QuoteStatus,
   BookingStatus,
   FulfillmentStage,
+  PaymentStatus,
+  RefundStatus,
+  SecurityDepositStatus,
+  LedgerAccountType,
+  LedgerEntrySide,
   Role,
   Prisma,
 } from '@prisma/client';
@@ -81,6 +87,7 @@ export class CheckoutOrchestratorService {
     private readonly runtimeService: IntegrationRuntimeService,
     private readonly allocationService: VehicleAllocationService,
     @Optional() private readonly commissionService?: MarketplaceCommissionService,
+    @Optional() private readonly ledgerService?: LedgerCoreService,
   ) {}
 
   /**
@@ -352,11 +359,24 @@ export class CheckoutOrchestratorService {
       throw new BadRequestException('Payment verification failed or signature mismatch.');
     }
 
-    // 2. Atomically create confirmed Booking and update session
+    // 2. Atomically create confirmed Booking, Payment, SecurityDeposit, and balanced ledger journal
     const quote = session.quote;
     const driver = (session.driverDetails as any) || {};
 
     const createdBooking = await this.prisma.$transaction(async (tx) => {
+      // Idempotency: verify if payment was already recorded
+      if (verificationPayload.paymentId) {
+        const existingPayment = await tx.payment.findFirst({
+          where: { razorpayPaymentId: verificationPayload.paymentId },
+        });
+        if (existingPayment) {
+          const existingBooking = await tx.booking.findUnique({
+            where: { id: existingPayment.bookingId },
+          });
+          if (existingBooking) return existingBooking;
+        }
+      }
+
       // Mark quote as ACCEPTED
       await tx.bookingQuote.update({
         where: { id: quote.id },
@@ -402,6 +422,42 @@ export class CheckoutOrchestratorService {
         },
       });
 
+      // Persist verified Payment record
+      const paymentRecord = await tx.payment.create({
+        data: {
+          tenantId: quote.tenantId,
+          bookingId: booking.id,
+          razorpayOrderId:
+            verificationPayload.orderId ||
+            (session.metadata as any)?.activeOrderId,
+          razorpayPaymentId: verificationPayload.paymentId,
+          gatewaySignature: verificationPayload.signature,
+          amount: quote.totalPayable,
+          gatewayAmountPaise: Math.round(Number(quote.totalPayable) * 100),
+          currency: quote.currency || 'INR',
+          status: PaymentStatus.PAID,
+          refundStatus: RefundStatus.NONE,
+          gatewayProvider: session.selectedPaymentProvider || 'RAZORPAY',
+          paymentMethod: session.selectedPaymentMethod || 'CARD_OR_UPI',
+          capturedAt: new Date(),
+          idempotencyKey: `pay_${session.sessionId}_${booking.id}`,
+        },
+      });
+
+      // Persist SecurityDeposit where applicable
+      const depositAmount = Number(quote.depositTotal || 0);
+      if (depositAmount > 0) {
+        await tx.securityDeposit.create({
+          data: {
+            bookingId: booking.id,
+            amount: new Prisma.Decimal(depositAmount),
+            status: SecurityDepositStatus.HELD,
+            heldAt: new Date(),
+            razorpayPaymentId: verificationPayload.paymentId,
+          },
+        });
+      }
+
       // Synchronize physical fulfillment tracking
       if ((tx as any).fulfillmentRecord) {
         const initialStage = quote.carId
@@ -426,10 +482,11 @@ export class CheckoutOrchestratorService {
       }
 
       // Multilateral Commission Breakdown on Confirmation
+      let commissionSplit: any = null;
       if (this.commissionService) {
         try {
-          const commissionSplit = await this.commissionService.calculateCommission({
-            grossAmount: Number(quote.totalPayable),
+          commissionSplit = await this.commissionService.calculateCommission({
+            grossAmount: Math.max(0, Number(quote.totalPayable) - depositAmount),
             vendorId: quote.tenantId,
             branchId: quote.car?.pickupHubId || undefined,
             vehicleClass: quote.car?.type || ('SEDAN' as any),
@@ -449,6 +506,97 @@ export class CheckoutOrchestratorService {
             `Commission split resolution warning for booking ${booking.id}: ${err.message}`,
           );
         }
+      }
+
+      // Create Balanced Double-Entry General Ledger Journal
+      if (this.ledgerService) {
+        const totalPaid = new Prisma.Decimal(quote.totalPayable);
+        const platformFee = commissionSplit
+          ? new Prisma.Decimal(commissionSplit.platformFee)
+          : new Prisma.Decimal(quote.feesTotal);
+        const gstTax = commissionSplit
+          ? new Prisma.Decimal(commissionSplit.gstAmount)
+          : new Prisma.Decimal(quote.taxTotal);
+        const vendorPayable = commissionSplit
+          ? new Prisma.Decimal(
+              commissionSplit.vendorNetPayable + commissionSplit.branchShare,
+            )
+          : new Prisma.Decimal(quote.netToVendor);
+        const secDeposit = new Prisma.Decimal(depositAmount);
+
+        // Guarantee exact zero-sum balance: totalPaid == vendorPayable + adjustedPlatformFee + gstTax + secDeposit
+        const subComponents = vendorPayable
+          .add(platformFee)
+          .add(gstTax)
+          .add(secDeposit);
+        const delta = totalPaid.sub(subComponents);
+        const adjustedPlatformFee = platformFee.add(delta);
+
+        const journalLines: any[] = [
+          {
+            accountType: LedgerAccountType.GATEWAY_CLEARING,
+            accountEntityId: session.selectedPaymentProvider || 'RAZORPAY',
+            side: LedgerEntrySide.DEBIT,
+            amount: totalPaid,
+            narration: `Customer payment received via ${session.selectedPaymentProvider || 'gateway'} for booking ${booking.id}`,
+            bookingId: booking.id,
+            paymentId: paymentRecord.id,
+          },
+          {
+            accountType: LedgerAccountType.VENDOR_PAYABLE,
+            accountEntityId: quote.tenantId,
+            side: LedgerEntrySide.CREDIT,
+            amount: vendorPayable,
+            narration: `Net rental revenue payable to vendor for booking ${booking.id}`,
+            bookingId: booking.id,
+            paymentId: paymentRecord.id,
+          },
+        ];
+
+        if (adjustedPlatformFee.gt(0)) {
+          journalLines.push({
+            accountType: LedgerAccountType.PLATFORM_COMMISSION_REVENUE,
+            side: LedgerEntrySide.CREDIT,
+            amount: adjustedPlatformFee,
+            narration: `Platform commission revenue for booking ${booking.id}`,
+            bookingId: booking.id,
+            paymentId: paymentRecord.id,
+          });
+        }
+
+        if (gstTax.gt(0)) {
+          journalLines.push({
+            accountType: LedgerAccountType.TAX_GST_LIABILITY,
+            side: LedgerEntrySide.CREDIT,
+            amount: gstTax,
+            narration: `GST tax liability collected on booking ${booking.id}`,
+            bookingId: booking.id,
+            paymentId: paymentRecord.id,
+          });
+        }
+
+        if (depositAmount > 0) {
+          journalLines.push({
+            accountType: LedgerAccountType.CUSTOMER_DEPOSIT_ESCROW,
+            accountEntityId: session.customerId,
+            side: LedgerEntrySide.CREDIT,
+            amount: secDeposit,
+            narration: `Security deposit held in escrow for booking ${booking.id}`,
+            bookingId: booking.id,
+            paymentId: paymentRecord.id,
+          });
+        }
+
+        await this.ledgerService.recordJournal(
+          {
+            referenceType: 'BOOKING_CONFIRMATION',
+            referenceId: booking.id,
+            narration: `Marketplace checkout financial settlement for booking ${booking.id}`,
+            lines: journalLines,
+            idempotencyKey: `jrn_confirm_${booking.id}`,
+          },
+          tx,
+        );
       }
 
       // Convert active temporary vehicle holds for this vehicle/customer

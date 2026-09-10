@@ -273,13 +273,54 @@ export class NotificationOrchestratorService {
       case NotificationChannel.PUSH:
         if (this.communicationDispatcher) {
           try {
+            // Query real registered and active device tokens for the recipient
+            const userDevices = await this.prisma.userDevice.findMany({
+              where: {
+                userId: recipientId,
+                isActive: true,
+              },
+              select: {
+                id: true,
+                token: true,
+              },
+            });
+
+            let realDeviceTokens = userDevices.map((d) => d.token).filter(Boolean);
+
+            // Legacy fallback if no user devices in table
+            if (realDeviceTokens.length === 0) {
+              const legacyUser = await this.prisma.user.findUnique({
+                where: { id: recipientId },
+                select: { fcmToken: true },
+              });
+              if (legacyUser?.fcmToken) {
+                realDeviceTokens = [legacyUser.fcmToken];
+              }
+            }
+
+            if (realDeviceTokens.length === 0) {
+              this.logger.debug(
+                `[NOTIF-ORCHESTRATOR] No active device tokens found for recipient ${recipientId}. Skipping PUSH dispatch.`,
+              );
+              await this.prisma.notificationDelivery.update({
+                where: { id: deliveryId },
+                data: {
+                  status: DeliveryStatus.FAILED,
+                  lastError: 'No active device tokens registered for recipient',
+                  failedAt: new Date(),
+                  attemptCount: { increment: 1 },
+                },
+              });
+              break;
+            }
+
             const res = await this.communicationDispatcher.dispatchCommunication({
               channel: CommChannel.PUSH,
               messageType: CommunicationMessageType.TRANSACTIONAL,
               priority: CommPriority.NORMAL,
               recipient: {
                 id: recipientId,
-                deviceTokens: ['mock_fcm_token_123'],
+                deviceTokens: realDeviceTokens,
               },
               directContent: {
                 subject: rendered.title,
@@ -291,6 +332,18 @@ export class NotificationOrchestratorService {
               },
               idempotencyKey: `notif_push_${deliveryId}`,
             });
+
+            // If any token was rejected as invalid or unregistered by FCM, deactivate in DB
+            if (!res.success && res.error && (res.error.includes('registration-token-not-registered') || res.error.includes('invalid-registration-token'))) {
+              await this.prisma.userDevice.updateMany({
+                where: {
+                  userId: recipientId,
+                  token: { in: realDeviceTokens },
+                },
+                data: { isActive: false },
+              });
+            }
+
             await this.prisma.notificationDelivery.update({
               where: { id: deliveryId },
               data: {

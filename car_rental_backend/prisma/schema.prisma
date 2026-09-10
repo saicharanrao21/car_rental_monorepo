@@ -231,6 +231,7 @@ enum RefundStatus {
   PENDING
   PROCESSED
   FAILED
+  RETRYABLE
 }
 
 enum DisputeStatus {
@@ -452,6 +453,7 @@ model User {
   notificationPreference NotificationPreference?
   financialAdjustmentsApproved FinancialAdjustment[]
   checkoutSessions CheckoutSession[]
+  corporateEmployees CorporateEmployee[]
 
   @@index([phone])
   @@index([role])
@@ -863,6 +865,10 @@ model Booking {
   checkoutSession    CheckoutSession?
   fulfillmentRecord  FulfillmentRecord?
   substitutionRecords VehicleSubstitutionRecord[]
+  corporateAccountId String?
+  corporateAccount   CorporateAccount?   @relation(fields: [corporateAccountId], references: [id], onDelete: SetNull)
+  ledgerEntries      PlatformLedgerEntry[]
+  corporateCreditEntries CorporateCreditLedgerEntry[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -877,6 +883,7 @@ model Booking {
   @@index([quoteId])
   @@index([allocationStatus])
   @@index([vehicleClass])
+  @@index([corporateAccountId])
 }
 
 model MileagePackage {
@@ -1057,6 +1064,7 @@ model Payout {
   paidAt               DateTime?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @default(now()) @updatedAt
+  ledgerEntries        PlatformLedgerEntry[]
 
   @@index([vendorId])
   @@index([status])
@@ -1156,6 +1164,7 @@ model Payment {
   updatedAt         DateTime          @updatedAt
   refunds           PaymentRefund[]
   auditLogs         PaymentAuditLog[]
+  ledgerEntries     PlatformLedgerEntry[]
 
   @@index([tenantId, status])
   @@index([razorpayRefundId])
@@ -3048,27 +3057,116 @@ model MarketplaceCommissionRule {
 }
 
 model CorporateAccount {
-  id                    String       @id @default(cuid())
+  id                    String                         @id @default(cuid())
   companyName           String
-  corporateCode         String       @unique
+  corporateCode         String                         @unique
   contactEmail          String
   contactPhone          String
   taxIdNumber           String?
   billingAddress        String
-  creditLimit           Decimal      @default(0) @db.Decimal(12, 2)
-  usedCredit            Decimal      @default(0) @db.Decimal(12, 2)
-  negotiatedDiscountPct  Decimal      @default(10.00) @db.Decimal(5, 2)
-  paymentTermsDays      Int          @default(30)
-  isActive              Boolean      @default(true)
+  creditLimit           Decimal                        @default(0) @db.Decimal(12, 2)
+  usedCredit            Decimal                        @default(0) @db.Decimal(12, 2)
+  negotiatedDiscountPct  Decimal                        @default(10.00) @db.Decimal(5, 2)
+  paymentTermsDays      Int                            @default(30)
+  isActive              Boolean                        @default(true)
   preferredVendorId     String?
-  preferredVendor       Vendor?      @relation(fields: [preferredVendorId], references: [id], onDelete: SetNull)
+  preferredVendor       Vendor?                        @relation(fields: [preferredVendorId], references: [id], onDelete: SetNull)
   metadata              Json?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  employees             CorporateEmployee[]
+  creditLedgerEntries   CorporateCreditLedgerEntry[]
+  bookings              Booking[]
 
   @@index([corporateCode])
   @@index([isActive])
+  @@index([companyName])
 }
+
+enum LedgerAccountType {
+  GATEWAY_CLEARING
+  CUSTOMER_WALLET
+  CUSTOMER_DEPOSIT_ESCROW
+  VENDOR_PAYABLE
+  PLATFORM_COMMISSION_REVENUE
+  TAX_GST_LIABILITY
+  CORPORATE_RECEIVABLE
+  DISPUTE_HOLD
+}
+
+enum LedgerEntrySide {
+  DEBIT
+  CREDIT
+}
+
+model PlatformLedgerEntry {
+  id              String            @id @default(cuid())
+  journalId       String            // Deterministic UUID grouping balanced debit & credit rows
+  accountType     LedgerAccountType
+  accountEntityId String?           // vendorId, customerId, or corporateAccountId
+  side            LedgerEntrySide   // DEBIT or CREDIT
+  amount          Decimal           @db.Decimal(12, 2)
+  currency        String            @default("INR")
+  bookingId       String?
+  booking         Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  paymentId       String?
+  payment         Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  payoutId        String?
+  payout          Payout?           @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  referenceType   String            // 'BOOKING_CONFIRMATION', 'CANCELLATION_REFUND', 'VENDOR_PAYOUT', 'DAMAGE_DEDUCTION', 'SECURITY_DEPOSIT_HOLD', 'SECURITY_DEPOSIT_RELEASE', 'CORPORATE_RESERVATION', 'CORPORATE_SETTLEMENT'
+  referenceId     String
+  narration       String
+  metadata        Json?
+  idempotencyKey  String?           @unique
+  postedAt        DateTime          @default(now())
+
+  @@index([journalId])
+  @@index([accountType, accountEntityId])
+  @@index([bookingId])
+  @@index([paymentId])
+  @@index([payoutId])
+  @@index([referenceType, referenceId])
+  @@index([postedAt])
+}
+
+model CorporateEmployee {
+  id                   String           @id @default(cuid())
+  corporateAccountId   String
+  corporateAccount     CorporateAccount @relation(fields: [corporateAccountId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeCode         String?
+  department           String?
+  spendingLimitMonthly Decimal?         @db.Decimal(10, 2)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@unique([corporateAccountId, userId])
+  @@index([userId])
+  @@index([corporateAccountId, isActive])
+}
+
+model CorporateCreditLedgerEntry {
+  id                 String           @id @default(cuid())
+  corporateAccountId String
+  corporateAccount   CorporateAccount @relation(fields: [corporateAccountId], references: [id], onDelete: Cascade)
+  userId             String
+  bookingId          String?
+  booking            Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  type               String           // 'CREDIT_RESERVATION', 'CREDIT_RELEASE', 'INVOICE_SETTLEMENT'
+  amount             Decimal          @db.Decimal(12, 2)
+  balanceAfter       Decimal          @db.Decimal(12, 2)
+  referenceKey       String?          @unique
+  notes              String?
+  metadata           Json?
+  createdAt          DateTime         @default(now())
+
+  @@index([corporateAccountId])
+  @@index([bookingId])
+  @@index([userId])
+}
+
 
 
 

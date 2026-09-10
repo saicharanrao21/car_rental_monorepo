@@ -311,18 +311,36 @@ class _BookingFlowPageState extends ConsumerState<BookingFlowPage> {
       _next(ref);
     } else if (step == 2) {
       if (_contactFormKey.currentState?.validate() ?? true) {
+        final repo = ref.read(bookingRepositoryProvider);
+        ref.read(bookingDraftProvider.notifier).fetchAuthoritativeQuote(
+          repo: repo,
+          carId: car.id,
+        );
         _next(ref);
       }
     } else if (step == 3) {
-      // Persist finalized fare breakdown onto draft before proceeding to payment
-      ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
-            baseFare: fareResult.baseFare,
-            platformFee: fareResult.platformFee,
-            gst: fareResult.gst,
-            totalFare: calculatedTotal,
-            netToVendor: fareResult.netToVendor,
-            commissionPercent: config.percentage,
-          ));
+      final draft = ref.read(bookingDraftProvider);
+      if (draft.authoritativeQuote != null) {
+        final q = draft.authoritativeQuote!;
+        ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+              baseFare: q.subtotal,
+              platformFee: q.feesTotal,
+              gst: q.taxTotal,
+              totalFare: q.totalPayable,
+              netToVendor: q.netToVendor,
+              commissionPercent: config.percentage,
+              quoteId: q.quoteId,
+            ));
+      } else {
+        ref.read(bookingDraftProvider.notifier).update((d) => d.copyWith(
+              baseFare: fareResult.baseFare,
+              platformFee: fareResult.platformFee,
+              gst: fareResult.gst,
+              totalFare: calculatedTotal,
+              netToVendor: fareResult.netToVendor,
+              commissionPercent: config.percentage,
+            ));
+      }
       _next(ref);
     } else if (step == 4) {
       _paymentKey.currentState?.startPaymentFlow();

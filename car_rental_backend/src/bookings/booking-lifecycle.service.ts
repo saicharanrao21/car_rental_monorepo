@@ -20,16 +20,21 @@ import {
   BookingStatus,
   Role,
   PaymentStatus,
+  RefundStatus,
+  LedgerAccountType,
+  LedgerEntrySide,
   InspectionType,
   HandoverOtpType,
   SecurityDepositStatus,
   VehicleOperationalStatus,
   VehicleVerificationStatus,
+  Prisma,
   VehicleBlockType,
   DamageClaimStatus,
   FulfillmentStage,
 } from '@prisma/client';
 import { MarketplaceCommissionService } from '../finance/marketplace-commission.service';
+import { LedgerCoreService } from '../finance/ledger-core.service';
 import { VehicleOperationsEligibilityService } from '../cars/vehicle-operations-eligibility.service';
 import { SystemConfigService } from '../config-engine/system-config.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
@@ -58,6 +63,7 @@ export class BookingLifecycleService {
     @Optional() private readonly configService?: SystemConfigService,
     @Optional() private readonly cacheService?: RedisCacheService,
     @Optional() private readonly commissionService?: MarketplaceCommissionService,
+    @Optional() private readonly ledgerService?: LedgerCoreService,
   ) {}
 
   /**
@@ -287,15 +293,6 @@ export class BookingLifecycleService {
         } else {
           cancellationCalc = this.cancellationPolicyService.calculateCancellation(cancelParams);
         }
-
-        if (cancellationCalc.refundAmountInPaise > 0) {
-          await this.paymentsService.refund(
-            bookingId,
-            cancellationCalc.refundAmountInPaise,
-            reason,
-            cancellationCalc.tier,
-          );
-        }
       }
 
       // 5. Execute DB updates and write Transactional Outbox Event inside an atomic transaction
@@ -364,6 +361,61 @@ export class BookingLifecycleService {
                 releasedAt: new Date(),
               },
             });
+          }
+
+          // Resilient Refund Intent & Ledger Journal Persistence
+          if (targetStatus === BookingStatus.CANCELLED && cancellationCalc && cancellationCalc.refundAmountInPaise > 0) {
+            const refundRupees = new Prisma.Decimal(
+              (cancellationCalc.refundAmountInPaise / 100).toFixed(2),
+            );
+            const refundIdempotencyKey = `rfnd_${bookingId}_${booking.payment?.id || 'pay'}_${Date.now()}`;
+
+            if ((tx as any).paymentRefund) {
+              await (tx as any).paymentRefund.create({
+                data: {
+                  tenantId: booking.vendorId,
+                  paymentId: booking.payment?.id || bookingId,
+                  bookingId,
+                  idempotencyKey: refundIdempotencyKey,
+                  requestedAmount: refundRupees,
+                  status: RefundStatus.PENDING,
+                  reason: reason || 'Booking cancellation refund',
+                  requestedByUserId: actorId,
+                },
+              });
+            }
+
+            if (this.ledgerService && booking.payment) {
+              await this.ledgerService.recordJournal(
+                {
+                  referenceType: 'CANCELLATION_REFUND',
+                  referenceId: bookingId,
+                  narration: `Cancellation refund intent for booking ${bookingId} (Tier: ${cancellationCalc.tier})`,
+                  lines: [
+                    {
+                      accountType: LedgerAccountType.VENDOR_PAYABLE,
+                      accountEntityId: booking.vendorId,
+                      side: LedgerEntrySide.DEBIT,
+                      amount: refundRupees,
+                      narration: `Vendor payable reversed on cancellation of booking ${bookingId}`,
+                      bookingId,
+                      paymentId: booking.payment.id,
+                    },
+                    {
+                      accountType: LedgerAccountType.GATEWAY_CLEARING,
+                      accountEntityId: booking.payment.gatewayProvider || 'RAZORPAY',
+                      side: LedgerEntrySide.CREDIT,
+                      amount: refundRupees,
+                      narration: `Customer refund clearing liability for booking ${bookingId}`,
+                      bookingId,
+                      paymentId: booking.payment.id,
+                    },
+                  ],
+                  idempotencyKey: `jrn_refund_intent_${bookingId}`,
+                },
+                tx,
+              );
+            }
           }
 
           // 5.1 Fleet Integrity: Record vehicle reservation audit log on confirmation
@@ -663,6 +715,48 @@ export class BookingLifecycleService {
       this.outboxService.dispatchEvent(outboxEvent.id).catch((err) => {
         this.logger.error(`Asynchronous outbox dispatch failed for event ${outboxEvent.id}: ${err.message}`);
       });
+
+      // 7.1 Resilient Post-Commit Gateway Refund Dispatch
+      if (
+        targetStatus === BookingStatus.CANCELLED &&
+        cancellationCalc &&
+        cancellationCalc.refundAmountInPaise > 0
+      ) {
+        try {
+          const refundRes = await this.paymentsService.refund(
+            bookingId,
+            cancellationCalc.refundAmountInPaise,
+            reason,
+            cancellationCalc.tier,
+          );
+          if (this.prisma.paymentRefund) {
+            await this.prisma.paymentRefund.updateMany({
+              where: { bookingId, status: RefundStatus.PENDING },
+              data: {
+                status: RefundStatus.PROCESSED,
+                gatewayRefundId: refundRes.refundId || undefined,
+                processedAmount: refundRes.refundAmount,
+              },
+            });
+          }
+          this.logger.log(
+            `Resilient gateway refund succeeded for booking ${bookingId}: ${refundRes.refundId} (₹${refundRes.refundAmount})`,
+          );
+        } catch (gatewayErr: any) {
+          this.logger.error(
+            `[RESILIENT-REFUND-ERROR] Gateway refund execution failed for booking ${bookingId}: ${gatewayErr.message}. Marked RETRYABLE in PaymentRefund for reconciliation recovery.`,
+          );
+          if (this.prisma.paymentRefund) {
+            await this.prisma.paymentRefund.updateMany({
+              where: { bookingId, status: RefundStatus.PENDING },
+              data: {
+                status: RefundStatus.RETRYABLE,
+                failureReason: gatewayErr.message || 'Gateway refund execution error',
+              },
+            });
+          }
+        }
+      }
 
       // 8. Trigger Referral and Loyalty incentives upon clean completion or reversals upon cancellation/refund
       if (targetStatus === BookingStatus.COMPLETED) {

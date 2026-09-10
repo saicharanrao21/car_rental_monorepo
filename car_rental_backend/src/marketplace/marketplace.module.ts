@@ -4,6 +4,7 @@ import { FleetModule } from '../fleet/fleet.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { BookingsModule } from '../bookings/bookings.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 import { MarketplaceSearchService } from './marketplace-search.service';
 import { MarketplaceRankingService } from './marketplace-ranking.service';
@@ -21,6 +22,7 @@ import { MarketplaceController } from './marketplace.controller';
     PricingModule,
     IntegrationsModule,
     BookingsModule,
+    PaymentsModule,
   ],
   controllers: [MarketplaceController],
   providers: [

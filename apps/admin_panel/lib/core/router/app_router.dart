@@ -32,6 +32,10 @@ import '../../features/business_rules/presentation/pages/business_rules_dashboar
 import '../../features/wallet/presentation/pages/admin_wallet_page.dart';
 import '../../features/integrations/presentation/pages/integration_marketplace_page.dart';
 import '../../features/automation/presentation/pages/admin_automation_overview_page.dart';
+import '../../features/payouts/presentation/pages/admin_payouts_page.dart';
+import '../../features/corporate/presentation/pages/admin_corporate_accounts_page.dart';
+import '../../features/reconciliation/presentation/pages/admin_reconciliation_page.dart';
+import '../../features/operations_center/presentation/pages/admin_operations_command_center_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -183,6 +187,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/automation',
             builder: (context, state) => const AdminAutomationOverviewPage(),
+          ),
+          GoRoute(
+            path: '/payouts',
+            builder: (context, state) => const AdminPayoutsPage(),
+          ),
+          GoRoute(
+            path: '/corporate-accounts',
+            builder: (context, state) => const AdminCorporateAccountsPage(),
+          ),
+          GoRoute(
+            path: '/reconciliation',
+            builder: (context, state) => const AdminReconciliationPage(),
+          ),
+          GoRoute(
+            path: '/operations-center',
+            builder: (context, state) => const AdminOperationsCommandCenterPage(),
           ),
         ],
       ),

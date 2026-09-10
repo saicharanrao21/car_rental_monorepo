@@ -50,6 +50,7 @@ class AdminShell extends ConsumerWidget {
       icon: Icons.space_dashboard_rounded,
       items: [
         AdminNavItem(label: 'Command Center', icon: Icons.space_dashboard_rounded, route: '/dashboard'),
+        AdminNavItem(label: 'Operations Live SLA', icon: Icons.radar_outlined, route: '/operations-center', badgeText: 'LIVE', badgeColor: Colors.blue),
         AdminNavItem(label: 'Revenue & Reports', icon: Icons.account_balance_wallet_outlined, route: '/revenue'),
       ],
     ),
@@ -83,6 +84,9 @@ class AdminShell extends ConsumerWidget {
       domainName: 'Finance & Settlements',
       icon: Icons.payments_outlined,
       items: [
+        AdminNavItem(label: 'Vendor Payouts & Settlement', icon: Icons.payments_outlined, route: '/payouts', badgeText: 'PHASE P', badgeColor: Color(0xFF10B981)),
+        AdminNavItem(label: 'Corporate Accounts & Credit', icon: Icons.business_outlined, route: '/corporate-accounts'),
+        AdminNavItem(label: 'Reconciliation Exceptions', icon: Icons.rule_folder_outlined, route: '/reconciliation'),
         AdminNavItem(label: 'Wallet Management', icon: Icons.account_balance_wallet_outlined, route: '/wallet'),
         AdminNavItem(label: 'Commission Settings', icon: Icons.percent_outlined, route: '/commission'),
         AdminNavItem(label: 'Invoices & Billing', icon: Icons.receipt_long_outlined, route: '/invoices'),

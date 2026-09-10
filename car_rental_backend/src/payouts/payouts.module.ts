@@ -6,6 +6,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminModule } from '../admin/admin.module';
 import { SystemConfigModule } from '../config-engine/system-config.module';
 import { WalletsModule } from '../wallets/wallets.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 import { RazorpayXPayoutProvider } from './providers/razorpayx-payout.provider';
 
@@ -16,6 +17,7 @@ import { RazorpayXPayoutProvider } from './providers/razorpayx-payout.provider';
     AdminModule,
     SystemConfigModule,
     forwardRef(() => WalletsModule),
+    forwardRef(() => PaymentsModule),
   ],
   controllers: [PayoutsController],
   providers: [PayoutsService, RazorpayXPayoutProvider],

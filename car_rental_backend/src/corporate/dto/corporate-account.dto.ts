@@ -105,3 +105,28 @@ export class ValidateCorporateCreditDto {
   @Min(0)
   estimatedAmount!: number;
 }
+
+export class AddCorporateEmployeeDto {
+  @IsString()
+  @IsNotEmpty()
+  userId!: string;
+
+  @IsString()
+  @IsOptional()
+  employeeCode?: string;
+
+  @IsString()
+  @IsOptional()
+  department?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  spendingLimitMonthly?: number;
+}
+
+export class UpdateCorporateEmployeeStatusDto {
+  @IsBoolean()
+  isActive!: boolean;
+}
+

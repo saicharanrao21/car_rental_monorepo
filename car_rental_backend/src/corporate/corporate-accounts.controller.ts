@@ -6,8 +6,10 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
   ParseBoolPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -18,6 +20,8 @@ import {
   CreateCorporateAccountDto,
   UpdateCorporateAccountDto,
   ValidateCorporateCreditDto,
+  AddCorporateEmployeeDto,
+  UpdateCorporateEmployeeStatusDto,
 } from './dto/corporate-account.dto';
 
 @Controller(['api/v1/corporate-accounts', 'corporate-accounts'])
@@ -57,26 +61,81 @@ export class CorporateAccountsController {
 
   @Post('validate-credit')
   @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
-  async validateCredit(@Body() dto: ValidateCorporateCreditDto) {
-    return this.corporateService.validateCredit(dto);
+  async validateCredit(
+    @Req() req: any,
+    @Body() dto: ValidateCorporateCreditDto,
+  ) {
+    return this.corporateService.validateCredit(
+      dto,
+      req.user?.userId,
+      req.user?.role,
+    );
   }
 
   @Post('reserve-credit')
   @Roles(Role.CUSTOMER, Role.ADMIN)
-  async reserveCredit(@Body() dto: ValidateCorporateCreditDto) {
+  async reserveCredit(
+    @Req() req: any,
+    @Body() dto: ValidateCorporateCreditDto,
+  ) {
     return this.corporateService.reserveCredit(
       dto.corporateCode,
       dto.estimatedAmount,
+      req.user?.userId,
+      req.user?.role,
     );
   }
 
   @Post('release-credit')
   @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
-  async releaseCredit(@Body() dto: ValidateCorporateCreditDto) {
+  async releaseCredit(
+    @Req() req: any,
+    @Body() dto: ValidateCorporateCreditDto,
+  ) {
     return this.corporateService.releaseCredit(
       dto.corporateCode,
       dto.estimatedAmount,
+      req.user?.userId,
+      req.user?.role,
     );
+  }
+
+  @Get(':id/employees')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async listEmployees(@Param('id') id: string) {
+    return this.corporateService.listEmployees(id);
+  }
+
+  @Post(':id/employees')
+  @Roles(Role.ADMIN)
+  async addEmployee(
+    @Param('id') id: string,
+    @Body() dto: AddCorporateEmployeeDto,
+  ) {
+    return this.corporateService.addEmployee(id, dto);
+  }
+
+  @Patch(':id/employees/:employeeId/status')
+  @Roles(Role.ADMIN)
+  async updateEmployeeStatus(
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+    @Body() dto: UpdateCorporateEmployeeStatusDto,
+  ) {
+    return this.corporateService.updateEmployeeStatus(
+      id,
+      employeeId,
+      dto.isActive,
+    );
+  }
+
+  @Get(':id/credit-ledger')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async getCreditLedger(
+    @Param('id') id: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.corporateService.getCreditLedger(id, limit);
   }
 }
 

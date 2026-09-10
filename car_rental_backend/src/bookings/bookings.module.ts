@@ -27,6 +27,8 @@ import { RentalCoreController } from './rental-core.controller';
 import { FleetModule } from '../fleet/fleet.module';
 import { forwardRef } from '@nestjs/common';
 
+import { OutboxWorkerService } from './outbox-worker.service';
+
 @Module({
   imports: [
     CommonModule,
@@ -52,6 +54,7 @@ import { forwardRef } from '@nestjs/common';
     BookingsService,
     BookingLifecycleService,
     BookingOutboxService,
+    OutboxWorkerService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,
@@ -63,6 +66,7 @@ import { forwardRef } from '@nestjs/common';
     BookingsService,
     BookingLifecycleService,
     BookingOutboxService,
+    OutboxWorkerService,
     CancellationPolicyService,
     InspectionsService,
     HandoverOtpService,

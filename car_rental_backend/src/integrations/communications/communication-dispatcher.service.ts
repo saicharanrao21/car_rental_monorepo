@@ -149,8 +149,22 @@ export class CommunicationDispatcherService {
 
       case CommunicationChannel.PUSH:
         capability = 'SEND_PUSH';
+        const pushTokens = (request.recipient.deviceTokens || []).filter(Boolean);
+        if (pushTokens.length === 0) {
+          return {
+            success: false,
+            communicationId,
+            channel: activeChannel,
+            providerId: route.primaryProviderId,
+            status: DeliveryStatus.FAILED,
+            attemptsCount: 0,
+            costEstimate: 0,
+            latencyMs: 0,
+            error: 'No active device tokens provided for push dispatch',
+          };
+        }
         payload = {
-          deviceTokens: request.recipient.deviceTokens || ['mock_fcm_token_123'],
+          deviceTokens: pushTokens,
           title: renderedSubject || 'DriveGo Alert',
           body: renderedBody || 'Important vehicle update',
           data: request.directContent?.data,
