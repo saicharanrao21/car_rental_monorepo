@@ -10,7 +10,8 @@ export interface BaseProvider {
   getDisplayName(): string;
   getSupportedCapabilities(): string[];
   hasCapability(capability: string): boolean;
-  checkHealth(): Promise<ProviderHealthCheckResult>;
+  checkHealth?(): Promise<ProviderHealthCheckResult>;
+  healthCheck?(): Promise<ProviderHealthCheckResult>;
   testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult>;
   getDefaultTimeoutMs(): number;
 }

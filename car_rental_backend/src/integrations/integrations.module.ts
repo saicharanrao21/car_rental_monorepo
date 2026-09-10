@@ -38,6 +38,16 @@ import { SquareAdapter } from './adapters/payments/square.adapter';
 import { CheckoutComAdapter } from './adapters/payments/checkout-com.adapter';
 import { PaystackAdapter } from './adapters/payments/paystack.adapter';
 import { MollieAdapter } from './adapters/payments/mollie.adapter';
+import { FlutterwaveAdapter } from './adapters/payments/flutterwave.adapter';
+import { XenditAdapter } from './adapters/payments/xendit.adapter';
+import { MidtransAdapter } from './adapters/payments/midtrans.adapter';
+import { TapPaymentAdapter } from './adapters/payments/tap.adapter';
+import { PaytabsAdapter } from './adapters/payments/paytabs.adapter';
+import { AuthorizeNetAdapter } from './adapters/payments/authorizenet.adapter';
+import { MercadoPagoAdapter } from './adapters/payments/mercadopago.adapter';
+import { InstamojoAdapter } from './adapters/payments/instamojo.adapter';
+import { EasebuzzAdapter } from './adapters/payments/easebuzz.adapter';
+import { JuspayAdapter } from './adapters/payments/juspay.adapter';
 
 import { MetaWhatsAppAdapter } from './adapters/messaging/meta-whatsapp.adapter';
 import { MockWhatsAppAdapter } from './adapters/messaging/mock-whatsapp.adapter';
@@ -51,6 +61,10 @@ import { SinchSmsAdapter } from './adapters/messaging/sinch-sms.adapter';
 import { VonageSmsAdapter } from './adapters/messaging/vonage-sms.adapter';
 import { InfobipSmsAdapter } from './adapters/messaging/infobip-sms.adapter';
 import { PlivoSmsAdapter } from './adapters/messaging/plivo-sms.adapter';
+import { ExotelSmsAdapter } from './adapters/messaging/exotel.adapter';
+import { RouteMobileSmsAdapter } from './adapters/messaging/route-mobile.adapter';
+import { InteraktWhatsAppAdapter } from './adapters/messaging/interakt-whatsapp.adapter';
+import { TwilioWhatsAppAdapter } from './adapters/messaging/twilio-whatsapp.adapter';
 
 import { ResendEmailAdapter } from './adapters/messaging/resend-email.adapter';
 import { MockEmailAdapter } from './adapters/messaging/mock-email.adapter';
@@ -72,11 +86,14 @@ import { OtpOrchestratorService } from './communications/otp-orchestrator.servic
 import { R2StorageAdapter } from './adapters/storage/r2-storage.adapter';
 import { S3StorageAdapter } from './adapters/storage/s3-storage.adapter';
 import { MockStorageAdapter } from './adapters/storage/mock-storage.adapter';
+import { GcsStorageAdapter } from './adapters/storage/gcs-storage.adapter';
 import { GoogleMapsAdapter } from './adapters/maps/google-maps.adapter';
 import { MockMapsAdapter } from './adapters/maps/mock-maps.adapter';
 import { SurepassKycAdapter } from './adapters/verification/surepass-kyc.adapter';
 import { MockKycAdapter } from './adapters/verification/mock-kyc.adapter';
+import { OnfidoKycAdapter } from './adapters/verification/onfido-kyc.adapter';
 import { MockTelematicsAdapter } from './adapters/tracking/mock-telematics.adapter';
+import { GeotabTelematicsAdapter } from './adapters/tracking/geotab-telematics.adapter';
 import { MockAccountingAdapter } from './adapters/accounting/mock-accounting.adapter';
 
 // Phase L Connector Packs & Adapters
@@ -163,8 +180,20 @@ import { AdminModule } from '../admin/admin.module';
     CheckoutComAdapter,
     PaystackAdapter,
     MollieAdapter,
+    FlutterwaveAdapter,
+    XenditAdapter,
+    MidtransAdapter,
+    TapPaymentAdapter,
+    PaytabsAdapter,
+    AuthorizeNetAdapter,
+    MercadoPagoAdapter,
+    InstamojoAdapter,
+    EasebuzzAdapter,
+    JuspayAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
+    InteraktWhatsAppAdapter,
+    TwilioWhatsAppAdapter,
     Msg91SmsAdapter,
     TwilioSmsAdapter,
     MockSmsAdapter,
@@ -175,6 +204,8 @@ import { AdminModule } from '../admin/admin.module';
     VonageSmsAdapter,
     InfobipSmsAdapter,
     PlivoSmsAdapter,
+    ExotelSmsAdapter,
+    RouteMobileSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
     SendGridEmailAdapter,
@@ -182,17 +213,20 @@ import { AdminModule } from '../admin/admin.module';
     AwsSesEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
+    OneSignalPushAdapter,
     GupshupWhatsAppAdapter,
     TwilioVoiceAdapter,
-    OneSignalPushAdapter,
     R2StorageAdapter,
     S3StorageAdapter,
     MockStorageAdapter,
+    GcsStorageAdapter,
     GoogleMapsAdapter,
     MockMapsAdapter,
     SurepassKycAdapter,
     MockKycAdapter,
+    OnfidoKycAdapter,
     MockTelematicsAdapter,
+    GeotabTelematicsAdapter,
     MockAccountingAdapter,
 
     // Phase L Adapters
@@ -260,8 +294,20 @@ import { AdminModule } from '../admin/admin.module';
     CheckoutComAdapter,
     PaystackAdapter,
     MollieAdapter,
+    FlutterwaveAdapter,
+    XenditAdapter,
+    MidtransAdapter,
+    TapPaymentAdapter,
+    PaytabsAdapter,
+    AuthorizeNetAdapter,
+    MercadoPagoAdapter,
+    InstamojoAdapter,
+    EasebuzzAdapter,
+    JuspayAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
+    InteraktWhatsAppAdapter,
+    TwilioWhatsAppAdapter,
     Msg91SmsAdapter,
     TwilioSmsAdapter,
     MockSmsAdapter,
@@ -272,6 +318,8 @@ import { AdminModule } from '../admin/admin.module';
     VonageSmsAdapter,
     InfobipSmsAdapter,
     PlivoSmsAdapter,
+    ExotelSmsAdapter,
+    RouteMobileSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
     SendGridEmailAdapter,
@@ -279,17 +327,20 @@ import { AdminModule } from '../admin/admin.module';
     AwsSesEmailAdapter,
     FcmPushAdapter,
     MockPushAdapter,
+    OneSignalPushAdapter,
     GupshupWhatsAppAdapter,
     TwilioVoiceAdapter,
-    OneSignalPushAdapter,
     R2StorageAdapter,
     S3StorageAdapter,
     MockStorageAdapter,
+    GcsStorageAdapter,
     GoogleMapsAdapter,
     MockMapsAdapter,
     SurepassKycAdapter,
     MockKycAdapter,
+    OnfidoKycAdapter,
     MockTelematicsAdapter,
+    GeotabTelematicsAdapter,
     MockAccountingAdapter,
 
     // Phase L Adapters
@@ -321,8 +372,20 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly checkoutComAdapter: CheckoutComAdapter,
     private readonly paystackAdapter: PaystackAdapter,
     private readonly mollieAdapter: MollieAdapter,
+    private readonly flutterwaveAdapter: FlutterwaveAdapter,
+    private readonly xenditAdapter: XenditAdapter,
+    private readonly midtransAdapter: MidtransAdapter,
+    private readonly tapPaymentAdapter: TapPaymentAdapter,
+    private readonly paytabsAdapter: PaytabsAdapter,
+    private readonly authorizeNetAdapter: AuthorizeNetAdapter,
+    private readonly mercadoPagoAdapter: MercadoPagoAdapter,
+    private readonly instamojoAdapter: InstamojoAdapter,
+    private readonly easebuzzAdapter: EasebuzzAdapter,
+    private readonly juspayAdapter: JuspayAdapter,
     private readonly metaWhatsAppAdapter: MetaWhatsAppAdapter,
     private readonly mockWhatsAppAdapter: MockWhatsAppAdapter,
+    private readonly interaktWhatsAppAdapter: InteraktWhatsAppAdapter,
+    private readonly twilioWhatsAppAdapter: TwilioWhatsAppAdapter,
     private readonly msg91SmsAdapter: Msg91SmsAdapter,
     private readonly twilioSmsAdapter: TwilioSmsAdapter,
     private readonly mockSmsAdapter: MockSmsAdapter,
@@ -333,6 +396,8 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly vonageSmsAdapter: VonageSmsAdapter,
     private readonly infobipSmsAdapter: InfobipSmsAdapter,
     private readonly plivoSmsAdapter: PlivoSmsAdapter,
+    private readonly exotelSmsAdapter: ExotelSmsAdapter,
+    private readonly routeMobileSmsAdapter: RouteMobileSmsAdapter,
     private readonly resendEmailAdapter: ResendEmailAdapter,
     private readonly mockEmailAdapter: MockEmailAdapter,
     private readonly sendGridEmailAdapter: SendGridEmailAdapter,
@@ -346,11 +411,14 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly r2StorageAdapter: R2StorageAdapter,
     private readonly s3StorageAdapter: S3StorageAdapter,
     private readonly mockStorageAdapter: MockStorageAdapter,
+    private readonly gcsStorageAdapter: GcsStorageAdapter,
     private readonly googleMapsAdapter: GoogleMapsAdapter,
     private readonly mockMapsAdapter: MockMapsAdapter,
     private readonly surepassKycAdapter: SurepassKycAdapter,
     private readonly mockKycAdapter: MockKycAdapter,
+    private readonly onfidoKycAdapter: OnfidoKycAdapter,
     private readonly mockTelematicsAdapter: MockTelematicsAdapter,
+    private readonly geotabTelematicsAdapter: GeotabTelematicsAdapter,
     private readonly mockAccountingAdapter: MockAccountingAdapter,
     // Phase L Adapters
     private readonly mapboxMapsAdapter: MapboxMapsAdapter,
@@ -379,10 +447,22 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.checkoutComAdapter);
     this.registry.registerProvider(this.paystackAdapter);
     this.registry.registerProvider(this.mollieAdapter);
+    this.registry.registerProvider(this.flutterwaveAdapter);
+    this.registry.registerProvider(this.xenditAdapter);
+    this.registry.registerProvider(this.midtransAdapter);
+    this.registry.registerProvider(this.tapPaymentAdapter);
+    this.registry.registerProvider(this.paytabsAdapter);
+    this.registry.registerProvider(this.authorizeNetAdapter);
+    this.registry.registerProvider(this.mercadoPagoAdapter);
+    this.registry.registerProvider(this.instamojoAdapter);
+    this.registry.registerProvider(this.easebuzzAdapter);
+    this.registry.registerProvider(this.juspayAdapter);
 
     // Register Messaging Adapters
     this.registry.registerProvider(this.metaWhatsAppAdapter);
     this.registry.registerProvider(this.mockWhatsAppAdapter);
+    this.registry.registerProvider(this.interaktWhatsAppAdapter);
+    this.registry.registerProvider(this.twilioWhatsAppAdapter);
     this.registry.registerProvider(this.msg91SmsAdapter);
     this.registry.registerProvider(this.twilioSmsAdapter);
     this.registry.registerProvider(this.mockSmsAdapter);
@@ -393,6 +473,8 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.vonageSmsAdapter);
     this.registry.registerProvider(this.infobipSmsAdapter);
     this.registry.registerProvider(this.plivoSmsAdapter);
+    this.registry.registerProvider(this.exotelSmsAdapter);
+    this.registry.registerProvider(this.routeMobileSmsAdapter);
 
     // Register Email Adapters
     this.registry.registerProvider(this.resendEmailAdapter);
@@ -412,6 +494,7 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.r2StorageAdapter);
     this.registry.registerProvider(this.s3StorageAdapter);
     this.registry.registerProvider(this.mockStorageAdapter);
+    this.registry.registerProvider(this.gcsStorageAdapter);
 
     // Register Maps Adapters
     this.registry.registerProvider(this.googleMapsAdapter);
@@ -422,10 +505,12 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.surepassKycAdapter);
     this.registry.registerProvider(this.mockKycAdapter);
     this.registry.registerProvider(this.hyperVergeKycAdapter);
+    this.registry.registerProvider(this.onfidoKycAdapter);
 
     // Register Telematics & Accounting Adapters
     this.registry.registerProvider(this.mockTelematicsAdapter);
     this.registry.registerProvider(this.traccarTelematicsAdapter);
+    this.registry.registerProvider(this.geotabTelematicsAdapter);
     this.registry.registerProvider(this.mockAccountingAdapter);
     this.registry.registerProvider(this.zohoBooksAccountingAdapter);
 
