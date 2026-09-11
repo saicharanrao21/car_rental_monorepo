@@ -125,6 +125,9 @@ The DriveGo platform is structured as an enterprise-grade multi-application mono
 6. **Meta WhatsApp Provider Fallback Hardening:**
    - *Discovered Gap:* In `whatsapp.module.ts`, missing `WHATSAPP_ACCESS_TOKEN` in production silently fell back to `MockWhatsAppProvider`.
    - *Fix:* Removed the silent mock fallback in production, ensuring production strictly resolves to `MetaWhatsAppProvider` which enforces external credential validation and error logging.
+7. **Production Fail-Closed Security Enforcement across Telematics, Maps, KYC, Storage, and Mock Adapters:**
+   - *Discovered Gap:* Mock adapters (`MockTelematicsAdapter`, `MockMapsAdapter`, `MockKycAdapter`, `MockSmsAdapter`, `MockEmailAdapter`, `MockWhatsAppAdapter`, `MockPushAdapter`, `MockPaymentAdapter`) lacked runtime guards throwing in `NODE_ENV === 'production'`, and storage configuration allowed placeholder `R2_PUBLIC_URL` values.
+   - *Fix:* Added explicit fail-closed runtime checks across all mock adapters preventing production execution. Added placeholder R2 URL checks in `env.validation.ts` and `UploadsService`. Hardened concrete adapters (`GeotabTelematicsAdapter`, `TraccarTelematicsAdapter`, `GoogleMapsAdapter`) to fail fast at invocation time if required production credentials are absent.
 
 ---
 

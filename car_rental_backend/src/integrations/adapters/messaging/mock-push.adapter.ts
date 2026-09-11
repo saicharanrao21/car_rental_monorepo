@@ -45,6 +45,9 @@ export class MockPushAdapter implements PushProvider {
   }
 
   async sendPush(req: NormalizedPushRequest): Promise<NormalizedPushResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockPushAdapter cannot be used in production.');
+    }
     this.logger.log(`[PUSH_MOCK] Dispatched mock push to ${req.deviceTokens.length} devices: "${req.title}"`);
     return {
       success: true,

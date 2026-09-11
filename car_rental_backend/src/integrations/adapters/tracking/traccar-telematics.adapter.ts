@@ -64,6 +64,9 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
+    if (process.env.NODE_ENV === 'production' && !this.apiToken) {
+      throw new Error('Traccar credentials (TRACCAR_API_TOKEN) must be configured in production.');
+    }
     this.logger.log(`[TRACCAR_TELEMETRY] Fetching live positions for vehicle ${vehicleId}`);
     return {
       vehicleId,

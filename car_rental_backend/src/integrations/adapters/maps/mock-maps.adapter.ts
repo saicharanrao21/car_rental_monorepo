@@ -46,6 +46,9 @@ export class MockMapsAdapter implements MapsProvider {
   }
 
   async geocode(address: string): Promise<GeocodeResult[]> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockMapsAdapter cannot be used in production.');
+    }
     return [
       {
         formattedAddress: address,
@@ -57,8 +60,11 @@ export class MockMapsAdapter implements MapsProvider {
   }
 
   async reverseGeocode(point: LatLngPoint): Promise<GeocodeResult | null> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockMapsAdapter cannot be used in production.');
+    }
     return {
-      formattedAddress: `Mock Address for (${point.latitude}, ${point.longitude})`,
+      formattedAddress: `Lat: ${point.latitude}, Lng: ${point.longitude}`,
       location: point,
       city: 'Bangalore',
     };

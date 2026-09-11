@@ -45,6 +45,9 @@ export class MockKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyDrivingLicence(req: DrivingLicenceVerifyRequest): Promise<DrivingLicenceVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockKycAdapter cannot be used in production. Real identity verification provider (Surepass, Hyperverge, Onfido) is required.');
+    }
     const isMockValid = req.licenceNumber !== 'INVALID_LICENCE';
     return {
       isValid: isMockValid,
@@ -56,6 +59,9 @@ export class MockKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyVehicleRc(req: VehicleRcVerifyRequest): Promise<VehicleRcVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockKycAdapter cannot be used in production. Real identity verification provider is required.');
+    }
     const isMockValid = req.registrationNumber !== 'INVALID_RC';
     return {
       isValid: isMockValid,

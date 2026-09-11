@@ -33,6 +33,17 @@ export class UploadsService {
       );
     }
 
+    if (
+      !this.useMock &&
+      this.configService.get<string>('R2_PUBLIC_URL') &&
+      this.publicUrl.includes('placeholder') &&
+      this.configService.get<string>('NODE_ENV') === 'production'
+    ) {
+      throw new Error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: R2_PUBLIC_URL must be configured with a real domain in production.',
+      );
+    }
+
     if (!this.useMock) {
       const endpoint = this.configService.get<string>('R2_ENDPOINT');
       const accessKeyId = this.configService.get<string>('R2_ACCESS_KEY_ID');

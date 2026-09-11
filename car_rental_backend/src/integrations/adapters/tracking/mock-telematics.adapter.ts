@@ -44,6 +44,11 @@ export class MockTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'CRITICAL SECURITY ERROR: MockTelematicsAdapter cannot be invoked in production. A certified telematics gateway (e.g. Traccar, Geotab) is required.',
+      );
+    }
     return {
       vehicleId,
       location: { latitude: 12.9716, longitude: 77.5946 },
@@ -57,6 +62,11 @@ export class MockTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async immobilizeVehicle(vehicleId: string, reason: string): Promise<{ success: boolean; message?: string }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'CRITICAL SECURITY ERROR: MockTelematicsAdapter immobilization cannot be invoked in production.',
+      );
+    }
     return {
       success: true,
       message: `Vehicle ${vehicleId} immobilized successfully. Reason: ${reason}`,

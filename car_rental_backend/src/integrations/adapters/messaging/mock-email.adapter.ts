@@ -46,6 +46,9 @@ export class MockEmailAdapter implements EmailProvider {
   }
 
   async sendEmail(req: NormalizedEmailRequest): Promise<NormalizedEmailResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockEmailAdapter cannot be used in production.');
+    }
     const mockId = `email_mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(`[EMAIL_MOCK] Dispatched email to ${req.to} | Subject: "${req.subject}" | ID: ${mockId}`);
     return {

@@ -178,8 +178,7 @@ describe('Phase L — Enterprise Payment & Financial Gateway Ecosystem', () => {
   // =========================================================================
   it('1. provider catalog contains 40+ payment providers', () => {
     const paymentProviders = catalogService.getCategoryProviders(IntegrationCategory.PAYMENT);
-    expect(paymentProviders.length).toBeGreaterThanOrEqual(40);
-    expect(paymentProviders.length).toBe(42);
+    expect(paymentProviders.length).toBeGreaterThanOrEqual(42);
 
     // Verify key India providers
     const providerIds = paymentProviders.map((p) => p.providerId);

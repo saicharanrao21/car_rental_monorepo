@@ -55,6 +55,9 @@ export class GoogleMapsAdapter implements MapsProvider {
   }
 
   async geocode(address: string): Promise<GeocodeResult[]> {
+    if (process.env.NODE_ENV === 'production' && !this.apiKey) {
+      throw new Error('GOOGLE_MAPS_API_KEY must be configured in production.');
+    }
     return [
       {
         formattedAddress: address,
@@ -68,6 +71,9 @@ export class GoogleMapsAdapter implements MapsProvider {
   }
 
   async reverseGeocode(point: LatLngPoint): Promise<GeocodeResult | null> {
+    if (process.env.NODE_ENV === 'production' && !this.apiKey) {
+      throw new Error('GOOGLE_MAPS_API_KEY must be configured in production.');
+    }
     return {
       formattedAddress: `Lat: ${point.latitude}, Lng: ${point.longitude}`,
       location: point,

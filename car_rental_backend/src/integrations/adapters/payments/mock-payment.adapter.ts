@@ -50,6 +50,9 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockPaymentAdapter cannot be used in production.');
+    }
     const orderId = `order_mock_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     return {
       providerOrderId: orderId,
@@ -61,6 +64,9 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockPaymentAdapter cannot verify payments in production.');
+    }
     const isValid = req.providerSignature === 'mock_signature' || req.providerSignature.length > 0;
     return {
       isValid,
@@ -71,6 +77,9 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockPaymentAdapter cannot process refunds in production.');
+    }
     return {
       providerRefundId: `rfnd_mock_${Date.now()}`,
       amountPaise: req.amountPaise,
@@ -79,6 +88,9 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
     return true;
   }
 

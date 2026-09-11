@@ -45,6 +45,9 @@ export class MockWhatsAppAdapter implements WhatsAppProvider {
   }
 
   async sendTemplateMessage(req: NormalizedWhatsAppRequest): Promise<NormalizedWhatsAppResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockWhatsAppAdapter cannot be used in production.');
+    }
     const mockId = `wamid.mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(`[WHATSAPP_MOCK] Dispatched template "${req.templateName}" to ${req.to} | ID: ${mockId}`);
     return {

@@ -46,6 +46,9 @@ export class MockSmsAdapter implements SmsProvider {
   }
 
   async sendSms(req: NormalizedSmsRequest): Promise<NormalizedSmsResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockSmsAdapter cannot be used in production.');
+    }
     const mockId = `sms_mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(`[SMS_MOCK] Sent SMS to ${req.to}: "${req.message}" | ID: ${mockId}`);
     return {

@@ -154,6 +154,7 @@ const KNOWN_PLACEHOLDER_SECRETS = new Set([
   'placeholder_msg91_auth_key',
   'placeholder_template_id',
   'placeholder_auth_key',
+  'https://pub-placeholder.r2.dev',
   'secret',
   'changeme',
 ]);
@@ -288,7 +289,10 @@ export function validateEnv(
         KNOWN_PLACEHOLDER_SECRETS.has(validatedConfig.R2_ACCESS_KEY_ID) ||
         !validatedConfig.R2_SECRET_ACCESS_KEY ||
         KNOWN_PLACEHOLDER_SECRETS.has(validatedConfig.R2_SECRET_ACCESS_KEY) ||
-        !validatedConfig.R2_ENDPOINT
+        !validatedConfig.R2_ENDPOINT ||
+        (validatedConfig.R2_PUBLIC_URL &&
+          (KNOWN_PLACEHOLDER_SECRETS.has(validatedConfig.R2_PUBLIC_URL) ||
+            validatedConfig.R2_PUBLIC_URL.includes('placeholder')))
       ) {
         validationErrors.push(
           'PRODUCTION ERROR: Real Cloudflare R2 credentials (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT) are required in production.',

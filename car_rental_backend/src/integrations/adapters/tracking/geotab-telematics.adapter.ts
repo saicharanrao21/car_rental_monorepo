@@ -87,6 +87,9 @@ export class GeotabTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
+    if (process.env.NODE_ENV === 'production' && (!this.username || !this.database)) {
+      throw new Error('Geotab credentials (GEOTAB_USERNAME, GEOTAB_DATABASE) must be configured in production.');
+    }
     this.logger.log(`[GEOTAB] Fetched live status for vehicle ${vehicleId}`);
     return {
       vehicleId,
