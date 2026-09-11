@@ -17,6 +17,9 @@ export class MockEmailProvider implements EmailProvider {
   private readonly logger = new Logger(MockEmailProvider.name);
 
   async sendEmail(to: string, subject: string, html: string): Promise<EmailSendResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockEmailProvider cannot be used in production.');
+    }
     const mockId = `email_mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(`[EMAIL-MOCK] Dispatched Email to ${to} | Subject: "${subject}" | ID: ${mockId}`);
     return {
@@ -39,6 +42,9 @@ export class SmtpEmailProvider implements EmailProvider {
 
   async sendEmail(to: string, subject: string, html: string): Promise<EmailSendResult> {
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('CRITICAL SECURITY ERROR: Email provider API key missing in production.');
+      }
       this.logger.warn('Email provider API key missing. Falling back to MockEmailProvider behavior.');
       const fallbackId = `email_noop_${Date.now()}`;
       return { success: true, messageId: fallbackId };

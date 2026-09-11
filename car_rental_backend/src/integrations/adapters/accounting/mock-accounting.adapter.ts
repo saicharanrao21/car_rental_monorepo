@@ -44,6 +44,9 @@ export class MockAccountingAdapter implements AccountingProvider {
   }
 
   async syncInvoice(invoice: NormalizedAccountingInvoice): Promise<{ success: boolean; externalId?: string }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockAccountingAdapter cannot be used in production.');
+    }
     return {
       success: true,
       externalId: `ext_inv_${invoice.invoiceNumber}`,
@@ -51,6 +54,9 @@ export class MockAccountingAdapter implements AccountingProvider {
   }
 
   async syncPayout(payout: NormalizedAccountingPayout): Promise<{ success: boolean; externalId?: string }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockAccountingAdapter cannot be used in production.');
+    }
     return {
       success: true,
       externalId: `ext_payout_${payout.payoutId}`,

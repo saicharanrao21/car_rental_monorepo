@@ -21,6 +21,9 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     language: string,
     bodyParameters: string[],
   ): Promise<WhatsAppProviderSendResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockWhatsAppProvider cannot be used in production.');
+    }
     const mockMessageId = `wamid.mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(
       `[WHATSAPP-MOCK] Sent template "${templateName}" (${language}) to ${to} with params [${bodyParameters.join(', ')}]. ID: ${mockMessageId}`,

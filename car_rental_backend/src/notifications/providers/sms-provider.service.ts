@@ -17,6 +17,9 @@ export class MockSmsProvider implements SmsProvider {
   private readonly logger = new Logger(MockSmsProvider.name);
 
   async sendSms(phone: string, message: string): Promise<SmsSendResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.');
+    }
     const mockId = `sms_mock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     this.logger.log(`[SMS-MOCK] Dispatched SMS to ${phone}: "${message}" | ID: ${mockId}`);
     return {
@@ -41,6 +44,9 @@ export class TwilioSmsProvider implements SmsProvider {
 
   async sendSms(phone: string, message: string): Promise<SmsSendResult> {
     if (!this.accountSid || !this.authToken || !this.fromNumber) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('CRITICAL SECURITY ERROR: Twilio SMS credentials missing in production.');
+      }
       this.logger.warn('Twilio credentials missing. Falling back to MockSmsProvider behavior.');
       const fallbackId = `sms_noop_${Date.now()}`;
       return { success: true, messageId: fallbackId };

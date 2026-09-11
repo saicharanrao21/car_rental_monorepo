@@ -46,6 +46,9 @@ export class MockStorageAdapter implements StorageProvider {
   }
 
   async getPresignedUploadUrl(req: PresignedUploadRequest): Promise<PresignedUploadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockStorageAdapter cannot be used in production.');
+    }
     return {
       uploadUrl: `http://localhost:3000/uploads/mock-put/${req.key}`,
       key: req.key,
@@ -55,15 +58,25 @@ export class MockStorageAdapter implements StorageProvider {
   }
 
   async getPresignedDownloadUrl(req: PresignedDownloadRequest): Promise<PresignedDownloadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockStorageAdapter cannot be used in production.');
+    }
     return {
       downloadUrl: `http://localhost:3000/uploads/mock-files/${req.key}`,
       expiresAt: new Date(Date.now() + 300000),
     };
   }
 
-  async deleteObject(key: string): Promise<void> {}
+  async deleteObject(key: string): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockStorageAdapter cannot be used in production.');
+    }
+  }
 
   getPublicUrl(key: string): string | null {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockStorageAdapter cannot be used in production.');
+    }
     return `http://localhost:3000/uploads/mock-files/${key}`;
   }
 
