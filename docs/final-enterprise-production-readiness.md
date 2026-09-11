@@ -128,6 +128,9 @@ The DriveGo platform is structured as an enterprise-grade multi-application mono
 7. **Production Fail-Closed Security Enforcement across Telematics, Maps, KYC, Storage, and Mock Adapters:**
    - *Discovered Gap:* Mock adapters (`MockTelematicsAdapter`, `MockMapsAdapter`, `MockKycAdapter`, `MockSmsAdapter`, `MockEmailAdapter`, `MockWhatsAppAdapter`, `MockPushAdapter`, `MockPaymentAdapter`) lacked runtime guards throwing in `NODE_ENV === 'production'`, and storage configuration allowed placeholder `R2_PUBLIC_URL` values.
    - *Fix:* Added explicit fail-closed runtime checks across all mock adapters preventing production execution. Added placeholder R2 URL checks in `env.validation.ts` and `UploadsService`. Hardened concrete adapters (`GeotabTelematicsAdapter`, `TraccarTelematicsAdapter`, `GoogleMapsAdapter`) to fail fast at invocation time if required production credentials are absent.
+8. **Graceful Shutdown & Upload Endpoint Path Traversal Hardening:**
+   - *Discovered Gap:* `main.ts` omitted NestJS `enableShutdownHooks()`, risking ungraceful termination upon Docker/K8s container restarts. Local development mock file upload endpoints in `uploads.controller.ts` lacked explicit path traversal assertions and production access guards.
+   - *Fix:* Injected `app.enableShutdownHooks()` to guarantee graceful connection draining. Hardened `UploadsController.mockUpload` and `serveMockFile` with strict path traversal substring checks (`..`), path resolution containment guards, and production fail-closed `NotFoundException` barriers. Added security test coverage in `uploads-mock-fallback.spec.ts`.
 
 ---
 
