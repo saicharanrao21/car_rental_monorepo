@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/registration_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 
@@ -148,36 +149,41 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
     }
   }
 
-  Future<void> _simulateUpload(String docType) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            Gap(20),
-            Text('Selecting and processing file…'),
-          ],
+  Future<void> _uploadDocument(String docType) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,
+      );
+
+      if (!mounted) return;
+      if (result == null || result.files.isEmpty) return;
+
+      final pickedFile = result.files.first;
+      final resolvedPath = pickedFile.path ?? pickedFile.name;
+
+      ref.read(vendorRegistrationDraftProvider.notifier).updateField(
+            rcBookPath: docType == 'RC Book' ? resolvedPath : null,
+            tradeLicensePath: docType == 'Trade License' ? resolvedPath : null,
+            insurancePath: docType == 'Insurance' ? resolvedPath : null,
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$docType "${pickedFile.name}" selected successfully'),
+          backgroundColor: Colors.green[700],
         ),
-      ),
-    );
-
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-    Navigator.of(context).pop(); // Dismiss loading
-
-    final fakePath = '/simulated_uploads/${docType.toLowerCase().replaceAll(' ', '_')}_doc.pdf';
-    ref.read(vendorRegistrationDraftProvider.notifier).updateField(
-          rcBookPath: docType == 'RC Book' ? fakePath : null,
-          tradeLicensePath: docType == 'Trade License' ? fakePath : null,
-          insurancePath: docType == 'Insurance' ? fakePath : null,
-        );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$docType uploaded successfully (Simulated)')),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to select $docType: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
   }
 
   Widget _buildStepProgress(int currentStep) {
@@ -568,7 +574,8 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
   }
 
   Widget _buildDocUploadCard(String label, String? filePath) {
-    final hasFile = filePath != null;
+    final hasFile = filePath != null && filePath.isNotEmpty;
+    final displayFileName = hasFile ? filePath.split('/').last.split(r'\').last : '';
     return AppCard(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -591,8 +598,8 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
                   const Gap(4),
                   Text(
                     hasFile
-                        ? 'file_scanned_doc.pdf (Green check indicates mock verification)'
-                        : 'Tap to upload scanned document',
+                        ? displayFileName
+                        : 'Tap to select scanned document (PDF, JPG, PNG)',
                     style: TextStyle(
                       fontSize: 12,
                       color: hasFile ? Colors.green[700] : Colors.grey[600],
@@ -602,8 +609,8 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
               ),
             ),
             TextButton(
-              onPressed: () => _simulateUpload(label),
-              child: Text(hasFile ? 'Re-upload' : 'Choose'),
+              onPressed: () => _uploadDocument(label),
+              child: Text(hasFile ? 'Change' : 'Choose'),
             ),
           ],
         ),

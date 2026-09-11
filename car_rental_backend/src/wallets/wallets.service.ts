@@ -706,7 +706,8 @@ export class WalletsService {
     const idempotencyKey = `wallet_deposit_${razorpayPaymentId}`;
 
     // 1. Signature Verification
-    if (this.useMock && razorpaySignature === 'mock_signature') {
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    if (!isProduction && this.useMock && razorpaySignature === 'mock_signature') {
       this.logger.log(`[RAZORPAY-MOCK] Verified mock wallet deposit signature for user ${userId}`);
     } else {
       let isSignatureValid = false;
