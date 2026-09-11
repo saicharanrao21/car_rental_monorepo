@@ -131,6 +131,9 @@ The DriveGo platform is structured as an enterprise-grade multi-application mono
 8. **Graceful Shutdown & Upload Endpoint Path Traversal Hardening:**
    - *Discovered Gap:* `main.ts` omitted NestJS `enableShutdownHooks()`, risking ungraceful termination upon Docker/K8s container restarts. Local development mock file upload endpoints in `uploads.controller.ts` lacked explicit path traversal assertions and production access guards.
    - *Fix:* Injected `app.enableShutdownHooks()` to guarantee graceful connection draining. Hardened `UploadsController.mockUpload` and `serveMockFile` with strict path traversal substring checks (`..`), path resolution containment guards, and production fail-closed `NotFoundException` barriers. Added security test coverage in `uploads-mock-fallback.spec.ts`.
+9. **Full 47 Payment & 34 SMS Gateway Catalog-to-Adapter Synchronization:**
+   - *Discovered Gap:* 6 concrete payment gateway adapters (`flutterwave`, `mercadopago`, `midtrans`, `xendit`, `tap`, `paytabs`) and 19 SMS adapters (`twilio`, `exotel`, `route_mobile`, `kaleyra_sms`, `smscountry_sms`, `netcore_sms`, `tata_sms`, `airtel_iq_sms`, `jio_sms`, `bhash_sms`, `bulksms`, `smsglobal`, `amazon_sns_sms`, `messagemedia_sms`, `clickatell_sms`, `bandwidth_sms`, `cm_telecom_sms`, `mitto_sms`, `telstra_sms`) existed in the codebase and were registered in `IntegrationsModule`, but were absent or mismatched in `INITIAL_PROVIDER_CATALOG` (`enterprise-providers.data.ts` and `enterprise-communications-providers.data.ts`).
+   - *Fix:* Added exhaustive catalog metadata entries for all missing adapters with matching `providerId`s, credential schemas, capabilities, supported currencies/countries, and SLA profiles. Validated with automated catalog reconciliation script confirming exactly 0 missing payment adapters and 0 missing SMS adapters between catalog metadata and concrete adapter classes.
 
 ---
 

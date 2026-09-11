@@ -259,7 +259,11 @@ describe('Phase M — Enterprise Communications & Messaging Ecosystem', () => {
 
       const tanla = catalogService.findProviderById('tanla_sms');
       expect(tanla).toBeDefined();
-      expect(tanla?.implementationStatus).toBe('CONTRACT_READY');
+      expect(tanla?.implementationStatus).toBe('LIVE_READY');
+
+      const kaleyraWa = catalogService.findProviderById('kaleyra_whatsapp');
+      expect(kaleyraWa).toBeDefined();
+      expect(kaleyraWa?.implementationStatus).toBe('CONTRACT_READY');
 
       const sendgrid = catalogService.findProviderById('sendgrid');
       expect(sendgrid?.implementationStatus).toBe('ADAPTER_IMPLEMENTED');
