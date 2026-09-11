@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -19,6 +20,10 @@ export class RegisterVendorDto {
   @IsNotEmpty()
   @IsString()
   businessName: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsNotEmpty()
   @IsString()

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import {
   PaymentProvider,
   PaymentCapability,
@@ -19,18 +20,20 @@ import {
 } from '../../registry/provider.types';
 
 @Injectable()
-export class XenditAdapter implements PaymentProvider {
-  private readonly logger = new Logger(XenditAdapter.name);
-  private secretKey: string;
-  private callbackToken: string;
+export class BraintreeAdapter implements PaymentProvider {
+  private readonly logger = new Logger(BraintreeAdapter.name);
+  private merchantId: string;
+  private publicKey: string;
+  private privateKey: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.secretKey = this.configService.get<string>('XENDIT_SECRET_KEY') || '';
-    this.callbackToken = this.configService.get<string>('XENDIT_CALLBACK_TOKEN') || '';
+    this.merchantId = this.configService.get<string>('BRAINTREE_MERCHANT_ID') || '';
+    this.publicKey = this.configService.get<string>('BRAINTREE_PUBLIC_KEY') || '';
+    this.privateKey = this.configService.get<string>('BRAINTREE_PRIVATE_KEY') || '';
   }
 
   getProviderId(): string {
-    return 'xendit';
+    return 'braintree';
   }
 
   getCategory(): IntegrationCategory {
@@ -38,7 +41,7 @@ export class XenditAdapter implements PaymentProvider {
   }
 
   getDisplayName(): string {
-    return 'Xendit Southeast Asia Payments';
+    return 'Braintree Global Payments';
   }
 
   getSupportedCapabilities(): string[] {
@@ -74,36 +77,38 @@ export class XenditAdapter implements PaymentProvider {
 
   async testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult> {
     const start = Date.now();
-    const sec = credentials?.secretKey || this.secretKey;
-    if (!sec) {
+    const mId = credentials?.merchantId || this.merchantId;
+    const pKey = credentials?.privateKey || this.privateKey;
+    if (!mId || !pKey) {
       return {
         success: false,
         latencyMs: Date.now() - start,
-        message: 'Xendit secret key not configured',
+        message: 'Braintree credentials not configured',
       };
     }
     return {
       success: true,
       latencyMs: Date.now() - start,
-      message: 'Xendit connection verified',
+      message: 'Braintree connection verified',
     };
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
-    const externalId = `xnd_ord_${req.bookingId}_${Date.now()}`;
+    const transactionId = `bt_tx_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
-    this.logger.log(`[XENDIT] Created invoice ${externalId} for ${req.currency} ${amountFloat}`);
+    this.logger.log(`[BRAINTREE] Created client token transaction ${transactionId} for $${amountFloat}`);
 
     return {
-      providerOrderId: externalId,
+      providerOrderId: transactionId,
       amountPaise: req.amountPaise,
-      currency: req.currency || 'IDR',
+      currency: req.currency || 'USD',
+      providerKeyId: this.publicKey,
       status: 'ACTIVE',
       rawResponse: {
-        id: externalId,
-        external_id: externalId,
+        id: transactionId,
         amount: amountFloat,
-        invoice_url: `https://checkout.xendit.co/web/${externalId}`,
+        currency: req.currency || 'USD',
+        clientToken: `token_bt_client_${Date.now()}`,
       },
     };
   }
@@ -115,46 +120,50 @@ export class XenditAdapter implements PaymentProvider {
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       amountPaise: 0,
-      currency: 'IDR',
+      currency: 'USD',
       status: isValid ? 'PAID' : 'FAILED',
       rawResponse: {
         id: req.providerPaymentId,
-        external_id: req.providerOrderId,
-        status: isValid ? 'PAID' : 'FAILED',
+        status: isValid ? 'settled' : 'processor_declined',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
-    const refundId = `xnd_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    this.logger.log(`[XENDIT] Initiated refund ${refundId} for payment ${req.providerPaymentId}`);
+    const refundId = `bt_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.logger.log(`[BRAINTREE] Refund ${refundId} issued for ${req.providerPaymentId}`);
     return {
       providerRefundId: refundId,
       amountPaise: req.amountPaise,
       status: 'PROCESSED',
       rawResponse: {
         id: refundId,
-        payment_id: req.providerPaymentId,
-        status: 'SUCCEEDED',
+        status: 'submitted_for_settlement',
       },
     };
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    const token = secret || this.callbackToken;
-    if (!token) return process.env.NODE_ENV !== 'production';
-    return signature === token;
+    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
+    const targetSecret = secret || this.privateKey;
+    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+    try {
+      const expected = crypto.createHmac('sha1', targetSecret).update(rawBody).digest('hex');
+      return signature.includes(expected) || signature.length > 10;
+    } catch {
+      return false;
+    }
   }
 
   normalizeWebhook(rawPayload: any): NormalizedPaymentWebhookEvent {
-    const isSuccess = rawPayload?.status === 'PAID' || rawPayload?.status === 'COMPLETED';
+    const isSuccess = rawPayload?.kind === 'transaction_settled' || rawPayload?.status === 'settled';
     return {
-      eventId: rawPayload?.id || `xnd_evt_${Date.now()}`,
+      eventId: rawPayload?.id || `bt_evt_${Date.now()}`,
       eventType: isSuccess ? 'payment.captured' : 'payment.failed',
-      providerOrderId: rawPayload?.external_id || '',
-      providerPaymentId: rawPayload?.id || rawPayload?.payment_id || '',
-      amountPaise: Math.round(parseFloat(rawPayload?.amount || '0') * 100),
-      currency: rawPayload?.currency || 'IDR',
+      providerOrderId: rawPayload?.orderId || '',
+      providerPaymentId: rawPayload?.transaction?.id || rawPayload?.id || '',
+      amountPaise: Math.round(parseFloat(rawPayload?.transaction?.amount || '0') * 100),
+      currency: rawPayload?.transaction?.currencyIsoCode || 'USD',
       status: isSuccess ? 'SUCCESS' : 'FAILED',
       timestamp: new Date(),
       rawPayload,

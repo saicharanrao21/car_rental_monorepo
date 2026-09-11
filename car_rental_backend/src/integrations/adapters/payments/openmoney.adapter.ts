@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import {
   PaymentProvider,
   PaymentCapability,
@@ -19,18 +20,18 @@ import {
 } from '../../registry/provider.types';
 
 @Injectable()
-export class XenditAdapter implements PaymentProvider {
-  private readonly logger = new Logger(XenditAdapter.name);
+export class OpenMoneyAdapter implements PaymentProvider {
+  private readonly logger = new Logger(OpenMoneyAdapter.name);
+  private accessKey: string;
   private secretKey: string;
-  private callbackToken: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.secretKey = this.configService.get<string>('XENDIT_SECRET_KEY') || '';
-    this.callbackToken = this.configService.get<string>('XENDIT_CALLBACK_TOKEN') || '';
+    this.accessKey = this.configService.get<string>('OPENMONEY_ACCESS_KEY') || '';
+    this.secretKey = this.configService.get<string>('OPENMONEY_SECRET_KEY') || '';
   }
 
   getProviderId(): string {
-    return 'xendit';
+    return 'openmoney';
   }
 
   getCategory(): IntegrationCategory {
@@ -38,7 +39,7 @@ export class XenditAdapter implements PaymentProvider {
   }
 
   getDisplayName(): string {
-    return 'Xendit Southeast Asia Payments';
+    return 'Open Money Zwitch Payments';
   }
 
   getSupportedCapabilities(): string[] {
@@ -74,36 +75,39 @@ export class XenditAdapter implements PaymentProvider {
 
   async testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult> {
     const start = Date.now();
-    const sec = credentials?.secretKey || this.secretKey;
-    if (!sec) {
+    const aKey = credentials?.accessKey || this.accessKey;
+    const sKey = credentials?.secretKey || this.secretKey;
+    if (!aKey || !sKey) {
       return {
         success: false,
         latencyMs: Date.now() - start,
-        message: 'Xendit secret key not configured',
+        message: 'Open Money credentials not configured',
       };
     }
     return {
       success: true,
       latencyMs: Date.now() - start,
-      message: 'Xendit connection verified',
+      message: 'Open Money connection verified',
     };
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
-    const externalId = `xnd_ord_${req.bookingId}_${Date.now()}`;
+    const orderId = `opn_ord_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
-    this.logger.log(`[XENDIT] Created invoice ${externalId} for ${req.currency} ${amountFloat}`);
+    this.logger.log(`[OPENMONEY] Created payment token ${orderId} for ₹${amountFloat}`);
 
     return {
-      providerOrderId: externalId,
+      providerOrderId: orderId,
       amountPaise: req.amountPaise,
-      currency: req.currency || 'IDR',
+      currency: req.currency || 'INR',
+      providerKeyId: this.accessKey,
       status: 'ACTIVE',
       rawResponse: {
-        id: externalId,
-        external_id: externalId,
+        id: orderId,
         amount: amountFloat,
-        invoice_url: `https://checkout.xendit.co/web/${externalId}`,
+        currency: req.currency || 'INR',
+        payment_token: `tok_opn_${Date.now()}`,
+        checkout_url: `https://zwitch.open.money/checkout/${orderId}`,
       },
     };
   }
@@ -115,46 +119,50 @@ export class XenditAdapter implements PaymentProvider {
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       amountPaise: 0,
-      currency: 'IDR',
+      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
       rawResponse: {
-        id: req.providerPaymentId,
-        external_id: req.providerOrderId,
-        status: isValid ? 'PAID' : 'FAILED',
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'captured' : 'failed',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
-    const refundId = `xnd_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    this.logger.log(`[XENDIT] Initiated refund ${refundId} for payment ${req.providerPaymentId}`);
+    const refundId = `opn_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.logger.log(`[OPENMONEY] Created refund ${refundId} for ${req.providerPaymentId}`);
     return {
       providerRefundId: refundId,
       amountPaise: req.amountPaise,
       status: 'PROCESSED',
       rawResponse: {
-        id: refundId,
-        payment_id: req.providerPaymentId,
-        status: 'SUCCEEDED',
+        refundId,
+        status: 'processed',
       },
     };
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    const token = secret || this.callbackToken;
-    if (!token) return process.env.NODE_ENV !== 'production';
-    return signature === token;
+    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
+    const targetSecret = secret || this.secretKey;
+    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+    try {
+      const expected = crypto.createHmac('sha256', targetSecret).update(rawBody).digest('hex');
+      return signature === expected || signature.includes(expected);
+    } catch {
+      return false;
+    }
   }
 
   normalizeWebhook(rawPayload: any): NormalizedPaymentWebhookEvent {
-    const isSuccess = rawPayload?.status === 'PAID' || rawPayload?.status === 'COMPLETED';
+    const isSuccess = rawPayload?.event === 'payment.captured' || rawPayload?.status === 'captured';
     return {
-      eventId: rawPayload?.id || `xnd_evt_${Date.now()}`,
+      eventId: rawPayload?.id || `opn_evt_${Date.now()}`,
       eventType: isSuccess ? 'payment.captured' : 'payment.failed',
-      providerOrderId: rawPayload?.external_id || '',
-      providerPaymentId: rawPayload?.id || rawPayload?.payment_id || '',
+      providerOrderId: rawPayload?.payment_token_id || rawPayload?.order_id || '',
+      providerPaymentId: rawPayload?.payment_id || rawPayload?.id || '',
       amountPaise: Math.round(parseFloat(rawPayload?.amount || '0') * 100),
-      currency: rawPayload?.currency || 'IDR',
+      currency: rawPayload?.currency || 'INR',
       status: isSuccess ? 'SUCCESS' : 'FAILED',
       timestamp: new Date(),
       rawPayload,

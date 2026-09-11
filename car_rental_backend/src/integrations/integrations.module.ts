@@ -48,6 +48,29 @@ import { MercadoPagoAdapter } from './adapters/payments/mercadopago.adapter';
 import { InstamojoAdapter } from './adapters/payments/instamojo.adapter';
 import { EasebuzzAdapter } from './adapters/payments/easebuzz.adapter';
 import { JuspayAdapter } from './adapters/payments/juspay.adapter';
+import { WorldlineAdapter } from './adapters/payments/worldline.adapter';
+import { PineLabsAdapter } from './adapters/payments/pinelabs.adapter';
+import { ZaakpayAdapter } from './adapters/payments/zaakpay.adapter';
+import { OpenMoneyAdapter } from './adapters/payments/openmoney.adapter';
+import { BraintreeAdapter } from './adapters/payments/braintree.adapter';
+import { WorldpayAdapter } from './adapters/payments/worldpay.adapter';
+import { AirwallexAdapter } from './adapters/payments/airwallex.adapter';
+import { RapydAdapter } from './adapters/payments/rapyd.adapter';
+import { DLocalAdapter } from './adapters/payments/dlocal.adapter';
+import { SafexpayAdapter } from './adapters/payments/safexpay.adapter';
+import { PayKunAdapter } from './adapters/payments/paykun.adapter';
+import { AtomAdapter } from './adapters/payments/atom.adapter';
+import { AirpayAdapter } from './adapters/payments/airpay.adapter';
+import { FibeAdapter } from './adapters/payments/fibe.adapter';
+import { SimplAdapter } from './adapters/payments/simpl.adapter';
+import { LazyPayAdapter } from './adapters/payments/lazypay.adapter';
+import { KlarnaAdapter } from './adapters/payments/klarna.adapter';
+import { AfterpayAdapter } from './adapters/payments/afterpay.adapter';
+import { AffirmAdapter } from './adapters/payments/affirm.adapter';
+import { SkrillAdapter } from './adapters/payments/skrill.adapter';
+import { NetellerAdapter } from './adapters/payments/neteller.adapter';
+import { TwoCheckoutAdapter } from './adapters/payments/twocheckout.adapter';
+import { StripeIndiaAdapter } from './adapters/payments/stripe-india.adapter';
 
 import { MetaWhatsAppAdapter } from './adapters/messaging/meta-whatsapp.adapter';
 import { MockWhatsAppAdapter } from './adapters/messaging/mock-whatsapp.adapter';
@@ -63,6 +86,29 @@ import { InfobipSmsAdapter } from './adapters/messaging/infobip-sms.adapter';
 import { PlivoSmsAdapter } from './adapters/messaging/plivo-sms.adapter';
 import { ExotelSmsAdapter } from './adapters/messaging/exotel.adapter';
 import { RouteMobileSmsAdapter } from './adapters/messaging/route-mobile.adapter';
+import { GupshupSmsAdapter } from './adapters/messaging/gupshup-sms.adapter';
+import { ValueFirstSmsAdapter } from './adapters/messaging/valuefirst-sms.adapter';
+import { TanlaSmsAdapter } from './adapters/messaging/tanla-sms.adapter';
+import { TwoFactorSmsAdapter } from './adapters/messaging/twofactor-sms.adapter';
+import { TelnyxSmsAdapter } from './adapters/messaging/telnyx-sms.adapter';
+import { BirdSmsAdapter } from './adapters/messaging/bird-sms.adapter';
+import { ClickSendSmsAdapter } from './adapters/messaging/clicksend-sms.adapter';
+import { KaleyraSmsAdapter } from './adapters/messaging/kaleyra-sms.adapter';
+import { SmsCountrySmsAdapter } from './adapters/messaging/smscountry-sms.adapter';
+import { NetcoreSmsAdapter } from './adapters/messaging/netcore-sms.adapter';
+import { TataSmsAdapter } from './adapters/messaging/tata-sms.adapter';
+import { AirtelIqSmsAdapter } from './adapters/messaging/airtel-iq-sms.adapter';
+import { JioSmsAdapter } from './adapters/messaging/jio-sms.adapter';
+import { BhashSmsAdapter } from './adapters/messaging/bhash-sms.adapter';
+import { BulkSmsAdapter } from './adapters/messaging/bulksms.adapter';
+import { SmsGlobalAdapter } from './adapters/messaging/smsglobal.adapter';
+import { AmazonSnsSmsAdapter } from './adapters/messaging/amazon-sns-sms.adapter';
+import { MessageMediaSmsAdapter } from './adapters/messaging/messagemedia-sms.adapter';
+import { ClickatellSmsAdapter } from './adapters/messaging/clickatell-sms.adapter';
+import { BandwidthSmsAdapter } from './adapters/messaging/bandwidth-sms.adapter';
+import { CmTelecomSmsAdapter } from './adapters/messaging/cm-telecom-sms.adapter';
+import { MittoSmsAdapter } from './adapters/messaging/mitto-sms.adapter';
+import { TelstraSmsAdapter } from './adapters/messaging/telstra-sms.adapter';
 import { InteraktWhatsAppAdapter } from './adapters/messaging/interakt-whatsapp.adapter';
 import { TwilioWhatsAppAdapter } from './adapters/messaging/twilio-whatsapp.adapter';
 
@@ -190,6 +236,29 @@ import { AdminModule } from '../admin/admin.module';
     InstamojoAdapter,
     EasebuzzAdapter,
     JuspayAdapter,
+    WorldlineAdapter,
+    PineLabsAdapter,
+    ZaakpayAdapter,
+    OpenMoneyAdapter,
+    BraintreeAdapter,
+    WorldpayAdapter,
+    AirwallexAdapter,
+    RapydAdapter,
+    DLocalAdapter,
+    SafexpayAdapter,
+    PayKunAdapter,
+    AtomAdapter,
+    AirpayAdapter,
+    FibeAdapter,
+    SimplAdapter,
+    LazyPayAdapter,
+    KlarnaAdapter,
+    AfterpayAdapter,
+    AffirmAdapter,
+    SkrillAdapter,
+    NetellerAdapter,
+    TwoCheckoutAdapter,
+    StripeIndiaAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
     InteraktWhatsAppAdapter,
@@ -206,6 +275,29 @@ import { AdminModule } from '../admin/admin.module';
     PlivoSmsAdapter,
     ExotelSmsAdapter,
     RouteMobileSmsAdapter,
+    GupshupSmsAdapter,
+    ValueFirstSmsAdapter,
+    TanlaSmsAdapter,
+    TwoFactorSmsAdapter,
+    TelnyxSmsAdapter,
+    BirdSmsAdapter,
+    ClickSendSmsAdapter,
+    KaleyraSmsAdapter,
+    SmsCountrySmsAdapter,
+    NetcoreSmsAdapter,
+    TataSmsAdapter,
+    AirtelIqSmsAdapter,
+    JioSmsAdapter,
+    BhashSmsAdapter,
+    BulkSmsAdapter,
+    SmsGlobalAdapter,
+    AmazonSnsSmsAdapter,
+    MessageMediaSmsAdapter,
+    ClickatellSmsAdapter,
+    BandwidthSmsAdapter,
+    CmTelecomSmsAdapter,
+    MittoSmsAdapter,
+    TelstraSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
     SendGridEmailAdapter,
@@ -304,6 +396,29 @@ import { AdminModule } from '../admin/admin.module';
     InstamojoAdapter,
     EasebuzzAdapter,
     JuspayAdapter,
+    WorldlineAdapter,
+    PineLabsAdapter,
+    ZaakpayAdapter,
+    OpenMoneyAdapter,
+    BraintreeAdapter,
+    WorldpayAdapter,
+    AirwallexAdapter,
+    RapydAdapter,
+    DLocalAdapter,
+    SafexpayAdapter,
+    PayKunAdapter,
+    AtomAdapter,
+    AirpayAdapter,
+    FibeAdapter,
+    SimplAdapter,
+    LazyPayAdapter,
+    KlarnaAdapter,
+    AfterpayAdapter,
+    AffirmAdapter,
+    SkrillAdapter,
+    NetellerAdapter,
+    TwoCheckoutAdapter,
+    StripeIndiaAdapter,
     MetaWhatsAppAdapter,
     MockWhatsAppAdapter,
     InteraktWhatsAppAdapter,
@@ -320,6 +435,29 @@ import { AdminModule } from '../admin/admin.module';
     PlivoSmsAdapter,
     ExotelSmsAdapter,
     RouteMobileSmsAdapter,
+    GupshupSmsAdapter,
+    ValueFirstSmsAdapter,
+    TanlaSmsAdapter,
+    TwoFactorSmsAdapter,
+    TelnyxSmsAdapter,
+    BirdSmsAdapter,
+    ClickSendSmsAdapter,
+    KaleyraSmsAdapter,
+    SmsCountrySmsAdapter,
+    NetcoreSmsAdapter,
+    TataSmsAdapter,
+    AirtelIqSmsAdapter,
+    JioSmsAdapter,
+    BhashSmsAdapter,
+    BulkSmsAdapter,
+    SmsGlobalAdapter,
+    AmazonSnsSmsAdapter,
+    MessageMediaSmsAdapter,
+    ClickatellSmsAdapter,
+    BandwidthSmsAdapter,
+    CmTelecomSmsAdapter,
+    MittoSmsAdapter,
+    TelstraSmsAdapter,
     ResendEmailAdapter,
     MockEmailAdapter,
     SendGridEmailAdapter,
@@ -382,6 +520,29 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly instamojoAdapter: InstamojoAdapter,
     private readonly easebuzzAdapter: EasebuzzAdapter,
     private readonly juspayAdapter: JuspayAdapter,
+    private readonly worldlineAdapter: WorldlineAdapter,
+    private readonly pineLabsAdapter: PineLabsAdapter,
+    private readonly zaakpayAdapter: ZaakpayAdapter,
+    private readonly openMoneyAdapter: OpenMoneyAdapter,
+    private readonly braintreeAdapter: BraintreeAdapter,
+    private readonly worldpayAdapter: WorldpayAdapter,
+    private readonly airwallexAdapter: AirwallexAdapter,
+    private readonly rapydAdapter: RapydAdapter,
+    private readonly dLocalAdapter: DLocalAdapter,
+    private readonly safexpayAdapter: SafexpayAdapter,
+    private readonly payKunAdapter: PayKunAdapter,
+    private readonly atomAdapter: AtomAdapter,
+    private readonly airpayAdapter: AirpayAdapter,
+    private readonly fibeAdapter: FibeAdapter,
+    private readonly simplAdapter: SimplAdapter,
+    private readonly lazyPayAdapter: LazyPayAdapter,
+    private readonly klarnaAdapter: KlarnaAdapter,
+    private readonly afterpayAdapter: AfterpayAdapter,
+    private readonly affirmAdapter: AffirmAdapter,
+    private readonly skrillAdapter: SkrillAdapter,
+    private readonly netellerAdapter: NetellerAdapter,
+    private readonly twoCheckoutAdapter: TwoCheckoutAdapter,
+    private readonly stripeIndiaAdapter: StripeIndiaAdapter,
     private readonly metaWhatsAppAdapter: MetaWhatsAppAdapter,
     private readonly mockWhatsAppAdapter: MockWhatsAppAdapter,
     private readonly interaktWhatsAppAdapter: InteraktWhatsAppAdapter,
@@ -398,6 +559,29 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly plivoSmsAdapter: PlivoSmsAdapter,
     private readonly exotelSmsAdapter: ExotelSmsAdapter,
     private readonly routeMobileSmsAdapter: RouteMobileSmsAdapter,
+    private readonly gupshupSmsAdapter: GupshupSmsAdapter,
+    private readonly valueFirstSmsAdapter: ValueFirstSmsAdapter,
+    private readonly tanlaSmsAdapter: TanlaSmsAdapter,
+    private readonly twoFactorSmsAdapter: TwoFactorSmsAdapter,
+    private readonly telnyxSmsAdapter: TelnyxSmsAdapter,
+    private readonly birdSmsAdapter: BirdSmsAdapter,
+    private readonly clickSendSmsAdapter: ClickSendSmsAdapter,
+    private readonly kaleyraSmsAdapter: KaleyraSmsAdapter,
+    private readonly smsCountrySmsAdapter: SmsCountrySmsAdapter,
+    private readonly netcoreSmsAdapter: NetcoreSmsAdapter,
+    private readonly tataSmsAdapter: TataSmsAdapter,
+    private readonly airtelIqSmsAdapter: AirtelIqSmsAdapter,
+    private readonly jioSmsAdapter: JioSmsAdapter,
+    private readonly bhashSmsAdapter: BhashSmsAdapter,
+    private readonly bulkSmsAdapter: BulkSmsAdapter,
+    private readonly smsGlobalAdapter: SmsGlobalAdapter,
+    private readonly amazonSnsSmsAdapter: AmazonSnsSmsAdapter,
+    private readonly messageMediaSmsAdapter: MessageMediaSmsAdapter,
+    private readonly clickatellSmsAdapter: ClickatellSmsAdapter,
+    private readonly bandwidthSmsAdapter: BandwidthSmsAdapter,
+    private readonly cmTelecomSmsAdapter: CmTelecomSmsAdapter,
+    private readonly mittoSmsAdapter: MittoSmsAdapter,
+    private readonly telstraSmsAdapter: TelstraSmsAdapter,
     private readonly resendEmailAdapter: ResendEmailAdapter,
     private readonly mockEmailAdapter: MockEmailAdapter,
     private readonly sendGridEmailAdapter: SendGridEmailAdapter,
@@ -457,6 +641,29 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.instamojoAdapter);
     this.registry.registerProvider(this.easebuzzAdapter);
     this.registry.registerProvider(this.juspayAdapter);
+    this.registry.registerProvider(this.worldlineAdapter);
+    this.registry.registerProvider(this.pineLabsAdapter);
+    this.registry.registerProvider(this.zaakpayAdapter);
+    this.registry.registerProvider(this.openMoneyAdapter);
+    this.registry.registerProvider(this.braintreeAdapter);
+    this.registry.registerProvider(this.worldpayAdapter);
+    this.registry.registerProvider(this.airwallexAdapter);
+    this.registry.registerProvider(this.rapydAdapter);
+    this.registry.registerProvider(this.dLocalAdapter);
+    this.registry.registerProvider(this.safexpayAdapter);
+    this.registry.registerProvider(this.payKunAdapter);
+    this.registry.registerProvider(this.atomAdapter);
+    this.registry.registerProvider(this.airpayAdapter);
+    this.registry.registerProvider(this.fibeAdapter);
+    this.registry.registerProvider(this.simplAdapter);
+    this.registry.registerProvider(this.lazyPayAdapter);
+    this.registry.registerProvider(this.klarnaAdapter);
+    this.registry.registerProvider(this.afterpayAdapter);
+    this.registry.registerProvider(this.affirmAdapter);
+    this.registry.registerProvider(this.skrillAdapter);
+    this.registry.registerProvider(this.netellerAdapter);
+    this.registry.registerProvider(this.twoCheckoutAdapter);
+    this.registry.registerProvider(this.stripeIndiaAdapter);
 
     // Register Messaging Adapters
     this.registry.registerProvider(this.metaWhatsAppAdapter);
@@ -475,6 +682,29 @@ export class IntegrationsModule implements OnModuleInit {
     this.registry.registerProvider(this.plivoSmsAdapter);
     this.registry.registerProvider(this.exotelSmsAdapter);
     this.registry.registerProvider(this.routeMobileSmsAdapter);
+    this.registry.registerProvider(this.gupshupSmsAdapter);
+    this.registry.registerProvider(this.valueFirstSmsAdapter);
+    this.registry.registerProvider(this.tanlaSmsAdapter);
+    this.registry.registerProvider(this.twoFactorSmsAdapter);
+    this.registry.registerProvider(this.telnyxSmsAdapter);
+    this.registry.registerProvider(this.birdSmsAdapter);
+    this.registry.registerProvider(this.clickSendSmsAdapter);
+    this.registry.registerProvider(this.kaleyraSmsAdapter);
+    this.registry.registerProvider(this.smsCountrySmsAdapter);
+    this.registry.registerProvider(this.netcoreSmsAdapter);
+    this.registry.registerProvider(this.tataSmsAdapter);
+    this.registry.registerProvider(this.airtelIqSmsAdapter);
+    this.registry.registerProvider(this.jioSmsAdapter);
+    this.registry.registerProvider(this.bhashSmsAdapter);
+    this.registry.registerProvider(this.bulkSmsAdapter);
+    this.registry.registerProvider(this.smsGlobalAdapter);
+    this.registry.registerProvider(this.amazonSnsSmsAdapter);
+    this.registry.registerProvider(this.messageMediaSmsAdapter);
+    this.registry.registerProvider(this.clickatellSmsAdapter);
+    this.registry.registerProvider(this.bandwidthSmsAdapter);
+    this.registry.registerProvider(this.cmTelecomSmsAdapter);
+    this.registry.registerProvider(this.mittoSmsAdapter);
+    this.registry.registerProvider(this.telstraSmsAdapter);
 
     // Register Email Adapters
     this.registry.registerProvider(this.resendEmailAdapter);

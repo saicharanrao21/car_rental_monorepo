@@ -91,7 +91,7 @@ export class StripeAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature') return true;
+    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
     const targetSecret = secret || this.webhookSecret;
     if (!targetSecret || !signature) return false;
 

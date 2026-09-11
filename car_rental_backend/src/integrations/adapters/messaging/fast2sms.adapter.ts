@@ -82,6 +82,14 @@ export class Fast2SmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '').slice(-10);
 
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === 'production') {
+        return {
+          success: false,
+          messageId: `f2s_err_${Date.now()}`,
+          status: 'FAILED',
+          error: 'Fast2SMS apiKey not configured in production',
+        };
+      }
       this.logger.warn(`Fast2SMS apiKey missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

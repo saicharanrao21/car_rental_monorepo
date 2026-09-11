@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import {
   PaymentProvider,
   PaymentCapability,
@@ -19,18 +20,22 @@ import {
 } from '../../registry/provider.types';
 
 @Injectable()
-export class XenditAdapter implements PaymentProvider {
-  private readonly logger = new Logger(XenditAdapter.name);
-  private secretKey: string;
-  private callbackToken: string;
+export class WorldlineAdapter implements PaymentProvider {
+  private readonly logger = new Logger(WorldlineAdapter.name);
+  private merchantId: string;
+  private apiKey: string;
+  private apiSecret: string;
+  private webhookSecret: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.secretKey = this.configService.get<string>('XENDIT_SECRET_KEY') || '';
-    this.callbackToken = this.configService.get<string>('XENDIT_CALLBACK_TOKEN') || '';
+    this.merchantId = this.configService.get<string>('WORLDLINE_MERCHANT_ID') || '';
+    this.apiKey = this.configService.get<string>('WORLDLINE_API_KEY') || '';
+    this.apiSecret = this.configService.get<string>('WORLDLINE_API_SECRET') || '';
+    this.webhookSecret = this.configService.get<string>('WORLDLINE_WEBHOOK_SECRET') || '';
   }
 
   getProviderId(): string {
-    return 'xendit';
+    return 'worldline';
   }
 
   getCategory(): IntegrationCategory {
@@ -38,7 +43,7 @@ export class XenditAdapter implements PaymentProvider {
   }
 
   getDisplayName(): string {
-    return 'Xendit Southeast Asia Payments';
+    return 'Worldline Enterprise Payments';
   }
 
   getSupportedCapabilities(): string[] {
@@ -74,36 +79,39 @@ export class XenditAdapter implements PaymentProvider {
 
   async testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult> {
     const start = Date.now();
-    const sec = credentials?.secretKey || this.secretKey;
-    if (!sec) {
+    const mId = credentials?.merchantId || this.merchantId;
+    const sec = credentials?.apiSecret || this.apiSecret;
+    if (!mId || !sec) {
       return {
         success: false,
         latencyMs: Date.now() - start,
-        message: 'Xendit secret key not configured',
+        message: 'Worldline merchant credentials not configured',
       };
     }
     return {
       success: true,
       latencyMs: Date.now() - start,
-      message: 'Xendit connection verified',
+      message: 'Worldline enterprise connection verified',
     };
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
-    const externalId = `xnd_ord_${req.bookingId}_${Date.now()}`;
+    const orderId = `wl_ord_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
-    this.logger.log(`[XENDIT] Created invoice ${externalId} for ${req.currency} ${amountFloat}`);
+    this.logger.log(`[WORLDLINE] Created payment order ${orderId} for ${req.currency} ${amountFloat}`);
 
     return {
-      providerOrderId: externalId,
+      providerOrderId: orderId,
       amountPaise: req.amountPaise,
-      currency: req.currency || 'IDR',
+      currency: req.currency || 'INR',
+      providerKeyId: this.merchantId,
       status: 'ACTIVE',
       rawResponse: {
-        id: externalId,
-        external_id: externalId,
+        id: orderId,
+        merchantId: this.merchantId,
         amount: amountFloat,
-        invoice_url: `https://checkout.xendit.co/web/${externalId}`,
+        currency: req.currency || 'INR',
+        checkoutUrl: `https://payment.worldline.com/hosted-checkout/${orderId}`,
       },
     };
   }
@@ -115,46 +123,50 @@ export class XenditAdapter implements PaymentProvider {
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       amountPaise: 0,
-      currency: 'IDR',
+      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
       rawResponse: {
-        id: req.providerPaymentId,
-        external_id: req.providerOrderId,
-        status: isValid ? 'PAID' : 'FAILED',
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'CAPTURED' : 'DECLINED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
-    const refundId = `xnd_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    this.logger.log(`[XENDIT] Initiated refund ${refundId} for payment ${req.providerPaymentId}`);
+    const refundId = `wl_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.logger.log(`[WORLDLINE] Initiated refund ${refundId} for payment ${req.providerPaymentId}`);
     return {
       providerRefundId: refundId,
       amountPaise: req.amountPaise,
       status: 'PROCESSED',
       rawResponse: {
-        id: refundId,
-        payment_id: req.providerPaymentId,
-        status: 'SUCCEEDED',
+        refundId,
+        status: 'REFUNDED',
       },
     };
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    const token = secret || this.callbackToken;
-    if (!token) return process.env.NODE_ENV !== 'production';
-    return signature === token;
+    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
+    const targetSecret = secret || this.webhookSecret;
+    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+    try {
+      const expected = crypto.createHmac('sha256', targetSecret).update(rawBody).digest('hex');
+      return signature === expected || signature.includes(expected);
+    } catch {
+      return false;
+    }
   }
 
   normalizeWebhook(rawPayload: any): NormalizedPaymentWebhookEvent {
-    const isSuccess = rawPayload?.status === 'PAID' || rawPayload?.status === 'COMPLETED';
+    const isSuccess = rawPayload?.status === 'CAPTURED' || rawPayload?.event === 'payment.captured';
     return {
-      eventId: rawPayload?.id || `xnd_evt_${Date.now()}`,
+      eventId: rawPayload?.id || `wl_evt_${Date.now()}`,
       eventType: isSuccess ? 'payment.captured' : 'payment.failed',
-      providerOrderId: rawPayload?.external_id || '',
-      providerPaymentId: rawPayload?.id || rawPayload?.payment_id || '',
+      providerOrderId: rawPayload?.orderId || rawPayload?.reference || '',
+      providerPaymentId: rawPayload?.paymentId || rawPayload?.id || '',
       amountPaise: Math.round(parseFloat(rawPayload?.amount || '0') * 100),
-      currency: rawPayload?.currency || 'IDR',
+      currency: rawPayload?.currency || 'INR',
       status: isSuccess ? 'SUCCESS' : 'FAILED',
       timestamp: new Date(),
       rawPayload,

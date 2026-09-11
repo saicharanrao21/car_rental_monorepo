@@ -190,7 +190,7 @@ export class AuthService {
         data: {
           phone,
           name: ownerName,
-          email: `${ownerName.toLowerCase().replace(/\s+/g, '.')}@vendor.com`, // Stub email
+          email: dto.email || `${ownerName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vendor'}_${phone.slice(-4)}@vendor.drivego.in`,
           role: Role.VENDOR,
         },
       });
