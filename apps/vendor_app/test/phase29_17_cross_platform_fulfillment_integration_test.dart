@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_data/mock_data.dart';
-import 'package:vendor_app/features/bookings/data/mock_vendor_bookings_repository.dart';
+import 'mocks/mock_vendor_bookings_repository.dart';
 import 'package:core/core.dart';
 
 class FastVendorBookingsRepository extends MockVendorBookingsRepository {

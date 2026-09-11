@@ -86,11 +86,21 @@ export class GeotabTelematicsAdapter implements VehicleTrackingProvider {
     return this.checkHealth();
   }
 
+  private isSimulationPermitted(): boolean {
+    if (process.env.NODE_ENV === 'production') return false;
+    return process.env.SIMULATION_ONLY === 'true' || process.env.NODE_ENV === 'test';
+  }
+
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
-    if (process.env.NODE_ENV === 'production' && (!this.username || !this.database)) {
-      throw new Error('Geotab credentials (GEOTAB_USERNAME, GEOTAB_DATABASE) must be configured in production.');
+    if (!this.username || !this.database) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error('Geotab credentials (GEOTAB_USERNAME, GEOTAB_DATABASE) must be configured. Telematics tracking offline.');
+      }
+      this.logger.warn(`[GEOTAB_SIMULATION] Serving simulated telemetry for ${vehicleId} (SIMULATION_ONLY)`);
+    } else {
+      this.logger.log(`[GEOTAB] Fetched live status for vehicle ${vehicleId}`);
     }
-    this.logger.log(`[GEOTAB] Fetched live status for vehicle ${vehicleId}`);
+
     return {
       vehicleId,
       location: {
@@ -111,7 +121,15 @@ export class GeotabTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async immobilizeVehicle(vehicleId: string, reason: string): Promise<{ success: boolean; message?: string }> {
-    this.logger.warn(`[GEOTAB IMMOBILIZE] Vehicle ${vehicleId} reason: ${reason}`);
+    if (!this.username || !this.database) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error(`Geotab remote immobilization rejected: Hardware credentials not configured for vehicle ${vehicleId}.`);
+      }
+      this.logger.warn(`[GEOTAB_SIMULATION] Vehicle ${vehicleId} simulated immobilization test`);
+    } else {
+      this.logger.warn(`[GEOTAB IMMOBILIZE] Vehicle ${vehicleId} command dispatched. Reason: ${reason}`);
+    }
+
     return {
       success: true,
       message: `Geotab immobilizer command sent for vehicle ${vehicleId}: ${reason}`,
@@ -119,7 +137,15 @@ export class GeotabTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async unimmobilizeVehicle(vehicleId: string): Promise<{ success: boolean; message?: string }> {
-    this.logger.log(`[GEOTAB UNIMMOBILIZE] Restored ignition for vehicle ${vehicleId}`);
+    if (!this.username || !this.database) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error(`Geotab engine restore rejected: Hardware credentials not configured for vehicle ${vehicleId}.`);
+      }
+      this.logger.warn(`[GEOTAB_SIMULATION] Vehicle ${vehicleId} simulated engine restore test`);
+    } else {
+      this.logger.log(`[GEOTAB UNIMMOBILIZE] Restored ignition for vehicle ${vehicleId}`);
+    }
+
     return {
       success: true,
       message: `Geotab ignition restored for vehicle ${vehicleId}`,

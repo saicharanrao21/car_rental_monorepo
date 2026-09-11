@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @Controller()
 export class CouponsController {
@@ -25,6 +26,7 @@ export class CouponsController {
 
   // 1. CUSTOMER: Validate promo code
   @UseGuards(JwtAuthGuard)
+  @RateLimit({ limit: 10, ttlSeconds: 60 })
   @Post('coupons/validate')
   async validateCoupon(@Req() req: any, @Body() dto: ValidateCouponDto) {
     return this.couponsService.validateCoupon(req.user.userId, dto);

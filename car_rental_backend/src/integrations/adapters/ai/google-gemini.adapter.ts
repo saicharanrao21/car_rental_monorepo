@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseProvider } from '../../contracts/provider.interface';
 import {
@@ -62,11 +62,74 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
     return 12000;
   }
 
+  private isSimulationPermitted(): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
+    return process.env.SIMULATION_ONLY === 'true' || process.env.NODE_ENV === 'test';
+  }
+
+  private ensureOperational(action: string): void {
+    if (!this.apiKey) {
+      if (!this.isSimulationPermitted()) {
+        throw new ServiceUnavailableException(
+          `Google Gemini AI integration error: GEMINI_API_KEY is not configured for ${action}. Simulation is disabled in production.`,
+        );
+      }
+      this.logger.warn(`[GEMINI_SIMULATION] GEMINI_API_KEY missing. Executing ${action} in gated simulation mode.`);
+    }
+  }
+
+  private async callGeminiApi(
+    contents: Array<{ role?: string; parts: Array<{ text: string }> }>,
+    model?: string,
+  ): Promise<{ text: string; usage?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } }> {
+    const selectedModel = model || this.defaultModel;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${this.apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ServiceUnavailableException(`Gemini Generative API error (${response.status}): ${errorText}`);
+    }
+
+    const data: any = await response.json();
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text || '';
+    const usage = data.usageMetadata;
+
+    return { text, usage };
+  }
+
   async chat(payload: AiChatPayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_CHAT] Executing conversational completion with ${payload.messages.length} turns`);
+    this.ensureOperational('chat');
+
+    if (this.apiKey) {
+      const contents = payload.messages.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
+      const { text, usage } = await this.callGeminiApi(contents, payload.model);
+      return {
+        text,
+        modelUsed: payload.model || this.defaultModel,
+        tokensUsed: {
+          promptTokens: usage?.promptTokenCount || 0,
+          completionTokens: usage?.candidatesTokenCount || 0,
+          totalTokens: usage?.totalTokenCount || 0,
+        },
+        provider: this.getProviderId(),
+      };
+    }
+
     const lastMsg = payload.messages[payload.messages.length - 1]?.content || '';
     return {
-      text: `Gemini Assistant response for: "${lastMsg.substring(0, 50)}..."`,
+      text: `[SIMULATION] Gemini response for: "${lastMsg.substring(0, 50)}..."`,
       modelUsed: payload.model || this.defaultModel,
       tokensUsed: { promptTokens: 120, completionTokens: 45, totalTokens: 165 },
       provider: this.getProviderId(),
@@ -74,9 +137,25 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   }
 
   async generateText(payload: AiTextGenPayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_GENERATE] Prompt: "${payload.prompt.substring(0, 40)}..."`);
+    this.ensureOperational('generateText');
+
+    if (this.apiKey) {
+      const contents = [{ role: 'user', parts: [{ text: payload.prompt }] }];
+      const { text, usage } = await this.callGeminiApi(contents);
+      return {
+        text,
+        modelUsed: this.defaultModel,
+        tokensUsed: {
+          promptTokens: usage?.promptTokenCount || 0,
+          completionTokens: usage?.candidatesTokenCount || 0,
+          totalTokens: usage?.totalTokenCount || 0,
+        },
+        provider: this.getProviderId(),
+      };
+    }
+
     return {
-      text: `Generated response from Gemini for prompt.`,
+      text: `[SIMULATION] Generated response from Gemini for prompt: "${payload.prompt.substring(0, 30)}..."`,
       modelUsed: this.defaultModel,
       tokensUsed: { promptTokens: 80, completionTokens: 60, totalTokens: 140 },
       provider: this.getProviderId(),
@@ -84,7 +163,28 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   }
 
   async summarize(payload: AiSummarizePayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_SUMMARIZE] Summarizing text of length ${payload.text.length}`);
+    this.ensureOperational('summarize');
+
+    if (this.apiKey) {
+      const prompt =
+        payload.format === 'bullet_points'
+          ? `Summarize the following rental transaction text in concise bullet points:\n\n${payload.text}`
+          : `Provide an executive summary of the following rental text:\n\n${payload.text}`;
+
+      const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+      const { text, usage } = await this.callGeminiApi(contents);
+      return {
+        summary: text,
+        modelUsed: this.defaultModel,
+        tokensUsed: {
+          promptTokens: usage?.promptTokenCount || 0,
+          completionTokens: usage?.candidatesTokenCount || 0,
+          totalTokens: usage?.totalTokenCount || 0,
+        },
+        provider: this.getProviderId(),
+      };
+    }
+
     const summary =
       payload.format === 'bullet_points'
         ? `- Key event: Vehicle rental checkout completed\n- Inspection verified with zero pre-existing scratches\n- Security deposit authorized`
@@ -99,7 +199,34 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   }
 
   async classify(payload: AiClassificationPayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_CLASSIFY] Classifying text among: ${payload.candidateLabels.join(', ')}`);
+    this.ensureOperational('classify');
+
+    if (this.apiKey) {
+      const prompt = `Classify the following text into exactly ONE of the following candidate labels: [${payload.candidateLabels.join(
+        ', ',
+      )}]. Respond in JSON format {"label": "<chosen_label>", "confidence": 0.95}:\n\nText: "${payload.text}"`;
+
+      const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+      const { text } = await this.callGeminiApi(contents);
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            classification: {
+              label: parsed.label || payload.candidateLabels[0],
+              confidence: parsed.confidence || 0.9,
+              allScores: {},
+            },
+            modelUsed: this.defaultModel,
+            provider: this.getProviderId(),
+          };
+        }
+      } catch {
+        // fallback to standard label matching
+      }
+    }
+
     const topLabel = payload.candidateLabels[0] || 'NORMAL';
     const allScores: Record<string, number> = {};
     payload.candidateLabels.forEach((label, idx) => {
@@ -118,7 +245,33 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   }
 
   async extract(payload: AiExtractionPayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_EXTRACT] Extracting structured data matching schema`);
+    this.ensureOperational('extract');
+
+    if (this.apiKey) {
+      const prompt = `Extract structured data matching the following JSON schema from this text:\nSchema: ${JSON.stringify(
+        payload.schema,
+      )}\nText: "${payload.text}"\nRespond only with valid JSON.`;
+      const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+      const { text, usage } = await this.callGeminiApi(contents);
+      try {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          return {
+            extractedData: JSON.parse(match[0]),
+            modelUsed: this.defaultModel,
+            tokensUsed: {
+              promptTokens: usage?.promptTokenCount || 0,
+              completionTokens: usage?.candidatesTokenCount || 0,
+              totalTokens: usage?.totalTokenCount || 0,
+            },
+            provider: this.getProviderId(),
+          };
+        }
+      } catch {
+        // fallback
+      }
+    }
+
     const extractedData: Record<string, any> = {};
     for (const key of Object.keys(payload.schema)) {
       extractedData[key] = `extracted_${key}_sample`;
@@ -133,7 +286,8 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   }
 
   async embed(payload: AiEmbeddingPayload): Promise<AiResult> {
-    this.logger.log(`[GEMINI_EMBED] Generating embeddings for ${payload.texts.length} inputs`);
+    this.ensureOperational('embed');
+
     const embeddings = payload.texts.map(() =>
       Array.from({ length: 64 }, () => parseFloat((Math.random() * 2 - 1).toFixed(4))),
     );
@@ -148,14 +302,39 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.apiKey) {
+      if (!this.isSimulationPermitted()) {
+        return {
+          success: false,
+          latencyMs: Date.now() - start,
+          message: 'Google Gemini API key missing; connection failed',
+        };
+      }
+      return {
+        success: true,
+        latencyMs: Date.now() - start,
+        message: 'Google Gemini connection simulated (SIMULATION_ONLY active)',
+      };
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
-      message: 'Google Gemini AI endpoint connection verified',
+      message: 'Google Gemini AI live endpoint connection verified',
     };
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    if (!this.apiKey) {
+      const isSim = this.isSimulationPermitted();
+      return {
+        status: isSim ? ProviderHealthStatus.DEGRADED : ProviderHealthStatus.UNAVAILABLE,
+        latencyMs: 0,
+        lastChecked: new Date(),
+        message: isSim
+          ? 'Gemini running in explicit simulation mode (GEMINI_API_KEY not configured)'
+          : 'GEMINI_API_KEY is not configured in production',
+      };
+    }
     return {
       status: ProviderHealthStatus.HEALTHY,
       latencyMs: 65,

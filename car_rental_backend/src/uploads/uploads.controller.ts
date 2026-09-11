@@ -15,6 +15,7 @@ import {
 import { UploadsService } from './uploads.service';
 import { PresignUploadDto } from './dto/presign-upload.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -24,6 +25,7 @@ export class UploadsController {
 
   constructor(private readonly uploadsService: UploadsService) {}
 
+  @RateLimit({ limit: 15, ttlSeconds: 60 })
   @Post('presign')
   @UseGuards(JwtAuthGuard)
   async presign(@Req() req: any, @Body() dto: PresignUploadDto) {

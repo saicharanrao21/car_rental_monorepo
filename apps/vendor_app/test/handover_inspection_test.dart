@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:models/models.dart';
-import 'package:vendor_app/features/bookings/data/mock_vendor_bookings_repository.dart';
+import 'mocks/mock_vendor_bookings_repository.dart';
 
 void main() {
   group('Handover & Inspection Flow Tests (Phase 4E.1)', () {

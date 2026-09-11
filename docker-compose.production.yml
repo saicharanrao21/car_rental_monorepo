@@ -7,17 +7,17 @@ services:
       dockerfile: Dockerfile
     container_name: drivego_prod_backend
     restart: always
-    ports:
-      - '3000:3000'
+    expose:
+      - '3000'
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://drivego_admin:${PROD_DB_PASSWORD:-prod_secure_db_pass_2026}@postgres:5432/drivego_production?schema=public
-      REDIS_URL: redis://:${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}@redis:6379
+      DATABASE_URL: postgresql://drivego_admin:${PROD_DB_PASSWORD:?PROD_DB_PASSWORD must be set in production environment}@postgres:5432/drivego_production?schema=public
+      REDIS_URL: redis://:${PROD_REDIS_PASSWORD:?PROD_REDIS_PASSWORD must be set in production environment}@redis:6379
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://admin.drivego.in,https://app.drivego.in,https://vendor.drivego.in}
-      JWT_ACCESS_SECRET: ${PROD_JWT_ACCESS_SECRET:-drivego_prod_jwt_access_secret_min_32_chars_2026}
-      JWT_REFRESH_SECRET: ${PROD_JWT_REFRESH_SECRET:-drivego_prod_jwt_refresh_secret_min_32_chars_2026}
-      BANK_ENCRYPTION_KEY: ${PROD_BANK_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      JWT_ACCESS_SECRET: ${PROD_JWT_ACCESS_SECRET:?PROD_JWT_ACCESS_SECRET must be set in production environment (min 32 chars)}
+      JWT_REFRESH_SECRET: ${PROD_JWT_REFRESH_SECRET:?PROD_JWT_REFRESH_SECRET must be set in production environment (min 32 chars)}
+      BANK_ENCRYPTION_KEY: ${PROD_BANK_ENCRYPTION_KEY:?PROD_BANK_ENCRYPTION_KEY must be set in production environment (64 hex characters)}
       # Payment Gateway (Razorpay & RazorpayX)
       PAYMENT_PROVIDER_MODE: ${PAYMENT_PROVIDER_MODE:-LIVE}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
@@ -64,7 +64,7 @@ services:
       - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_USER: drivego_admin
-      POSTGRES_PASSWORD: ${PROD_DB_PASSWORD:-prod_secure_db_pass_2026}
+      POSTGRES_PASSWORD: ${PROD_DB_PASSWORD:?PROD_DB_PASSWORD must be set in production environment}
       POSTGRES_DB: drivego_production
     volumes:
       - prod_postgres_data:/var/lib/postgresql/data
@@ -85,11 +85,11 @@ services:
     restart: always
     ports:
       - '127.0.0.1:6379:6379'
-    command: ["redis-server", "--requirepass", "${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}", "--appendonly", "yes"]
+    command: ["redis-server", "--requirepass", "${PROD_REDIS_PASSWORD:?PROD_REDIS_PASSWORD must be set in production environment}", "--appendonly", "yes"]
     volumes:
       - prod_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${PROD_REDIS_PASSWORD:-prod_redis_secure_pass_2026}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${PROD_REDIS_PASSWORD:?PROD_REDIS_PASSWORD must be set in production environment}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -98,6 +98,30 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: drivego_prod_nginx
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '20m'
+        max-file: '5'
 
 volumes:
   prod_postgres_data:

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:admin_panel/features/revenue/presentation/pages/revenue_reports_page.dart';
 import 'package:admin_panel/features/revenue/presentation/providers/revenue_providers.dart';
-import 'package:admin_panel/features/revenue/data/mock_revenue_repository.dart';
+import 'mocks/mock_revenue_repository.dart';
 
 void main() {
   testWidgets('RevenueReportsPage renders executive KPIs, operational metrics, and charts', (tester) async {

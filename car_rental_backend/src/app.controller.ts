@@ -10,6 +10,15 @@ export class AppController {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
+  @Get()
+  getRoot() {
+    return {
+      name: 'DriveGo Car Rental API',
+      version: '1.0.0',
+      status: 'online',
+    };
+  }
+
   @Get('health')
   async getHealth() {
     let dbLive = false;

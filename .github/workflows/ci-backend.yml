@@ -22,6 +22,20 @@ jobs:
         working-directory: car_rental_backend
 
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: drivego_admin
+          POSTGRES_PASSWORD: ci_secure_postgres_pass_2026
+          POSTGRES_DB: drivego_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drivego_admin -d drivego_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
       redis:
         image: redis:7-alpine
         ports:
@@ -52,10 +66,30 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Deploy Database Migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+
       - name: Run Test Suites
         run: npm test
         env:
           NODE_ENV: test
+          DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+          JWT_ACCESS_SECRET: test_access_secret_key_32_characters_long_12345
+          JWT_REFRESH_SECRET: test_refresh_secret_key_32_characters_long_12345
+          BANK_ENCRYPTION_KEY: test_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef
+          REDIS_URL: redis://localhost:6379
+          REDIS_USE_MOCK: 'false'
+          SMS_PROVIDER: mock
+          RAZORPAY_USE_MOCK: 'true'
+          R2_USE_MOCK: 'true'
+
+      - name: Run E2E Test Suite
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
           JWT_ACCESS_SECRET: test_access_secret_key_32_characters_long_12345
           JWT_REFRESH_SECRET: test_refresh_secret_key_32_characters_long_12345
           BANK_ENCRYPTION_KEY: test_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef

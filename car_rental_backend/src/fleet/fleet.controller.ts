@@ -8,6 +8,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { FleetLifecycleService } from './fleet-lifecycle.service';
 import { FleetAvailabilityService } from './fleet-availability.service';
 import { FleetInspectionService, SubmitInspectionDto } from './fleet-inspection.service';
@@ -18,6 +22,8 @@ import { FleetIntelligenceService } from './fleet-intelligence.service';
 import { FleetOperationalState } from './fleet-domain.types';
 
 @Controller('api/v1/fleet')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
 export class FleetController {
   constructor(
     private readonly lifecycleService: FleetLifecycleService,
@@ -65,6 +71,7 @@ export class FleetController {
     return { carId, state };
   }
 
+  @Roles(Role.VENDOR, Role.ADMIN)
   @Post(':carId/transition')
   async transitionState(
     @Param('carId') carId: string,
@@ -74,7 +81,7 @@ export class FleetController {
     @Req() req: any,
   ) {
     const actor = {
-      id: req.user?.id || 'admin_operator',
+      id: req.user?.userId || req.user?.id || 'admin_operator',
       role: req.user?.role || 'ADMIN',
     };
     return this.lifecycleService.transitionState(carId, targetState, actor as any, {
@@ -94,6 +101,7 @@ export class FleetController {
     return this.inspectionService.getStandard16PointTemplate();
   }
 
+  @Roles(Role.VENDOR, Role.ADMIN)
   @Post('inspections')
   async recordInspection(@Body() dto: SubmitInspectionDto) {
     return this.inspectionService.recordInspection(dto);
@@ -104,12 +112,14 @@ export class FleetController {
     return this.inspectionService.getInspectionHistory(carId);
   }
 
+  @Roles(Role.VENDOR, Role.ADMIN, Role.SUPPORT_AGENT)
   @Post('damage-analysis')
   async analyzeDamagePhotos(@Body('photoUrls') photoUrls: string[]) {
     return this.inspectionService.analyzeDamagePhotos(photoUrls || []);
   }
 
   // 7. Compliance & Regulatory Documents
+  @Roles(Role.VENDOR, Role.ADMIN)
   @Post('compliance')
   async registerComplianceDocument(@Body() dto: RegisterComplianceDocumentDto) {
     return this.complianceService.registerDocument(dto);
@@ -126,6 +136,7 @@ export class FleetController {
   }
 
   // 8. Telematics & IoT Ingestion
+  @Roles(Role.VENDOR, Role.ADMIN)
   @Post('telemetry')
   async ingestTelemetry(@Body() dto: IngestTelemetryDto) {
     return this.telematicsService.ingestTelemetry(dto);
@@ -136,6 +147,7 @@ export class FleetController {
     return this.telematicsService.getLatestTelemetry(carId);
   }
 
+  @Roles(Role.VENDOR, Role.ADMIN)
   @Post(':carId/immobilize')
   async immobilizeVehicle(
     @Param('carId') carId: string,

@@ -23,6 +23,7 @@ import { CreateHoldDto } from './dto/create-hold.dto';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @Controller()
 export class CarsController {
@@ -34,6 +35,7 @@ export class CarsController {
     private readonly configService: ConfigService,
   ) {}
 
+  @RateLimit({ limit: 60, ttlSeconds: 60 })
   @Get('cars')
   async searchCars(@Req() req: any, @Query() query: CarsQueryDto) {
     const isAdmin = await this.getIsAdmin(req);

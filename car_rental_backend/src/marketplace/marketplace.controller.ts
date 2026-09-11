@@ -18,6 +18,7 @@ import { CancellationPreviewService } from './cancellation-preview.service';
 import { MarketplaceSearchQueryDto } from './dto/marketplace-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CarCategory } from '@prisma/client';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @Controller('marketplace')
 export class MarketplaceController {
@@ -33,11 +34,13 @@ export class MarketplaceController {
   /**
    * 1. SEARCH MARKETPLACE (GET / POST)
    */
+  @RateLimit({ limit: 60, ttlSeconds: 60 })
   @Get('search')
   async searchGet(@Query() query: MarketplaceSearchQueryDto) {
     return this.searchService.searchMarketplace(query);
   }
 
+  @RateLimit({ limit: 60, ttlSeconds: 60 })
   @Post('search')
   async searchPost(@Body() query: MarketplaceSearchQueryDto) {
     return this.searchService.searchMarketplace(query);
@@ -113,32 +116,35 @@ export class MarketplaceController {
   /**
    * 5. CHECKOUT ORCHESTRATION
    */
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/session')
   async createCheckoutSession(
     @Body() body: { quoteId: string; customerId?: string },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.createCheckoutSession(body.quoteId, customerId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/:sessionId/addons')
   async configureAddons(
     @Param('sessionId') sessionId: string,
     @Body() body: { addons: any[]; customerId?: string },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.configureAddons(sessionId, customerId, body.addons || []);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/:sessionId/driver')
   async submitDriver(
     @Param('sessionId') sessionId: string,
     @Body() body: { driver: any; customer?: any; customerId?: string },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.submitDriverAndCustomerDetails(
       sessionId,
       customerId,
@@ -147,23 +153,25 @@ export class MarketplaceController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('checkout/:sessionId/payment-options')
   async getPaymentOptions(
     @Param('sessionId') sessionId: string,
     @Query('customerId') customerIdQuery?: string,
     @Req() req?: any,
   ) {
-    const customerId = req?.user?.userId || customerIdQuery || 'cust_guest';
+    const customerId = req?.user?.userId || customerIdQuery;
     return this.checkoutService.getAvailablePaymentOptions(sessionId, customerId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/:sessionId/pay')
   async initiatePayment(
     @Param('sessionId') sessionId: string,
     @Body() body: { paymentMethod: string; idempotencyKey?: string; customerId?: string },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.initiatePayment(
       sessionId,
       customerId,
@@ -172,13 +180,14 @@ export class MarketplaceController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/:sessionId/verify')
   async verifyPayment(
     @Param('sessionId') sessionId: string,
     @Body() body: { orderId: string; paymentId: string; signature?: string; customerId?: string },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.verifyAndConfirmPayment(sessionId, customerId, {
       orderId: body.orderId,
       paymentId: body.paymentId,
@@ -186,6 +195,7 @@ export class MarketplaceController {
     });
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('checkout/:sessionId/failover')
   async handlePaymentFailover(
     @Param('sessionId') sessionId: string,
@@ -199,7 +209,7 @@ export class MarketplaceController {
     },
     @Req() req: any,
   ) {
-    const customerId = req.user?.userId || body.customerId || 'cust_guest';
+    const customerId = req.user?.userId || body.customerId;
     return this.checkoutService.handlePaymentFailure(sessionId, customerId, body);
   }
 

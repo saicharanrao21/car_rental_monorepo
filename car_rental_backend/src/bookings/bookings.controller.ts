@@ -28,6 +28,7 @@ import { PaginationDto } from '../common/pagination.dto';
 import { Optional } from '@nestjs/common';
 import { BookingLifecycleService } from './booking-lifecycle.service';
 import { BookingOutboxService } from './booking-outbox.service';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -103,6 +104,7 @@ export class BookingsController {
   }
 
   // 4. POST create booking (CUSTOMER)
+  @RateLimit({ limit: 10, ttlSeconds: 60 })
   @Post('bookings')
   @Roles(Role.CUSTOMER)
   async createBooking(@Req() req: any, @Body() dto: CreateBookingDto) {

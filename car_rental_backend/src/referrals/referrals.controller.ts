@@ -10,6 +10,7 @@ import { ReferralsService } from './referrals.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ApplyReferralCodeDto } from './dto/apply-referral-code.dto';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 
 @Controller('referrals')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,6 +47,7 @@ export class ReferralsController {
   /**
    * Apply someone's referral code to current user's account.
    */
+  @RateLimit({ limit: 5, ttlSeconds: 60 })
   @Post('apply-code')
   async applyReferralCode(
     @Req() req: any,

@@ -48,6 +48,8 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { FulfillmentModule } from './fulfillment/fulfillment.module';
 import { CorporateModule } from './corporate/corporate.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
+import { APP_GUARD } from '@nestjs/core';
+import { RateLimiterGuard } from './common/guards/rate-limiter.guard';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { validateEnv } from './common/env.validation';
@@ -106,7 +108,13 @@ import { validateEnv } from './common/env.validation';
     CorporateModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimiterGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

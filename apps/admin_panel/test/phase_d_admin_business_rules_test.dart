@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:admin_panel/features/business_rules/domain/models/system_config_detail.dart';
 import 'package:admin_panel/features/business_rules/domain/repositories/business_rules_repository.dart';
-import 'package:admin_panel/features/business_rules/data/mock_business_rules_repository.dart';
+import 'mocks/mock_business_rules_repository.dart';
 import 'package:admin_panel/features/business_rules/presentation/providers/business_rules_providers.dart';
 import 'package:admin_panel/features/business_rules/presentation/pages/business_rules_dashboard_page.dart';
 import 'package:admin_panel/features/business_rules/presentation/widgets/config_detail_drawer.dart';

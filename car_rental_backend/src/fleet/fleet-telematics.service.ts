@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
@@ -141,18 +142,18 @@ export class FleetTelematicsService {
       }
     }
 
-    // Fallback baseline snapshot
+    // Fallback baseline when no live hardware or telemetry exists
     return {
       carId,
-      provider: 'offline_cache',
-      latitude: 12.9716,
-      longitude: 77.5946,
+      provider: 'none',
+      latitude: 0,
+      longitude: 0,
       speedKmH: 0,
-      odometerKm: 12000,
+      odometerKm: 0,
       ignitionStatus: 'OFF',
-      fuelLevelPercent: 80,
-      isGpsOnline: true,
-      lastHeartbeatAt: new Date().toISOString(),
+      fuelLevelPercent: 0,
+      isGpsOnline: false,
+      lastHeartbeatAt: new Date(0).toISOString(),
     };
   }
 
@@ -167,21 +168,34 @@ export class FleetTelematicsService {
           capability: 'IMMOBILIZE',
           payload: { vehicleId: carId, carId, reason },
         });
-        return {
-          success: res.success,
-          provider: res.providerId || 'traccar',
-          message: res.success ? `Starter circuit cut command confirmed by ${res.providerId}` : 'Failed to immobilize vehicle',
-        };
+        if (res.success) {
+          return {
+            success: true,
+            provider: res.providerId || 'traccar',
+            message: `Starter circuit cut command confirmed by ${res.providerId}`,
+          };
+        }
+        throw new ServiceUnavailableException(
+          `Vehicle immobilization command rejected by hardware gateway (${res.providerId}): ${res.error || 'Command failed'}`,
+        );
       } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
         this.logger.error(`Immobilization failed for ${carId}: ${err.message}`);
       }
     }
 
-    return {
-      success: true,
-      provider: 'simulation_engine',
-      message: `Simulated immobilization command queued for vehicle ${carId}. Reason: ${reason}`,
-    };
+    const isSim = process.env.NODE_ENV !== 'production' && process.env.SIMULATION_ONLY === 'true';
+    if (isSim) {
+      return {
+        success: false,
+        provider: 'simulation_engine',
+        message: `[SIMULATION ONLY] Vehicle ${carId} remote immobilization cannot be executed without configured IoT hardware gateway.`,
+      };
+    }
+
+    throw new ServiceUnavailableException(
+      `Remote vehicle immobilization unavailable: No active telematics IoT gateway configured for vehicle ${carId}. Dispatch blocked.`,
+    );
   }
 
   /**

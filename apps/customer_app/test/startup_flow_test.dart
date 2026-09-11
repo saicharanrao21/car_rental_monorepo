@@ -10,7 +10,7 @@ import 'package:customer_app/features/onboarding/presentation/pages/onboarding_p
 import 'package:customer_app/features/auth/presentation/pages/phone_entry_page.dart';
 import 'package:customer_app/features/home/presentation/pages/home_page.dart';
 import 'package:customer_app/features/home/home_providers.dart';
-import 'package:customer_app/features/home/data/mock_home_repository.dart';
+import 'mocks/mock_home_repository.dart';
 import 'package:customer_app/core/providers/session_provider.dart';
 
 class InMemoryOnboardingStorage implements OnboardingStorage {

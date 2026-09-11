@@ -8,7 +8,12 @@ import {
   Param,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { DomainEventBusService } from './domain-event-bus.service';
 import { WorkflowEngineService } from './workflow-engine.service';
 import { AutomationRuleEngineService } from './automation-rule-engine.service';
@@ -31,6 +36,8 @@ import {
 import { ApprovalStatus, WorkflowExecutionStatus, WorkflowStatus } from './operations-domain.types';
 
 @Controller('api/v1/operations')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 export class OperationsController {
   constructor(
     private readonly eventBus: DomainEventBusService,

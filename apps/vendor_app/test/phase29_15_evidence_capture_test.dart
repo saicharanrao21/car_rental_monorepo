@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
-import 'package:vendor_app/features/bookings/data/mock_vendor_bookings_repository.dart';
+import 'mocks/mock_vendor_bookings_repository.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/vendor_booking_detail_page.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/handover_inspection_page.dart';
 import 'package:vendor_app/features/bookings/presentation/pages/return_inspection_page.dart';

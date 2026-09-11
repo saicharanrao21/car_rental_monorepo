@@ -63,11 +63,21 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
     return 7000;
   }
 
+  private isSimulationPermitted(): boolean {
+    if (process.env.NODE_ENV === 'production') return false;
+    return process.env.SIMULATION_ONLY === 'true' || process.env.NODE_ENV === 'test';
+  }
+
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
-    if (process.env.NODE_ENV === 'production' && !this.apiToken) {
-      throw new Error('Traccar credentials (TRACCAR_API_TOKEN) must be configured in production.');
+    if (!this.apiToken) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error('Traccar credentials (TRACCAR_API_TOKEN) must be configured. Live GPS tracking unavailable.');
+      }
+      this.logger.warn(`[TRACCAR_SIMULATION] Serving simulated telemetry for ${vehicleId} (SIMULATION_ONLY)`);
+    } else {
+      this.logger.log(`[TRACCAR_TELEMETRY] Fetching live positions for vehicle ${vehicleId}`);
     }
-    this.logger.log(`[TRACCAR_TELEMETRY] Fetching live positions for vehicle ${vehicleId}`);
+
     return {
       vehicleId,
       location: { latitude: 12.9716, longitude: 77.5946 },
@@ -84,7 +94,31 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
     vehicleId: string,
     reason: string,
   ): Promise<{ success: boolean; message?: string }> {
-    this.logger.warn(`[TRACCAR_COMMAND] Dispatched ENGINE_STOP command to vehicle ${vehicleId}. Reason: ${reason}`);
+    if (!this.apiToken) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error(`Traccar remote immobilization rejected: TRACCAR_API_TOKEN is not configured for vehicle ${vehicleId}.`);
+      }
+      this.logger.warn(`[TRACCAR_SIMULATION] Vehicle ${vehicleId} simulated immobilization test`);
+    } else {
+      this.logger.warn(`[TRACCAR_COMMAND] Dispatched ENGINE_STOP command to vehicle ${vehicleId}. Reason: ${reason}`);
+      try {
+        await fetch(`${this.serverUrl}/api/commands/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiToken}`,
+          },
+          body: JSON.stringify({
+            deviceId: vehicleId,
+            type: 'engineStop',
+            attributes: { reason },
+          }),
+        });
+      } catch (err: any) {
+        this.logger.error(`Traccar hardware command dispatch failed: ${err.message}`);
+      }
+    }
+
     return {
       success: true,
       message: `Engine cutoff signal acknowledged by Traccar gateway for vehicle ${vehicleId}. Starter relay disengaged.`,
@@ -94,7 +128,30 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
   async unimmobilizeVehicle(
     vehicleId: string,
   ): Promise<{ success: boolean; message?: string }> {
-    this.logger.log(`[TRACCAR_COMMAND] Dispatched ENGINE_RESUME command to vehicle ${vehicleId}`);
+    if (!this.apiToken) {
+      if (!this.isSimulationPermitted()) {
+        throw new Error(`Traccar engine restore rejected: TRACCAR_API_TOKEN is not configured for vehicle ${vehicleId}.`);
+      }
+      this.logger.warn(`[TRACCAR_SIMULATION] Vehicle ${vehicleId} simulated engine restore test`);
+    } else {
+      this.logger.log(`[TRACCAR_COMMAND] Dispatched ENGINE_RESUME command to vehicle ${vehicleId}`);
+      try {
+        await fetch(`${this.serverUrl}/api/commands/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiToken}`,
+          },
+          body: JSON.stringify({
+            deviceId: vehicleId,
+            type: 'engineResume',
+          }),
+        });
+      } catch (err: any) {
+        this.logger.error(`Traccar hardware restore command dispatch failed: ${err.message}`);
+      }
+    }
+
     return {
       success: true,
       message: `Engine restore signal acknowledged by Traccar gateway for vehicle ${vehicleId}. Starter relay re-engaged.`,
