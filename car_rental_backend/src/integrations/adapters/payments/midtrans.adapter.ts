@@ -91,6 +91,9 @@ export class MidtransAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.serverKey || !this.clientKey)) {
+      throw new Error('CRITICAL SECURITY ERROR: Midtrans credentials missing in production.');
+    }
     const orderId = `MID_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[MIDTRANS] Created transaction ${orderId} for ${req.currency} ${amountFloat}`);

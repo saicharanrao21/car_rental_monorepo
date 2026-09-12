@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { IntegrationCategory, ProviderHealthStatus } from '../registry/provider.types';
 import { ProviderCatalogService } from '../catalog/provider-catalog.service';
+import { ProviderCertificationLevel } from '../catalog/provider-catalog.types';
 import { CostModelService } from './cost-model.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ProviderPolicyService } from './provider-policy.service';
@@ -121,6 +122,17 @@ export class PaymentRoutingService {
       if (eligible && cbState === 'OPEN') {
         eligible = false;
         rejectionReason = `Circuit breaker is OPEN (high failure rate)`;
+      }
+
+      // Safety Gate: In production, exclude Class C simulated/catalog adapters from routing tables entirely
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (
+        eligible &&
+        isProduction &&
+        provider.certificationLevel !== ProviderCertificationLevel.PRODUCTION_VALIDATED
+      ) {
+        eligible = false;
+        rejectionReason = `Class C simulated provider '${provider.providerId}' is strictly excluded from live production routing tables. Only certified live gateways (Razorpay, Stripe) are permitted.`;
       }
 
       // Calculate factor scores

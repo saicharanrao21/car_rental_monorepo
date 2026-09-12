@@ -83,6 +83,9 @@ export class TextlocalAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '').slice(-10);
 
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('CRITICAL SECURITY ERROR: Textlocal apiKey missing in production.');
+      }
       this.logger.warn(`Textlocal apiKey missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

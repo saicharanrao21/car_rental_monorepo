@@ -56,6 +56,9 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async geocode(address: string): Promise<GeocodeResult[]> {
+    if (!this.accessToken && process.env.NODE_ENV === 'production') {
+      throw new Error('Missing Mapbox credentials in production');
+    }
     this.logger.log(`[MAPBOX_GEOCODE] Geocoding query: "${address}"`);
     // Mapbox Geocoding v5 API format
     return [

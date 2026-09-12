@@ -92,6 +92,9 @@ export class JuspayAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.apiKey || !this.merchantId)) {
+      throw new Error('CRITICAL SECURITY ERROR: Juspay credentials missing in production.');
+    }
     const orderId = `JP_${req.bookingId}_${Date.now()}`;
     const amountRupees = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[JUSPAY] Created session ${orderId} for ₹${amountRupees}`);

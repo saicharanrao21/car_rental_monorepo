@@ -85,6 +85,9 @@ export class AwsSesEmailAdapter implements EmailProvider {
 
   async sendEmail(req: NormalizedEmailRequest): Promise<NormalizedEmailResponse> {
     if (!this.accessKeyId || !this.secretAccessKey) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Missing AWS SES credentials in production');
+      }
       this.logger.warn(`AWS SES credentials missing. Falling back to simulated delivery for ${req.to}`);
       return {
         success: true,

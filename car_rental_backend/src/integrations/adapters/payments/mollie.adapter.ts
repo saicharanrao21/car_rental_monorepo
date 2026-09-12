@@ -103,6 +103,9 @@ export class MollieAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && !this.apiKey) {
+      throw new Error('CRITICAL SECURITY ERROR: Mollie credentials missing in production.');
+    }
     const paymentId = `tr_${req.bookingId.slice(-6)}_${Date.now()}`;
     const amountVal = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[MOLLIE] Created payment ${paymentId} for EUR ${amountVal}`);

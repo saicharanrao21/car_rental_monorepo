@@ -85,6 +85,9 @@ export class KarixSmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '').slice(-10);
 
     if (!this.authKey || !this.accountId) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Karix credentials are required in production');
+      }
       this.logger.warn(`Karix credentials missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

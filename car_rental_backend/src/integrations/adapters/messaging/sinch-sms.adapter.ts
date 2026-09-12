@@ -85,6 +85,9 @@ export class SinchSmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.startsWith('+') ? req.to : `+${req.to.replace(/\D/g, '')}`;
 
     if (!this.servicePlanId || !this.apiToken) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Sinch credentials are required in production');
+      }
       this.logger.warn(`Sinch credentials missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

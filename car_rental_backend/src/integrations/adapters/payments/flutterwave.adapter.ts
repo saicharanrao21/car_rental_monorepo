@@ -93,6 +93,9 @@ export class FlutterwaveAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.publicKey || !this.secretKey)) {
+      throw new Error('CRITICAL SECURITY ERROR: Flutterwave credentials missing in production.');
+    }
     const txRef = `flw_ord_${req.bookingId}_${Date.now()}`;
     const amountRupees = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[FLUTTERWAVE] Created checkout ${txRef} for ${req.currency} ${amountRupees}`);

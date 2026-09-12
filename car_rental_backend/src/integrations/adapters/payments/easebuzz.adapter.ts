@@ -91,6 +91,9 @@ export class EasebuzzAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.key || !this.salt)) {
+      throw new Error('CRITICAL SECURITY ERROR: Easebuzz credentials missing in production.');
+    }
     const txnid = `EB_${req.bookingId}_${Date.now()}`;
     const amountRupees = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[EASEBUZZ] Generated access token for ${txnid} amount ₹${amountRupees}`);

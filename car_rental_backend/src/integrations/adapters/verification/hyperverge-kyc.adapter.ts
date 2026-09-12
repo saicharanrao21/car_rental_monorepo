@@ -71,6 +71,9 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   async verifyDrivingLicence(
     req: DrivingLicenceVerifyRequest,
   ): Promise<DrivingLicenceVerifyResponse> {
+    if ((!this.appId || !this.appKey) && process.env.NODE_ENV === 'production') {
+      throw new Error('HyperVerge credentials are required in production');
+    }
     this.logger.log(`[HYPERVERGE_DL] Verifying DL ${req.licenceNumber} with SARATHI DB`);
     const cleanNumber = req.licenceNumber.replace(/[\s-]/g, '').toUpperCase();
     const isValid = cleanNumber.length >= 10;

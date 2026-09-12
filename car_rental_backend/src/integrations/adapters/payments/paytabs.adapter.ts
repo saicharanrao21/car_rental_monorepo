@@ -92,6 +92,9 @@ export class PaytabsAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('PayTabs simulated adapter is not allowed in production');
+    }
     const cartId = `TST_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[PAYTABS] Created page for cart ${cartId} amount ${req.currency} ${amountFloat}`);

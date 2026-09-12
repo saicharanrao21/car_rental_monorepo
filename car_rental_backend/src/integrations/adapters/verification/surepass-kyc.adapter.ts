@@ -53,6 +53,9 @@ export class SurepassKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyDrivingLicence(req: DrivingLicenceVerifyRequest): Promise<DrivingLicenceVerifyResponse> {
+    if (!this.apiKey && process.env.NODE_ENV === 'production') {
+      throw new Error('Surepass API key is required in production');
+    }
     const isValid = req.licenceNumber && req.licenceNumber.length >= 8;
     return {
       isValid: Boolean(isValid),

@@ -86,6 +86,9 @@ export class OnfidoKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyDrivingLicence(req: DrivingLicenceVerifyRequest): Promise<DrivingLicenceVerifyResponse> {
+    if (!this.apiToken && process.env.NODE_ENV === 'production') {
+      throw new Error('Onfido API token is required in production');
+    }
     const start = Date.now();
     this.logger.log(`[ONFIDO KYC] Verifying DL ${req.licenceNumber} in ${Date.now() - start}ms`);
 

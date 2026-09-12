@@ -108,6 +108,9 @@ export class PhonePeAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.saltKey)) {
+      throw new Error('CRITICAL SECURITY ERROR: PhonePe credentials missing in production.');
+    }
     const mTxnId = `ph_txn_${req.bookingId}_${Date.now()}`;
     const payload = {
       merchantId: this.merchantId || 'MOCK_PHONEPE',

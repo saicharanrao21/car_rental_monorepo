@@ -59,6 +59,9 @@ export class ResendEmailAdapter implements EmailProvider {
 
   async sendEmail(req: NormalizedEmailRequest): Promise<NormalizedEmailResponse> {
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Resend API key is required in production');
+      }
       this.logger.warn('Resend API key missing. Falling back to mock dispatch.');
       return {
         success: true,

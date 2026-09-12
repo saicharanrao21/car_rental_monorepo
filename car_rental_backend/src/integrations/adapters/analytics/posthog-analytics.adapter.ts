@@ -54,6 +54,9 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
   }
 
   async track(payload: AnalyticsEventPayload): Promise<AnalyticsResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('PostHog simulated adapter is not allowed in production');
+    }
     this.logger.log(`[POSTHOG_TRACK] Event "${payload.event}" for distinctId: ${payload.distinctId}`);
     return {
       success: true,

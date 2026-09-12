@@ -85,6 +85,9 @@ export class PlivoSmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '');
 
     if (!this.authId || !this.authToken) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Plivo credentials are required in production');
+      }
       this.logger.warn(`Plivo credentials missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

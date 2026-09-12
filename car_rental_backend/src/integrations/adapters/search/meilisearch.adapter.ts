@@ -57,6 +57,9 @@ export class MeilisearchAdapter implements BaseProvider {
   }
 
   async indexDocuments(payload: SearchIndexPayload): Promise<{ success: boolean; count: number }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Meilisearch simulated adapter is not allowed in production');
+    }
     this.logger.log(`[MEILISEARCH_INDEX] Indexing ${payload.documents.length} docs into "${payload.indexName}"`);
     let idx = this.inMemoryIndexes.get(payload.indexName);
     if (!idx) {

@@ -81,6 +81,9 @@ export class R2StorageAdapter implements StorageProvider {
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
     if (this.useMock || !this.s3Client) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Cloudflare R2 storage credentials are required in production');
+      }
       return {
         uploadUrl: `http://localhost:3000/uploads/mock-put/${req.key}`,
         key: req.key,

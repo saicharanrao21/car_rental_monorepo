@@ -80,6 +80,9 @@ export class PostmarkEmailAdapter implements EmailProvider {
 
   async sendEmail(req: NormalizedEmailRequest): Promise<NormalizedEmailResponse> {
     if (!this.serverToken) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Postmark credentials are required in production');
+      }
       this.logger.warn(`Postmark serverToken missing. Falling back to simulated delivery for ${req.to}`);
       return {
         success: true,

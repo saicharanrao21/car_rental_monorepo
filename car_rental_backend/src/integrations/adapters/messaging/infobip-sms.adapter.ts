@@ -85,6 +85,9 @@ export class InfobipSmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '');
 
     if (!this.apiKey || !this.baseUrl) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Infobip credentials are required in production');
+      }
       this.logger.warn(`Infobip credentials missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

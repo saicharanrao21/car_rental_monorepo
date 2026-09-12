@@ -92,6 +92,9 @@ export class MercadoPagoAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.accessToken || !this.publicKey)) {
+      throw new Error('CRITICAL SECURITY ERROR: Mercado Pago credentials missing in production.');
+    }
     const preferenceId = `pref_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[MERCADOPAGO] Created preference ${preferenceId} for ${req.currency} ${amountFloat}`);

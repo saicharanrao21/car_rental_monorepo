@@ -68,6 +68,9 @@ export class Msg91SmsAdapter implements SmsProvider {
 
   async sendSms(req: NormalizedSmsRequest): Promise<NormalizedSmsResponse> {
     if (!this.authKey || !this.templateId) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('MSG91 credentials are required in production');
+      }
       this.logger.warn('MSG91 credentials missing. Falling back to mock dispatch.');
       return {
         success: true,

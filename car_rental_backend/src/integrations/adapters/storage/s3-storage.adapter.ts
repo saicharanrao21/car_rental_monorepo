@@ -51,6 +51,9 @@ export class S3StorageAdapter implements StorageProvider {
   }
 
   async getPresignedUploadUrl(req: PresignedUploadRequest): Promise<PresignedUploadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
+    }
     const expiresAt = new Date(Date.now() + (req.expiresInSeconds || 300) * 1000);
     return {
       uploadUrl: `https://s3.amazonaws.com/drivego-uploads/${req.key}?mock=true`,

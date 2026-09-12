@@ -66,6 +66,9 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
   async syncInvoice(
     invoice: NormalizedAccountingInvoice,
   ): Promise<{ success: boolean; externalId?: string }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Zoho Books simulated adapter is not allowed in production');
+    }
     this.logger.log(`[ZOHO_BOOKS] Syncing invoice ${invoice.invoiceNumber} for booking ${invoice.bookingId}`);
     const externalId = `zb_inv_${Date.now()}`;
     return {

@@ -56,6 +56,9 @@ export class MetaWhatsAppAdapter implements WhatsAppProvider {
 
   async sendTemplateMessage(req: NormalizedWhatsAppRequest): Promise<NormalizedWhatsAppResponse> {
     if (!this.accessToken || !this.phoneNumberId) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Meta WhatsApp credentials are required in production');
+      }
       this.logger.warn('Meta WhatsApp credentials missing. Falling back to mock message id.');
       return {
         success: true,

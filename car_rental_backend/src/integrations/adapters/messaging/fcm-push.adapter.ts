@@ -79,6 +79,9 @@ export class FcmPushAdapter implements PushProvider {
 
   async sendPush(req: NormalizedPushRequest): Promise<NormalizedPushResponse> {
     if (!this.isInitialized || req.deviceTokens.length === 0) {
+      if (process.env.NODE_ENV === 'production' && !this.isInitialized) {
+        throw new Error('FCM is not initialized with production credentials');
+      }
       this.logger.log(`[FCM_MOCK] Dispatched mock push to ${req.deviceTokens.length} devices: "${req.title}"`);
       return {
         success: true,

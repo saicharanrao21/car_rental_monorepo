@@ -20,7 +20,12 @@ import {
   RoutingDecisionExplanation,
   CandidateEvaluationExplanation,
 } from './runtime.types';
-import { CatalogProviderMetadata } from '../catalog/provider-catalog.types';
+import {
+  CatalogProviderMetadata,
+  ProviderEnvironment,
+  ProviderCertificationLevel,
+  ProviderLifecycleState,
+} from '../catalog/provider-catalog.types';
 
 @Injectable()
 export class ProviderRoutingService {
@@ -38,7 +43,7 @@ export class ProviderRoutingService {
     private readonly costModelService: CostModelService,
     @Optional() private readonly scoringService?: ProviderScoringService,
     @Optional() private readonly directoryService?: ProviderDirectoryService,
-  ) {}
+  ) { }
 
   public setCategoryDefaultStrategy(category: IntegrationCategory, strategy: RoutingStrategy): void {
     this.categoryDefaultStrategies.set(category, strategy);
@@ -160,7 +165,26 @@ export class ProviderRoutingService {
       );
     }
 
+    // Safety Gate: In live production, strictly exclude Class C simulated and mock adapters from candidate routing chains
+    if (process.env.NODE_ENV === 'production' || request.environment === ProviderEnvironment.LIVE) {
+      catalogCandidates = catalogCandidates.filter((p) => {
+        if (p.providerId.startsWith('mock_')) return false;
+        if (category === IntegrationCategory.PAYMENT) {
+          return p.certificationLevel === ProviderCertificationLevel.PRODUCTION_VALIDATED;
+        }
+        return (
+          p.certificationLevel === ProviderCertificationLevel.PRODUCTION_VALIDATED ||
+          p.lifecycleState === ProviderLifecycleState.LIVE_READY
+        );
+      });
+    }
+
     if (catalogCandidates.length === 0) {
+      if (process.env.NODE_ENV === 'production' || request.environment === ProviderEnvironment.LIVE) {
+        throw new Error(
+          `No certified production provider found for category '${category}' supporting capability '${capability}' and currency '${request.currency || 'ANY'}'`,
+        );
+      }
       // If no catalog candidate matched filters, fallback to any registered adapter for this category
       const allRegistered = this.registryService.getProvidersByCategory(category);
       if (allRegistered.length > 0) {

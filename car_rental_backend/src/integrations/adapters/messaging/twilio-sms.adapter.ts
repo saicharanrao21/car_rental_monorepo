@@ -57,6 +57,9 @@ export class TwilioSmsAdapter implements SmsProvider {
 
   async sendSms(req: NormalizedSmsRequest): Promise<NormalizedSmsResponse> {
     if (!this.accountSid || !this.authToken || !this.fromNumber) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('CRITICAL SECURITY ERROR: Twilio SMS credentials missing in production.');
+      }
       this.logger.warn('Twilio credentials missing. Falling back to mock response.');
       return {
         success: true,

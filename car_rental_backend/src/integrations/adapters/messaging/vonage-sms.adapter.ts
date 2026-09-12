@@ -85,6 +85,9 @@ export class VonageSmsAdapter implements SmsProvider {
     const normalizedMobile = req.to.replace(/\D/g, '');
 
     if (!this.apiKey || !this.apiSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('CRITICAL SECURITY ERROR: Vonage credentials missing in production.');
+      }
       this.logger.warn(`Vonage credentials missing. Falling back to simulated delivery for ${normalizedMobile}`);
       return {
         success: true,

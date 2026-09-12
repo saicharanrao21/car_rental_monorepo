@@ -89,6 +89,9 @@ export class GcsStorageAdapter implements StorageProvider {
   }
 
   async getPresignedUploadUrl(req: PresignedUploadRequest): Promise<PresignedUploadResponse> {
+    if (!this.bucketName && process.env.NODE_ENV === 'production') {
+      throw new Error('GCS bucket credentials required in production');
+    }
     const expiresAt = new Date(Date.now() + (req.expiresInSeconds || 3600) * 1000);
     const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${this.bucketName}/o?uploadType=media&name=${encodeURIComponent(req.key)}`;
     const publicUrl = this.getPublicUrl(req.key);
