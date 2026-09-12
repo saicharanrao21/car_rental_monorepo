@@ -31,6 +31,10 @@ import { CommonModule } from '../common/common.module';
         const nodeEnv = configService.get<string>('NODE_ENV');
         const smsProvider = configService.get<string>('SMS_PROVIDER');
 
+        if (nodeEnv === 'production' && smsProvider === 'mock') {
+          throw new Error('CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.');
+        }
+
         if (nodeEnv === 'production' || smsProvider === 'msg91') {
           return new Msg91SmsProvider(configService);
         }

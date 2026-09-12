@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -111,6 +111,9 @@ export class PayPalAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.clientId || !this.clientSecret)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const orderId = `PAYPAL_ORD_${req.bookingId.slice(-6)}_${Date.now()}`;
     const amountUnits = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[PAYPAL] Created v2/checkout/orders ${orderId} for ${req.currency || 'USD'} ${amountUnits}`);
@@ -138,23 +141,43 @@ export class PayPalAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.clientSecret;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing PayPal payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'PayPal capture validation error',
+      failureReason: isValid ? undefined : 'PayPal signature verification failed',
       rawResponse: {
-        id: req.providerOrderId,
-        status: isValid ? 'COMPLETED' : 'FAILED',
-        capture_id: req.providerPaymentId,
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.clientId || !this.clientSecret)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `pp_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[PAYPAL] Processed refund ${refundId} on capture ${req.providerPaymentId}`);
     return {
@@ -183,7 +206,7 @@ export class PayPalAdapter
         .createHmac('sha256', secret)
         .update(`${transmissionId}|${timestamp}|${webhookId}|${crc}`)
         .digest('base64');
-      return signature.length > 0;
+      return signature === expected;
     } catch {
       return false;
     }

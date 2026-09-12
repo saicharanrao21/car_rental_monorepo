@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -92,6 +92,9 @@ export class SkrillAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantEmail || !this.secretWord)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const transactionId = `skr_tx_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[SKRILL] Created checkout transaction ${transactionId} for ${req.currency} ${amountFloat}`);
@@ -113,22 +116,39 @@ export class SkrillAdapter implements PaymentProvider {
   }
 
   async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    const key = this.secretWord;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Skrill payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = crypto.createHash('md5').update(`${req.providerOrderId}${req.providerPaymentId}${key}`).digest('hex');
+    const isValid = req.providerSignature.toLowerCase() === expected.toLowerCase();
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'EUR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Skrill signature verification failed',
       rawResponse: {
-        mb_transaction_id: req.providerPaymentId,
-        status: isValid ? '2' : '-2', // 2 = processed in Skrill
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantEmail || !this.secretWord)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `skr_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[SKRILL] Initiated refund ${refundId} for ${req.providerPaymentId}`);
     return {
@@ -143,12 +163,11 @@ export class SkrillAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
     const targetSecret = secret || this.secretWord;
-    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+    if (!targetSecret || !signature) return false;
     try {
       const expected = crypto.createHash('md5').update(`${rawBody}${targetSecret}`).digest('hex').toUpperCase();
-      return signature.toUpperCase() === expected || signature.length > 8;
+      return signature.toUpperCase() === expected;
     } catch {
       return false;
     }

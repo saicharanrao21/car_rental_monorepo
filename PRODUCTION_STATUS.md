@@ -123,7 +123,20 @@ All 116 adapters under `src/integrations/adapters/*` were audited against live s
 - **Class B (10 Adapters)**: Legitimate local/test mock providers clearly gated out of production (e.g. `mock-sms`, `mock-email`, `mock-accounting`, `mock-analytics`).
 - **Class C (85 Adapters)**: Simulated/catalog adapters.
   - **Remediation**: Fail-closed production guards enforced across all Class C adapters.
-  - **Webhook Security Fix**: Eliminated permissive test signature checks (`signature.length > 10`) across 27 payment adapters (`adyen`, `billdesk`, `cashfree`, `easebuzz`, `instamojo`, `juspay`, `payu`, `phonepe`, `razorpay`, `stripe`, etc.). In production, exact HMAC signatures are strictly validated against production secrets.
+  - **Webhook & Signature Security Fix**: Eliminated sentinel string checks (`!== 'invalid_...'`) and loose test signature checks (`signature.length > 10`) across all 48 payment adapters under `src/integrations/adapters/payments/*.adapter.ts`. Real cryptographic HMAC/hash calculations against provider credentials are now mandatory. Every adapter returns `isValid: false` for random/garbage signatures, and throws `ServiceUnavailableException` in production if credentials are not configured.
+
+---
+
+### 3.4 SMS Provider Architecture & Fail-Safe Verification
+- **Implementation Paths**:
+  - Provider Contract & Mock Implementation: `car_rental_backend/src/auth/sms-provider.service.ts`
+  - Production Live Gateway (MSG91): `car_rental_backend/src/auth/msg91-sms-provider.service.ts`
+  - Dependency Injection Bootstrap & Routing: `car_rental_backend/src/auth/auth.module.ts`
+- **Fail-Safe Startup Verification**:
+  - In `auth.module.ts`: Setting `SMS_PROVIDER=mock` in production (`NODE_ENV=production`) throws at startup (`CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.`).
+  - In `msg91-sms-provider.service.ts`: Running in production without `MSG91_AUTH_KEY` or `MSG91_TEMPLATE_ID` throws at bootstrap (`CRITICAL CONFIGURATION ERROR: MSG91_AUTH_KEY and MSG91_TEMPLATE_ID are required when using Msg91SmsProvider in production.`).
+  - In `sms-provider.service.ts`: If `MockSmsProvider.sendSms()` is ever reached in production, it immediately throws (`CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.`).
+  - Verified with automated tests in `src/auth/sms-provider-selection.spec.ts`.
 
 ---
 

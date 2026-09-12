@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -113,6 +113,9 @@ export class BillDeskAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const orderId = `bd_ord_${req.bookingId}_${Date.now()}`;
     const amountRupees = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[BILLDESK] Created order ${orderId} for ₹${amountRupees}`);
@@ -133,23 +136,43 @@ export class BillDeskAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.secretKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing BillDesk payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'BillDesk token verification failure',
+      failureReason: isValid ? undefined : 'BillDesk signature verification failed',
       rawResponse: {
-        orderid: req.providerOrderId,
-        transactionid: req.providerPaymentId,
-        auth_status: isValid ? '0300' : '0399', // 0300 is Success in BillDesk
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `bd_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[BILLDESK] Dispatched refund ${refundId} for txn ${req.providerPaymentId}`);
     return {

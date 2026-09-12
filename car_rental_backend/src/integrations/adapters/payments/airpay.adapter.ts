@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -94,6 +94,9 @@ export class AirpayAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const orderId = `air_ord_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     const checksum = crypto.createHash('sha256').update(`${this.merchantId}${orderId}${amountFloat}${this.secretKey || 'key'}`).digest('hex');
@@ -114,23 +117,40 @@ export class AirpayAdapter implements PaymentProvider {
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.secretKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Airpay payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = crypto.createHash('sha256').update(`${req.providerOrderId}|${req.providerPaymentId}|${key}`).digest('hex');
+    const isValid = req.providerSignature === expected;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Airpay signature verification failed',
       rawResponse: {
-        transactionId: req.providerPaymentId,
-        status: isValid ? '200' : '500',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `air_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[AIRPAY] Initiated refund ${refundId} for ${req.providerPaymentId}`);
     return {
@@ -145,9 +165,8 @@ export class AirpayAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
-    const targetSecret = secret || this.secretKey;
-    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+        const targetSecret = secret || this.secretKey;
+    if (!targetSecret || !signature) return false;
     try {
       const expected = crypto.createHmac('sha256', targetSecret).update(rawBody).digest('hex');
       return signature === expected || signature.includes(expected);

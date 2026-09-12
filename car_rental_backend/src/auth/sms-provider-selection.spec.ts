@@ -10,11 +10,24 @@ describe('SMS Provider Selection (Phase 2A)', () => {
     const nodeEnv = configService.get<string>('NODE_ENV');
     const smsProvider = configService.get<string>('SMS_PROVIDER');
 
+    if (nodeEnv === 'production' && smsProvider === 'mock') {
+      throw new Error('CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.');
+    }
+
     if (nodeEnv === 'production' || smsProvider === 'msg91') {
       return new Msg91SmsProvider(configService);
     }
     return new MockSmsProvider();
   }
+
+  it('should throw critical error at startup when SMS_PROVIDER=mock in production', () => {
+    expect(() =>
+      createSmsProvider({
+        NODE_ENV: 'production',
+        SMS_PROVIDER: 'mock',
+      }),
+    ).toThrow('CRITICAL SECURITY ERROR: MockSmsProvider cannot be used in production.');
+  });
 
   it('should select Msg91SmsProvider when NODE_ENV is production', () => {
     const provider = createSmsProvider({

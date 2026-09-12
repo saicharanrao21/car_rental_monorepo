@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -107,32 +107,46 @@ export class AdyenAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
-    const sessionId = `adyen_sess_${Date.now()}`;
-    const pspReference = `adyen_psp_${req.bookingId}_${Date.now()}`;
-    this.logger.log(`[ADYEN] Created /sessions order ${pspReference} for ${req.currency || 'USD'} ${req.amountPaise / 100}`);
-
+    if (process.env.NODE_ENV === 'production' && (!this.merchantAccount || !this.apiKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
+    const pspReference = `adyen_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     return {
       providerOrderId: pspReference,
       amountPaise: req.amountPaise,
-      currency: req.currency || 'USD',
-      providerKeyId: this.merchantAccount || 'AdyenMerchant_MOCK',
+      currency: req.currency,
+      providerKeyId: this.merchantAccount,
       status: 'ACTIVE',
       rawResponse: {
-        id: sessionId,
-        sessionData: `sess_data_${Date.now()}`,
+        reference: req.bookingId,
+        merchantAccount: this.merchantAccount,
         pspReference,
       },
     };
   }
 
   async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_adyen_sig';
+    const key = this.hmacKey || this.apiKey;
+    if (!key || !req.providerSignature) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing HMAC key or provider signature',
+      };
+    }
+    const payload = `${req.providerOrderId}:${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedHex = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedHex;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'Adyen result code refused',
+      failureReason: isValid ? undefined : 'Adyen signature verification failed',
       rawResponse: {
         pspReference: req.providerPaymentId,
         resultCode: isValid ? 'Authorised' : 'Refused',
@@ -141,6 +155,9 @@ export class AdyenAdapter
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantAccount || !this.apiKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundPsp = `adyen_ref_${Date.now()}`;
     this.logger.log(`[ADYEN] Initiated refund ${refundPsp} for pspReference ${req.providerPaymentId}`);
     return {
@@ -158,7 +175,7 @@ export class AdyenAdapter
     if (!signature || !secret) return false;
     try {
       const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
-      return signature === expected || signature.length > 10;
+      return signature === expected;
     } catch {
       return false;
     }

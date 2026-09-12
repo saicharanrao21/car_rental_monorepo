@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -115,6 +115,9 @@ export class CCAvenueAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.workingKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const orderId = `cca_ord_${req.bookingId}_${Date.now()}`;
     const amountRupees = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[CCAVENUE] Generated checkout order ${orderId} for ₹${amountRupees}`);
@@ -136,23 +139,40 @@ export class CCAvenueAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.workingKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing CCAvenue payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = crypto.createHash('md5').update(`${req.providerOrderId}${req.providerPaymentId}${key}`).digest('hex');
+    const isValid = req.providerSignature.toLowerCase() === expected.toLowerCase();
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'CCAvenue checksum mismatch',
+      failureReason: isValid ? undefined : 'CCAvenue signature verification failed',
       rawResponse: {
-        order_id: req.providerOrderId,
-        tracking_id: req.providerPaymentId,
-        order_status: isValid ? 'Success' : 'Failure',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.workingKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `cca_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[CCAVENUE] Initiated refund ${refundId} for tracking ID ${req.providerPaymentId}`);
     return {

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -94,6 +94,9 @@ export class StripeIndiaAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.publishableKey || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const intentId = `pi_in_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[STRIPE-INDIA] Created UPI/RuPay payment intent ${intentId} for ₹${amountFloat}`);
@@ -114,23 +117,43 @@ export class StripeIndiaAdapter implements PaymentProvider {
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.webhookSecret || this.secretKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Stripe India payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Stripe India signature verification failed',
       rawResponse: {
-        id: req.providerPaymentId,
-        status: isValid ? 'succeeded' : 'requires_payment_method',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.publishableKey || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `re_in_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[STRIPE-INDIA] Processed refund ${refundId} for ${req.providerPaymentId}`);
     return {
@@ -145,9 +168,8 @@ export class StripeIndiaAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
-    const targetSecret = secret || this.webhookSecret;
-    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+        const targetSecret = secret || this.webhookSecret;
+    if (!targetSecret || !signature) return false;
     try {
       const expected = crypto.createHmac('sha256', targetSecret).update(rawBody).digest('hex');
       return signature === expected || signature.includes(expected);

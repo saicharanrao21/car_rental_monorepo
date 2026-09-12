@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   PaymentProvider,
@@ -92,6 +92,9 @@ export class EasebuzzAdapter implements PaymentProvider {
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
     if (process.env.NODE_ENV === 'production' && (!this.key || !this.salt)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
+    if (process.env.NODE_ENV === 'production' && (!this.key || !this.salt)) {
       throw new Error('CRITICAL SECURITY ERROR: Easebuzz credentials missing in production.');
     }
     const txnid = `EB_${req.bookingId}_${Date.now()}`;
@@ -112,24 +115,41 @@ export class EasebuzzAdapter implements PaymentProvider {
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.salt;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Easebuzz payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = crypto.createHash('sha512').update(`${key}|success|||||||||||${req.providerOrderId}`).digest('hex');
+    const expectedSimple = crypto.createHash('sha512').update(`${key}|${req.providerOrderId}|${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedSimple;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Easebuzz signature verification failed',
       rawResponse: {
-        easepayid: req.providerPaymentId,
-        txnid: req.providerOrderId,
-        status: isValid ? 'success' : 'failure',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.key || !this.salt)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `eb_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[EASEBUZZ] Refund ${refundId} initiated for ${req.providerPaymentId}`);
     return {

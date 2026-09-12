@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -109,6 +109,9 @@ export class PhonePeAdapter
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
     if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.saltKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.saltKey)) {
       throw new Error('CRITICAL SECURITY ERROR: PhonePe credentials missing in production.');
     }
     const mTxnId = `ph_txn_${req.bookingId}_${Date.now()}`;
@@ -142,28 +145,40 @@ export class PhonePeAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_x_verify';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.saltKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing PhonePe payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = `${crypto.createHash('sha256').update(`${req.providerOrderId}${req.providerPaymentId}${key}`).digest('hex')}###${this.saltIndex || 1}`;
+    const isValid = req.providerSignature === expected;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'PhonePe X-VERIFY checksum failure',
+      failureReason: isValid ? undefined : 'PhonePe signature verification failed',
       rawResponse: {
-        success: isValid,
-        code: isValid ? 'PAYMENT_SUCCESS' : 'PAYMENT_ERROR',
-        data: {
-          merchantTransactionId: req.providerOrderId,
-          transactionId: req.providerPaymentId,
-          amount: 10000,
-          state: isValid ? 'COMPLETED' : 'FAILED',
-        },
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.saltKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `ph_ref_${Date.now()}`;
     this.logger.log(`[PHONEPE] Processed refund ${refundId} for transaction ${req.providerPaymentId}`);
     return {

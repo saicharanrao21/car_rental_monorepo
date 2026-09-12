@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { Injectable } from '@nestjs/common';
 import {
   PaymentProvider,
@@ -67,7 +68,7 @@ export class MockPaymentAdapter implements PaymentProvider {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('CRITICAL SECURITY ERROR: MockPaymentAdapter cannot verify payments in production.');
     }
-    const isValid = req.providerSignature === 'mock_signature' || req.providerSignature.length > 0;
+    const isValid = req.providerSignature === 'mock_signature';
     return {
       isValid,
       providerPaymentId: req.providerPaymentId || `pay_mock_${Date.now()}`,

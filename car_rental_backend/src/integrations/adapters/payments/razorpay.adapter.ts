@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Razorpay from 'razorpay';
 import { validatePaymentVerification } from 'razorpay/dist/utils/razorpay-utils';
@@ -102,6 +103,9 @@ export class RazorpayAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.keyId || !this.keySecret || this.keyId.startsWith('placeholder'))) {
+      throw new ServiceUnavailableException('Razorpay credentials not configured for production environment');
+    }
     const client = this.getClient();
     try {
       const order = await client.orders.create({
@@ -153,6 +157,9 @@ export class RazorpayAdapter implements PaymentProvider {
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.keyId || !this.keySecret || this.keyId.startsWith('placeholder'))) {
+      throw new ServiceUnavailableException('Razorpay credentials not configured for production environment');
+    }
     const client = this.getClient();
     try {
       const refundRecord = await client.payments.refund(req.providerPaymentId, {
@@ -172,8 +179,7 @@ export class RazorpayAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
-    const targetSecret = secret || this.webhookSecret;
+        const targetSecret = secret || this.webhookSecret;
     if (!targetSecret) return false;
 
     try {

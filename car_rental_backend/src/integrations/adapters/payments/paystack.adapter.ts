@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -105,6 +105,9 @@ export class PaystackAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.publicKey || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const reference = `pstk_ref_${req.bookingId}_${Date.now()}`;
     const accessCode = `pstk_acc_${Math.random().toString(36).substring(2, 10)}`;
     this.logger.log(`[PAYSTACK] Initialized transaction ${reference} for ${req.currency || 'NGN'} ${req.amountPaise / 100}`);
@@ -123,23 +126,42 @@ export class PaystackAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.secretKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Paystack payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha512', key).update(payload).digest('hex');
+    const expectedColon = crypto.createHmac('sha512', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'Paystack transaction verification failed',
+      failureReason: isValid ? undefined : 'Paystack signature verification failed',
       rawResponse: {
-        status: isValid ? 'success' : 'failed',
-        reference: req.providerOrderId,
-        id: req.providerPaymentId,
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.publicKey || !this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `pstk_rfnd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[PAYSTACK] Processed refund ${refundId} on transaction ${req.providerPaymentId}`);
     return {

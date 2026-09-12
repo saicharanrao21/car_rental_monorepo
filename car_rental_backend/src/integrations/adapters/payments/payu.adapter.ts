@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -105,6 +105,9 @@ export class PayUAdapter
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantKey || !this.merchantSalt)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const txnId = `payu_txn_${req.bookingId}_${Date.now()}`;
     const amountStr = (req.amountPaise / 100).toFixed(2);
     const hashString = `${this.merchantKey || 'mock_key'}|${txnId}|${amountStr}|DriveGo Car Rental|${req.customerId}|${req.customerEmail || 'test@drivego.in'}|||||||||||${this.merchantSalt || 'mock_salt'}`;
@@ -125,23 +128,41 @@ export class PayUAdapter
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_hash';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.merchantSalt;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing PayU payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const expected = crypto.createHash('sha512').update(`${key}|success|||||||||||${req.providerOrderId}`).digest('hex');
+    const expectedSimple = crypto.createHash('sha512').update(`${key}|${req.providerOrderId}|${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedSimple;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
       status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'PayU verification hash mismatch',
+      failureReason: isValid ? undefined : 'PayU signature verification failed',
       rawResponse: {
-        txnid: req.providerOrderId,
-        mihpayid: req.providerPaymentId,
-        status: isValid ? 'success' : 'failure',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantKey || !this.merchantSalt)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `payu_ref_${Date.now()}`;
     this.logger.log(`[PAYU] Processed refund ${refundId} for txn ${req.providerPaymentId}`);
     return {

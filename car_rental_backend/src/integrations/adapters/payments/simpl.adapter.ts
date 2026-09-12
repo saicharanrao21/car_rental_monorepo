@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -91,6 +91,9 @@ export class SimplAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.apiKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const transactionId = `smp_tx_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[SIMPL] Created 1-tap checkout token ${transactionId} for ₹${amountFloat}`);
@@ -109,23 +112,43 @@ export class SimplAdapter implements PaymentProvider {
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.apiKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Simpl payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'INR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Simpl signature verification failed',
       rawResponse: {
-        transaction_id: req.providerPaymentId,
-        status: isValid ? 'SUCCESS' : 'FAILED',
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
+        status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.merchantId || !this.apiKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `smp_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[SIMPL] Processed refund ${refundId} for ${req.providerPaymentId}`);
     return {
@@ -140,9 +163,8 @@ export class SimplAdapter implements PaymentProvider {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (signature === 'mock_signature' && process.env.NODE_ENV !== 'production') return true;
-    const targetSecret = secret || this.apiKey;
-    if (!targetSecret) return process.env.NODE_ENV !== 'production';
+        const targetSecret = secret || this.apiKey;
+    if (!targetSecret || !signature) return false;
     try {
       const expected = crypto.createHmac('sha256', targetSecret).update(rawBody).digest('hex');
       return signature === expected || signature.includes(expected);

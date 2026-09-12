@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   PaymentProvider,
@@ -90,6 +91,9 @@ export class XenditAdapter implements PaymentProvider {
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const externalId = `xnd_ord_${req.bookingId}_${Date.now()}`;
     const amountFloat = (req.amountPaise / 100).toFixed(2);
     this.logger.log(`[XENDIT] Created invoice ${externalId} for ${req.currency} ${amountFloat}`);
@@ -108,24 +112,43 @@ export class XenditAdapter implements PaymentProvider {
     };
   }
 
-  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
-    const isValid = req.providerSignature !== 'invalid_signature';
+    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+    const key = this.callbackToken || this.secretKey;
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Xendit payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
     return {
       isValid,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      amountPaise: 0,
-      currency: 'IDR',
       status: isValid ? 'PAID' : 'FAILED',
+      failureReason: isValid ? undefined : 'Xendit signature verification failed',
       rawResponse: {
-        id: req.providerPaymentId,
-        external_id: req.providerOrderId,
+        orderId: req.providerOrderId,
+        paymentId: req.providerPaymentId,
         status: isValid ? 'PAID' : 'FAILED',
       },
     };
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
+    if (process.env.NODE_ENV === 'production' && (!this.secretKey)) {
+      throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
+    }
     const refundId = `xnd_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(`[XENDIT] Initiated refund ${refundId} for payment ${req.providerPaymentId}`);
     return {
@@ -142,7 +165,7 @@ export class XenditAdapter implements PaymentProvider {
 
   verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
     const token = secret || this.callbackToken;
-    if (!token) return process.env.NODE_ENV !== 'production';
+    if (!token || !signature) return false;
     return signature === token;
   }
 
