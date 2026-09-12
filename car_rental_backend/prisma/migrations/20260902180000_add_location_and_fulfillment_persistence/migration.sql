@@ -10,19 +10,57 @@ CREATE TYPE "DeliveryPricingModel" AS ENUM ('FREE', 'FIXED', 'DISTANCE_BASED');
 -- CreateEnum
 CREATE TYPE "LocationExceptionType" AS ENUM ('HOLIDAY', 'TEMPORARY_CLOSURE', 'EMERGENCY_CLOSURE', 'CUSTOM_HOURS');
 
--- AlterTable PickupHub
-ALTER TABLE "PickupHub" ADD COLUMN "serviceRadiusKm" DOUBLE PRECISION NOT NULL DEFAULT 25.0,
-ADD COLUMN "locationType" "VendorLocationType" NOT NULL DEFAULT 'VENDOR_YARD',
-ADD COLUMN "status" "LocationStatus" NOT NULL DEFAULT 'ACTIVE',
-ADD COLUMN "allowsPickup" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN "allowsReturn" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN "allowsDelivery" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN "pickupFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "returnFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "oneWayFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "is24x7" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN "openingTime" TEXT DEFAULT '08:00',
-ADD COLUMN "closingTime" TEXT DEFAULT '22:00';
+-- CreateTable PickupHub if not exists
+CREATE TABLE IF NOT EXISTS "PickupHub" (
+    "id" TEXT NOT NULL,
+    "vendorId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "address" TEXT NOT NULL,
+    "locality" TEXT,
+    "city" TEXT NOT NULL,
+    "state" TEXT,
+    "latitude" DOUBLE PRECISION NOT NULL,
+    "longitude" DOUBLE PRECISION NOT NULL,
+    "serviceRadiusKm" DOUBLE PRECISION NOT NULL DEFAULT 25.0,
+    "operatingHours" TEXT,
+    "contactPhone" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "locationType" "VendorLocationType" NOT NULL DEFAULT 'VENDOR_YARD',
+    "status" "LocationStatus" NOT NULL DEFAULT 'ACTIVE',
+    "allowsPickup" BOOLEAN NOT NULL DEFAULT true,
+    "allowsReturn" BOOLEAN NOT NULL DEFAULT true,
+    "allowsDelivery" BOOLEAN NOT NULL DEFAULT true,
+    "pickupFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "returnFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "oneWayFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "is24x7" BOOLEAN NOT NULL DEFAULT false,
+    "openingTime" TEXT DEFAULT '08:00',
+    "closingTime" TEXT DEFAULT '22:00',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PickupHub_pkey" PRIMARY KEY ("id")
+);
+
+-- Foreign key to Vendor if not exists
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'PickupHub_vendorId_fkey'
+  ) THEN
+    ALTER TABLE "PickupHub" ADD CONSTRAINT "PickupHub_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+-- Add pickupHubId to Car if not exists
+ALTER TABLE "Car" ADD COLUMN IF NOT EXISTS "pickupHubId" TEXT;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'Car_pickupHubId_fkey'
+  ) THEN
+    ALTER TABLE "Car" ADD CONSTRAINT "Car_pickupHubId_fkey" FOREIGN KEY ("pickupHubId") REFERENCES "PickupHub"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS "Car_pickupHubId_idx" ON "Car"("pickupHubId");
 
 -- CreateTable LocationException
 CREATE TABLE "LocationException" (
@@ -97,8 +135,11 @@ ADD COLUMN "pickupName" TEXT,
 ADD COLUMN "dropName" TEXT;
 
 -- CreateIndex
-CREATE INDEX "PickupHub_locationType_idx" ON "PickupHub"("locationType");
-CREATE INDEX "PickupHub_status_idx" ON "PickupHub"("status");
+CREATE INDEX IF NOT EXISTS "PickupHub_locationType_idx" ON "PickupHub"("locationType");
+CREATE INDEX IF NOT EXISTS "PickupHub_status_idx" ON "PickupHub"("status");
+CREATE INDEX IF NOT EXISTS "PickupHub_vendorId_idx" ON "PickupHub"("vendorId");
+CREATE INDEX IF NOT EXISTS "PickupHub_city_idx" ON "PickupHub"("city");
+CREATE INDEX IF NOT EXISTS "PickupHub_city_isActive_idx" ON "PickupHub"("city", "isActive");
 
 -- CreateIndex
 CREATE INDEX "LocationException_locationId_idx" ON "LocationException"("locationId");
