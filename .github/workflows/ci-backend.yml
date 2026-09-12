@@ -21,6 +21,10 @@ jobs:
       run:
         working-directory: car_rental_backend
 
+    env:
+      DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+      DIRECT_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -70,12 +74,14 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+          DIRECT_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
 
       - name: Run Test Suites
         run: npm test
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+          DIRECT_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
           JWT_ACCESS_SECRET: test_access_secret_key_32_characters_long_12345
           JWT_REFRESH_SECRET: test_refresh_secret_key_32_characters_long_12345
           BANK_ENCRYPTION_KEY: test_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef
@@ -90,6 +96,7 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
+          DIRECT_URL: postgresql://drivego_admin:ci_secure_postgres_pass_2026@localhost:5432/drivego_ci_test?schema=public
           JWT_ACCESS_SECRET: test_access_secret_key_32_characters_long_12345
           JWT_REFRESH_SECRET: test_refresh_secret_key_32_characters_long_12345
           BANK_ENCRYPTION_KEY: test_bank_encryption_key_32_bytes_hex_1234567890abcdef1234567890abcdef
