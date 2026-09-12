@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   SmsProvider,
@@ -80,6 +80,9 @@ export class TelstraSmsAdapter implements SmsProvider {
   }
 
   async sendSms(req: NormalizedSmsRequest): Promise<NormalizedSmsResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Telstra SMS is not a live-integrated messaging provider. Contact engineering before enabling in production.');
+    }
     const to = req.to;
 
     if (!this.clientId || !this.clientSecret) {

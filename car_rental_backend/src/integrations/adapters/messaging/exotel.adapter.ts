@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   SmsProvider,
@@ -95,6 +95,9 @@ export class ExotelSmsAdapter implements SmsProvider {
   }
 
   async sendSms(req: NormalizedSmsRequest): Promise<NormalizedSmsResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Exotel SMS is not a live-integrated messaging provider. Contact engineering before enabling in production.');
+    }
     const start = Date.now();
     try {
       if (!this.apiKey && process.env.NODE_ENV === 'production') {

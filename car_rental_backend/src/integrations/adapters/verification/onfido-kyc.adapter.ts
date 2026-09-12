@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   IdentityVerificationProvider,
@@ -86,6 +86,9 @@ export class OnfidoKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyDrivingLicence(req: DrivingLicenceVerifyRequest): Promise<DrivingLicenceVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Onfido KYC is not a live-integrated verification provider. Contact engineering before enabling in production.');
+    }
     if (!this.apiToken && process.env.NODE_ENV === 'production') {
       throw new Error('Onfido API token is required in production');
     }
@@ -110,6 +113,9 @@ export class OnfidoKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyVehicleRc(req: VehicleRcVerifyRequest): Promise<VehicleRcVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Onfido KYC is not a live-integrated verification provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[ONFIDO KYC] Verifying registration ${req.registrationNumber}`);
     return {
       isValid: true,

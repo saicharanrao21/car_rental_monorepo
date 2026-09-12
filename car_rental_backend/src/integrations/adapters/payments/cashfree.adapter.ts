@@ -24,7 +24,6 @@ import {
   ProviderHealthStatus,
   TestConnectionResult,
 } from '../../registry/provider.types';
-import { AuthenticationError } from '../../errors/integration-error';
 
 @Injectable()
 export class CashfreeAdapter
@@ -87,14 +86,14 @@ export class CashfreeAdapter
   async checkHealth(): Promise<ProviderHealthCheckResult> {
     const startTime = Date.now();
     try {
-      const isConfigured = !!(this.appId && this.secretKey);
+      const isConfigured = !!(this.appId && this.secretKey && !this.secretKey.startsWith('placeholder'));
       return {
-        status: isConfigured ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.DEGRADED,
+        status: isConfigured ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.CONFIGURED,
         latencyMs: Date.now() - startTime,
         lastChecked: new Date(),
         message: isConfigured
           ? 'Cashfree PG operational'
-          : 'Cashfree credentials not configured (sandbox simulated)',
+          : 'Cashfree credentials not configured (sandbox mode)',
       };
     } catch (err: any) {
       return {
@@ -116,20 +115,115 @@ export class CashfreeAdapter
         latencyMs: 5,
       };
     }
-    return {
-      success: true,
-      message: 'Cashfree credentials validated successfully',
-      latencyMs: 25,
-    };
+
+    const start = Date.now();
+    try {
+      const response = await fetch(`${this.apiEndpoint}/orders`, {
+        method: 'GET',
+        headers: {
+          'x-client-id': appId,
+          'x-client-secret': secret,
+          'x-api-version': '2023-08-01',
+        },
+      });
+
+      if (response.ok || response.status === 200) {
+        return {
+          success: true,
+          message: 'Cashfree connection and credentials verified successfully',
+          latencyMs: Date.now() - start,
+        };
+      }
+
+      const data: any = await response.json();
+      return {
+        success: false,
+        message: `Cashfree authentication rejected: ${data.message || response.statusText}`,
+        latencyMs: Date.now() - start,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Cashfree connection error: ${err?.message}`,
+        latencyMs: Date.now() - start,
+      };
+    }
+  }
+
+  private hasLiveCredentials(): boolean {
+    if (!this.appId || !this.secretKey) return false;
+    if (
+      this.secretKey.startsWith('placeholder') ||
+      this.secretKey.startsWith('mock') ||
+      this.secretKey.startsWith('test') ||
+      this.secretKey === 'cf_sec_sample' ||
+      this.appId.startsWith('placeholder') ||
+      this.appId.startsWith('mock') ||
+      this.appId.startsWith('test') ||
+      this.appId.startsWith('cf_app_') ||
+      this.appId.startsWith('cashfree_app_')
+    ) {
+      return false;
+    }
+    if (process.env.NODE_ENV === 'test') {
+      return false;
+    }
+    return true;
   }
 
   async createOrder(req: NormalizedPaymentOrderRequest): Promise<NormalizedPaymentOrderResponse> {
-    if (process.env.NODE_ENV === 'production' && (!this.appId || !this.secretKey)) {
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
       throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
     }
-    const orderId = `cf_ord_${req.bookingId}_${Date.now()}`;
-    this.logger.log(`[CASHFREE] Created normalized payment order ${orderId} for ₹${req.amountPaise / 100}`);
 
+    const orderId = `cf_ord_${req.bookingId}_${Date.now()}`;
+
+    if (hasLive) {
+      try {
+        const response = await fetch(`${this.apiEndpoint}/orders`, {
+          method: 'POST',
+          headers: {
+            'x-client-id': this.appId,
+            'x-client-secret': this.secretKey,
+            'x-api-version': '2023-08-01',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            order_amount: req.amountPaise / 100,
+            order_currency: req.currency || 'INR',
+            customer_details: {
+              customer_id: req.customerId || 'cust_drivego',
+              customer_phone: '9999999999',
+            },
+          }),
+        });
+
+        const data: any = await response.json();
+        if (!response.ok) {
+          this.logger.error(`[CASHFREE] createOrder failed: ${JSON.stringify(data)}`);
+          throw new ServiceUnavailableException(`Cashfree order creation error: ${data.message || response.statusText}`);
+        }
+
+        return {
+          providerOrderId: data.order_id,
+          amountPaise: Math.round(data.order_amount * 100),
+          currency: data.order_currency || 'INR',
+          providerKeyId: this.appId,
+          status: data.order_status || 'ACTIVE',
+          rawResponse: data,
+        };
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(`[CASHFREE] Network error: ${err?.message}`);
+        throw new ServiceUnavailableException(`Cashfree service unreachable: ${err?.message}`);
+      }
+    }
+
+    // Sandbox / Test fallback
+    this.logger.log(`[CASHFREE] Created normalized payment order ${orderId} for ₹${req.amountPaise / 100}`);
     return {
       providerOrderId: orderId,
       amountPaise: req.amountPaise,
@@ -145,8 +239,39 @@ export class CashfreeAdapter
     };
   }
 
-    async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
+  async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
     const key = this.secretKey;
+    const hasLiveCredentials = Boolean(this.appId && this.secretKey && !this.secretKey.startsWith('placeholder'));
+
+    if (hasLiveCredentials && req.providerOrderId && !req.providerOrderId.startsWith('mock_')) {
+      try {
+        const response = await fetch(`${this.apiEndpoint}/orders/${encodeURIComponent(req.providerOrderId)}/payments`, {
+          method: 'GET',
+          headers: {
+            'x-client-id': this.appId,
+            'x-client-secret': this.secretKey,
+            'x-api-version': '2023-08-01',
+          },
+        });
+
+        if (response.ok) {
+          const payments: any[] = await response.json();
+          const successfulPayment = Array.isArray(payments) && payments.find((p) => p.payment_status === 'SUCCESS');
+          if (successfulPayment) {
+            return {
+              isValid: true,
+              providerPaymentId: String(successfulPayment.cf_payment_id || req.providerPaymentId),
+              providerOrderId: req.providerOrderId,
+              status: 'PAID',
+              rawResponse: successfulPayment,
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`[CASHFREE] Payment status check warning: ${err?.message}`);
+      }
+    }
+
     if (!req.providerSignature || !key) {
       return {
         isValid: false,
@@ -179,10 +304,48 @@ export class CashfreeAdapter
   }
 
   async refund(req: NormalizedRefundRequest): Promise<NormalizedRefundResponse> {
-    if (process.env.NODE_ENV === 'production' && (!this.appId || !this.secretKey)) {
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
       throw new ServiceUnavailableException(`${this.getDisplayName()} credentials not configured for production environment`);
     }
+
     const refundId = `cf_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const orderId = req.notes?.orderId || req.providerPaymentId;
+    if (hasLive && orderId) {
+      try {
+        const response = await fetch(`${this.apiEndpoint}/orders/${encodeURIComponent(orderId)}/refunds`, {
+          method: 'POST',
+          headers: {
+            'x-client-id': this.appId,
+            'x-client-secret': this.secretKey,
+            'x-api-version': '2023-08-01',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            refund_amount: req.amountPaise / 100,
+            refund_id: refundId,
+          }),
+        });
+
+        const data: any = await response.json();
+        if (!response.ok) {
+          throw new ServiceUnavailableException(`Cashfree refund error: ${data.message || response.statusText}`);
+        }
+
+        return {
+          providerRefundId: data.refund_id || refundId,
+          amountPaise: Math.round((data.refund_amount || (req.amountPaise / 100)) * 100),
+          status: 'PROCESSED',
+          rawResponse: data,
+        };
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        throw new ServiceUnavailableException(`Cashfree refund network error: ${err?.message}`);
+      }
+    }
+
     this.logger.log(`[CASHFREE] Processed refund ${refundId} for payment ${req.providerPaymentId}`);
     return {
       providerRefundId: refundId,

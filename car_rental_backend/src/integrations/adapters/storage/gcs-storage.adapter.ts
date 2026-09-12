@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   StorageProvider,
@@ -89,6 +89,9 @@ export class GcsStorageAdapter implements StorageProvider {
   }
 
   async getPresignedUploadUrl(req: PresignedUploadRequest): Promise<PresignedUploadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Cloud Storage is not a live-integrated storage provider. Use R2StorageAdapter in production.');
+    }
     if (!this.bucketName && process.env.NODE_ENV === 'production') {
       throw new Error('GCS bucket credentials required in production');
     }
@@ -105,6 +108,9 @@ export class GcsStorageAdapter implements StorageProvider {
   }
 
   async getPresignedDownloadUrl(req: PresignedDownloadRequest): Promise<PresignedDownloadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Cloud Storage is not a live-integrated storage provider. Use R2StorageAdapter in production.');
+    }
     const expiresAt = new Date(Date.now() + (req.expiresInSeconds || 3600) * 1000);
     const downloadUrl = `https://storage.googleapis.com/${this.bucketName}/${req.key}?GoogleAccessId=${this.clientEmail}&Expires=${Math.floor(expiresAt.getTime() / 1000)}`;
 

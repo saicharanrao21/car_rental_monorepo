@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   EmailProvider,
@@ -84,6 +84,9 @@ export class AwsSesEmailAdapter implements EmailProvider {
   }
 
   async sendEmail(req: NormalizedEmailRequest): Promise<NormalizedEmailResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('AWS SES Email is not a live-integrated messaging provider. Contact engineering before enabling in production.');
+    }
     if (!this.accessKeyId || !this.secretAccessKey) {
       if (process.env.NODE_ENV === 'production') {
         throw new Error('Missing AWS SES credentials in production');

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   IdentityVerificationProvider,
@@ -53,6 +53,9 @@ export class SurepassKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyDrivingLicence(req: DrivingLicenceVerifyRequest): Promise<DrivingLicenceVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Surepass KYC is not a live-integrated verification provider. Contact engineering before enabling in production.');
+    }
     if (!this.apiKey && process.env.NODE_ENV === 'production') {
       throw new Error('Surepass API key is required in production');
     }
@@ -69,6 +72,9 @@ export class SurepassKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyVehicleRc(req: VehicleRcVerifyRequest): Promise<VehicleRcVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Surepass KYC is not a live-integrated verification provider. Contact engineering before enabling in production.');
+    }
     const isValid = req.registrationNumber && req.registrationNumber.length >= 6;
     return {
       isValid: Boolean(isValid),

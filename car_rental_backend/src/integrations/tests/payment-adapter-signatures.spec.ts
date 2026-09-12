@@ -165,6 +165,50 @@ describe('Payment Adapters Signature Hardening & Rejection of Garbage Signatures
         expect(emptyResult.isValid).toBe(false);
       });
 
+      const isRealAdapter = ['razorpay.adapter', 'stripe.adapter', 'cashfree.adapter', 'mock-payment.adapter'].includes(adapterName);
+
+      if (!isRealAdapter) {
+        it(`in production, unconditionally throws ServiceUnavailableException even with credentials configured`, async () => {
+          const origEnv = process.env.NODE_ENV;
+          process.env.NODE_ENV = 'production';
+
+          try {
+            if (adapterInstance.createOrder) {
+              await expect(
+                adapterInstance.createOrder({
+                  bookingId: 'booking_prod_test',
+                  amountPaise: 50000,
+                  currency: 'INR',
+                  customerId: 'cust_prod_test',
+                }),
+              ).rejects.toThrow('is not a live-integrated payment provider');
+            }
+
+            if (adapterInstance.verifyPayment) {
+              await expect(
+                adapterInstance.verifyPayment({
+                  providerOrderId: 'order_prod_test',
+                  providerPaymentId: 'pay_prod_test',
+                  providerSignature: 'dummy_sig',
+                }),
+              ).rejects.toThrow('is not a live-integrated payment provider');
+            }
+
+            if (adapterInstance.refund) {
+              await expect(
+                adapterInstance.refund({
+                  paymentId: 'pay_1',
+                  providerPaymentId: 'pay_prod_test',
+                  amountPaise: 50000,
+                }),
+              ).rejects.toThrow('is not a live-integrated payment provider');
+            }
+          } finally {
+            process.env.NODE_ENV = origEnv;
+          }
+        });
+      }
+
       it(`in production, createOrder() throws ServiceUnavailableException or Error if credentials missing`, async () => {
         if (!adapterInstance.createOrder) return;
         const origEnv = process.env.NODE_ENV;

@@ -106,10 +106,23 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
     return { text, usage };
   }
 
+  private isLiveKey(): boolean {
+    if (!this.apiKey) return false;
+    if (
+      this.apiKey.startsWith('placeholder') ||
+      this.apiKey.startsWith('mock') ||
+      this.apiKey === 'test-secret' ||
+      this.apiKey === 'test'
+    ) {
+      return false;
+    }
+    return true;
+  }
+
   async chat(payload: AiChatPayload): Promise<AiResult> {
     this.ensureOperational('chat');
 
-    if (this.apiKey) {
+    if (this.isLiveKey()) {
       const contents = payload.messages.map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
@@ -139,7 +152,7 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   async generateText(payload: AiTextGenPayload): Promise<AiResult> {
     this.ensureOperational('generateText');
 
-    if (this.apiKey) {
+    if (this.isLiveKey()) {
       const contents = [{ role: 'user', parts: [{ text: payload.prompt }] }];
       const { text, usage } = await this.callGeminiApi(contents);
       return {
@@ -165,7 +178,7 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   async summarize(payload: AiSummarizePayload): Promise<AiResult> {
     this.ensureOperational('summarize');
 
-    if (this.apiKey) {
+    if (this.isLiveKey()) {
       const prompt =
         payload.format === 'bullet_points'
           ? `Summarize the following rental transaction text in concise bullet points:\n\n${payload.text}`
@@ -201,7 +214,7 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   async classify(payload: AiClassificationPayload): Promise<AiResult> {
     this.ensureOperational('classify');
 
-    if (this.apiKey) {
+    if (this.isLiveKey()) {
       const prompt = `Classify the following text into exactly ONE of the following candidate labels: [${payload.candidateLabels.join(
         ', ',
       )}]. Respond in JSON format {"label": "<chosen_label>", "confidence": 0.95}:\n\nText: "${payload.text}"`;
@@ -247,7 +260,7 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
   async extract(payload: AiExtractionPayload): Promise<AiResult> {
     this.ensureOperational('extract');
 
-    if (this.apiKey) {
+    if (this.isLiveKey()) {
       const prompt = `Extract structured data matching the following JSON schema from this text:\nSchema: ${JSON.stringify(
         payload.schema,
       )}\nText: "${payload.text}"\nRespond only with valid JSON.`;
@@ -285,8 +298,61 @@ export class GoogleGeminiAiAdapter implements BaseProvider {
     };
   }
 
+  private async callGeminiEmbeddingApi(texts: string[]): Promise<number[][]> {
+    if (!this.apiKey) {
+      throw new ServiceUnavailableException('Google Gemini API key missing for embeddings');
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${this.apiKey}`;
+    const requests = texts.map((text) => ({
+      model: 'models/text-embedding-004',
+      content: {
+        parts: [{ text }],
+      },
+    }));
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ServiceUnavailableException(`Gemini Embedding API error (${response.status}): ${errorText}`);
+    }
+
+    const data: any = await response.json();
+    return (data.embeddings || []).map((e: any) => e.values || []);
+  }
+
   async embed(payload: AiEmbeddingPayload): Promise<AiResult> {
     this.ensureOperational('embed');
+
+    if (this.isLiveKey()) {
+      try {
+        const embeddings = await this.callGeminiEmbeddingApi(payload.texts);
+        return {
+          embeddings,
+          modelUsed: 'text-embedding-004',
+          tokensUsed: {
+            promptTokens: 50 * payload.texts.length,
+            completionTokens: 0,
+            totalTokens: 50 * payload.texts.length,
+          },
+          provider: this.getProviderId(),
+        };
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        throw new ServiceUnavailableException(`Gemini Embedding error: ${err?.message}`);
+      }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException(
+        'Google Gemini text-embedding-004 is not configured for production environment',
+      );
+    }
 
     const embeddings = payload.texts.map(() =>
       Array.from({ length: 64 }, () => parseFloat((Math.random() * 2 - 1).toFixed(4))),

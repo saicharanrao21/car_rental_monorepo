@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   MapsProvider,
@@ -55,6 +55,9 @@ export class GoogleMapsAdapter implements MapsProvider {
   }
 
   async geocode(address: string): Promise<GeocodeResult[]> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Maps is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     if (process.env.NODE_ENV === 'production' && !this.apiKey) {
       throw new Error('GOOGLE_MAPS_API_KEY must be configured in production.');
     }
@@ -71,6 +74,9 @@ export class GoogleMapsAdapter implements MapsProvider {
   }
 
   async reverseGeocode(point: LatLngPoint): Promise<GeocodeResult | null> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Maps is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     if (process.env.NODE_ENV === 'production' && !this.apiKey) {
       throw new Error('GOOGLE_MAPS_API_KEY must be configured in production.');
     }
@@ -108,6 +114,9 @@ export class GoogleMapsAdapter implements MapsProvider {
   }
 
   async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Maps is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     const latDiff = Math.abs(origin.latitude - destination.latitude) * 111.32;
     const lngDiff = Math.abs(origin.longitude - destination.longitude) * 111.32;
     const dist = Math.round(Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 10) / 10;

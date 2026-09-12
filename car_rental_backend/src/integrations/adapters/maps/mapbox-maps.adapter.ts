@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   MapsProvider,
@@ -56,6 +56,9 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async geocode(address: string): Promise<GeocodeResult[]> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     if (!this.accessToken && process.env.NODE_ENV === 'production') {
       throw new Error('Missing Mapbox credentials in production');
     }
@@ -75,6 +78,9 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async reverseGeocode(point: LatLngPoint): Promise<GeocodeResult | null> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[MAPBOX_REV_GEOCODE] Reverse geocoding: ${point.latitude}, ${point.longitude}`);
     return {
       formattedAddress: `Near Coordinates ${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}, MG Road, Bengaluru`,
@@ -113,6 +119,9 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult & { distanceMeters: number; durationSeconds: number }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(
       `[MAPBOX_DIRECTIONS] Directions from ${origin.latitude},${origin.longitude} to ${destination.latitude},${destination.longitude}`,
     );
