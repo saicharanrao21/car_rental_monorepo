@@ -37,6 +37,7 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true }));
 
   // Environment-driven CORS configuration
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
   const rawCors = configService.get<string>('CORS_ALLOWED_ORIGINS');
   const allowedOrigins: string[] =
     rawCors && rawCors.trim().length > 0
@@ -44,18 +45,23 @@ async function bootstrap() {
           .split(',')
           .map((origin) => origin.trim())
           .filter(Boolean)
-      : [
-          'http://localhost:8080',
-          'http://localhost:8085',
-          'http://localhost:8088',
-          'http://localhost:3000',
-          'http://127.0.0.1:8080',
-          'http://127.0.0.1:8085',
-          'http://127.0.0.1:8088',
-          'http://127.0.0.1:3000',
-        ];
-
-  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+      : (isProduction
+          ? [
+              'https://drivego.in',
+              'https://admin.drivego.in',
+              'https://vendor.drivego.in',
+              'https://app.drivego.in',
+            ]
+          : [
+              'http://localhost:8080',
+              'http://localhost:8085',
+              'http://localhost:8088',
+              'http://localhost:3000',
+              'http://127.0.0.1:8080',
+              'http://127.0.0.1:8085',
+              'http://127.0.0.1:8088',
+              'http://127.0.0.1:3000',
+            ]);
 
   app.enableCors({
     origin: (origin, callback) => {

@@ -10,8 +10,10 @@ import {
   AdminAdditionalDriversController,
 } from './additional-drivers.controller';
 
+import { UploadsModule } from '../uploads/uploads.module';
+
 @Module({
-  imports: [PrismaModule, AdminModule, NotificationsModule],
+  imports: [PrismaModule, AdminModule, NotificationsModule, UploadsModule],
   providers: [KycService, AdditionalDriversService],
   controllers: [
     KycController,

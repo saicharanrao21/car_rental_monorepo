@@ -3,9 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../admin/audit-log.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { KycStatus } from '@prisma/client';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { ReviewKycDto } from './dto/review-kyc.dto';
@@ -15,6 +17,7 @@ export class KycService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    @Optional() private readonly uploadsService?: UploadsService,
   ) {}
 
   /**
@@ -28,6 +31,14 @@ export class KycService {
     const expiryDate = new Date(dto.expiryDate);
     if (isNaN(expiryDate.getTime()) || expiryDate < new Date()) {
       throw new BadRequestException('Driving Licence has expired or date is invalid.');
+    }
+
+    // Validate storage key ownership / sanitize prefix
+    if (dto.licenceFrontUrl && (dto.licenceFrontUrl.startsWith('vendor-document/') || dto.licenceFrontUrl.includes('..'))) {
+      throw new BadRequestException('Invalid licence front URL key.');
+    }
+    if (dto.licenceBackUrl && (dto.licenceBackUrl.startsWith('vendor-document/') || dto.licenceBackUrl.includes('..'))) {
+      throw new BadRequestException('Invalid licence back URL key.');
     }
 
     if (existing) {
@@ -77,14 +88,28 @@ export class KycService {
       return { status: KycStatus.EXPIRED, kyc: { ...kyc, status: KycStatus.EXPIRED } };
     }
 
-    return { status: kyc.status, kyc };
+    let frontUrl = kyc.licenceFrontUrl;
+    let backUrl = kyc.licenceBackUrl;
+    if (this.uploadsService) {
+      frontUrl = await this.uploadsService.getPresignedDownloadUrl(kyc.licenceFrontUrl);
+      backUrl = await this.uploadsService.getPresignedDownloadUrl(kyc.licenceBackUrl);
+    }
+
+    return {
+      status: kyc.status,
+      kyc: {
+        ...kyc,
+        licenceFrontUrl: frontUrl,
+        licenceBackUrl: backUrl,
+      },
+    };
   }
 
   /**
    * Admin: List pending KYC submissions for review
    */
   async getPendingKycSubmissions() {
-    return this.prisma.customerKyc.findMany({
+    const submissions = await this.prisma.customerKyc.findMany({
       where: { status: KycStatus.PENDING },
       include: {
         user: {
@@ -98,6 +123,18 @@ export class KycService {
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    if (!this.uploadsService) {
+      return submissions;
+    }
+
+    return Promise.all(
+      submissions.map(async (k) => ({
+        ...k,
+        licenceFrontUrl: await this.uploadsService!.getPresignedDownloadUrl(k.licenceFrontUrl),
+        licenceBackUrl: await this.uploadsService!.getPresignedDownloadUrl(k.licenceBackUrl),
+      })),
+    );
   }
 
   /**

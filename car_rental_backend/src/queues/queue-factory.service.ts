@@ -100,6 +100,12 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
         defaultJobOptions: DEFAULT_JOB_OPTIONS,
       });
 
+      queue.on('error', (err: Error) => {
+        this.logger.warn(
+          `[QUEUE_ERROR] Queue: ${queueName} | Error: ${err.message}`,
+        );
+      });
+
       this.queues.set(queueName, queue);
       return queue;
     } catch (err: any) {
@@ -150,6 +156,12 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(
           `[JOB_FAILED] Queue: ${queueName} | JobId: ${job?.id} | Name: ${job?.name} | Error: ${err.message}`,
           err.stack,
+        );
+      });
+
+      worker.on('error', (err: Error) => {
+        this.logger.warn(
+          `[WORKER_ERROR] Queue: ${queueName} | Error: ${err.message}`,
         );
       });
 

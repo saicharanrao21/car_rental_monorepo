@@ -93,4 +93,36 @@ describe('KycService', () => {
       }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it('5. getKycStatus signs download URLs when UploadsService is injected', async () => {
+    const mockUploads = {
+      getPresignedDownloadUrl: jest.fn().mockImplementation((k) => Promise.resolve(`https://signed.drivego.in/${k}`)),
+    };
+    const moduleWithUploads: TestingModule = await Test.createTestingModule({
+      providers: [
+        KycService,
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AuditLogService, useValue: mockAuditLogService },
+        { provide: 'UploadsService', useValue: mockUploads },
+      ],
+    }).compile();
+    const serviceWithUploads = moduleWithUploads.get<KycService>(KycService);
+    // Assign mock uploads directly if needed
+    (serviceWithUploads as any).uploadsService = mockUploads;
+
+    const status = await serviceWithUploads.getKycStatus('user-1');
+    expect(status.kyc?.licenceFrontUrl).toContain('https://signed.drivego.in/');
+    expect(status.kyc?.licenceBackUrl).toContain('https://signed.drivego.in/');
+  });
+
+  it('6. submitKyc rejects invalid cross-tenant or traversal storage keys', async () => {
+    await expect(
+      service.submitKyc('user-1', {
+        licenceNumber: 'DL1234567890',
+        expiryDate: new Date(Date.now() + 365 * 86400000).toISOString(),
+        licenceFrontUrl: 'vendor-document/other-user/doc.pdf',
+        licenceBackUrl: 'valid-back.jpg',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
 });
