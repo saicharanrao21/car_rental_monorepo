@@ -126,13 +126,29 @@ CREATE TABLE "PublicTransportPoint" (
 );
 
 -- AlterTable Booking
-ALTER TABLE "Booking" ADD COLUMN "pickupFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "returnFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "oneWayFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
-ADD COLUMN "pickupHubId" TEXT,
-ADD COLUMN "returnHubId" TEXT,
-ADD COLUMN "pickupName" TEXT,
-ADD COLUMN "dropName" TEXT;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'pickupFee') THEN
+    ALTER TABLE "Booking" ADD COLUMN "pickupFee" DECIMAL(10,2) NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'returnFee') THEN
+    ALTER TABLE "Booking" ADD COLUMN "returnFee" DECIMAL(10,2) NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'oneWayFee') THEN
+    ALTER TABLE "Booking" ADD COLUMN "oneWayFee" DECIMAL(10,2) NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'pickupHubId') THEN
+    ALTER TABLE "Booking" ADD COLUMN "pickupHubId" TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'returnHubId') THEN
+    ALTER TABLE "Booking" ADD COLUMN "returnHubId" TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'pickupName') THEN
+    ALTER TABLE "Booking" ADD COLUMN "pickupName" TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Booking' AND column_name = 'dropName') THEN
+    ALTER TABLE "Booking" ADD COLUMN "dropName" TEXT;
+  END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "PickupHub_locationType_idx" ON "PickupHub"("locationType");
