@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseProvider } from '../../contracts/provider.interface';
 import {
@@ -120,6 +120,10 @@ export class TwilioVoiceAdapter implements BaseProvider, SendVoiceCapability {
           error: err?.message,
         };
       }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Twilio Voice credentials not configured in production');
     }
 
     this.logger.log(`[TwilioVoice] Simulated voice call to [${params.to}]: ${callSid}`);

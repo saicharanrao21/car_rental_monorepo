@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AccountingProvider,
@@ -67,7 +67,7 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
     invoice: NormalizedAccountingInvoice,
   ): Promise<{ success: boolean; externalId?: string }> {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('Zoho Books simulated adapter is not allowed in production');
+      throw new ServiceUnavailableException('Zoho Books is not a live-integrated accounting provider. Contact engineering before enabling in production.');
     }
     this.logger.log(`[ZOHO_BOOKS] Syncing invoice ${invoice.invoiceNumber} for booking ${invoice.bookingId}`);
     const externalId = `zb_inv_${Date.now()}`;
@@ -80,6 +80,9 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
   async syncPayout(
     payout: NormalizedAccountingPayout,
   ): Promise<{ success: boolean; externalId?: string }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Zoho Books is not a live-integrated accounting provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[ZOHO_BOOKS] Syncing vendor payout ${payout.payoutId} of Rs.${payout.amount}`);
     return {
       success: true,
@@ -88,6 +91,9 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
   }
 
   async createInvoice(payload: InvoicePayload): Promise<AccountingResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Zoho Books is not a live-integrated accounting provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[ZOHO_BOOKS] Generating GST invoice for booking ${payload.bookingId}, amount ${payload.grandTotal}`);
     const invoiceNumber = payload.invoiceNumber || `INV-DG-${Date.now().toString().slice(-6)}`;
     const externalId = `zb_inv_${Date.now()}`;
@@ -104,6 +110,9 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
   }
 
   async calculateTax(payload: TaxCalculationPayload): Promise<TaxCalculationResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Zoho Books is not a live-integrated accounting provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[ZOHO_BOOKS_TAX] Computing GST on amount ${payload.amount} between ${payload.sourceStateCode} and ${payload.destinationStateCode}`);
     const isInterstate = payload.sourceStateCode !== payload.destinationStateCode;
     const gstRate = 18; // 18% standard rental SAC

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   EmailProvider,
@@ -117,6 +117,10 @@ export class SendGridEmailAdapter implements EmailProvider {
           isTransient: true,
         };
       }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('SendGrid credentials not configured in production');
     }
 
     this.logger.log(`[SendGrid] Simulated email dispatch to [${req.to}]: ${messageId}`);

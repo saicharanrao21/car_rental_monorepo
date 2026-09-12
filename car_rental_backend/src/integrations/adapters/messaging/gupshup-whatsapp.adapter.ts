@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -111,6 +111,10 @@ export class GupshupWhatsAppAdapter implements WhatsAppProvider {
           errorMessage: err?.message,
         };
       }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Gupshup WhatsApp credentials not configured in production');
     }
 
     // Default simulation / test response

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   PushProvider,
@@ -55,7 +55,7 @@ export class OneSignalPushAdapter implements PushProvider {
   }
 
   async sendPush(req: NormalizedPushRequest): Promise<NormalizedPushResponse> {
-    const notificationId = `os_notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const notificationId = `os_notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (this.appId && this.restApiKey && process.env.NODE_ENV === 'production') {
       try {
@@ -64,8 +64,9 @@ export class OneSignalPushAdapter implements PushProvider {
           include_player_ids: req.deviceTokens,
           headings: { en: req.title },
           contents: { en: req.body },
-          data: req.data,
+          data: req.data || {},
         };
+
         if (req.imageUrl) {
           payload.big_picture = req.imageUrl;
         }
@@ -105,6 +106,10 @@ export class OneSignalPushAdapter implements PushProvider {
           error: err?.message,
         };
       }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('OneSignal credentials not configured in production');
     }
 
     this.logger.log(`[OneSignal] Simulated push dispatch to [${req.deviceTokens.length} devices]: ${notificationId}`);

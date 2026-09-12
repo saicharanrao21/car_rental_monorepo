@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseProvider } from '../../contracts/provider.interface';
 import {
@@ -55,7 +55,7 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
 
   async track(payload: AnalyticsEventPayload): Promise<AnalyticsResult> {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('PostHog simulated adapter is not allowed in production');
+      throw new ServiceUnavailableException('PostHog is not configured for production environment');
     }
     this.logger.log(`[POSTHOG_TRACK] Event "${payload.event}" for distinctId: ${payload.distinctId}`);
     return {
@@ -66,6 +66,9 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
   }
 
   async identify(payload: AnalyticsIdentifyPayload): Promise<AnalyticsResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('PostHog is not configured for production environment');
+    }
     this.logger.log(`[POSTHOG_IDENTIFY] Identifying user: ${payload.distinctId}`);
     return {
       success: true,
@@ -75,6 +78,9 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
   }
 
   async batch(events: AnalyticsEventPayload[]): Promise<AnalyticsResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('PostHog is not configured for production environment');
+    }
     this.logger.log(`[POSTHOG_BATCH] Ingesting batch of ${events.length} telemetry events`);
     return {
       success: true,

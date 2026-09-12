@@ -94,17 +94,11 @@ export class InteraktWhatsAppAdapter implements WhatsAppProvider {
 
   async sendTemplateMessage(req: NormalizedWhatsAppRequest): Promise<NormalizedWhatsAppResponse> {
     const start = Date.now();
-    try {
-      if (!this.apiKey && process.env.NODE_ENV === 'production') {
-        return {
-          success: false,
-          providerMessageId: '',
-          status: 'FAILED',
-          errorCode: 'MISSING_CREDENTIALS',
-          errorMessage: 'Interakt API key not configured in production',
-        };
-      }
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Interakt WhatsApp is not a live-integrated messaging provider. Contact engineering before enabling in production.');
+    }
 
+    try {
       const msgId = `intk_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       this.logger.log(`[INTERAKT WHATSAPP] Sent template ${req.templateName} to ${req.to.slice(0, 4)}**** (id: ${msgId}) in ${Date.now() - start}ms`);
 

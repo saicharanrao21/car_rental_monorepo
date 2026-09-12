@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseProvider } from '../../contracts/provider.interface';
 import {
@@ -19,7 +19,7 @@ export class MeilisearchAdapter implements BaseProvider {
   private readonly logger = new Logger(MeilisearchAdapter.name);
   private host: string;
   private apiKey: string;
-  private readonly inMemoryIndexes = new Map<string, Map<string, any>>();
+  private inMemoryIndexes: Map<string, Map<string, any>> = new Map();
 
   constructor(private readonly configService: ConfigService) {
     this.host = this.configService.get<string>('MEILISEARCH_HOST') || 'http://localhost:7700';
@@ -58,7 +58,7 @@ export class MeilisearchAdapter implements BaseProvider {
 
   async indexDocuments(payload: SearchIndexPayload): Promise<{ success: boolean; count: number }> {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('Meilisearch simulated adapter is not allowed in production');
+      throw new ServiceUnavailableException('Meilisearch simulated adapter is not allowed in production');
     }
     this.logger.log(`[MEILISEARCH_INDEX] Indexing ${payload.documents.length} docs into "${payload.indexName}"`);
     let idx = this.inMemoryIndexes.get(payload.indexName);
@@ -77,6 +77,9 @@ export class MeilisearchAdapter implements BaseProvider {
   }
 
   async search<T = any>(payload: SearchQueryPayload): Promise<SearchQueryResult<T>> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Meilisearch simulated adapter is not allowed in production');
+    }
     const start = Date.now();
     this.logger.log(`[MEILISEARCH_QUERY] Search "${payload.query}" in index "${payload.indexName}"`);
 
@@ -107,6 +110,9 @@ export class MeilisearchAdapter implements BaseProvider {
   }
 
   async deleteDocument(indexName: string, documentId: string): Promise<{ success: boolean }> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Meilisearch simulated adapter is not allowed in production');
+    }
     this.logger.log(`[MEILISEARCH_DELETE] Deleting doc "${documentId}" from "${indexName}"`);
     const idx = this.inMemoryIndexes.get(indexName);
     if (idx) {
