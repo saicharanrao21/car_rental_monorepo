@@ -175,8 +175,9 @@ export class FleetTelematicsService {
             message: `Starter circuit cut command confirmed by ${res.providerId}`,
           };
         }
+        const errDetail = typeof res.error === 'object' ? (res.error?.message || JSON.stringify(res.error)) : (res.error || 'Command failed');
         throw new ServiceUnavailableException(
-          `Vehicle immobilization command rejected by hardware gateway (${res.providerId}): ${res.error || 'Command failed'}`,
+          `Vehicle immobilization command rejected by hardware gateway (${res.providerId}): ${errDetail}`,
         );
       } catch (err: any) {
         if (err instanceof ServiceUnavailableException) throw err;
