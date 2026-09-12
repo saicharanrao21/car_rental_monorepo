@@ -93,6 +93,9 @@ export class GoogleMapsAdapter implements MapsProvider {
     origins: LatLngPoint[],
     destinations: LatLngPoint[],
   ): Promise<DistanceMatrixResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Maps is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     const elements: DistanceMatrixElement[] = [];
     for (let o = 0; o < origins.length; o++) {
       for (let d = 0; d < destinations.length; d++) {
@@ -130,10 +133,15 @@ export class GoogleMapsAdapter implements MapsProvider {
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
     const isConfigured = Boolean(this.apiKey && !this.apiKey.startsWith('placeholder'));
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: isConfigured ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.CONFIGURED,
-      latencyMs: 1,
-      message: isConfigured ? 'Google Maps configured' : 'Google Maps running in fallback mode',
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 1 : 0,
+      message: isConfigured
+        ? 'Google Maps Platform configured'
+        : (isProd ? 'Google Maps API key not configured in production' : 'Google Maps running in fallback mode'),
       lastChecked: new Date(),
     };
   }

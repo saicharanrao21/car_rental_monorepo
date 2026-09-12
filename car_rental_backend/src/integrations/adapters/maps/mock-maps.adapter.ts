@@ -74,6 +74,9 @@ export class MockMapsAdapter implements MapsProvider {
     origins: LatLngPoint[],
     destinations: LatLngPoint[],
   ): Promise<DistanceMatrixResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockMapsAdapter cannot be used in production.');
+    }
     return {
       elements: origins.map((_, o) =>
         destinations.map((__, d) => ({
@@ -88,6 +91,9 @@ export class MockMapsAdapter implements MapsProvider {
   }
 
   async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockMapsAdapter cannot be used in production.');
+    }
     return {
       distanceKm: 15.0,
       durationMinutes: 35,
@@ -96,6 +102,14 @@ export class MockMapsAdapter implements MapsProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        status: ProviderHealthStatus.UNAVAILABLE,
+        latencyMs: 0,
+        message: 'CRITICAL: Mock maps provider cannot be used in production.',
+        lastChecked: new Date(),
+      };
+    }
     return {
       status: ProviderHealthStatus.HEALTHY,
       latencyMs: 1,
@@ -105,6 +119,13 @@ export class MockMapsAdapter implements MapsProvider {
   }
 
   async testConnection(): Promise<TestConnectionResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'Mock Maps cannot be tested or used in production.',
+      };
+    }
     return {
       success: true,
       latencyMs: 1,

@@ -95,6 +95,13 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.apiKey) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'PostHog API key (POSTHOG_API_KEY) not configured',
+      };
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -103,11 +110,17 @@ export class PostHogAnalyticsAdapter implements BaseProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.apiKey && this.host);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 24,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 24 : 0,
       lastChecked: new Date(),
-      message: 'PostHog Ingestion Cluster healthy',
+      message: isConfigured
+        ? 'PostHog Ingestion Cluster healthy'
+        : (isProd ? 'PostHog API credentials not configured in production' : 'PostHog available but not configured'),
     };
   }
 

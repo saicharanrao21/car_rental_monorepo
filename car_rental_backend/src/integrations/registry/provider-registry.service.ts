@@ -152,7 +152,9 @@ export class ProviderRegistryService {
           lastChecked: healthRecord.lastSuccessfulCheck || healthRecord.lastFailedCheck || new Date(),
           details: healthRecord.details,
         },
-        hasCredentials: true,
+        hasCredentials:
+          healthRecord.status !== ProviderHealthStatus.CREDENTIAL_FAILURE &&
+          healthRecord.status !== ProviderHealthStatus.UNAVAILABLE,
       });
     }
 

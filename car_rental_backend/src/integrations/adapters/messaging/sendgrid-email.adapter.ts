@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import {
   EmailProvider,
   EmailCapability,
@@ -136,10 +137,17 @@ export class SendGridEmailAdapter implements EmailProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.apiKey);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 45,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 45 : 0,
       lastChecked: new Date(),
+      message: isConfigured
+        ? 'SendGrid v3 Mail Delivery API operational'
+        : (isProd ? 'SendGrid API key missing in production' : 'SendGrid running in sandbox mode'),
     };
   }
 
@@ -152,6 +160,22 @@ export class SendGridEmailAdapter implements EmailProvider {
 
   verifyWebhookSignature(payload: string, signature: string, timestamp?: string, publicKey?: string): boolean {
     if (!signature) return false;
-    return true;
+    const key = publicKey || this.configService.get<string>('SENDGRID_WEBHOOK_VERIFICATION_KEY');
+    if (!key) {
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('[SendGrid Webhook] Webhook signature verification rejected: SENDGRID_WEBHOOK_VERIFICATION_KEY is not configured in production.');
+        return false;
+      }
+      return true;
+    }
+
+    try {
+      const verifier = crypto.createVerify('sha256');
+      verifier.update((timestamp || '') + payload);
+      return verifier.verify(key, signature, 'base64');
+    } catch (err: any) {
+      this.logger.warn(`[SendGrid Webhook] Signature verification failed: ${err.message}`);
+      return false;
+    }
   }
 }

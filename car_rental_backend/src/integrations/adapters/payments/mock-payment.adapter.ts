@@ -96,6 +96,9 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   normalizeWebhook(rawPayload: any): NormalizedPaymentWebhookEvent {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: MockPaymentAdapter cannot process webhooks in production.');
+    }
     return {
       eventId: `mock_evt_${Date.now()}`,
       eventType: rawPayload?.event || 'payment.captured',
@@ -110,15 +113,30 @@ export class MockPaymentAdapter implements PaymentProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        status: ProviderHealthStatus.UNAVAILABLE,
+        latencyMs: 0,
+        message: 'CRITICAL: Mock payment provider cannot be used in production.',
+        lastChecked: new Date(),
+      };
+    }
     return {
       status: ProviderHealthStatus.HEALTHY,
       latencyMs: 1,
-      message: 'Mock Payment Provider is always healthy',
+      message: 'Mock Payment Provider is healthy',
       lastChecked: new Date(),
     };
   }
 
   async testConnection(): Promise<TestConnectionResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'Mock Payment cannot be tested or used in production.',
+      };
+    }
     return {
       success: true,
       latencyMs: 1,

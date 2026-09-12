@@ -140,10 +140,17 @@ export class TwilioVoiceAdapter implements BaseProvider, SendVoiceCapability {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.accountSid && this.authToken);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 52,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 52 : 0,
       lastChecked: new Date(),
+      message: isConfigured
+        ? 'Twilio Voice operational'
+        : (isProd ? 'Twilio Voice credentials missing in production' : 'Twilio Voice available but not configured'),
     };
   }
 

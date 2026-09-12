@@ -60,11 +60,11 @@ export class GcsStorageAdapter implements StorageProvider {
   async testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult> {
     const start = Date.now();
     const bucket = credentials?.bucketName || this.bucketName;
-    if (!bucket) {
+    if (!bucket || !this.clientEmail) {
       return {
         success: false,
         latencyMs: Date.now() - start,
-        message: 'GCS bucket name not configured',
+        message: 'GCS bucket name or client email not configured',
       };
     }
     return {
@@ -77,7 +77,7 @@ export class GcsStorageAdapter implements StorageProvider {
   async checkHealth(): Promise<ProviderHealthCheckResult> {
     const res = await this.testConnection();
     return {
-      status: res.success ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.DEGRADED,
+      status: res.success ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.CONFIGURED,
       latencyMs: res.latencyMs,
       lastChecked: new Date(),
       message: res.message,
@@ -121,10 +121,16 @@ export class GcsStorageAdapter implements StorageProvider {
   }
 
   async deleteObject(key: string): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Cloud Storage is not a live-integrated storage provider. Use R2StorageAdapter in production.');
+    }
     this.logger.log(`[GCS] Deleted object ${key} from bucket ${this.bucketName}`);
   }
 
   getPublicUrl(key: string): string | null {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Google Cloud Storage is not a live-integrated storage provider. Use R2StorageAdapter in production.');
+    }
     return `https://storage.googleapis.com/${this.bucketName}/${key}`;
   }
 }

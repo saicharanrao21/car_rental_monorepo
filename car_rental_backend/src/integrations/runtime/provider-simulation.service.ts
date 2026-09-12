@@ -7,6 +7,9 @@ export class ProviderSimulationService {
   private readonly providerScenarios = new Map<string, SimulationScenario>();
 
   public setProviderSimulation(providerId: string, scenario: SimulationScenario): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`[SIMULATION_SAFETY] Sandbox simulation cannot be configured in production environment.`);
+    }
     if (scenario === SimulationScenario.NONE) {
       this.providerScenarios.delete(providerId);
     } else {
@@ -28,6 +31,9 @@ export class ProviderSimulationService {
   }
 
   public shouldSimulate(providerId: string, requestScenario?: SimulationScenario): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
     if (requestScenario && requestScenario !== SimulationScenario.NONE) {
       return true;
     }
@@ -52,6 +58,11 @@ export class ProviderSimulationService {
     if (payload?.environment === 'LIVE' || payload?.isProduction === true) {
       throw new Error(
         `[SIMULATION_SAFETY] Sandbox simulation cannot execute against LIVE production credentials for provider ${providerId}`,
+      );
+    }
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `[SIMULATION_SAFETY] Sandbox simulation cannot execute in production environment for provider ${providerId}`,
       );
     }
 

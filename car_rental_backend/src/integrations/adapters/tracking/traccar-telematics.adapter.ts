@@ -23,7 +23,12 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
   private apiToken: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.serverUrl = this.configService.get<string>('TRACCAR_SERVER_URL') || 'https://demo.traccar.org';
+    const rawUrl = this.configService.get<string>('TRACCAR_SERVER_URL');
+    if (process.env.NODE_ENV === 'production' && !rawUrl) {
+      this.serverUrl = '';
+    } else {
+      this.serverUrl = rawUrl || (process.env.NODE_ENV === 'test' ? 'https://demo.traccar.org' : '');
+    }
     this.apiToken = this.configService.get<string>('TRACCAR_API_TOKEN') || '';
   }
 
@@ -192,6 +197,15 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.apiToken || !this.serverUrl || this.serverUrl.includes('demo.traccar.org')) {
+      if (process.env.NODE_ENV === 'production') {
+        return {
+          success: false,
+          latencyMs: 0,
+          message: 'Traccar production credentials (TRACCAR_SERVER_URL, TRACCAR_API_TOKEN) not configured',
+        };
+      }
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -200,11 +214,17 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.apiToken && this.serverUrl && !this.serverUrl.includes('demo.traccar.org'));
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 38,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 38 : 0,
       lastChecked: new Date(),
-      message: 'Traccar Telemetry Ingestion Hub operational',
+      message: isConfigured
+        ? 'Traccar Telemetry Ingestion Hub operational'
+        : (isProd ? 'Traccar Telemetry credentials missing in production' : 'Traccar running in sandbox mode'),
     };
   }
 

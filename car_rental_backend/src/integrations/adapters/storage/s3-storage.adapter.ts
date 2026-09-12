@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   StorageProvider,
@@ -52,7 +52,7 @@ export class S3StorageAdapter implements StorageProvider {
 
   async getPresignedUploadUrl(req: PresignedUploadRequest): Promise<PresignedUploadResponse> {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
+      throw new ServiceUnavailableException('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
     }
     const expiresAt = new Date(Date.now() + (req.expiresInSeconds || 300) * 1000);
     return {
@@ -64,6 +64,9 @@ export class S3StorageAdapter implements StorageProvider {
   }
 
   async getPresignedDownloadUrl(req: PresignedDownloadRequest): Promise<PresignedDownloadResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
+    }
     const expiresAt = new Date(Date.now() + (req.expiresInSeconds || 300) * 1000);
     return {
       downloadUrl: `https://s3.amazonaws.com/drivego-uploads/${req.key}?download=true`,
@@ -72,27 +75,43 @@ export class S3StorageAdapter implements StorageProvider {
   }
 
   async deleteObject(key: string): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
+    }
     this.logger.log(`[AWS_S3] Deleted object: ${key}`);
   }
 
   getPublicUrl(key: string): string | null {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Direct AWS S3 adapter is not configured for production; use R2StorageAdapter');
+    }
     return `https://s3.amazonaws.com/drivego-uploads/${key}`;
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.CONFIGURED,
+      status: isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED,
       latencyMs: 1,
-      message: 'AWS S3 adapter configured',
+      message: isProd
+        ? 'Direct AWS S3 adapter is disabled in production (use R2StorageAdapter)'
+        : 'AWS S3 adapter available for development/sandbox fallback',
       lastChecked: new Date(),
     };
   }
 
   async testConnection(): Promise<TestConnectionResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'AWS S3 adapter is not configured for production (Cloudflare R2 is primary storage provider)',
+      };
+    }
     return {
       success: true,
       latencyMs: 1,
-      message: 'AWS S3 connection verified',
+      message: 'AWS S3 sandbox connection verified',
     };
   }
 }

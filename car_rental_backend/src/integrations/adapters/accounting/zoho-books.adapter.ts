@@ -148,6 +148,13 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.authToken) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'Zoho Books OAuth2 authToken not configured',
+      };
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -156,11 +163,17 @@ export class ZohoBooksAccountingAdapter implements AccountingProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.authToken && this.organizationId);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 45,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 45 : 0,
       lastChecked: new Date(),
-      message: 'Zoho Books Invoicing & Ledger API operational',
+      message: isConfigured
+        ? 'Zoho Books Invoicing & Ledger API operational'
+        : (isProd ? 'Zoho Books credentials not configured in production' : 'Zoho Books available but not configured'),
     };
   }
 

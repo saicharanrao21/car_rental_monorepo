@@ -96,6 +96,9 @@ export class MapboxMapsAdapter implements MapsProvider {
     origins: LatLngPoint[],
     destinations: LatLngPoint[],
   ): Promise<DistanceMatrixResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    }
     this.logger.log(`[MAPBOX_MATRIX] Matrix calculation for ${origins.length}x${destinations.length} points`);
     const elements: DistanceMatrixElement[] = [];
     for (let o = 0; o < origins.length; o++) {
@@ -118,7 +121,7 @@ export class MapboxMapsAdapter implements MapsProvider {
     return { elements, matrix: [elements], provider: this.getProviderId() };
   }
 
-  async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult & { distanceMeters: number; durationSeconds: number }> {
+  async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult> {
     if (process.env.NODE_ENV === 'production') {
       throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
     }
@@ -153,6 +156,13 @@ export class MapboxMapsAdapter implements MapsProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.accessToken) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'Mapbox MAPBOX_ACCESS_TOKEN not configured',
+      };
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -161,11 +171,17 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.accessToken);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 42,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 42 : 0,
       lastChecked: new Date(),
-      message: 'Mapbox Directions & Geocoding API responding within SLA',
+      message: isConfigured
+        ? 'Mapbox Directions & Geocoding API responding within SLA'
+        : (isProd ? 'Mapbox credentials not configured in production' : 'Mapbox available but not configured'),
     };
   }
 

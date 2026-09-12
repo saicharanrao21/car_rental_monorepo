@@ -22,7 +22,12 @@ export class MeilisearchAdapter implements BaseProvider {
   private inMemoryIndexes: Map<string, Map<string, any>> = new Map();
 
   constructor(private readonly configService: ConfigService) {
-    this.host = this.configService.get<string>('MEILISEARCH_HOST') || 'http://localhost:7700';
+    const rawHost = this.configService.get<string>('MEILISEARCH_HOST');
+    if (process.env.NODE_ENV === 'production' && !rawHost) {
+      this.host = '';
+    } else {
+      this.host = rawHost || (process.env.NODE_ENV === 'test' ? 'http://localhost:7700' : '');
+    }
     this.apiKey = this.configService.get<string>('MEILISEARCH_API_KEY') || '';
   }
 
@@ -123,6 +128,15 @@ export class MeilisearchAdapter implements BaseProvider {
 
   async testConnection(): Promise<TestConnectionResult> {
     const start = Date.now();
+    if (!this.apiKey || !this.host || this.host.includes('localhost')) {
+      if (process.env.NODE_ENV === 'production') {
+        return {
+          success: false,
+          latencyMs: 0,
+          message: 'Meilisearch production credentials (MEILISEARCH_HOST, MEILISEARCH_API_KEY) not configured',
+        };
+      }
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -131,11 +145,17 @@ export class MeilisearchAdapter implements BaseProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.apiKey && this.host && !this.host.includes('localhost'));
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 12,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 12 : 0,
       lastChecked: new Date(),
-      message: 'Meilisearch index engine healthy',
+      message: isConfigured
+        ? 'Meilisearch index engine healthy'
+        : (isProd ? 'Meilisearch endpoint or API key not configured in production' : 'Meilisearch running in sandbox mode'),
     };
   }
 

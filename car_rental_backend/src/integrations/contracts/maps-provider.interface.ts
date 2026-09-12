@@ -42,6 +42,8 @@ export interface DistanceMatrixResult {
 export interface DirectionsResult {
   distanceKm: number;
   durationMinutes: number;
+  distanceMeters?: number;
+  durationSeconds?: number;
   polyline?: string;
   waypoints?: LatLngPoint[];
 }

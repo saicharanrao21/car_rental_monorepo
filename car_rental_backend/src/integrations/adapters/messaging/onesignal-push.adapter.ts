@@ -126,10 +126,17 @@ export class OneSignalPushAdapter implements PushProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    const isConfigured = Boolean(this.appId && this.restApiKey);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
-      status: ProviderHealthStatus.HEALTHY,
-      latencyMs: 32,
+      status: isConfigured
+        ? ProviderHealthStatus.HEALTHY
+        : (isProd ? ProviderHealthStatus.UNAVAILABLE : ProviderHealthStatus.CONFIGURED),
+      latencyMs: isConfigured ? 32 : 0,
       lastChecked: new Date(),
+      message: isConfigured
+        ? 'OneSignal Push Notifications operational'
+        : (isProd ? 'OneSignal credentials missing in production' : 'OneSignal available but not configured'),
     };
   }
 

@@ -71,8 +71,10 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   async verifyDrivingLicence(
     req: DrivingLicenceVerifyRequest,
   ): Promise<DrivingLicenceVerifyResponse> {
-    if ((!this.appId || !this.appKey) && process.env.NODE_ENV === 'production') {
-      throw new Error('HyperVerge credentials are required in production');
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException(
+        'HyperVerge KYC is not a live-integrated verification provider. Contact engineering before enabling in production.',
+      );
     }
     this.logger.log(`[HYPERVERGE_DL] Verifying DL ${req.licenceNumber} with SARATHI DB`);
     const cleanNumber = req.licenceNumber.replace(/[\s-]/g, '').toUpperCase();
@@ -97,6 +99,11 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   async verifyVehicleRc(
     req: VehicleRcVerifyRequest,
   ): Promise<VehicleRcVerifyResponse> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException(
+        'HyperVerge KYC is not a live-integrated verification provider. Contact engineering before enabling in production.',
+      );
+    }
     this.logger.log(`[HYPERVERGE_RC] Verifying vehicle RC ${req.registrationNumber} with VAHAN DB`);
     const cleanReg = req.registrationNumber.replace(/[\s-]/g, '').toUpperCase();
     const isValid = cleanReg.length >= 8;
@@ -120,6 +127,11 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyPan(payload: PanVerificationPayload): Promise<VerificationResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException(
+        'HyperVerge KYC is not a live-integrated verification provider. Contact engineering before enabling in production.',
+      );
+    }
     this.logger.log(`[HYPERVERGE_PAN] Verifying PAN ${payload.panNumber} with NSDL DB`);
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
     const isValid = panRegex.test(payload.panNumber.toUpperCase());
@@ -142,6 +154,11 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   }
 
   async verifyFaceMatch(payload: FaceMatchPayload): Promise<VerificationResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceUnavailableException(
+        'HyperVerge KYC is not a live-integrated verification provider. Contact engineering before enabling in production.',
+      );
+    }
     this.logger.log(`[HYPERVERGE_FACE] Running biometric face match between document and live selfie`);
     const confidenceScore = 0.96;
     const isLivenessDetected = true;
@@ -159,8 +176,24 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
     };
   }
 
-  async testConnection(): Promise<TestConnectionResult> {
+  async testConnection(credentials?: Record<string, any>): Promise<TestConnectionResult> {
     const start = Date.now();
+    const appId = credentials?.appId || this.appId;
+    const appKey = credentials?.appKey || this.appKey;
+    if (!appId || !appKey) {
+      return {
+        success: false,
+        latencyMs: Date.now() - start,
+        message: 'HyperVerge credentials (appId, appKey) not configured',
+      };
+    }
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        latencyMs: Date.now() - start,
+        message: 'HyperVerge KYC adapter is not a live-integrated verification provider in production',
+      };
+    }
     return {
       success: true,
       latencyMs: Date.now() - start,
@@ -169,11 +202,20 @@ export class HyperVergeKycAdapter implements IdentityVerificationProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        status: ProviderHealthStatus.UNAVAILABLE,
+        latencyMs: 0,
+        lastChecked: new Date(),
+        message: 'HyperVerge KYC is not live-certified in production',
+      };
+    }
+    const configured = Boolean(this.appId && this.appKey);
     return {
-      status: ProviderHealthStatus.HEALTHY,
+      status: configured ? ProviderHealthStatus.HEALTHY : ProviderHealthStatus.CONFIGURED,
       latencyMs: 52,
       lastChecked: new Date(),
-      message: 'HyperVerge Sarathi & Vahan microservices fully operational',
+      message: configured ? 'HyperVerge Sarathi & Vahan microservices operational' : 'HyperVerge running in simulated mode',
     };
   }
 
