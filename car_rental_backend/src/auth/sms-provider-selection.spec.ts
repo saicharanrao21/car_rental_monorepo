@@ -6,7 +6,9 @@ describe('SMS Provider Selection (Phase 2A)', () => {
   function createSmsProvider(
     config: Record<string, string>,
   ): SmsProviderService {
-    const configService = new ConfigService(config);
+    const configService = {
+      get: <T = any>(key: string): T | undefined => config[key] as unknown as T,
+    } as unknown as ConfigService;
     const nodeEnv = configService.get<string>('NODE_ENV');
     const smsProvider = configService.get<string>('SMS_PROVIDER');
 

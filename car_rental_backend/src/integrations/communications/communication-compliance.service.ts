@@ -152,8 +152,23 @@ export class CommunicationComplianceService {
   ): boolean {
     if (!config.enabled) return false;
 
-    // Use UTC hours if timeZone conversion not available
-    const hours = date.getHours();
+    let hours: number;
+    if (config.timeZone) {
+      try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: config.timeZone,
+          hour: 'numeric',
+          hour12: false,
+        });
+        hours = parseInt(formatter.format(date), 10);
+        if (hours === 24) hours = 0;
+      } catch {
+        hours = date.getHours();
+      }
+    } else {
+      hours = date.getHours();
+    }
+
     const { startHour, endHour } = config;
 
     if (startHour > endHour) {
