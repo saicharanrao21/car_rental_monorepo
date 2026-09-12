@@ -359,8 +359,66 @@ CREATE INDEX "Payment_gatewayProvider_idx" ON "Payment"("gatewayProvider");
 -- CreateIndex
 CREATE INDEX "Payment_idempotencyKey_idx" ON "Payment"("idempotencyKey");
 
--- CreateIndex
-CREATE INDEX "UserDevice_userId_deviceId_idx" ON "UserDevice"("userId", "deviceId");
+-- CreateTable UserDevice if not exists
+CREATE TABLE IF NOT EXISTS "UserDevice" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "platform" TEXT NOT NULL DEFAULT 'ANDROID',
+    "deviceId" TEXT,
+    "appVersion" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserDevice_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "UserDevice_token_key" ON "UserDevice"("token");
+CREATE INDEX IF NOT EXISTS "UserDevice_userId_isActive_idx" ON "UserDevice"("userId", "isActive");
+CREATE INDEX IF NOT EXISTS "UserDevice_userId_deviceId_idx" ON "UserDevice"("userId", "deviceId");
+CREATE INDEX IF NOT EXISTS "UserDevice_token_idx" ON "UserDevice"("token");
+CREATE INDEX IF NOT EXISTS "UserDevice_lastSeenAt_idx" ON "UserDevice"("lastSeenAt");
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'UserDevice_userId_fkey'
+  ) THEN
+    ALTER TABLE "UserDevice" ADD CONSTRAINT "UserDevice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+-- CreateTable NotificationPreference if not exists
+CREATE TABLE IF NOT EXISTS "NotificationPreference" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "promotionalPush" BOOLEAN NOT NULL DEFAULT true,
+    "promotionalSms" BOOLEAN NOT NULL DEFAULT false,
+    "promotionalEmail" BOOLEAN NOT NULL DEFAULT true,
+    "promotionalWhatsApp" BOOLEAN NOT NULL DEFAULT false,
+    "operationalPush" BOOLEAN NOT NULL DEFAULT true,
+    "operationalSms" BOOLEAN NOT NULL DEFAULT true,
+    "operationalEmail" BOOLEAN NOT NULL DEFAULT true,
+    "operationalWhatsApp" BOOLEAN NOT NULL DEFAULT true,
+    "quietHoursEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "quietHoursStart" TEXT,
+    "quietHoursEnd" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationPreference_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "NotificationPreference_userId_key" ON "NotificationPreference"("userId");
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'NotificationPreference_userId_fkey'
+  ) THEN
+    ALTER TABLE "NotificationPreference" ADD CONSTRAINT "NotificationPreference_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "VehicleBlock" ADD CONSTRAINT "VehicleBlock_carId_fkey" FOREIGN KEY ("carId") REFERENCES "Car"("id") ON DELETE CASCADE ON UPDATE CASCADE;
