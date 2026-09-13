@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingLifecycleService } from './booking-lifecycle.service';
-import { BookingStatus, QuoteStatus, Role, VehicleHoldStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, QuoteStatus, Role, VehicleHoldStatus } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SlaEscalationEngineService } from '../operations/sla-escalation.service';
 
@@ -72,6 +72,10 @@ export class RentalAutomationService {
       where: {
         status: BookingStatus.PENDING,
         createdAt: { lt: threshold },
+        OR: [
+          { payment: null },
+          { payment: { status: { not: PaymentStatus.PAID } } },
+        ],
       },
       take: 50,
     });

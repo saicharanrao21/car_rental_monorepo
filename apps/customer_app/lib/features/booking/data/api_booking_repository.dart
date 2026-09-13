@@ -107,10 +107,20 @@ class ApiBookingRepository implements BookingRepository {
     if (deliveryAddress != null && deliveryAddress.isNotEmpty) {
       data['deliveryAddress'] = deliveryAddress;
     }
-    final deliveryType = draft.deliveryType ?? draftState?.deliveryType;
-    if (deliveryType != null && deliveryType.isNotEmpty) {
-      data['deliveryType'] = deliveryType;
+    final rawDeliveryType = draft.deliveryType ?? draftState?.deliveryType;
+    String finalDeliveryType = 'NONE';
+    if ((draftState?.hasDoorstepDelivery ?? false) && (draftState?.hasDoorstepPickup ?? false)) {
+      finalDeliveryType = 'ROUND_TRIP_DELIVERY';
+    } else if (draftState?.hasDoorstepDelivery ?? false) {
+      finalDeliveryType = 'DOORSTEP_DELIVERY';
+    } else if (draftState?.hasDoorstepPickup ?? false) {
+      finalDeliveryType = 'DOORSTEP_PICKUP';
+    } else if (rawDeliveryType == 'DOORSTEP_DELIVERY' ||
+        rawDeliveryType == 'DOORSTEP_PICKUP' ||
+        rawDeliveryType == 'ROUND_TRIP_DELIVERY') {
+      finalDeliveryType = rawDeliveryType!;
     }
+    data['deliveryType'] = finalDeliveryType;
     final deliveryFee = draft.deliveryFee ?? draftState?.deliveryFee;
     if (deliveryFee != null && deliveryFee > 0) {
       data['deliveryFee'] = deliveryFee;

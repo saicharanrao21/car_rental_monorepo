@@ -548,9 +548,13 @@ class CreateBookingFlowNotifier
         pickupFee: draft.pickupFee,
         returnFee: draft.returnFee,
         oneWayFee: draft.isDifferentReturnLocation ? draft.oneWayFee : 0.0,
-        deliveryType: draft.hasDoorstepDelivery
-            ? 'DOORSTEP_DELIVERY'
-            : (draft.pickupHubId != null ? 'HUB_PICKUP' : 'STANDARD'),
+        deliveryType: (draft.hasDoorstepDelivery && draft.hasDoorstepPickup)
+            ? 'ROUND_TRIP_DELIVERY'
+            : (draft.hasDoorstepDelivery
+                ? 'DOORSTEP_DELIVERY'
+                : (draft.hasDoorstepPickup
+                    ? 'DOORSTEP_PICKUP'
+                    : 'NONE')),
         deliveryLatitude: draft.deliveryLatitude,
         deliveryLongitude: draft.deliveryLongitude,
         pickupLatitude: draft.pickupLatitude,

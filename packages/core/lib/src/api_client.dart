@@ -58,11 +58,11 @@ class ApiClient {
                       await tokenStorage.setRefreshToken(newRefreshToken);
                     }
 
-                    // Retry original request
+                    // Retry original request using refreshDio to avoid deadlock in QueuedInterceptorsWrapper
                     final options = error.requestOptions;
                     options.headers['Authorization'] = 'Bearer $newAccessToken';
                     
-                    final retryResponse = await this.dio.fetch(options);
+                    final retryResponse = await refreshDio.fetch(options);
                     return handler.resolve(retryResponse);
                   }
                 }

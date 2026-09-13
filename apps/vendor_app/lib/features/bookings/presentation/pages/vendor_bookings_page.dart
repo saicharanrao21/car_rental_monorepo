@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import 'package:intl/intl.dart';
 import '../providers/vendor_bookings_providers.dart';
+import '../../../fleet/presentation/providers/fleet_providers.dart';
 
 class VendorBookingsPage extends ConsumerWidget {
   const VendorBookingsPage({super.key});
@@ -44,7 +45,7 @@ class VendorBookingsPage extends ConsumerWidget {
                 ),
               ),
               data: (bookings) {
-                final displayBookings = bookings.isNotEmpty ? bookings : _getSampleOperationalBookings(activeTab);
+                final displayBookings = bookings;
 
                 if (displayBookings.isEmpty) {
                   return _buildEmptyState(activeTab);
@@ -129,6 +130,12 @@ class VendorBookingsPage extends ConsumerWidget {
     final formatter = DateFormat('dd MMM, hh:mm a');
     final dateRange = '${formatter.format(booking.startDate)} — ${formatter.format(booking.endDate)}';
 
+    final fleetCars = ref.watch(fleetCarsProvider).valueOrNull ?? [];
+    final car = fleetCars.where((c) => c.id == booking.carId).firstOrNull;
+    final plate = car?.registrationNumber ??
+        (booking.id.length > 8 ? '#${booking.id.substring(0, 8).toUpperCase()}' : '#${booking.id.toUpperCase()}');
+    final carTitle = car != null ? '${car.make} ${car.model} • ${car.year}' : '${booking.tripType} Rental';
+
     final isHandoverReady = booking.status == 'confirmed';
     final isOngoing = booking.status == 'ongoing';
     final isCompleted = booking.status == 'completed';
@@ -161,9 +168,9 @@ class VendorBookingsPage extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
-                    child: const Text(
-                      'MH 12 CD 5678',
-                      style: TextStyle(
+                    child: Text(
+                      plate,
+                      style: const TextStyle(
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -186,19 +193,19 @@ class VendorBookingsPage extends ConsumerWidget {
                 ],
               ),
               const Gap(10),
-              const Text(
-                'Hyundai Creta SX(O) • 2024',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
+              Text(
+                carTitle,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
               ),
               const Gap(4),
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
-                  Gap(4),
+                  const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
+                  const Gap(4),
                   Expanded(
                     child: Text(
-                      'Rahul Sharma (+91 98765 43210)',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      'Booking #${booking.id.length > 8 ? booking.id.substring(0, 8).toUpperCase() : booking.id.toUpperCase()} • ${booking.tripType}',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -298,65 +305,5 @@ class VendorBookingsPage extends ConsumerWidget {
       ),
     );
   }
-
-  List<BookingModel> _getSampleOperationalBookings(int activeTab) {
-    final now = DateTime.now();
-
-    final all = [
-      BookingModel(
-        id: 'bk_handover_ready_01',
-        customerId: 'cust_849201',
-        vendorId: 'vendor_01',
-        carId: 'car_hyundai_creta',
-        tripType: 'Outstation',
-        pickupLocation: 'Terminal 2, Mumbai Airport',
-        startDate: now.add(const Duration(hours: 1)),
-        endDate: now.add(const Duration(days: 3)),
-        totalFare: 9600.0,
-        platformFee: 960.0,
-        gstAmount: 1728.0,
-        netToVendor: 8640.0,
-        status: 'confirmed',
-        createdAt: now.subtract(const Duration(hours: 4)),
-      ),
-      BookingModel(
-        id: 'bk_ongoing_trip_02',
-        customerId: 'cust_938102',
-        vendorId: 'vendor_01',
-        carId: 'car_tata_nexon',
-        tripType: 'Local Self-Drive',
-        pickupLocation: 'Bandra Hub, Mumbai',
-        startDate: now.subtract(const Duration(days: 2)),
-        endDate: now.add(const Duration(hours: 3)),
-        totalFare: 5400.0,
-        platformFee: 540.0,
-        gstAmount: 972.0,
-        netToVendor: 4860.0,
-        status: 'ongoing',
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
-      BookingModel(
-        id: 'bk_completed_trip_03',
-        customerId: 'cust_749102',
-        vendorId: 'vendor_01',
-        carId: 'car_maruti_swift',
-        tripType: 'Local',
-        pickupLocation: 'Andheri West Hub',
-        startDate: now.subtract(const Duration(days: 5)),
-        endDate: now.subtract(const Duration(days: 2)),
-        totalFare: 3400.0,
-        platformFee: 340.0,
-        gstAmount: 612.0,
-        netToVendor: 3060.0,
-        status: 'completed',
-        createdAt: now.subtract(const Duration(days: 6)),
-      ),
-    ];
-
-    if (activeTab == 0) return all;
-    if (activeTab == 1) return all.where((b) => b.status == 'confirmed').toList();
-    if (activeTab == 2) return all.where((b) => b.status == 'ongoing').toList();
-    if (activeTab == 3) return all.where((b) => b.status == 'completed').toList();
-    return all.where((b) => b.status == 'pending').toList();
-  }
 }
+

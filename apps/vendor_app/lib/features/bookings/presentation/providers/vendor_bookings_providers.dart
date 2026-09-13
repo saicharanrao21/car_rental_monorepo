@@ -91,10 +91,10 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
     return list;
   }
 
-  String _getStatusForTab(int tabIndex) {
+  String? _getStatusForTab(int tabIndex) {
     switch (tabIndex) {
       case 0:
-        return 'pending';
+        return null; // All bookings
       case 1:
         return 'confirmed';
       case 2:
@@ -102,9 +102,9 @@ class VendorBookingsNotifier extends AutoDisposeAsyncNotifier<List<BookingModel>
       case 3:
         return 'completed';
       case 4:
-        return 'cancelled';
-      default:
         return 'pending';
+      default:
+        return null;
     }
   }
 
