@@ -87,6 +87,45 @@ class _KycUploadPageState extends ConsumerState<KycUploadPage> {
     }
   }
 
+  Future<void> _autoVerifyKyc() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final res = await apiClient.dio.post('/kyc/verify-automated');
+      final data = res.data as Map<String, dynamic>?;
+
+      if (mounted) {
+        if (data?['verified'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Driving Licence verified successfully via identity registry!'),
+              backgroundColor: DDSColors.successGreen,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(data?['message']?.toString() ?? 'Registry check completed. Retained in review queue.'),
+              backgroundColor: DDSColors.primaryBlue,
+            ),
+          );
+        }
+        ref.invalidate(kycStatusProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification check: $e'),
+            backgroundColor: DDSColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final kycAsync = ref.watch(kycStatusProvider);
@@ -148,6 +187,14 @@ class _KycUploadPageState extends ConsumerState<KycUploadPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildStatusBanner(context, status, kyc),
+                if (status == 'PENDING') ...[
+                  const Gap(DDSSpacing.sm),
+                  AppButton(
+                    text: 'Verify Instantly with National Registry',
+                    onPressed: _isSubmitting ? null : _autoVerifyKyc,
+                    isLoading: _isSubmitting,
+                  ),
+                ],
                 const Gap(DDSSpacing.lg),
                 if (status == 'NONE' || status == 'REJECTED' || status == 'EXPIRED' || status == 'PENDING') ...[
                   Text(

@@ -138,6 +138,39 @@ export class StripeAdapter implements PaymentProvider {
 
   async verifyPayment(req: NormalizedPaymentVerifyRequest): Promise<NormalizedPaymentVerifyResponse> {
     const key = this.webhookSecret || this.secretKey;
+
+    if (!req.providerSignature || !key) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Missing Stripe payment signature or secret key',
+        rawResponse: { status: 'FAILED' },
+      };
+    }
+
+    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
+    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
+    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
+    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
+    const isSigValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
+
+    if (!isSigValid) {
+      return {
+        isValid: false,
+        providerPaymentId: req.providerPaymentId,
+        providerOrderId: req.providerOrderId,
+        status: 'FAILED',
+        failureReason: 'Stripe signature verification failed',
+        rawResponse: {
+          orderId: req.providerOrderId,
+          paymentId: req.providerPaymentId,
+          status: 'FAILED',
+        },
+      };
+    }
+
     const hasLiveCredentials = Boolean(this.secretKey && !this.secretKey.startsWith('placeholder'));
 
     if (hasLiveCredentials && req.providerPaymentId && !req.providerPaymentId.startsWith('mock_')) {
@@ -147,6 +180,7 @@ export class StripeAdapter implements PaymentProvider {
           headers: {
             'Authorization': `Bearer ${this.secretKey}`,
           },
+          signal: AbortSignal.timeout(3000),
         });
 
         if (response.ok) {
@@ -166,33 +200,15 @@ export class StripeAdapter implements PaymentProvider {
       }
     }
 
-    if (!req.providerSignature || !key) {
-      return {
-        isValid: false,
-        providerPaymentId: req.providerPaymentId,
-        providerOrderId: req.providerOrderId,
-        status: 'FAILED',
-        failureReason: 'Missing Stripe payment signature or secret key',
-        rawResponse: { status: 'FAILED' },
-      };
-    }
-
-    const payload = `${req.providerOrderId}|${req.providerPaymentId}`;
-    const expected = crypto.createHmac('sha256', key).update(payload).digest('hex');
-    const expectedBase64 = crypto.createHmac('sha256', key).update(payload).digest('base64');
-    const expectedColon = crypto.createHmac('sha256', key).update(`${req.providerOrderId}:${req.providerPaymentId}`).digest('hex');
-    const isValid = req.providerSignature === expected || req.providerSignature === expectedBase64 || req.providerSignature === expectedColon;
-
     return {
-      isValid,
+      isValid: true,
       providerPaymentId: req.providerPaymentId,
       providerOrderId: req.providerOrderId,
-      status: isValid ? 'PAID' : 'FAILED',
-      failureReason: isValid ? undefined : 'Stripe signature verification failed',
+      status: 'PAID',
       rawResponse: {
         orderId: req.providerOrderId,
         paymentId: req.providerPaymentId,
-        status: isValid ? 'PAID' : 'FAILED',
+        status: 'PAID',
       },
     };
   }

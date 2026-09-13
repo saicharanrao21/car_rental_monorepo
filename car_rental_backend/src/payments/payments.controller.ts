@@ -47,18 +47,28 @@ export class PaymentsController {
     return this.paymentsService.verifyPayment(dto, req.user.userId);
   }
 
-  // 3. POST /payments/webhook (PUBLIC)
+  // 3. POST /payments/webhook (PUBLIC MULTI-GATEWAY)
   @Post('webhook')
   @RateLimit({ limit: 120, ttlSeconds: 60 })
   async handleWebhook(
     @Req() req: any,
-    @Headers('x-razorpay-signature') signature: string,
+    @Headers('x-razorpay-signature') razorpaySignature?: string,
+    @Headers('x-webhook-signature') cashfreeSignature?: string,
+    @Headers('stripe-signature') stripeSignature?: string,
   ) {
     const rawBody = req.rawBody;
 
     if (!rawBody) {
       throw new BadRequestException('Raw request body is required');
     }
+
+    const signature =
+      razorpaySignature ||
+      cashfreeSignature ||
+      stripeSignature ||
+      req.headers['x-razorpay-signature'] ||
+      req.headers['x-webhook-signature'] ||
+      req.headers['stripe-signature'];
 
     if (!signature) {
       throw new BadRequestException('Webhook signature is missing');

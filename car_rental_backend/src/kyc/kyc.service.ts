@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,13 +12,18 @@ import { UploadsService } from '../uploads/uploads.service';
 import { KycStatus } from '@prisma/client';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { ReviewKycDto } from './dto/review-kyc.dto';
+import { IntegrationRuntimeService } from '../integrations/runtime/integration-runtime.service';
+import { IntegrationCategory } from '../integrations/registry/provider.types';
 
 @Injectable()
 export class KycService {
+  private readonly logger = new Logger(KycService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     @Optional() private readonly uploadsService?: UploadsService,
+    @Optional() private readonly runtimeService?: IntegrationRuntimeService,
   ) {}
 
   /**
@@ -41,8 +47,9 @@ export class KycService {
       throw new BadRequestException('Invalid licence back URL key.');
     }
 
+    let kycRecord;
     if (existing) {
-      return this.prisma.customerKyc.update({
+      kycRecord = await this.prisma.customerKyc.update({
         where: { userId },
         data: {
           licenceNumber: dto.licenceNumber,
@@ -53,18 +60,161 @@ export class KycService {
           rejectionReason: null,
         },
       });
+    } else {
+      kycRecord = await this.prisma.customerKyc.create({
+        data: {
+          userId,
+          licenceNumber: dto.licenceNumber,
+          expiryDate,
+          licenceFrontUrl: dto.licenceFrontUrl,
+          licenceBackUrl: dto.licenceBackUrl,
+          status: KycStatus.PENDING,
+        },
+      });
     }
 
-    return this.prisma.customerKyc.create({
-      data: {
-        userId,
-        licenceNumber: dto.licenceNumber,
-        expiryDate,
-        licenceFrontUrl: dto.licenceFrontUrl,
-        licenceBackUrl: dto.licenceBackUrl,
-        status: KycStatus.PENDING,
+    // Attempt automated identity verification if runtime is available
+    if (this.runtimeService) {
+      try {
+        const autoResult = await this.autoVerifyCustomerKyc(userId);
+        if (autoResult.verified && autoResult.kyc) {
+          return autoResult.kyc;
+        }
+      } catch (err: any) {
+        this.logger.log(`Automated verification deferred to manual admin review: ${err.message}`);
+      }
+    }
+
+    return kycRecord;
+  }
+
+  /**
+   * Automated DL KYC verification via configured verification provider (Surepass, HyperVerge, etc.)
+   */
+  async autoVerifyCustomerKyc(userId: string) {
+    const kyc = await this.prisma.customerKyc.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
       },
     });
+
+    if (!kyc) {
+      throw new NotFoundException('No KYC submission found for user.');
+    }
+
+    if (!this.runtimeService) {
+      this.logger.warn('IntegrationRuntimeService not available for automated KYC verification.');
+      return {
+        verified: false,
+        status: kyc.status,
+        message: 'Automated verification runtime unavailable. Manual review required.',
+        kyc,
+      };
+    }
+
+    try {
+      const result = await this.runtimeService.execute({
+        category: IntegrationCategory.IDENTITY_VERIFICATION,
+        capability: 'DRIVING_LICENCE_VERIFY',
+        payload: {
+          licenceNumber: kyc.licenceNumber,
+          fullName: kyc.user?.name || undefined,
+          expiryDate: kyc.expiryDate,
+        },
+        idempotencyKey: `auto_kyc_${userId}_${kyc.licenceNumber}`,
+        isIdempotent: true,
+      });
+
+      if (result.success && result.data?.isValid) {
+        const updated = await this.prisma.customerKyc.update({
+          where: { userId },
+          data: {
+            status: KycStatus.VERIFIED,
+            verifiedAt: new Date(),
+            rejectionReason: null,
+          },
+        });
+
+        await this.auditLogService.log(
+          'system',
+          'KYC_VERIFIED_AUTOMATED',
+          'CustomerKyc',
+          kyc.id,
+          {
+            userId,
+            provider: result.providerId,
+            licenceNumber: kyc.licenceNumber,
+          },
+        );
+
+        return {
+          verified: true,
+          status: KycStatus.VERIFIED,
+          providerId: result.providerId,
+          kyc: updated,
+        };
+      } else {
+        const reason =
+          result.data?.rejectionReason ||
+          result.error?.message ||
+          'Driving licence verification rejected by identity registry';
+
+        // Only mark REJECTED if verification explicitly completed and reported invalid
+        if (result.success && result.data && result.data.isValid === false) {
+          const updated = await this.prisma.customerKyc.update({
+            where: { userId },
+            data: {
+              status: KycStatus.REJECTED,
+              rejectionReason: reason,
+            },
+          });
+
+          await this.auditLogService.log(
+            'system',
+            'KYC_REJECTED_AUTOMATED',
+            'CustomerKyc',
+            kyc.id,
+            {
+              userId,
+              provider: result.providerId,
+              reason,
+            },
+          );
+
+          return {
+            verified: false,
+            status: KycStatus.REJECTED,
+            rejectionReason: reason,
+            providerId: result.providerId,
+            kyc: updated,
+          };
+        }
+
+        // Otherwise (provider unconfigured/unavailable), leave in PENDING for manual admin review
+        return {
+          verified: false,
+          status: kyc.status,
+          message: `Automated provider check skipped (${result.error?.message || 'pending review'}). Retained in manual queue.`,
+          kyc,
+        };
+      }
+    } catch (err: any) {
+      this.logger.error(`Automated KYC verification encountered error: ${err.message}`);
+      return {
+        verified: false,
+        status: kyc.status,
+        message: `Automated verification error: ${err.message}. Submitted for manual admin review.`,
+        kyc,
+      };
+    }
   }
 
   /**

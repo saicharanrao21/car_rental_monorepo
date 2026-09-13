@@ -63,10 +63,11 @@ export class NotificationProcessor implements OnModuleInit {
     data?: Record<string, string>;
     correlationId?: string;
   }) {
+    const corrId = data.correlationId || `push_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orchestrator = this.getOrchestrator();
-    if (orchestrator && data.correlationId) {
+    if (orchestrator) {
       return orchestrator.executePushDelivery(
-        data.correlationId,
+        corrId,
         data.userId,
         data.title,
         data.body,
@@ -83,10 +84,11 @@ export class NotificationProcessor implements OnModuleInit {
     otpCode?: string;
     correlationId?: string;
   }) {
+    const corrId = data.correlationId || `sms_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orchestrator = this.getOrchestrator();
-    if (orchestrator && data.correlationId) {
+    if (orchestrator) {
       return orchestrator.executeSmsDelivery(
-        data.correlationId,
+        corrId,
         data.phone,
         data.message,
       );
@@ -101,10 +103,11 @@ export class NotificationProcessor implements OnModuleInit {
     htmlContent?: string;
     correlationId?: string;
   }) {
+    const corrId = data.correlationId || `email_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orchestrator = this.getOrchestrator();
-    if (orchestrator && data.correlationId) {
+    if (orchestrator) {
       return orchestrator.executeEmailDelivery(
-        data.correlationId,
+        corrId,
         data.to,
         data.subject,
         data.htmlContent || `<p>${data.subject}</p>`,
@@ -121,10 +124,11 @@ export class NotificationProcessor implements OnModuleInit {
     bodyParameters?: string[];
     correlationId?: string;
   }) {
+    const corrId = data.correlationId || `wa_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orchestrator = this.getOrchestrator();
-    if (orchestrator && data.correlationId) {
+    if (orchestrator) {
       return orchestrator.executeWhatsAppDelivery(
-        data.correlationId,
+        corrId,
         data.phone,
         data.templateName || data.template || 'general_update',
         data.bodyParameters || [],

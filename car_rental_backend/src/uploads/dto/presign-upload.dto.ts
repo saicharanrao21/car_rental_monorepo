@@ -6,6 +6,7 @@ export class PresignUploadDto {
   @IsIn([
     'car-photo',
     'vendor-document',
+    'customer-kyc',
     'profile-photo',
     'banner',
     'inspection-photo',
@@ -14,6 +15,7 @@ export class PresignUploadDto {
   fileType:
     | 'car-photo'
     | 'vendor-document'
+    | 'customer-kyc'
     | 'profile-photo'
     | 'banner'
     | 'inspection-photo'

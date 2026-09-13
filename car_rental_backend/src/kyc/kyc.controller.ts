@@ -28,6 +28,13 @@ export class KycController {
     return this.kycService.submitKyc(userId, dto);
   }
 
+  @Post('kyc/verify-automated')
+  @Roles(Role.CUSTOMER)
+  async autoVerifyCustomerKyc(@Request() req: any) {
+    const userId = req.user.id || req.user.userId;
+    return this.kycService.autoVerifyCustomerKyc(userId);
+  }
+
   @Get('kyc/status')
   @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
   async getKycStatus(@Request() req: any) {
@@ -39,6 +46,12 @@ export class KycController {
   @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
   async getPendingKycSubmissions() {
     return this.kycService.getPendingKycSubmissions();
+  }
+
+  @Post('admin/kyc/:userId/verify-automated')
+  @Roles(Role.ADMIN, Role.SUPPORT_AGENT)
+  async adminAutoVerifyKyc(@Param('userId') userId: string) {
+    return this.kycService.autoVerifyCustomerKyc(userId);
   }
 
   @Patch('admin/kyc/:id/review')

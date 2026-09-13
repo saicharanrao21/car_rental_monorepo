@@ -24,6 +24,7 @@ export interface DrivingLicenceVerifyResponse {
   issueDate?: Date;
   vehicleClasses?: string[];
   status: 'VERIFIED' | 'REJECTED' | 'MANUAL_REVIEW_REQUIRED';
+  rejectionReason?: string;
   rawResponse?: any;
 }
 
@@ -41,6 +42,7 @@ export interface VehicleRcVerifyResponse {
   insuranceValidUntil?: Date;
   fitnessValidUntil?: Date;
   status: 'VERIFIED' | 'REJECTED';
+  rejectionReason?: string;
   rawResponse?: any;
 }
 

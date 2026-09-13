@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   VehicleTrackingProvider,
@@ -74,13 +74,47 @@ export class TraccarTelematicsAdapter implements VehicleTrackingProvider {
   }
 
   async getTelemetry(vehicleId: string): Promise<VehicleTelemetry> {
-    if (!this.apiToken) {
+    if (!this.apiToken || !this.serverUrl || this.serverUrl.includes('demo.traccar.org')) {
       if (!this.isSimulationPermitted()) {
-        throw new Error('Traccar credentials (TRACCAR_API_TOKEN) must be configured. Live GPS tracking unavailable.');
+        throw new ServiceUnavailableException('Traccar credentials (TRACCAR_SERVER_URL, TRACCAR_API_TOKEN) must be configured. Live GPS tracking unavailable.');
       }
       this.logger.warn(`[TRACCAR_SIMULATION] Serving simulated telemetry for ${vehicleId} (SIMULATION_ONLY)`);
     } else {
       this.logger.log(`[TRACCAR_TELEMETRY] Fetching live positions for vehicle ${vehicleId}`);
+      try {
+        const response = await fetch(`${this.serverUrl}/api/positions?deviceId=${vehicleId}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            Accept: 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const positions: any = await response.json();
+          if (Array.isArray(positions) && positions.length > 0) {
+            const pos = positions[0];
+            return {
+              vehicleId,
+              location: {
+                latitude: Number(pos.latitude) || 0,
+                longitude: Number(pos.longitude) || 0,
+              },
+              speedKmph: pos.speed ? Math.round(Number(pos.speed) * 1.852) : 0,
+              odometerKm: pos.attributes?.totalDistance ? Math.round(Number(pos.attributes.totalDistance) / 1000) : 0,
+              fuelPercentage: pos.attributes?.fuel != null ? Number(pos.attributes.fuel) : undefined,
+              batteryPercentage: pos.attributes?.batteryLevel != null ? Number(pos.attributes.batteryLevel) : undefined,
+              ignitionOn: !!pos.attributes?.ignition,
+              timestamp: new Date(pos.deviceTime || pos.fixTime || Date.now()),
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.error(`Traccar live positions query failed: ${err?.message}`);
+        if (process.env.NODE_ENV === 'production') {
+          throw new ServiceUnavailableException(`Traccar telematics service unavailable: ${err?.message}`);
+        }
+      }
     }
 
     return {

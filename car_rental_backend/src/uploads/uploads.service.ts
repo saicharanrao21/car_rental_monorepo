@@ -72,6 +72,7 @@ export class UploadsService {
     fileType:
       | 'car-photo'
       | 'vendor-document'
+      | 'customer-kyc'
       | 'profile-photo'
       | 'banner'
       | 'inspection-photo'
@@ -101,6 +102,7 @@ export class UploadsService {
     const key = `${fileType}/${userId}/${filename}`;
     const isPrivate =
       fileType === 'vendor-document' ||
+      fileType === 'customer-kyc' ||
       fileType === 'inspection-photo' ||
       fileType === 'damage-claim';
 

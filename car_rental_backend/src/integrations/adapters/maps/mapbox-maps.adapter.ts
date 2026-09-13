@@ -55,15 +55,56 @@ export class MapboxMapsAdapter implements MapsProvider {
     return 6000;
   }
 
+  private hasLiveCredentials(): boolean {
+    if (!this.accessToken) return false;
+    if (
+      this.accessToken.startsWith('placeholder') ||
+      this.accessToken.startsWith('mock') ||
+      this.accessToken.startsWith('test')
+    ) {
+      return false;
+    }
+    if (process.env.NODE_ENV === 'test') {
+      return false;
+    }
+    return true;
+  }
+
   async geocode(address: string): Promise<GeocodeResult[]> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
+      throw new ServiceUnavailableException('Mapbox credentials (MAPBOX_ACCESS_TOKEN) not configured for production environment');
     }
-    if (!this.accessToken && process.env.NODE_ENV === 'production') {
-      throw new Error('Missing Mapbox credentials in production');
+
+    if (hasLive) {
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${this.accessToken}`;
+        const res = await fetch(url);
+        const data: any = await res.json();
+
+        if (res.ok && Array.isArray(data.features) && data.features.length > 0) {
+          return data.features.map((f: any) => ({
+            formattedAddress: f.place_name,
+            location: {
+              latitude: f.center[1],
+              longitude: f.center[0],
+            },
+            placeId: f.id,
+            city: f.context?.find((c: any) => c.id.startsWith('place'))?.text || 'City',
+            state: f.context?.find((c: any) => c.id.startsWith('region'))?.text || 'State',
+            country: f.context?.find((c: any) => c.id.startsWith('country'))?.text || 'India',
+          }));
+        }
+        return [];
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(`Mapbox geocode error: ${err.message}`);
+        throw new ServiceUnavailableException(`Mapbox geocode service error: ${err.message}`);
+      }
     }
+
     this.logger.log(`[MAPBOX_GEOCODE] Geocoding query: "${address}"`);
-    // Mapbox Geocoding v5 API format
     return [
       {
         formattedAddress: address,
@@ -78,9 +119,37 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async reverseGeocode(point: LatLngPoint): Promise<GeocodeResult | null> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
+      throw new ServiceUnavailableException('Mapbox credentials (MAPBOX_ACCESS_TOKEN) not configured for production environment');
     }
+
+    if (hasLive) {
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${point.longitude},${point.latitude}.json?access_token=${this.accessToken}`;
+        const res = await fetch(url);
+        const data: any = await res.json();
+
+        if (res.ok && Array.isArray(data.features) && data.features.length > 0) {
+          const f = data.features[0];
+          return {
+            formattedAddress: f.place_name,
+            location: point,
+            placeId: f.id,
+            city: f.context?.find((c: any) => c.id.startsWith('place'))?.text || 'City',
+            state: f.context?.find((c: any) => c.id.startsWith('region'))?.text || 'State',
+            country: f.context?.find((c: any) => c.id.startsWith('country'))?.text || 'India',
+          };
+        }
+        return null;
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(`Mapbox reverse geocode error: ${err.message}`);
+        throw new ServiceUnavailableException(`Mapbox reverse geocode service error: ${err.message}`);
+      }
+    }
+
     this.logger.log(`[MAPBOX_REV_GEOCODE] Reverse geocoding: ${point.latitude}, ${point.longitude}`);
     return {
       formattedAddress: `Near Coordinates ${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}, MG Road, Bengaluru`,
@@ -96,9 +165,12 @@ export class MapboxMapsAdapter implements MapsProvider {
     origins: LatLngPoint[],
     destinations: LatLngPoint[],
   ): Promise<DistanceMatrixResult> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
+      throw new ServiceUnavailableException('Mapbox credentials (MAPBOX_ACCESS_TOKEN) not configured for production environment');
     }
+
     this.logger.log(`[MAPBOX_MATRIX] Matrix calculation for ${origins.length}x${destinations.length} points`);
     const elements: DistanceMatrixElement[] = [];
     for (let o = 0; o < origins.length; o++) {
@@ -122,9 +194,36 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async getDirections(origin: LatLngPoint, destination: LatLngPoint): Promise<DirectionsResult> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ServiceUnavailableException('Mapbox is not a live-integrated maps provider. Contact engineering before enabling in production.');
+    const hasLive = this.hasLiveCredentials();
+
+    if (process.env.NODE_ENV === 'production' && !hasLive) {
+      throw new ServiceUnavailableException('Mapbox credentials (MAPBOX_ACCESS_TOKEN) not configured for production environment');
     }
+
+    if (hasLive) {
+      try {
+        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?access_token=${this.accessToken}&geometries=polyline`;
+        const res = await fetch(url);
+        const data: any = await res.json();
+
+        if (res.ok && Array.isArray(data.routes) && data.routes.length > 0) {
+          const route = data.routes[0];
+          return {
+            distanceKm: parseFloat((route.distance / 1000).toFixed(2)),
+            distanceMeters: Math.round(route.distance),
+            durationMinutes: Math.round(route.duration / 60),
+            durationSeconds: Math.round(route.duration),
+            polyline: route.geometry,
+            waypoints: [origin, destination],
+          };
+        }
+      } catch (err: any) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(`Mapbox directions error: ${err.message}`);
+        throw new ServiceUnavailableException(`Mapbox directions service error: ${err.message}`);
+      }
+    }
+
     this.logger.log(
       `[MAPBOX_DIRECTIONS] Directions from ${origin.latitude},${origin.longitude} to ${destination.latitude},${destination.longitude}`,
     );
@@ -171,7 +270,7 @@ export class MapboxMapsAdapter implements MapsProvider {
   }
 
   async checkHealth(): Promise<ProviderHealthCheckResult> {
-    const isConfigured = Boolean(this.accessToken);
+    const isConfigured = Boolean(this.accessToken && !this.accessToken.startsWith('placeholder'));
     const isProd = process.env.NODE_ENV === 'production';
     return {
       status: isConfigured

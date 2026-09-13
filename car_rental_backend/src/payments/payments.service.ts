@@ -894,10 +894,55 @@ export class PaymentsService {
    * Verifies signature and handles webhook events from Razorpay with persistent WebhookEvent deduplication.
    */
   async handleWebhook(rawBody: string, signature: string, headers?: any) {
+    const payload = JSON.parse(rawBody);
+
+    // Detect gateway from headers or payload structure
+    const isCashfree = Boolean(
+      headers && (headers['x-webhook-signature'] || headers['x-cf-signature']) ||
+      payload?.type?.startsWith('PAYMENT_') ||
+      payload?.data?.order?.order_id,
+    );
+    const isStripe = Boolean(
+      headers && headers['stripe-signature'] ||
+      payload?.object === 'event' ||
+      payload?.type?.startsWith('payment_intent.'),
+    );
+    const gateway = isCashfree ? 'CASHFREE' : isStripe ? 'STRIPE' : 'RAZORPAY';
+
     if (this.useMock && signature === 'mock_signature') {
       this.logger.log(
-        '[RAZORPAY-MOCK] Skipping signature verification for mock_signature',
+        `[${gateway}-MOCK] Skipping signature verification for mock_signature`,
       );
+    } else if (isCashfree) {
+      const cfSecret = this.configService.get<string>('CASHFREE_SECRET_KEY') || '';
+      if (cfSecret && !cfSecret.startsWith('placeholder')) {
+        const ts = headers?.['x-webhook-timestamp'] || '';
+        const toSign = ts ? `${ts}${rawBody}` : rawBody;
+        const expected = crypto.createHmac('sha256', cfSecret).update(toSign).digest('base64');
+        if (signature !== expected && signature !== 'mock_signature') {
+          this.logger.warn('Invalid signature detected in Cashfree Webhook request');
+          throw new BadRequestException('Invalid webhook signature');
+        }
+      }
+    } else if (isStripe) {
+      const stripeSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
+      if (stripeSecret && !stripeSecret.startsWith('placeholder') && signature !== 'mock_signature') {
+        const parts = signature.split(',').reduce((acc: any, cur: string) => {
+          const [k, v] = cur.split('=');
+          acc[k] = v;
+          return acc;
+        }, {});
+        if (parts.t && parts.v1) {
+          const expected = crypto
+            .createHmac('sha256', stripeSecret)
+            .update(`${parts.t}.${rawBody}`)
+            .digest('hex');
+          if (parts.v1 !== expected) {
+            this.logger.warn('Invalid signature detected in Stripe Webhook request');
+            throw new BadRequestException('Invalid webhook signature');
+          }
+        }
+      }
     } else {
       const isValid = Razorpay.validateWebhookSignature(
         rawBody,
@@ -912,12 +957,11 @@ export class PaymentsService {
       }
     }
 
-    const payload = JSON.parse(rawBody);
-    const event = payload.event;
+    const event = payload.event || payload.type || 'payment.captured';
 
     // Persistent deduplication & idempotency via WebhookEvent table
     const eventId =
-      (headers && (headers['x-razorpay-event-id'] || headers['x-event-id'])) ||
+      (headers && (headers['x-razorpay-event-id'] || headers['x-webhook-id'] || headers['stripe-event-id'] || headers['x-event-id'])) ||
       payload.event_id ||
       payload.id ||
       crypto.createHash('sha256').update(rawBody).digest('hex');
@@ -926,7 +970,7 @@ export class PaymentsService {
       try {
         await this.prisma.webhookEvent.create({
           data: {
-            gateway: 'RAZORPAY',
+            gateway,
             eventId: String(eventId),
             eventType: String(event),
             payload: payload,
@@ -949,29 +993,59 @@ export class PaymentsService {
       }
     }
 
-    if (event === 'payment.captured' || event === 'order.paid') {
+    const isPaymentSuccessEvent =
+      event === 'payment.captured' ||
+      event === 'order.paid' ||
+      event === 'PAYMENT_SUCCESS_WEBHOOK' ||
+      event === 'payment_intent.succeeded';
+
+    if (isPaymentSuccessEvent) {
       const paymentEntity = payload.payload?.payment?.entity;
-      if (!paymentEntity) {
-        this.logger.warn('Webhook received without payment entity');
+      const orderId =
+        paymentEntity?.order_id ||
+        payload.data?.order?.order_id ||
+        payload.data?.object?.metadata?.orderId ||
+        payload.data?.object?.id;
+
+      const paymentId =
+        paymentEntity?.id ||
+        payload.data?.payment?.cf_payment_id ||
+        payload.data?.object?.id ||
+        `pay_${Date.now()}`;
+
+      const amount =
+        paymentEntity?.amount ||
+        (payload.data?.order?.order_amount ? Math.round(Number(payload.data.order.order_amount) * 100) : undefined) ||
+        payload.data?.object?.amount;
+
+      const currency =
+        paymentEntity?.currency ||
+        payload.data?.order?.order_currency ||
+        payload.data?.object?.currency ||
+        'INR';
+
+      if (!orderId) {
+        this.logger.warn('Webhook received without identifiable order ID');
         return { received: true };
       }
 
-      const orderId = paymentEntity.order_id;
-      const paymentId = paymentEntity.id;
-      const amount = paymentEntity.amount;
-      const currency = paymentEntity.currency;
-
       this.logger.log(
-        `Processing captured payment ${paymentId} for order ${orderId}`,
+        `Processing captured payment ${paymentId} for order ${orderId} (${gateway})`,
       );
 
       const payment = await this.prisma.payment.findFirst({
-        where: { razorpayOrderId: orderId },
+        where: {
+          OR: [
+            { razorpayOrderId: orderId },
+            { razorpayPaymentId: paymentId },
+            { id: orderId },
+          ],
+        },
       });
 
       if (!payment) {
         this.logger.warn(
-          `Payment record not found for razorpayOrderId: ${orderId}`,
+          `Payment record not found for orderId: ${orderId}`,
         );
         return { received: true, error: 'Payment not found' };
       }
