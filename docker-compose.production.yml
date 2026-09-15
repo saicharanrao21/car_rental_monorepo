@@ -44,6 +44,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+  migration:
+    build:
+      context: ./car_rental_backend
+      dockerfile: Dockerfile
+    container_name: drivego_prod_migration
+    restart: 'no'
+    entrypoint: ['npx', 'prisma', 'migrate', 'deploy']
+    environment:
+      DATABASE_URL: postgresql://drivego_admin:${PROD_DB_PASSWORD:?PROD_DB_PASSWORD must be set in production environment}@postgres:5432/drivego_production?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
       interval: 15s

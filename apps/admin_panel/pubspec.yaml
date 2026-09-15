@@ -15,8 +15,6 @@ dependencies:
     path: ../../packages/core
   models:
     path: ../../packages/models
-  mock_data:
-    path: ../../packages/mock_data
   ui_kit:
     path: ../../packages/ui_kit
   gap: ^3.0.1
@@ -29,6 +27,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  mock_data:
+    path: ../../packages/mock_data
 
 flutter:
   uses-material-design: true
