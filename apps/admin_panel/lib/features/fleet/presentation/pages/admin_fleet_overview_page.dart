@@ -126,7 +126,10 @@ class _AdminFleetOverviewPageState extends ConsumerState<AdminFleetOverviewPage>
             if (_selectedSegment == 1) ...[
               const Expanded(
                 child: SingleChildScrollView(
-                  child: FleetCommandCentreWidget(),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FleetCommandCentreWidget(),
+                  ),
                 ),
               ),
             ] else ...[

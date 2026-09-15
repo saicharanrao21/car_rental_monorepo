@@ -116,8 +116,9 @@ class _FleetCommandCentreWidgetState extends State<FleetCommandCentreWidget> {
             children: [
               const Icon(Icons.swap_horiz, color: Color(0xFF2563EB), size: 28),
               const Gap(14),
-              const Expanded(
-                child: Column(
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 600, maxWidth: 850),
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -132,6 +133,7 @@ class _FleetCommandCentreWidgetState extends State<FleetCommandCentreWidget> {
                   ],
                 ),
               ),
+              const Spacer(),
               ElevatedButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -302,6 +304,8 @@ class _FleetCommandCentreWidgetState extends State<FleetCommandCentreWidget> {
                   child: Text(
                     'Status Rationale: ${v['reason']}',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 Text(

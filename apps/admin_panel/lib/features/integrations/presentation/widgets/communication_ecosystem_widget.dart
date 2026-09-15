@@ -667,7 +667,8 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
       ),
       child: Row(
         children: [
-          Expanded(
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 600, maxWidth: 850),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -718,6 +719,7 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
               ],
             ),
           ),
+          const Spacer(),
           const Gap(24),
           _buildHeroMetric('44 Gateways', 'Across 5 Channels', Icons.cell_tower_rounded, Colors.cyanAccent),
           const Gap(12),

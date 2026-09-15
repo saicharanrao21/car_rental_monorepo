@@ -142,45 +142,48 @@ class _RuntimeCommandCentreWidgetState extends State<RuntimeCommandCentreWidget>
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Banner for degraded providers
-          if (_circuitStates.values.contains('HALF_OPEN') || _circuitStates.values.contains('OPEN'))
-            Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF59E0B)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309)),
-                  const Gap(12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Active Degraded Providers / Incident Monitoring',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF92400E),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Banner for degraded providers
+            if (_circuitStates.values.contains('HALF_OPEN') || _circuitStates.values.contains('OPEN'))
+              Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309)),
+                    const Gap(12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 600, maxWidth: 850),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Active Degraded Providers / Incident Monitoring',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF92400E),
+                            ),
                           ),
-                        ),
-                        const Gap(2),
-                        Text(
-                          'Provider gupshup_whatsapp circuit is in HALF_OPEN state with probe requests active. Failover routing is currently engaged to fallback channels.',
-                          style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF78350F)),
-                        ),
-                      ],
+                          const Gap(2),
+                          Text(
+                            'Provider gupshup_whatsapp circuit is in HALF_OPEN state with probe requests active. Failover routing is currently engaged to fallback channels.',
+                            style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF78350F)),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
           // Section 1: Intelligent Fallback Chains Visualizer
           Card(
@@ -517,8 +520,9 @@ class _RuntimeCommandCentreWidgetState extends State<RuntimeCommandCentreWidget>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildChainNode(
     ThemeData theme, {

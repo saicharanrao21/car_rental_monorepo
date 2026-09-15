@@ -38,7 +38,8 @@ class _AdminWhatsAppPageState extends ConsumerState<AdminWhatsAppPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 500, maxWidth: 850),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

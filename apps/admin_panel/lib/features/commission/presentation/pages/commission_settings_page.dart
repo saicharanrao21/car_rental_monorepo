@@ -222,6 +222,7 @@ class _CommissionSettingsPageState extends ConsumerState<CommissionSettingsPage>
             ],
             mobileCardBuilder: (ctx, rule) {
               return Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,

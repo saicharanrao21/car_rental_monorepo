@@ -138,8 +138,11 @@ class _AdminAutomationOverviewPageState
           SliverPadding(
             padding: const EdgeInsets.all(24),
             sliver: SliverToBoxAdapter(
-              child: AutomationCommandCentreWidget(
-                initialTabIndex: _selectedTabIndex,
+              child: SizedBox(
+                width: double.infinity,
+                child: AutomationCommandCentreWidget(
+                  initialTabIndex: _selectedTabIndex,
+                ),
               ),
             ),
           ),

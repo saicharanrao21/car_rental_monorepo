@@ -261,27 +261,27 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           // Render Active Tab View
           if (_activeTab == 'PACKS')
             const SliverToBoxAdapter(
-              child: ProviderPacksEcosystemWidget(),
+              child: SizedBox(width: double.infinity, child: ProviderPacksEcosystemWidget()),
             )
           else if (_activeTab == 'PAYMENTS')
             const SliverToBoxAdapter(
-              child: PaymentEcosystemWidget(),
+              child: SizedBox(width: double.infinity, child: PaymentEcosystemWidget()),
             )
           else if (_activeTab == 'COMMUNICATIONS')
             const SliverToBoxAdapter(
-              child: CommunicationEcosystemWidget(),
+              child: SizedBox(width: double.infinity, child: CommunicationEcosystemWidget()),
             )
           else if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(
-              child: RuntimeCommandCentreWidget(),
+              child: SizedBox(width: double.infinity, child: RuntimeCommandCentreWidget()),
             )
           else if (_activeTab == 'CONTROL_PLANE')
             const SliverToBoxAdapter(
-              child: IntegrationControlPlaneWidget(),
+              child: SizedBox(width: double.infinity, child: IntegrationControlPlaneWidget()),
             )
           else if (_activeTab == 'COMPARISON')
             const SliverToBoxAdapter(
-              child: ProviderComparisonWidget(),
+              child: SizedBox(width: double.infinity, child: ProviderComparisonWidget()),
             )
           else ...[
             // Provider Grid / List
