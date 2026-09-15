@@ -587,25 +587,27 @@ class _FleetCarDetailPageState extends ConsumerState<FleetCarDetailPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Operational Status',
-                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                                  ),
-                                  const Gap(2),
-                                  Text(
-                                    car.isAvailable
-                                        ? 'Active on platform — accepting trip bookings'
-                                        : 'Paused / Inactive — invisible to customer search',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: car.isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                                      fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Operational Status',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                                     ),
-                                  ),
-                                ],
+                                    const Gap(2),
+                                    Text(
+                                      car.isAvailable
+                                          ? 'Active on platform — accepting trip bookings'
+                                          : 'Paused / Inactive — invisible to customer search',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: car.isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               Row(
                                 mainAxisSize: MainAxisSize.min,

@@ -8,6 +8,7 @@ import '../../features/dashboard/presentation/pages/admin_dashboard_page.dart';
 import '../../features/vendors/presentation/pages/vendor_management_page.dart';
 import '../../features/vendors/presentation/pages/vendor_onboarding_console_page.dart';
 import '../../features/customers/presentation/pages/customer_management_page.dart';
+import '../../features/customers/presentation/pages/admin_kyc_page.dart';
 import '../../features/bookings/presentation/pages/admin_booking_management_page.dart';
 import '../../features/fleet/presentation/pages/admin_fleet_overview_page.dart';
 import '../../features/commission/presentation/pages/commission_settings_page.dart';
@@ -91,6 +92,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/customers',
             builder: (context, state) => const CustomerManagementPage(),
+          ),
+          GoRoute(
+            path: '/kyc',
+            builder: (context, state) => const AdminKycPage(),
+          ),
+          GoRoute(
+            path: '/vehicles',
+            builder: (context, state) => const AdminFleetOverviewPage(),
           ),
           GoRoute(
             path: '/bookings',

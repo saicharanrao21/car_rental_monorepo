@@ -74,6 +74,7 @@ class AdminShell extends ConsumerWidget {
       icon: Icons.support_agent_outlined,
       items: [
         AdminNavItem(label: 'Customer Accounts', icon: Icons.people_outline, route: '/customers'),
+        AdminNavItem(label: 'KYC Document Review', icon: Icons.badge_outlined, route: '/kyc', badgeText: 'KYC', badgeColor: Color(0xFF2563EB)),
         AdminNavItem(label: 'Support Tickets', icon: Icons.support_agent_outlined, route: '/support-tickets'),
         AdminNavItem(label: 'Emergency SOS', icon: Icons.emergency_outlined, route: '/emergency-dispatch', badgeText: 'SOS', badgeColor: Colors.red),
         AdminNavItem(label: 'Disputes & Claims', icon: Icons.gavel_outlined, route: '/disputes'),

@@ -68,6 +68,7 @@ class _BusinessRulesDashboardPageState
                         children: [
                           const Text(
                             'Business Rules Engine',
+                            softWrap: false,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
