@@ -790,10 +790,11 @@ class _BookingDetailPanel extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Flexible(
+                              const Expanded(
                                 child: Text(
                                   'Pricing Engine Version',
                                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const Gap(8),
@@ -1214,18 +1215,16 @@ class _DetailRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isBold ? Colors.black87 : Colors.grey[700],
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: isBold ? Colors.black87 : Colors.grey[700],
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           const Gap(12),
-          Flexible(
+          Expanded(
             child: Text(
               value,
               textAlign: TextAlign.end,

@@ -52,7 +52,8 @@ class _AdminAutomationOverviewPageState
                         ),
                       ),
                       const Gap(16),
-                      Expanded(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -61,49 +62,49 @@ class _AdminAutomationOverviewPageState
                                 const Text(
                                   'Enterprise Operations & Automation Core',
                                   style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: -0.5,
-                                  ),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
                                 ),
-                                const Gap(10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981)
-                                        .withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: const Color(0xFF10B981),
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'PHASE L ACTIVE',
-                                    style: TextStyle(
-                                      color: Color(0xFF10B981),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Gap(4),
-                            const Text(
-                              'Declarative Workflows • Event Bus • Rule Engine • Scheduler • Human-in-the-loop Approvals • Correlation Tracing',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF8B949E),
                               ),
+                              const Gap(10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFF10B981),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'PHASE L ACTIVE',
+                                  style: TextStyle(
+                                    color: Color(0xFF10B981),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Gap(4),
+                          const Text(
+                            'Declarative Workflows • Event Bus • Rule Engine • Scheduler • Human-in-the-loop Approvals • Correlation Tracing',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8B949E),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                    ),
                     ],
                   ),
                   const Gap(20),

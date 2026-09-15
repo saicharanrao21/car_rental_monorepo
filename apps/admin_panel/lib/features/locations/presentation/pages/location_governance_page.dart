@@ -99,25 +99,23 @@ class _LocationGovernancePageState extends ConsumerState<LocationGovernancePage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Location Governance & Hub Review',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Location Governance & Hub Review',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
                         ),
-                        const Gap(4),
-                        Text(
-                          'Control vendor yards, airport hubs, pickup points, operating hours, and delivery policies',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const Gap(4),
+                      Text(
+                        'Control vendor yards, airport hubs, pickup points, operating hours, and delivery policies',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                   const Gap(16),
                   ElevatedButton.icon(

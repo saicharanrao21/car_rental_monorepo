@@ -297,7 +297,7 @@ class _AdminReferralCampaignsPageState
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Flexible(
+                      Expanded(
                         child: Text(
                           campaign.name,
                           overflow: TextOverflow.ellipsis,

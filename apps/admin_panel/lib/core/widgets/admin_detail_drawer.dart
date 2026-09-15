@@ -135,7 +135,7 @@ class AdminDetailDrawer extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               title,
                               style: const TextStyle(

@@ -33,9 +33,11 @@ class _AdminLoyaltyManagementPageState
       backgroundColor: const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             _buildHeader(context),
             const SizedBox(height: 24),
             summaryAsync.when(
@@ -62,6 +64,7 @@ class _AdminLoyaltyManagementPageState
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -69,7 +72,8 @@ class _AdminLoyaltyManagementPageState
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 550),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -81,7 +85,6 @@ class _AdminLoyaltyManagementPageState
               Text(
                 'Manage customer loyalty tiers, points ledger, and platform rewards liability',
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

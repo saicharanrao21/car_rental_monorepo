@@ -123,8 +123,9 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
-                    child: Column(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 750),
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(

@@ -64,7 +64,8 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 700),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -84,6 +85,7 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                           ],
                         ),
                       ),
+                      const Gap(16),
                       // View Switcher (Marketplace vs Runtime Operations vs Comparison)
                       SegmentedButton<String>(
                         segments: const [

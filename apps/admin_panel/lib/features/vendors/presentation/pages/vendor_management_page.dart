@@ -593,12 +593,9 @@ class _VendorDetailPanelState extends ConsumerState<_VendorDetailPanel> {
                                   children: [
                                     Icon(Icons.store_mall_directory_outlined, size: 14, color: Colors.orange[800]),
                                     const Gap(6),
-                                    Flexible(
-                                      child: Text(
-                                        'Location Branch of ${v.parentBusinessName ?? 'Parent HQ'}',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange[900]),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    Text(
+                                      'Location Branch of ${v.parentBusinessName ?? 'Parent HQ'}',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange[900]),
                                     ),
                                   ],
                                 ),

@@ -265,7 +265,7 @@ class AdminShell extends ConsumerWidget {
                           ),
                           if (actualExpanded) ...[
                             const Gap(10),
-                            const Flexible(
+                            const Expanded(
                               child: Text(
                                 'Collapse Sidebar',
                                 style: TextStyle(
@@ -291,6 +291,7 @@ class AdminShell extends ConsumerWidget {
             child: Container(
               color: const Color(0xFFF8FAFC),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Top Command Center Header
                   Container(
@@ -404,7 +405,10 @@ class AdminShell extends ConsumerWidget {
 
                   // Main View Child
                   Expanded(
-                    child: child,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: child,
+                    ),
                   ),
                 ],
               ),

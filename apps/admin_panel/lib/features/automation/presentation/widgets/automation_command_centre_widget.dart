@@ -435,14 +435,18 @@ class _AutomationCommandCentreWidgetState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Pending Human Approvals',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        const Flexible(
+                          child: Text(
+                            'Pending Human Approvals',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const Gap(8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -773,25 +777,31 @@ class _AutomationCommandCentreWidgetState
         border: Border.all(color: const Color(0xFF30363D)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 8,
-            height: 40,
+            width: 6,
+            height: 44,
             decoration: BoxDecoration(
               color: statusColor,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
             ),
           ),
           const Gap(14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
-                    Text(
-                      exec['workflowName'],
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                    Flexible(
+                      child: Text(
+                        exec['workflowName'] ?? '',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                     const Gap(8),
                     Container(
@@ -801,7 +811,7 @@ class _AutomationCommandCentreWidgetState
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        exec['status'],
+                        exec['status'] ?? '',
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
                       ),
                     ),
@@ -811,19 +821,24 @@ class _AutomationCommandCentreWidgetState
                 Text(
                   'Execution ID: ${exec['id']} • Corr: ${exec['correlationId']} • Started: ${exec['startedAt']} • Latency: ${exec['duration']}',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF8B949E)),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 if (exec['error'] != null) ...[
                   const Gap(4),
                   Text(
                     'Error: ${exec['error']}',
                     style: const TextStyle(fontSize: 12, color: Color(0xFFF85149), fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ],
               ],
             ),
           ),
-          if (exec['status'] == 'FAILED')
-            ElevatedButton.icon(
+          if (exec['status'] == 'FAILED') ...[
+            const Gap(10),
+            OutlinedButton.icon(
               onPressed: () {
                 setState(() {
                   exec['status'] = 'RUNNING';
@@ -841,14 +856,17 @@ class _AutomationCommandCentreWidgetState
                   SnackBar(content: Text('Replaying failed execution ${exec['id']}...')),
                 );
               },
-              icon: const Icon(Icons.replay, size: 14),
-              label: const Text('Retry Execution'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF85149).withValues(alpha: 0.2),
+              icon: const Icon(Icons.refresh, size: 12),
+              label: const Text('Retry', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFF85149),
                 side: const BorderSide(color: Color(0xFFF85149)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
+          ],
         ],
       ),
     );
