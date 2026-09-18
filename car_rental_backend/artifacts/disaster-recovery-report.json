@@ -1,0 +1,53 @@
+{
+  "drillTimestamp": "2026-09-18T05:18:26.232Z",
+  "elapsedMs": 3679,
+  "preFlightInvariants": {
+    "totalDebits": "₹9801.20",
+    "totalCredits": "₹9801.20",
+    "isLedgerBalanced": true,
+    "orphanBookings": 0,
+    "orphanCars": 0,
+    "orphanPayments": 0
+  },
+  "snapshotChecksum": "6cfa105ff7306a799bef418c718c25f2c1f3a1f40ba87e05cf2e64931e7c36e4",
+  "tableSnapshots": [
+    {
+      "tableName": "User",
+      "rowCount": 7,
+      "dataHash": "6c09111d63cfc8edd651efc14ac0511da5753450a5b92584396fe3c498a19c8c"
+    },
+    {
+      "tableName": "Vendor",
+      "rowCount": 2,
+      "dataHash": "76f3ceec973fe9f52281ad2a77934d3d28d7aef4bd6a2802eda760ab0345fd50"
+    },
+    {
+      "tableName": "Car",
+      "rowCount": 4,
+      "dataHash": "b5c1c855fa1a6c40cd89b0e1e93a602af3dc3e9daeb5952e593cbe859b53817e"
+    },
+    {
+      "tableName": "Booking",
+      "rowCount": 13,
+      "dataHash": "ce9e4d73d35905da8dd036af9411664ea10017e2ddb294ddfc960dbddc163590"
+    },
+    {
+      "tableName": "Payment",
+      "rowCount": 13,
+      "dataHash": "151ce1c7cbd051fc8a3184bd279ae3a8e5de414e5f7af1cad75a05bde859f0e2"
+    },
+    {
+      "tableName": "PlatformLedgerEntry",
+      "rowCount": 7,
+      "dataHash": "18d9895bd8a0ac2e7a8db685596e2103a8d0290c504a8eaaca59f541a0e21d3e"
+    }
+  ],
+  "restorationVerification": {
+    "status": "VERIFIED",
+    "recalculatedDebits": "₹9801.20",
+    "recalculatedCredits": "₹9801.20",
+    "postRestoreBalanced": true,
+    "dataIntegrityPreserved": true
+  },
+  "certificationVerdict": "PASSED_100_PERCENT"
+}

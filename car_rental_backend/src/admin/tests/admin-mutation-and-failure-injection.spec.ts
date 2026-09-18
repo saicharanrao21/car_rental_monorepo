@@ -3,6 +3,7 @@ import { AppModule } from '../../app.module';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CarsService } from '../../cars/cars.service';
 import { VendorsService } from '../../vendors/vendors.service';
+import { VendorFleetService } from '../../cars/vendor-fleet.service';
 import { PaymentsService } from '../../payments/payments.service';
 import { LedgerCoreService } from '../../finance/ledger-core.service';
 import { BookingLockService } from '../../redis/booking-lock.service';
@@ -25,7 +26,7 @@ import {
   PricingRuleScope,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import * as crypto from 'crypto';
 
 describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Concurrency', () => {
@@ -33,6 +34,7 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
   let prisma: PrismaService;
   let carsService: CarsService;
   let vendorsService: VendorsService;
+  let vendorFleetService: VendorFleetService;
   let paymentsService: PaymentsService;
   let ledgerCore: LedgerCoreService;
   let bookingLockService: BookingLockService;
@@ -52,6 +54,7 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
   let testVendorUser: any;
   let testVendor: any;
   let testCar: any;
+  let testAdminUser: any;
   const testCity = `City_${Date.now()}`;
   let webhookSecret: string;
 
@@ -68,6 +71,7 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
     prisma = moduleRef.get<PrismaService>(PrismaService);
     carsService = moduleRef.get<CarsService>(CarsService);
     vendorsService = moduleRef.get<VendorsService>(VendorsService);
+    vendorFleetService = moduleRef.get<VendorFleetService>(VendorFleetService);
     paymentsService = moduleRef.get<PaymentsService>(PaymentsService);
     ledgerCore = moduleRef.get<LedgerCoreService>(LedgerCoreService);
     bookingLockService = moduleRef.get<BookingLockService>(BookingLockService);
@@ -76,6 +80,17 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
 
     const configService = moduleRef.get<ConfigService>(ConfigService);
     webhookSecret = configService.get<string>('RAZORPAY_WEBHOOK_SECRET') || 'placeholderWebhookSecret';
+
+    // 0. Create real platform admin user
+    testAdminUser = await prisma.user.create({
+      data: {
+        email: `admin_mutation_${Date.now()}@example.com`,
+        phone: `+9199${Date.now().toString().slice(-8)}`,
+        name: 'Real Test Admin',
+        role: Role.ADMIN,
+      },
+    });
+    createdUserIds.push(testAdminUser.id);
 
     // 1. Create real vendor user in PostgreSQL with required phone
     testVendorUser = await prisma.user.create({
@@ -205,10 +220,9 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
       let searchResults = await carsService.searchCars({ city: testCity }, false);
       expect(searchResults.data.some((c: any) => c.id === testCar.id)).toBe(true);
 
-      // 2. Admin mutation: Suspend the vehicle in PostgreSQL
-      await prisma.car.update({
-        where: { id: testCar.id },
-        data: { operationalStatus: VehicleOperationalStatus.SUSPENDED },
+      // 2. Admin mutation: Suspend the vehicle via real production VendorFleetService
+      await vendorFleetService.adminSuspendVehicle(testCar.id, testAdminUser.id, {
+        reason: 'Regulatory and compliance safety suspension by platform administrator',
       });
 
       // 3. Invalidate search cache and query search again through real CarsService -> Immediately excluded
@@ -536,6 +550,17 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
       // Release the token from the winner
       const token = (fulfilled[0] as PromiseFulfilledResult<string>).value;
       await bookingLockService.releaseLock(lockKey, token);
+    });
+
+    it('6. Real Concurrency Fail-Closed Resilience: When Redis coordinator degrades, acquireLock fails closed with 503 instead of risking race conditions', async () => {
+      const degradedRedis = {
+        set: jest.fn().mockRejectedValue(new Error('ECONNREFUSED 127.0.0.1:6379')),
+      } as any;
+      const resilientLockService = new BookingLockService(degradedRedis);
+
+      await expect(
+        resilientLockService.acquireLock('car_degraded_concurrency_test', 5000),
+      ).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });
