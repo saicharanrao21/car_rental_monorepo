@@ -7,6 +7,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
+import { json, urlencoded } from 'express';
+import * as crypto from 'crypto';
+
 describe('AppController & Security Guards (e2e)', () => {
   let app: INestApplication<App>;
 
@@ -21,7 +24,17 @@ describe('AppController & Security Guards (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ bodyParser: false });
+    app.use(
+      json({
+        verify: (req: any, res, buf) => {
+          if (buf && buf.length) {
+            req.rawBody = buf.toString('utf8');
+          }
+        },
+      }),
+    );
+    app.use(urlencoded({ extended: true }));
     await app.init();
   });
 
@@ -193,6 +206,100 @@ describe('AppController & Security Guards (e2e)', () => {
           expect(res.body.name).toBe('Admin Enterprise Workflow');
           expect(res.body.status).toBe('ACTIVE');
         });
+    });
+  });
+
+  describe('Payments Webhook Controller HTTP Boundary (e2e)', () => {
+    it('POST /payments/webhook rejects request without signature with 400 Bad Request', () => {
+      return request(app.getHttpServer())
+        .post('/payments/webhook')
+        .send({ event: 'payment.captured' })
+        .expect(400);
+    });
+
+    it('POST /payments/webhook rejects forged signature with 400 Bad Request', () => {
+      return request(app.getHttpServer())
+        .post('/payments/webhook')
+        .set('x-razorpay-signature', 'forged_invalid_signature_hex_12345')
+        .send({ event: 'payment.captured' })
+        .expect(400);
+    });
+
+    it('POST /payments/webhook processes valid signature through HTTP pipeline with 200/201', async () => {
+      const configService = app.get(ConfigService);
+      const secret =
+        configService.get<string>('RAZORPAY_WEBHOOK_SECRET') ||
+        'placeholderWebhookSecret';
+
+      const payloadObj = {
+        event: 'payment.captured',
+        id: `evt_http_test_${Date.now()}`,
+        payload: {
+          payment: {
+            entity: {
+              id: `pay_http_${Date.now()}`,
+              order_id: `order_http_fake_${Date.now()}`,
+              amount: 350000,
+              currency: 'INR',
+              status: 'captured',
+            },
+          },
+        },
+      };
+      const rawPayload = JSON.stringify(payloadObj);
+
+      const validSig = crypto
+        .createHmac('sha256', secret)
+        .update(rawPayload)
+        .digest('hex');
+
+      const res = await request(app.getHttpServer())
+        .post('/payments/webhook')
+        .set('Content-Type', 'application/json')
+        .set('x-razorpay-signature', validSig)
+        .send(rawPayload);
+
+      expect(res.status).toBeLessThan(400);
+      expect(res.body).toHaveProperty('received', true);
+    });
+  });
+
+  describe('Admin Fleet Controller HTTP Boundary (e2e)', () => {
+    let customerToken: string;
+
+    beforeAll(() => {
+      const configService = app.get(ConfigService);
+      const secret =
+        configService.get<string>('JWT_ACCESS_SECRET') ||
+        process.env.JWT_ACCESS_SECRET ||
+        'test_jwt_access_secret_min_32_chars_long!';
+
+      const jwtService = new JwtService({ secret });
+      customerToken = jwtService.sign({
+        userId: 'cust-uuid-404',
+        role: Role.CUSTOMER,
+      });
+    });
+
+    it('POST /admin/fleet/car-123/suspend rejects unauthenticated request with 401 Unauthorized', () => {
+      return request(app.getHttpServer())
+        .post('/admin/fleet/car-123/suspend')
+        .send({ reason: 'Suspension probe' })
+        .expect(401);
+    });
+
+    it('POST /admin/fleet/car-123/suspend rejects CUSTOMER role with 403 Forbidden', () => {
+      return request(app.getHttpServer())
+        .post('/admin/fleet/car-123/suspend')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ reason: 'Unauthorized customer mutation probe' })
+        .expect(403);
+    });
+
+    it('GET /admin/fleet rejects unauthenticated request with 401 Unauthorized', () => {
+      return request(app.getHttpServer())
+        .get('/admin/fleet')
+        .expect(401);
     });
   });
 });
