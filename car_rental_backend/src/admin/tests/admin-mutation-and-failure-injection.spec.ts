@@ -1,336 +1,541 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '../../app.module';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CarsService } from '../../cars/cars.service';
+import { VendorsService } from '../../vendors/vendors.service';
+import { PaymentsService } from '../../payments/payments.service';
+import { LedgerCoreService } from '../../finance/ledger-core.service';
+import { BookingLockService } from '../../redis/booking-lock.service';
+import { RedisCacheService } from '../../redis/redis-cache.service';
+import { DemandAwarePricingService } from '../../pricing/demand-aware-pricing.service';
+import { ConfigService } from '@nestjs/config';
 import {
-  BookingStatus,
-  PaymentStatus,
-  LedgerEntrySide,
   VerificationStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
+  PaymentStatus,
+  BookingStatus,
+  LedgerEntrySide,
+  LedgerAccountType,
   Role,
+  CarCategory,
+  FuelType,
+  TripType,
+  BusinessType,
+  PricingRuleScope,
 } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import * as crypto from 'crypto';
 
-describe('Admin Mutation Lifecycle & Adversarial Failure Injection Suite', () => {
-  describe('GAP 3: Admin State Mutations & Cross-Domain Propagation', () => {
-    let mockPrisma: any;
-    let vendorStore: Map<string, any>;
-    let carStore: Map<string, any>;
-    let pricingRulesStore: Map<string, any>;
+describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Concurrency', () => {
+  let moduleRef: TestingModule;
+  let prisma: PrismaService;
+  let carsService: CarsService;
+  let vendorsService: VendorsService;
+  let paymentsService: PaymentsService;
+  let ledgerCore: LedgerCoreService;
+  let bookingLockService: BookingLockService;
+  let cacheService: RedisCacheService;
+  let demandAwarePricingService: DemandAwarePricingService;
 
-    beforeEach(() => {
-      vendorStore = new Map();
-      carStore = new Map();
-      pricingRulesStore = new Map();
+  // Track created IDs for strict teardown
+  const createdUserIds: string[] = [];
+  const createdVendorIds: string[] = [];
+  const createdCarIds: string[] = [];
+  const createdBookingIds: string[] = [];
+  const createdPaymentIds: string[] = [];
+  const createdWebhookEventIds: string[] = [];
+  const createdJournalIds: string[] = [];
+  const createdPolicyIds: string[] = [];
 
-      // Seed baseline data
-      vendorStore.set('vendor_101', {
-        id: 'vendor_101',
-        businessName: 'Apex Rentals',
-        verificationStatus: VerificationStatus.PENDING,
-        userId: 'user_vendor_1',
-      });
+  let testVendorUser: any;
+  let testVendor: any;
+  let testCar: any;
+  const testCity = `City_${Date.now()}`;
+  let webhookSecret: string;
 
-      carStore.set('car_201', {
-        id: 'car_201',
-        vendorId: 'vendor_101',
-        make: 'Hyundai',
-        model: 'Creta',
-        operationalStatus: 'ACTIVE',
-        isAvailable: true,
-        pricePerDay: new Decimal(2500),
-      });
+  beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.REDIS_USE_MOCK = 'true';
+    process.env.JWT_ACCESS_SECRET = 'test_jwt_access_secret_min_32_chars_long!';
+    process.env.JWT_REFRESH_SECRET = 'test_jwt_refresh_secret_min_32_chars_long!';
 
-      mockPrisma = {
-        vendor: {
-          update: jest.fn().mockImplementation(({ where, data }) => {
-            const v = vendorStore.get(where.id);
-            if (!v) throw new Error('Vendor not found');
-            const updated = { ...v, ...data };
-            vendorStore.set(where.id, updated);
-            return Promise.resolve(updated);
-          }),
-          findUnique: jest.fn().mockImplementation(({ where }) => {
-            return Promise.resolve(vendorStore.get(where.id) || null);
-          }),
-        },
-        car: {
-          update: jest.fn().mockImplementation(({ where, data }) => {
-            const c = carStore.get(where.id);
-            if (!c) throw new Error('Car not found');
-            const updated = { ...c, ...data };
-            carStore.set(where.id, updated);
-            return Promise.resolve(updated);
-          }),
-          findMany: jest.fn().mockImplementation(({ where }) => {
-            const results: any[] = [];
-            for (const car of carStore.values()) {
-              const vendor = vendorStore.get(car.vendorId);
-              // Respect active search filters: must be ACTIVE, isAvailable, and vendor VERIFIED
-              if (where?.operationalStatus && car.operationalStatus !== where.operationalStatus) continue;
-              if (where?.isAvailable !== undefined && car.isAvailable !== where.isAvailable) continue;
-              if (where?.vendor?.verificationStatus && vendor?.verificationStatus !== where.vendor.verificationStatus) continue;
-              results.push(car);
-            }
-            return Promise.resolve(results);
-          }),
-        },
-        dynamicPricingPolicy: {
-          upsert: jest.fn().mockImplementation(({ create, update, where }) => {
-            const id = where?.id || 'policy_default';
-            const policy = { id, ...(pricingRulesStore.get(id) || create), ...update };
-            pricingRulesStore.set(id, policy);
-            return Promise.resolve(policy);
-          }),
-          findFirst: jest.fn().mockImplementation(() => {
-            return Promise.resolve(pricingRulesStore.values().next().value || null);
-          }),
-        },
-      };
+    moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    prisma = moduleRef.get<PrismaService>(PrismaService);
+    carsService = moduleRef.get<CarsService>(CarsService);
+    vendorsService = moduleRef.get<VendorsService>(VendorsService);
+    paymentsService = moduleRef.get<PaymentsService>(PaymentsService);
+    ledgerCore = moduleRef.get<LedgerCoreService>(LedgerCoreService);
+    bookingLockService = moduleRef.get<BookingLockService>(BookingLockService);
+    cacheService = moduleRef.get<RedisCacheService>(RedisCacheService);
+    demandAwarePricingService = moduleRef.get<DemandAwarePricingService>(DemandAwarePricingService);
+
+    const configService = moduleRef.get<ConfigService>(ConfigService);
+    webhookSecret = configService.get<string>('RAZORPAY_WEBHOOK_SECRET') || 'placeholderWebhookSecret';
+
+    // 1. Create real vendor user in PostgreSQL with required phone
+    testVendorUser = await prisma.user.create({
+      data: {
+        email: `vendor_test_${Date.now()}@example.com`,
+        phone: `+9198${Date.now().toString().slice(-8)}`,
+        name: 'Real Test Vendor',
+        role: Role.VENDOR,
+      },
     });
+    createdUserIds.push(testVendorUser.id);
 
-    it('1. Admin Vendor Approval: PENDING vendor approval activates fleet discoverability', async () => {
-      // 1. Initial State: Vendor is PENDING -> cars are NOT discoverable in customer search
-      let searchResults = await mockPrisma.car.findMany({
-        where: {
-          operationalStatus: 'ACTIVE',
-          isAvailable: true,
-          vendor: { verificationStatus: VerificationStatus.VERIFIED },
-        },
-      });
-      expect(searchResults.length).toBe(0);
+    // 2. Create vendor with PENDING verification status
+    testVendor = await prisma.vendor.create({
+      data: {
+        userId: testVendorUser.id,
+        businessName: 'Real Test Motors',
+        ownerName: 'Real Test Owner',
+        city: testCity,
+        businessType: BusinessType.INDIVIDUAL,
+        verificationStatus: VerificationStatus.PENDING,
+      },
+    });
+    createdVendorIds.push(testVendor.id);
 
-      // 2. Admin action: Approve vendor
-      const updatedVendor = await mockPrisma.vendor.update({
-        where: { id: 'vendor_101' },
+    // 3. Create active vehicle under this vendor
+    testCar = await prisma.car.create({
+      data: {
+        vendorId: testVendor.id,
+        make: 'Toyota',
+        model: 'Innova Crysta',
+        year: 2024,
+        type: CarCategory.SUV,
+        fuelType: FuelType.DIESEL,
+        seating: 7,
+        isAC: true,
+        registrationNumber: `MH02TEST${Date.now().toString().slice(-4)}`,
+        pricePerDay: new Decimal(3500),
+        pricePerHour: new Decimal(250),
+        pricePerKm: new Decimal(18),
+        isAvailable: true,
+        operationalStatus: VehicleOperationalStatus.ACTIVE,
+        verificationStatus: VehicleVerificationStatus.VERIFIED,
+        availableTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
+      },
+    });
+    createdCarIds.push(testCar.id);
+  });
+
+  afterAll(async () => {
+    // Teardown test fixtures from PostgreSQL in reverse order of foreign keys
+    try {
+      if (createdPaymentIds.length) {
+        await prisma.platformLedgerEntry.deleteMany({
+          where: { paymentId: { in: createdPaymentIds } },
+        });
+        await prisma.payment.deleteMany({
+          where: { id: { in: createdPaymentIds } },
+        });
+      }
+      if (createdWebhookEventIds.length) {
+        await prisma.webhookEvent.deleteMany({
+          where: { eventId: { in: createdWebhookEventIds } },
+        });
+      }
+      if (createdBookingIds.length) {
+        await prisma.booking.deleteMany({
+          where: { id: { in: createdBookingIds } },
+        });
+      }
+      if (createdPolicyIds.length) {
+        await prisma.dynamicPricingPolicy.deleteMany({
+          where: { id: { in: createdPolicyIds } },
+        });
+      }
+      if (createdCarIds.length) {
+        await prisma.car.deleteMany({
+          where: { id: { in: createdCarIds } },
+        });
+      }
+      if (createdVendorIds.length) {
+        await prisma.vendor.deleteMany({
+          where: { id: { in: createdVendorIds } },
+        });
+      }
+      if (createdUserIds.length) {
+        await prisma.user.deleteMany({
+          where: { id: { in: createdUserIds } },
+        });
+      }
+      if (createdJournalIds.length) {
+        await prisma.platformLedgerEntry.deleteMany({
+          where: { journalId: { in: createdJournalIds } },
+        });
+      }
+    } catch (err) {
+      console.warn('Teardown warning:', err);
+    }
+
+    if (moduleRef) {
+      await moduleRef.close();
+    }
+  });
+
+  describe('GAP 3: Real Admin Mutations -> Real Prisma & PostgreSQL Search Visibility', () => {
+    it('1. Admin Vendor Verification: PENDING vendor car is hidden, VERIFIED vendor car is discoverable via real CarsService', async () => {
+      // 1. Initial State: Vendor is PENDING -> Query search as customer (isAdmin = false) through real CarsService
+      await cacheService.invalidatePattern('cache:search:cars:*');
+      let searchResults = await carsService.searchCars({ city: testCity }, false);
+      expect(searchResults.data.some((c: any) => c.id === testCar.id)).toBe(false);
+
+      // 2. Admin mutation: Update vendor status to VERIFIED in PostgreSQL
+      await prisma.vendor.update({
+        where: { id: testVendor.id },
         data: { verificationStatus: VerificationStatus.VERIFIED },
       });
-      expect(updatedVendor.verificationStatus).toBe(VerificationStatus.VERIFIED);
 
-      // 3. Downstream impact: Customer car search now includes vendor cars
-      searchResults = await mockPrisma.car.findMany({
-        where: {
-          operationalStatus: 'ACTIVE',
-          isAvailable: true,
-          vendor: { verificationStatus: VerificationStatus.VERIFIED },
-        },
-      });
-      expect(searchResults.length).toBe(1);
-      expect(searchResults[0].id).toBe('car_201');
+      // 3. Invalidate search cache and query search again through real CarsService -> Car is now discoverable!
+      await cacheService.invalidatePattern('cache:search:cars:*');
+      searchResults = await carsService.searchCars({ city: testCity }, false);
+      expect(searchResults.data.some((c: any) => c.id === testCar.id)).toBe(true);
     });
 
-    it('2. Admin Vehicle Suspension: Suspending a vehicle immediately excludes it from search', async () => {
-      // Set vendor as verified first
-      vendorStore.set('vendor_101', {
-        ...vendorStore.get('vendor_101'),
-        verificationStatus: VerificationStatus.VERIFIED,
+    it('2. Admin Vehicle Suspension: Setting operationalStatus to SUSPENDED immediately removes it from customer search', async () => {
+      // 1. Car is currently visible
+      await cacheService.invalidatePattern('cache:search:cars:*');
+      let searchResults = await carsService.searchCars({ city: testCity }, false);
+      expect(searchResults.data.some((c: any) => c.id === testCar.id)).toBe(true);
+
+      // 2. Admin mutation: Suspend the vehicle in PostgreSQL
+      await prisma.car.update({
+        where: { id: testCar.id },
+        data: { operationalStatus: VehicleOperationalStatus.SUSPENDED },
       });
 
-      // Verify car is discoverable
-      let searchResults = await mockPrisma.car.findMany({
-        where: {
-          operationalStatus: 'ACTIVE',
-          isAvailable: true,
-          vendor: { verificationStatus: VerificationStatus.VERIFIED },
-        },
-      });
-      expect(searchResults.length).toBe(1);
-
-      // Admin action: Suspend vehicle for maintenance/compliance breach
-      await mockPrisma.car.update({
-        where: { id: 'car_201' },
-        data: { operationalStatus: 'SUSPENDED', isAvailable: false },
-      });
-
-      // Immediate query exclusion
-      searchResults = await mockPrisma.car.findMany({
-        where: {
-          operationalStatus: 'ACTIVE',
-          isAvailable: true,
-          vendor: { verificationStatus: VerificationStatus.VERIFIED },
-        },
-      });
-      expect(searchResults.length).toBe(0);
+      // 3. Invalidate search cache and query search again through real CarsService -> Immediately excluded
+      await cacheService.invalidatePattern('cache:search:cars:*');
+      searchResults = await carsService.searchCars({ city: testCity }, false);
+      expect(searchResults.data.some((c: any) => c.id === testCar.id)).toBe(false);
     });
 
-    it('3. Admin Dynamic Pricing Rule Mutation: Applying surge multiplier recalculates fare', async () => {
-      const baseDailyRate = new Decimal(2000);
-      const rentalDays = 3;
+    it('3. Real Dynamic Pricing Policy: Admin sets dynamic policy in PostgreSQL and DemandAwarePricingService resolves it with auditable bounds', async () => {
+      // Create a real DynamicPricingPolicy in PostgreSQL scoped to this vendor
+      const policy = await prisma.dynamicPricingPolicy.create({
+        data: {
+          scope: PricingRuleScope.VENDOR,
+          vendorId: testVendor.id,
+          vehicleClass: CarCategory.SUV,
+          name: 'Festival Surge Policy',
+          minDailyPrice: new Decimal(2500),
+          maxDailyPrice: new Decimal(6000),
+          maxSurgeMultiplier: new Decimal(1.30),
+          minDiscountMultiplier: new Decimal(0.85),
+          utilizationThresholdHigh: 0.80,
+          isActive: true,
+        },
+      });
+      createdPolicyIds.push(policy.id);
 
-      // Base quote calculation without policy
-      let totalFare = baseDailyRate.mul(rentalDays);
-      expect(totalFare.toNumber()).toBe(6000);
-
-      // Admin applies 1.25x holiday surge policy
-      await mockPrisma.dynamicPricingPolicy.upsert({
-        where: { id: 'surge_diwali' },
-        create: { name: 'Diwali Surge', multiplier: new Decimal(1.25), active: true },
-        update: { multiplier: new Decimal(1.25), active: true },
+      // Execute DriveGo's actual DemandAwarePricingService engine
+      const evaluation = await demandAwarePricingService.evaluatePrice({
+        baseDailyRate: 3500,
+        startDate: new Date(Date.now() + 86400000 * 2), // 2 days lead time
+        endDate: new Date(Date.now() + 86400000 * 5),
+        vendorId: testVendor.id,
+        vehicleClass: CarCategory.SUV,
+        city: testCity,
       });
 
-      const activePolicy = await mockPrisma.dynamicPricingPolicy.findFirst();
-      expect(activePolicy.multiplier.toNumber()).toBe(1.25);
-
-      // Recalculated quote with active rule
-      const surgeDailyRate = baseDailyRate.mul(activePolicy.multiplier);
-      const surgedTotalFare = surgeDailyRate.mul(rentalDays);
-      expect(surgedTotalFare.toNumber()).toBe(7500); // 2000 * 1.25 * 3 = 7500
+      // Verify the pricing engine applied policy bounds from PostgreSQL
+      expect(evaluation.effectiveDailyRate).toBeGreaterThanOrEqual(2500);
+      expect(evaluation.effectiveDailyRate).toBeLessThanOrEqual(6000);
+      expect(evaluation.policyBounds.maxSurgeMultiplier).toBe(1.30);
+      expect(evaluation.policyBounds.minDailyPrice).toBe(2500);
+      expect(evaluation.policyBounds.maxDailyPrice).toBe(6000);
+      expect(typeof evaluation.explanation).toBe('string');
     });
   });
 
-  describe('GAP 4: Adversarial Failure Injection & Invariant Defense', () => {
-    it('1. Duplicate Webhook Replay: Replaying captured payment webhook is completely idempotent', async () => {
-      const processedEvents = new Set<string>();
-      const paymentStore = new Map<string, any>();
-      let ledgerPostCount = 0;
+  describe('GAP 4: Real Webhook Replay & Double-Entry Invariant Defense', () => {
+    let customerUser: any;
+    let booking: any;
+    let payment: any;
+    let orderId: string;
+    let paymentId: string;
 
-      const incomingWebhook = {
+    beforeAll(async () => {
+      orderId = `order_test_${Date.now()}`;
+      paymentId = `pay_test_${Date.now()}`;
+
+      // Create test customer with required phone
+      customerUser = await prisma.user.create({
+        data: {
+          email: `cust_webhook_${Date.now()}@example.com`,
+          phone: `+9197${Date.now().toString().slice(-8)}`,
+          name: 'Webhook Test Customer',
+          role: Role.CUSTOMER,
+        },
+      });
+      createdUserIds.push(customerUser.id);
+
+      // Create test booking with tripType and all required financial fields
+      booking = await prisma.booking.create({
+        data: {
+          customerId: customerUser.id,
+          vendorId: testVendor.id,
+          carId: testCar.id,
+          startDate: new Date(Date.now() + 86400000),
+          endDate: new Date(Date.now() + 172800000),
+          status: BookingStatus.PENDING,
+          tripType: TripType.SELF_DRIVE,
+          pickupLocation: 'Test Pickup Hub',
+          baseFare: new Decimal(3000),
+          platformFee: new Decimal(200),
+          gstAmount: new Decimal(300),
+          totalFare: new Decimal(3500),
+          netToVendor: new Decimal(3000),
+          vehicleClass: CarCategory.SUV,
+        },
+      });
+      createdBookingIds.push(booking.id);
+
+      // Create initial payment order record in PostgreSQL
+      payment = await prisma.payment.create({
+        data: {
+          bookingId: booking.id,
+          razorpayOrderId: orderId,
+          amount: new Decimal(3500),
+          currency: 'INR',
+          status: PaymentStatus.CREATED,
+        },
+      });
+      createdPaymentIds.push(payment.id);
+    });
+
+    it('1. Real Razorpay Webhook Ingestion: Processes captured payment, confirms booking, and balances ledger', async () => {
+      const webhookPayloadObj = {
         event: 'payment.captured',
-        idempotencyKey: 'evt_rzp_pay_998877_captured',
+        id: `evt_${Date.now()}`,
         payload: {
           payment: {
-            id: 'pay_998877',
-            orderId: 'order_554433',
-            amount: 500000, // ₹5,000 in paise
-            status: 'captured',
+            entity: {
+              id: paymentId,
+              order_id: orderId,
+              amount: 350000, // ₹3,500 in paise
+              currency: 'INR',
+              status: 'captured',
+            },
+          },
+        },
+      };
+      createdWebhookEventIds.push(webhookPayloadObj.id);
+
+      const rawBody = JSON.stringify(webhookPayloadObj);
+      const signature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(rawBody)
+        .digest('hex');
+
+      // Call real PaymentsService.handleWebhook
+      const result = await paymentsService.handleWebhook(rawBody, signature, {
+        'x-razorpay-signature': signature,
+        'x-razorpay-event-id': webhookPayloadObj.id,
+      });
+
+      expect(result).toHaveProperty('received', true);
+
+      // Verify PostgreSQL state
+      const updatedPayment = await prisma.payment.findUnique({ where: { id: payment.id } });
+      expect(updatedPayment?.status).toBe(PaymentStatus.PAID);
+
+      const updatedBooking = await prisma.booking.findUnique({ where: { id: booking.id } });
+      // In DriveGo (Phase 23A Owner Confirmation Gate), payment captures into PAID and booking remains PENDING awaiting owner confirmation
+      expect(updatedBooking?.status).toBe(BookingStatus.PENDING);
+
+      // Verify double-entry ledger rows were created in PostgreSQL
+      const ledgerEntries = await prisma.platformLedgerEntry.findMany({
+        where: { paymentId: payment.id },
+      });
+      expect(ledgerEntries.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('2. Real Webhook Replay: Resending identical webhook is 100% idempotent and creates zero duplicate ledger entries', async () => {
+      const webhookPayloadObj = {
+        event: 'payment.captured',
+        id: createdWebhookEventIds[0], // Exact same event ID
+        payload: {
+          payment: {
+            entity: {
+              id: paymentId,
+              order_id: orderId,
+              amount: 350000,
+              currency: 'INR',
+              status: 'captured',
+            },
           },
         },
       };
 
-      // Handler function with idempotency guard
-      async function handlePaymentWebhook(event: typeof incomingWebhook) {
-        if (processedEvents.has(event.idempotencyKey)) {
-          return { status: 'already_processed', idempotent: true };
-        }
+      const rawBody = JSON.stringify(webhookPayloadObj);
+      const signature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(rawBody)
+        .digest('hex');
 
-        // Process first time
-        processedEvents.add(event.idempotencyKey);
-        paymentStore.set(event.payload.payment.id, {
-          id: event.payload.payment.id,
-          status: PaymentStatus.PAID,
-          amount: new Decimal(event.payload.payment.amount / 100),
-        });
+      // Count ledger entries before replay
+      const ledgerCountBefore = await prisma.platformLedgerEntry.count({
+        where: { paymentId: payment.id },
+      });
 
-        // Post ledger entries (1 journal batch)
-        ledgerPostCount += 2; // 1 DEBIT, 1 CREDIT
+      // Call real PaymentsService.handleWebhook with the identical payload
+      const replayResult = await paymentsService.handleWebhook(rawBody, signature, {
+        'x-razorpay-signature': signature,
+        'x-razorpay-event-id': webhookPayloadObj.id,
+      });
 
-        return { status: 'success', idempotent: false };
-      }
+      expect(replayResult.received).toBe(true);
+      expect(replayResult.duplicate || replayResult.alreadyProcessed).toBe(true);
 
-      // First webhook delivery
-      const firstRes = await handlePaymentWebhook(incomingWebhook);
-      expect(firstRes.status).toBe('success');
-      expect(firstRes.idempotent).toBe(false);
-      expect(ledgerPostCount).toBe(2);
-
-      // Adversarial delivery: Same webhook resent 5 times consecutively (e.g. gateway network retry)
-      for (let i = 0; i < 5; i++) {
-        const replayRes = await handlePaymentWebhook(incomingWebhook);
-        expect(replayRes.status).toBe('already_processed');
-        expect(replayRes.idempotent).toBe(true);
-      }
-
-      // Invariant: Ledger entries were NOT duplicated
-      expect(ledgerPostCount).toBe(2);
-      expect(paymentStore.get('pay_998877').status).toBe(PaymentStatus.PAID);
+      // Invariant: Ledger entries in PostgreSQL were NOT duplicated
+      const ledgerCountAfter = await prisma.platformLedgerEntry.count({
+        where: { paymentId: payment.id },
+      });
+      expect(ledgerCountAfter).toBe(ledgerCountBefore);
     });
 
-    it('2. Out-of-Order Webhook Delivery: Rejects confirmation if booking was already CANCELLED', async () => {
-      const booking = {
-        id: 'book_cancelled_01',
-        status: BookingStatus.CANCELLED,
-        totalFare: new Decimal(4000),
-      };
+    it('3. Real Ledger Imbalance Rejection: Rejects journal batches where DEBITS != CREDITS and writes 0 records to PostgreSQL', async () => {
+      const journalId = `jrn_imbalance_test_${Date.now()}`;
+      createdJournalIds.push(journalId);
 
-      async function processPaymentConfirmation(bookingRecord: typeof booking) {
-        if (bookingRecord.status === BookingStatus.CANCELLED) {
-          // Failure guard: Do not confirm a cancelled booking; flag for immediate automated refund
-          return {
-            action: 'FLAG_FOR_REFUND',
-            message: 'Payment arrived after cancellation. Initiating refund.',
-            confirmed: false,
-          };
-        }
-        bookingRecord.status = BookingStatus.CONFIRMED;
-        return { action: 'CONFIRMED', confirmed: true };
-      }
+      // Call real LedgerCoreService with an intentional imbalance: ₹5,000 debit vs ₹4,500 credit
+      await expect(
+        ledgerCore.recordJournal({
+          journalId,
+          referenceType: 'BOOKING_CONFIRMATION',
+          referenceId: 'ref_fake_123',
+          lines: [
+            {
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              side: LedgerEntrySide.DEBIT,
+              amount: new Decimal(5000),
+              narration: 'Cash asset',
+            },
+            {
+              accountType: LedgerAccountType.VENDOR_PAYABLE,
+              side: LedgerEntrySide.CREDIT,
+              amount: new Decimal(4500),
+              narration: 'Vendor under-credited liability',
+            },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
 
-      const result = await processPaymentConfirmation(booking);
-      expect(result.confirmed).toBe(false);
-      expect(result.action).toBe('FLAG_FOR_REFUND');
-      expect(booking.status).toBe(BookingStatus.CANCELLED);
+      // Verify zero rows were inserted into PostgreSQL
+      const entries = await prisma.platformLedgerEntry.findMany({
+        where: { journalId },
+      });
+      expect(entries.length).toBe(0);
     });
 
-    it('3. Double-Entry Imbalance Rejection: Rejects journal batches where DEBITS != CREDITS', async () => {
-      interface JournalLine {
-        side: LedgerEntrySide;
-        amount: Decimal;
-        narration: string;
-      }
+    it('4. Real Ledger Failure Injection: Mid-transaction failure rolls back payment update and ledger line cleanly with 0 orphan records', async () => {
+      // 1. Create a isolated booking & payment for failure injection
+      const failBooking = await prisma.booking.create({
+        data: {
+          customerId: customerUser.id,
+          vendorId: testVendor.id,
+          carId: testCar.id,
+          startDate: new Date(Date.now() + 86400000 * 3),
+          endDate: new Date(Date.now() + 86400000 * 4),
+          status: BookingStatus.PENDING,
+          tripType: TripType.SELF_DRIVE,
+          pickupLocation: 'Test Pickup Hub',
+          baseFare: new Decimal(1700),
+          platformFee: new Decimal(150),
+          gstAmount: new Decimal(150),
+          totalFare: new Decimal(2000),
+          netToVendor: new Decimal(1700),
+          vehicleClass: CarCategory.SUV,
+        },
+      });
+      createdBookingIds.push(failBooking.id);
 
-      function postJournal(journalId: string, lines: JournalLine[]) {
-        let totalDebit = new Decimal(0);
-        let totalCredit = new Decimal(0);
+      const failPayment = await prisma.payment.create({
+        data: {
+          bookingId: failBooking.id,
+          razorpayOrderId: `order_fail_${Date.now()}`,
+          amount: new Decimal(2000),
+          currency: 'INR',
+          status: PaymentStatus.CREATED,
+        },
+      });
+      createdPaymentIds.push(failPayment.id);
 
-        for (const line of lines) {
-          if (line.side === LedgerEntrySide.DEBIT) {
-            totalDebit = totalDebit.add(line.amount);
-          } else if (line.side === LedgerEntrySide.CREDIT) {
-            totalCredit = totalCredit.add(line.amount);
-          }
-        }
+      const failJournalId = `jrn_fault_injection_${Date.now()}`;
+      createdJournalIds.push(failJournalId);
 
-        if (!totalDebit.equals(totalCredit)) {
-          throw new BadRequestException(
-            `Double-entry imbalance detected! Debits (₹${totalDebit}) != Credits (₹${totalCredit})`,
-          );
-        }
+      // 2. Execute a transaction where payment is marked PAID and ledger line 1 is created, but then an exception is thrown
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: failPayment.id },
+            data: { status: PaymentStatus.PAID },
+          });
 
-        return { journalId, balanced: true, total: totalDebit.toNumber() };
-      }
+          await tx.booking.update({
+            where: { id: failBooking.id },
+            data: { status: BookingStatus.CONFIRMED },
+          });
 
-      // Valid balanced entry: Customer payment
-      const balancedJournal: JournalLine[] = [
-        { side: LedgerEntrySide.DEBIT, amount: new Decimal(5000), narration: 'Cash Gateway Asset' },
-        { side: LedgerEntrySide.CREDIT, amount: new Decimal(5000), narration: 'Customer Booking Liability' },
-      ];
-      const validResult = postJournal('jrn_001', balancedJournal);
-      expect(validResult.balanced).toBe(true);
-      expect(validResult.total).toBe(5000);
+          await tx.platformLedgerEntry.create({
+            data: {
+              journalId: failJournalId,
+              accountType: LedgerAccountType.GATEWAY_CLEARING,
+              side: LedgerEntrySide.DEBIT,
+              amount: new Decimal(2000),
+              currency: 'INR',
+              bookingId: failBooking.id,
+              paymentId: failPayment.id,
+              referenceType: 'BOOKING_CONFIRMATION',
+              referenceId: failPayment.id,
+              narration: 'Partial debit before forced crash',
+            },
+          });
 
-      // Adversarial unbalanced entry: Debit ₹5000, Credit ₹4500 (₹500 leakage attempt)
-      const unbalancedJournal: JournalLine[] = [
-        { side: LedgerEntrySide.DEBIT, amount: new Decimal(5000), narration: 'Cash Gateway Asset' },
-        { side: LedgerEntrySide.CREDIT, amount: new Decimal(4500), narration: 'Under-credited Vendor Liability' },
-      ];
+          // INJECTED ADVERSARIAL FAULT: Simulated database network failure or unhandled exception
+          throw new Error('FORCED_SIMULATED_TRANSACTION_FAILURE');
+        }),
+      ).rejects.toThrow('FORCED_SIMULATED_TRANSACTION_FAILURE');
 
-      expect(() => postJournal('jrn_002', unbalancedJournal)).toThrow(BadRequestException);
-      expect(() => postJournal('jrn_002', unbalancedJournal)).toThrow(/Double-entry imbalance detected/);
+      // 3. Invariants: Database transaction rolled back completely
+      const paymentCheck = await prisma.payment.findUnique({ where: { id: failPayment.id } });
+      expect(paymentCheck?.status).toBe(PaymentStatus.CREATED); // NOT PAID
+
+      const bookingCheck = await prisma.booking.findUnique({ where: { id: failBooking.id } });
+      expect(bookingCheck?.status).toBe(BookingStatus.PENDING); // NOT CONFIRMED
+
+      const orphanEntries = await prisma.platformLedgerEntry.findMany({
+        where: { journalId: failJournalId },
+      });
+      expect(orphanEntries.length).toBe(0); // 0 orphan rows in PostgreSQL
     });
 
-    it('4. Concurrent Overlapping Vehicle Lock Mutex: Strictly rejects second simultaneous booking', async () => {
-      const activeLocks = new Set<string>();
+    it('5. Real Concurrency Mutex: Parallel acquireLock calls on same vehicle serialize with exactly 1 success and 1 ConflictException', async () => {
+      const lockKey = `car_concurrent_${Date.now()}`;
 
-      async function acquireVehicleLock(carId: string, customerId: string): Promise<boolean> {
-        const lockKey = `lock:vehicle:${carId}`;
-        if (activeLocks.has(lockKey)) {
-          throw new ConflictException(`Vehicle ${carId} is currently locked by another reservation session`);
-        }
-        activeLocks.add(lockKey);
-        return true;
-      }
+      const attempt1 = bookingLockService.acquireLock(lockKey, 5000);
+      const attempt2 = bookingLockService.acquireLock(lockKey, 5000);
 
-      // Customer 1 and Customer 2 both click "Confirm & Pay" at the exact same millisecond for Car 100
-      const carId = 'car_audi_100';
-      const customer1Attempt = acquireVehicleLock(carId, 'cust_1');
-      const customer2Attempt = acquireVehicleLock(carId, 'cust_2');
-
-      const outcomes = await Promise.allSettled([customer1Attempt, customer2Attempt]);
+      const outcomes = await Promise.allSettled([attempt1, attempt2]);
 
       const fulfilled = outcomes.filter((o) => o.status === 'fulfilled');
       const rejected = outcomes.filter((o) => o.status === 'rejected');
 
-      // Exactly ONE request succeeds; exactly ONE request is rejected with ConflictException (409)
       expect(fulfilled.length).toBe(1);
       expect(rejected.length).toBe(1);
       expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+
+      // Release the token from the winner
+      const token = (fulfilled[0] as PromiseFulfilledResult<string>).value;
+      await bookingLockService.releaseLock(lockKey, token);
     });
   });
 });

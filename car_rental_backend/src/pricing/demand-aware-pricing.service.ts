@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompetitivePricingService } from './competitive-pricing.service';
-import { CarCategory, PricingRuleScope, BookingStatus } from '@prisma/client';
+import { CarCategory, PricingRuleScope, BookingStatus, VehicleOperationalStatus } from '@prisma/client';
 
 export interface DynamicPricingEvaluationContext {
   vendorId?: string;
@@ -217,7 +217,8 @@ export class DemandAwarePricingService implements IPricingStrategyModel {
   private async calculateUtilization(ctx: DynamicPricingEvaluationContext): Promise<number> {
     const whereCars: any = {
       type: ctx.vehicleClass,
-      operationalStatus: { in: ['ACTIVE', 'AVAILABLE'] },
+      operationalStatus: VehicleOperationalStatus.ACTIVE,
+      isAvailable: true,
     };
     if (ctx.vendorId) whereCars.vendorId = ctx.vendorId;
     if (ctx.branchId) whereCars.pickupHubId = ctx.branchId;
