@@ -26,11 +26,18 @@ export class OtpService {
     const rateLimitKey = `otp:ratelimit:${phone}`;
 
     // 1. Check if the rate limit key exists in Redis (60-second cooldown per phone)
-    const isRateLimited = await this.redis.get(rateLimitKey);
-    if (isRateLimited) {
-      throw new HttpException(
-        'Please wait 60 seconds before requesting another OTP',
-        HttpStatus.TOO_MANY_REQUESTS,
+    try {
+      const isRateLimited = await this.redis.get(rateLimitKey);
+      if (isRateLimited) {
+        throw new HttpException(
+          'Please wait 60 seconds before requesting another OTP',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      this.logger.warn(
+        `Redis rate-limit check failed: ${err.message}. Failing open.`,
       );
     }
 
@@ -81,7 +88,13 @@ export class OtpService {
     }
 
     // 6. Set rate limit key in Redis with 60s TTL only after SMS dispatch was initiated
-    await this.redis.set(rateLimitKey, '1', 'EX', 60);
+    try {
+      await this.redis.set(rateLimitKey, '1', 'EX', 60);
+    } catch (err: any) {
+      this.logger.warn(
+        `Redis rate-limit set failed: ${err.message}. Failing open.`,
+      );
+    }
   }
 
   async verifyOtp(phone: string, otp: string): Promise<boolean> {
@@ -119,8 +132,11 @@ export class OtpService {
       );
     }
 
-    // 4. Compare input OTP code with stored bcrypt hash (support 123456 dev OTP in non-production)
-    const isDevBypass = process.env.NODE_ENV !== 'production' && otp === '123456';
+    // 4. Compare input OTP code with stored bcrypt hash (support 123456 dev OTP in non-production or mock SMS mode)
+    const isDevBypass =
+      (process.env.NODE_ENV !== 'production' ||
+        process.env.SMS_PROVIDER === 'mock') &&
+      otp === '123456';
     const isMatch = isDevBypass || bcrypt.compareSync(otp, latestOtp.otpHash);
 
     if (!isMatch) {
