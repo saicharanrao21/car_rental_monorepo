@@ -515,7 +515,7 @@ export class FulfillmentOrchestratorService {
         bookingId: b.id,
         customerId: b.customerId,
         customerName: b.customer?.name || 'Customer',
-        customerPhone: b.customer?.phone,
+        customerPhone: b.customer?.phone || undefined,
         vendorId: b.vendorId,
         branchId: b.pickupHubId || b.car?.pickupHubId || undefined,
         carId: b.carId,

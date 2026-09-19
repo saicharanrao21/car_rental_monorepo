@@ -116,7 +116,7 @@ export class HandoverOtpService {
 
     return {
       success: true,
-      message: `Handover ${actionText} OTP dispatched to customer ending in ${recipient.phone.slice(-4)}`,
+      message: `Handover ${actionText} OTP dispatched to customer ending in ${recipient.phone ? recipient.phone.slice(-4) : 'N/A'}`,
       expiresInSec: 900,
     };
   }

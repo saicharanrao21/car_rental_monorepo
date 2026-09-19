@@ -282,7 +282,7 @@ export class FraudService {
     return {
       userId,
       userName: user.name,
-      userPhone: user.phone,
+      userPhone: user.phone || 'N/A',
       score,
       riskLevel,
       action,
