@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../providers/profile_providers.dart';
+import '../../../../core/providers/supported_cities_provider.dart';
 import '../../domain/document_expiry_utils.dart';
 import '../providers/documents_provider.dart';
 
@@ -34,11 +35,6 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
   late TextEditingController _latCtrl;
   late TextEditingController _lngCtrl;
   String? _selectedCity;
-
-  static const _cities = [
-    'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
-    'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Surat',
-  ];
 
   static const _faqItems = [
     (
@@ -427,13 +423,51 @@ class _VendorProfilePageState extends ConsumerState<VendorProfilePage> {
                             : _InfoRow(label: 'Owner Name', value: vendor.ownerName),
                         const Divider(height: 24),
                         _editMode
-                            ? AppDropdown<String>(
-                                label: 'City',
-                                value: _selectedCity,
-                                items: _cities
-                                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                    .toList(),
-                                onChanged: (v) => setState(() => _selectedCity = v),
+                            ? ref.watch(vendorSupportedCitiesProvider).when(
+                                data: (cities) {
+                                  final activeCities = cities.where((c) => c.isActive).toList();
+                                  final cityList = activeCities.isNotEmpty
+                                      ? activeCities.map((c) => c.name.trim()).where((n) => n.isNotEmpty).toList()
+                                      : AppConstants.indianCities;
+
+                                  final currentCity = cityList.contains(_selectedCity)
+                                      ? _selectedCity
+                                      : (_selectedCity != null && cityList.any((c) => c.toLowerCase() == _selectedCity!.toLowerCase())
+                                          ? cityList.firstWhere((c) => c.toLowerCase() == _selectedCity!.toLowerCase())
+                                          : (cityList.contains(vendor.city) ? vendor.city : cityList.first));
+
+                                  if (_selectedCity != currentCity) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (mounted) setState(() => _selectedCity = currentCity);
+                                    });
+                                  }
+
+                                  return AppDropdown<String>(
+                                    label: 'City',
+                                    value: currentCity,
+                                    items: cityList
+                                        .map((c) => DropdownMenuItem(
+                                              value: c,
+                                              child: Text(
+                                                c.length > 1 ? '${c[0].toUpperCase()}${c.substring(1)}' : c,
+                                              ),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) => setState(() => _selectedCity = v),
+                                  );
+                                },
+                                loading: () => const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                                  child: Center(child: CircularProgressIndicator()),
+                                ),
+                                error: (_, __) => AppDropdown<String>(
+                                  label: 'City',
+                                  value: _selectedCity ?? vendor.city,
+                                  items: AppConstants.indianCities
+                                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                      .toList(),
+                                  onChanged: (v) => setState(() => _selectedCity = v),
+                                ),
                               )
                             : _InfoRow(label: 'City', value: vendor.city),
                         const Divider(height: 24),

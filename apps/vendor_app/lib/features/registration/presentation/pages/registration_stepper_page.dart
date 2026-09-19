@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/registration_providers.dart';
+import '../../../../core/providers/supported_cities_provider.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 
 class RegistrationStepperPage extends ConsumerStatefulWidget {
@@ -327,18 +328,65 @@ class _RegistrationStepperPageState extends ConsumerState<RegistrationStepperPag
                     (value == null || value.trim().isEmpty) ? 'Business name is required' : null,
               ),
               const Gap(16),
-              AppDropdown<String>(
-                label: 'Operating City',
-                value: draft.city,
-                items: AppConstants.indianCities
-                    .map((city) => DropdownMenuItem(value: city, child: Text(city)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    ref.read(vendorRegistrationDraftProvider.notifier).updateField(city: value);
+              ref.watch(vendorSupportedCitiesProvider).when(
+                data: (cities) {
+                  final activeCities = cities.where((c) => c.isActive).toList();
+                  final cityList = activeCities.isNotEmpty
+                      ? activeCities.map((c) => c.name.trim()).where((n) => n.isNotEmpty).toList()
+                      : AppConstants.indianCities;
+
+                  final selectedCity = cityList.contains(draft.city)
+                      ? draft.city
+                      : (draft.city.isNotEmpty && cityList.any((c) => c.toLowerCase() == draft.city.toLowerCase())
+                          ? cityList.firstWhere((c) => c.toLowerCase() == draft.city.toLowerCase())
+                          : cityList.first);
+
+                  if (draft.city != selectedCity) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        ref.read(vendorRegistrationDraftProvider.notifier).updateField(city: selectedCity);
+                      }
+                    });
                   }
+
+                  return AppDropdown<String>(
+                    label: 'Operating City',
+                    value: selectedCity,
+                    items: cityList
+                        .map((city) => DropdownMenuItem(
+                              value: city,
+                              child: Text(
+                                city.length > 1
+                                    ? '${city[0].toUpperCase()}${city.substring(1)}'
+                                    : city,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(vendorRegistrationDraftProvider.notifier).updateField(city: value);
+                      }
+                    },
+                    validator: (value) => (value == null || value.isEmpty) ? 'Please select a city' : null,
+                  );
                 },
-                validator: (value) => value == null ? 'Please select a city' : null,
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, __) => AppDropdown<String>(
+                  label: 'Operating City',
+                  value: AppConstants.indianCities.contains(draft.city) ? draft.city : AppConstants.indianCities.first,
+                  items: AppConstants.indianCities
+                      .map((city) => DropdownMenuItem(value: city, child: Text(city)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      ref.read(vendorRegistrationDraftProvider.notifier).updateField(city: value);
+                    }
+                  },
+                  validator: (value) => value == null ? 'Please select a city' : null,
+                ),
               ),
               const Gap(16),
               AppTextField(

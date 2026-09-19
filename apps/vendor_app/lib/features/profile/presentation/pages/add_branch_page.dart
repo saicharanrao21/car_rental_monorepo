@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:geolocator/geolocator.dart';
 import '../providers/branches_provider.dart';
+import '../../../../core/providers/supported_cities_provider.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 
@@ -28,12 +29,7 @@ class _AddBranchPageState extends ConsumerState<AddBranchPage> {
   late TextEditingController _lngCtrl;
   late TextEditingController _gstCtrl;
   late TextEditingController _panCtrl;
-  String? _selectedCity = 'Mumbai';
-
-  static const _cities = [
-    'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
-    'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Surat',
-  ];
+  String? _selectedCity;
 
   @override
   void initState() {
@@ -179,13 +175,51 @@ class _AddBranchPageState extends ConsumerState<AddBranchPage> {
               ),
               const Gap(16),
 
-              AppDropdown<String>(
-                label: 'City',
-                value: _selectedCity,
-                items: _cities
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedCity = v),
+              ref.watch(vendorSupportedCitiesProvider).when(
+                data: (cities) {
+                  final activeCities = cities.where((c) => c.isActive).toList();
+                  final cityList = activeCities.isNotEmpty
+                      ? activeCities.map((c) => c.name.trim()).where((n) => n.isNotEmpty).toList()
+                      : AppConstants.indianCities;
+
+                  final currentCity = cityList.contains(_selectedCity)
+                      ? _selectedCity
+                      : (_selectedCity != null && cityList.any((c) => c.toLowerCase() == _selectedCity!.toLowerCase())
+                          ? cityList.firstWhere((c) => c.toLowerCase() == _selectedCity!.toLowerCase())
+                          : cityList.first);
+
+                  if (_selectedCity != currentCity) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _selectedCity = currentCity);
+                    });
+                  }
+
+                  return AppDropdown<String>(
+                    label: 'City',
+                    value: currentCity,
+                    items: cityList
+                        .map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(
+                                c.length > 1 ? '${c[0].toUpperCase()}${c.substring(1)}' : c,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedCity = v),
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, __) => AppDropdown<String>(
+                  label: 'City',
+                  value: _selectedCity ?? AppConstants.indianCities.first,
+                  items: AppConstants.indianCities
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedCity = v),
+                ),
               ),
               const Gap(16),
 

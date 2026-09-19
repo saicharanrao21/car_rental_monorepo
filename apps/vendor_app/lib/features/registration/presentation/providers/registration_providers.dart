@@ -27,7 +27,7 @@ class VendorRegistrationDraft {
     this.phone = '',
     this.email = '',
     this.businessName = '',
-    this.city = 'Mumbai',
+    this.city = '',
     this.yearsInOperation = 0,
     this.businessType = 'Individual Owner',
     this.gstNumber = '',
