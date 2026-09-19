@@ -39,6 +39,12 @@ services:
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       EMAIL_FROM: ${EMAIL_FROM:-support@drivego.in}
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,12 +65,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
     logging:
       driver: 'json-file'
       options:
