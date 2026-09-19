@@ -92,13 +92,16 @@ export class AdminFleetController {
   async activateVehicle(
     @Param('id') id: string,
     @Req() req: any,
-    @Body() body: { reason?: string },
+    @Body() body: { reason?: string; skipEligibilityCheck?: boolean },
   ) {
     return this.lifecycleService.transitionStatus(
       id,
       VehicleOperationalStatus.ACTIVE,
       { id: req.user.userId, role: req.user.role },
-      { reason: body?.reason || 'Activated by platform administrator' },
+      {
+        reason: body?.reason || 'Activated by platform administrator',
+        skipEligibilityCheck: body?.skipEligibilityCheck,
+      },
     );
   }
 

@@ -57,3 +57,4 @@ scratch/
 *.log
 coverage/
 dist/
+tools/

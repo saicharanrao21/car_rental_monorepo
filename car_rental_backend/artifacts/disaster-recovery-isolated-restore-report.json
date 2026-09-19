@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-09-19T05:29:07.184Z",
+  "rtoMs": 1747,
+  "rpoSeconds": 0,
+  "sourceInvariants": {
+    "totalDebits": 9801.2,
+    "totalCredits": 9801.2,
+    "ledgerBalanced": true,
+    "rowCounts": {
+      "User": 8,
+      "Vendor": 2,
+      "Car": 4,
+      "Booking": 13,
+      "Payment": 13,
+      "PlatformLedgerEntry": 7
+    }
+  },
+  "restoredInvariants": {
+    "totalDebits": 9801.2,
+    "totalCredits": 9801.2,
+    "ledgerBalanced": true,
+    "rowCounts": {
+      "User": 8,
+      "Vendor": 2,
+      "Car": 4,
+      "Booking": 13,
+      "Payment": 13,
+      "PlatformLedgerEntry": 7
+    }
+  },
+  "checksums": {
+    "sourceMasterChecksum": "5422ac0ecaa8d6e3ce18928498f0f079f28be536eb9aa828b954ec109b61ac4b",
+    "restoredMasterChecksum": "5422ac0ecaa8d6e3ce18928498f0f079f28be536eb9aa828b954ec109b61ac4b",
+    "checksumsMatch": true
+  },
+  "sandboxCleanupVerified": true,
+  "verdict": "PASSED"
+}

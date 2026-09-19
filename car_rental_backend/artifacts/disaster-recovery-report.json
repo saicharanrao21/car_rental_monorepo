@@ -1,6 +1,6 @@
 {
-  "drillTimestamp": "2026-09-19T04:30:23.198Z",
-  "elapsedMs": 3178,
+  "drillTimestamp": "2026-09-19T05:29:21.969Z",
+  "elapsedMs": 2776,
   "preFlightInvariants": {
     "totalDebits": "₹9801.20",
     "totalCredits": "₹9801.20",
@@ -9,12 +9,12 @@
     "orphanCars": 0,
     "orphanPayments": 0
   },
-  "snapshotChecksum": "6cfa105ff7306a799bef418c718c25f2c1f3a1f40ba87e05cf2e64931e7c36e4",
+  "snapshotChecksum": "b416ccee15377b62db4d1d0aabb4726e94891bb4067d8c017ec2b7eac595ecf8",
   "tableSnapshots": [
     {
       "tableName": "User",
-      "rowCount": 7,
-      "dataHash": "6c09111d63cfc8edd651efc14ac0511da5753450a5b92584396fe3c498a19c8c"
+      "rowCount": 8,
+      "dataHash": "cec0dcf25f3340eb8a4a8f5010a797f492cbf384170fbc5c7945f4808ba13e07"
     },
     {
       "tableName": "Vendor",

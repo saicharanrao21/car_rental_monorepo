@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
+    "test:redis-integration": "jest --config ./test/jest-redis.json --runInBand --forceExit",
     "backfill:bank-encryption": "ts-node scripts/backfill-bank-encryption.ts",
     "dr:drill": "ts-node scripts/disaster-recovery-drill.ts"
   },
