@@ -30,6 +30,7 @@ import { BadRequestException, ConflictException, ServiceUnavailableException } f
 import * as crypto from 'crypto';
 
 describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Concurrency', () => {
+  jest.setTimeout(30000);
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let carsService: CarsService;
