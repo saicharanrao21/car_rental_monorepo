@@ -98,8 +98,24 @@ describe('ChatService and ChatController', () => {
           bookingId: 'book-1',
           status: 'ACTIVE',
         },
-        include: expect.any(Object),
+        include: expect.objectContaining({
+          customer: { select: { id: true, name: true, profilePhotoUrl: true } },
+        }),
       });
+    });
+
+    it('never includes customer phone in customer select projection', async () => {
+      prisma.chatConversation.findFirst.mockResolvedValue(null);
+      prisma.chatConversation.create.mockResolvedValue(mockConversation);
+
+      await service.getOrCreateConversation('cust-1', 'vend-1');
+      const createCall = prisma.chatConversation.create.mock.calls[0][0];
+      expect(createCall.include.customer.select).toEqual({
+        id: true,
+        name: true,
+        profilePhotoUrl: true,
+      });
+      expect(createCall.include.customer.select.phone).toBeUndefined();
     });
 
     it('throws BadRequestException if customerId is missing', async () => {

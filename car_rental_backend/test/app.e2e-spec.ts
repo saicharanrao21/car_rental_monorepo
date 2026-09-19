@@ -6,6 +6,7 @@ import { Role } from '@prisma/client';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 import { json, urlencoded } from 'express';
 import * as crypto from 'crypto';
@@ -300,6 +301,66 @@ describe('AppController & Security Guards (e2e)', () => {
       return request(app.getHttpServer())
         .get('/admin/fleet')
         .expect(401);
+    });
+  });
+
+  describe('Chat Authorization HTTP Boundary (e2e)', () => {
+    let unrelatedUserToken: string;
+    let testConversationId: string;
+    let prisma: PrismaService;
+
+    beforeAll(async () => {
+      prisma = app.get(PrismaService);
+      const configService = app.get(ConfigService);
+      const secret =
+        configService.get<string>('JWT_ACCESS_SECRET') ||
+        process.env.JWT_ACCESS_SECRET ||
+        'test_jwt_access_secret_min_32_chars_long!';
+
+      const jwtService = new JwtService({ secret });
+      unrelatedUserToken = jwtService.sign({
+        userId: 'unrelated-customer-id-999',
+        role: Role.CUSTOMER,
+      });
+
+      const owner = await prisma.user.upsert({
+        where: { phone: '+919999000001' },
+        update: {},
+        create: {
+          id: 'chat-owner-cust-1',
+          name: 'Chat Owner Customer',
+          phone: '+919999000001',
+          role: Role.CUSTOMER,
+        },
+      });
+
+      const conversation = await prisma.chatConversation.create({
+        data: {
+          customerId: owner.id,
+          status: 'ACTIVE',
+        },
+      });
+      testConversationId = conversation.id;
+    });
+
+    afterAll(async () => {
+      if (testConversationId) {
+        await prisma.chatMessage.deleteMany({ where: { conversationId: testConversationId } }).catch(() => {});
+        await prisma.chatConversation.delete({ where: { id: testConversationId } }).catch(() => {});
+      }
+    });
+
+    it('GET /chat/conversations/:id/messages rejects unauthenticated request with 401 Unauthorized', () => {
+      return request(app.getHttpServer())
+        .get(`/chat/conversations/${testConversationId}/messages`)
+        .expect(401);
+    });
+
+    it('GET /chat/conversations/:id/messages rejects unrelated third user with 403 Forbidden', () => {
+      return request(app.getHttpServer())
+        .get(`/chat/conversations/${testConversationId}/messages`)
+        .set('Authorization', `Bearer ${unrelatedUserToken}`)
+        .expect(403);
     });
   });
 });

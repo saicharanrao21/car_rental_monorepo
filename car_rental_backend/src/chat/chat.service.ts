@@ -15,7 +15,7 @@ export class ChatService {
       const existing = await this.prisma.chatConversation.findFirst({
         where: { bookingId, customerId },
         include: {
-          customer: { select: { id: true, name: true, phone: true } },
+          customer: { select: { id: true, name: true, profilePhotoUrl: true } },
           vendor: { select: { id: true, businessName: true } },
           booking: { select: { id: true, status: true } },
         },
@@ -28,7 +28,7 @@ export class ChatService {
       const existing = await this.prisma.chatConversation.findFirst({
         where: { customerId, vendorId, bookingId: bookingId || null },
         include: {
-          customer: { select: { id: true, name: true, phone: true } },
+          customer: { select: { id: true, name: true, profilePhotoUrl: true } },
           vendor: { select: { id: true, businessName: true } },
           booking: { select: { id: true, status: true } },
         },
@@ -44,7 +44,7 @@ export class ChatService {
         status: 'ACTIVE',
       },
       include: {
-        customer: { select: { id: true, name: true, phone: true } },
+        customer: { select: { id: true, name: true, profilePhotoUrl: true } },
         vendor: { select: { id: true, businessName: true } },
         booking: { select: { id: true, status: true } },
       },
@@ -69,7 +69,7 @@ export class ChatService {
       where,
       orderBy: { lastMessageAt: 'desc' },
       include: {
-        customer: { select: { id: true, name: true, phone: true } },
+        customer: { select: { id: true, name: true, profilePhotoUrl: true } },
         vendor: { select: { id: true, businessName: true } },
         booking: { select: { id: true, status: true } },
         messages: {

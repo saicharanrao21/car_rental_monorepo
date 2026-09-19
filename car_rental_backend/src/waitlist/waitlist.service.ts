@@ -40,8 +40,8 @@ export class WaitlistService {
         carId: dto.carId || null,
         city: dto.city,
         status: 'ACTIVE',
-        startDate: { lte: end },
-        endDate: { gte: start },
+        startDate: { lt: end },
+        endDate: { gt: start },
       },
     });
 

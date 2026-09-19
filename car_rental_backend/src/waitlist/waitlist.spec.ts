@@ -98,7 +98,31 @@ describe('WaitlistService and WaitlistController', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects duplicate overlapping waitlist for same vehicle', async () => {
+    it('rejects duplicate identical date range for same vehicle with ConflictException', async () => {
+      prisma.waitlistEntry.findFirst.mockResolvedValue(mockEntry);
+
+      await expect(
+        service.joinWaitlist('cust-1', {
+          carId: 'car-1',
+          city: 'Mumbai',
+          startDate: '2026-10-01T10:00:00Z',
+          endDate: '2026-10-05T10:00:00Z',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.waitlistEntry.findFirst).toHaveBeenCalledWith({
+        where: {
+          customerId: 'cust-1',
+          carId: 'car-1',
+          city: 'Mumbai',
+          status: 'ACTIVE',
+          startDate: { lt: new Date('2026-10-05T10:00:00Z') },
+          endDate: { gt: new Date('2026-10-01T10:00:00Z') },
+        },
+      });
+    });
+
+    it('rejects date range fully contained within existing range with ConflictException', async () => {
       prisma.waitlistEntry.findFirst.mockResolvedValue(mockEntry);
 
       await expect(
@@ -109,6 +133,39 @@ describe('WaitlistService and WaitlistController', () => {
           endDate: '2026-10-04T10:00:00Z',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('allows back-to-back non-overlapping date range starting exactly when another ends', async () => {
+      // Back-to-back: existing ends at 2026-10-05T10:00:00Z, new starts at 2026-10-05T10:00:00Z
+      // Since endDate query is { gt: start }, an existing entry ending at 10-05 is NOT > 10-05
+      // and therefore prisma.findFirst resolves null
+      prisma.waitlistEntry.findFirst.mockResolvedValue(null);
+      prisma.waitlistEntry.create.mockResolvedValue({
+        ...mockEntry,
+        id: 'wait-2',
+        startDate: new Date('2026-10-05T10:00:00Z'),
+        endDate: new Date('2026-10-10T10:00:00Z'),
+      });
+
+      const res = await service.joinWaitlist('cust-1', {
+        carId: 'car-1',
+        city: 'Mumbai',
+        startDate: '2026-10-05T10:00:00Z',
+        endDate: '2026-10-10T10:00:00Z',
+      });
+
+      expect(res.id).toBe('wait-2');
+      expect(prisma.waitlistEntry.findFirst).toHaveBeenCalledWith({
+        where: {
+          customerId: 'cust-1',
+          carId: 'car-1',
+          city: 'Mumbai',
+          status: 'ACTIVE',
+          startDate: { lt: new Date('2026-10-10T10:00:00Z') },
+          endDate: { gt: new Date('2026-10-05T10:00:00Z') },
+        },
+      });
+      expect(prisma.waitlistEntry.create).toHaveBeenCalled();
     });
   });
 
