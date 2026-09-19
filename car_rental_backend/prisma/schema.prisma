@@ -454,6 +454,8 @@ model User {
   financialAdjustmentsApproved FinancialAdjustment[]
   checkoutSessions CheckoutSession[]
   corporateEmployees CorporateEmployee[]
+  chatConversations ChatConversation[] @relation("CustomerConversations")
+  waitlistEntries   WaitlistEntry[]
 
   @@index([phone])
   @@index([role])
@@ -506,6 +508,7 @@ model Vendor {
   dynamicPricingPolicies DynamicPricingPolicy[]
   commissionRules        MarketplaceCommissionRule[]
   corporateAccounts      CorporateAccount[]
+  chatConversations      ChatConversation[]
 
   @@index([city])
   @@index([verificationStatus])
@@ -701,6 +704,7 @@ model Car {
   fulfillmentRecords     FulfillmentRecord[]
   substitutionsAsOriginal VehicleSubstitutionRecord[] @relation("OriginalCarSubstitutions")
   substitutionsAsReplacement VehicleSubstitutionRecord[] @relation("ReplacementCarSubstitutions")
+  waitlistEntries        WaitlistEntry[]
 
   @@index([vendorId])
   @@index([pickupHubId])
@@ -869,6 +873,7 @@ model Booking {
   corporateAccount   CorporateAccount?   @relation(fields: [corporateAccountId], references: [id], onDelete: SetNull)
   ledgerEntries      PlatformLedgerEntry[]
   corporateCreditEntries CorporateCreditLedgerEntry[]
+  chatConversations  ChatConversation[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -3165,6 +3170,68 @@ model CorporateCreditLedgerEntry {
   @@index([corporateAccountId])
   @@index([bookingId])
   @@index([userId])
+}
+
+model ChatConversation {
+  id            String        @id @default(cuid())
+  bookingId     String?
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  customerId    String
+  customer      User          @relation("CustomerConversations", fields: [customerId], references: [id], onDelete: Cascade)
+  vendorId      String?
+  vendor        Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  status        String        @default("ACTIVE") // ACTIVE, ARCHIVED, CLOSED
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  messages      ChatMessage[]
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([bookingId])
+  @@index([lastMessageAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  senderRole     String           // CUSTOMER, VENDOR, SUPPORT, SYSTEM
+  content        String
+  attachmentUrl  String?
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([isRead])
+}
+
+model WaitlistEntry {
+  id             String    @id @default(cuid())
+  customerId     String
+  customer       User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  carId          String?
+  car            Car?      @relation(fields: [carId], references: [id], onDelete: SetNull)
+  city           String
+  carCategory    String?
+  startDate      DateTime
+  endDate        DateTime
+  status         String    @default("ACTIVE") // ACTIVE, NOTIFIED, CONVERTED, EXPIRED, CANCELLED
+  notifiedAt     DateTime?
+  convertedAt    DateTime?
+  notes          String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([carId])
+  @@index([city, status])
+  @@index([startDate, endDate])
 }
 
 

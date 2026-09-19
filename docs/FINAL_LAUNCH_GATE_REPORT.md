@@ -120,6 +120,16 @@ To adhere strictly to production truth principles, no external provider is marke
 | **Maps & Geo** | Google Maps / Mapbox | Distance calculation, geofencing, location autocomplete | **SOFTWARE VERIFIED — EXTERNAL ACTIVATION REQUIRED** | Local Haversine fallback formula |
 | **Object Storage** | AWS S3 / Cloudflare R2 | Private KYC documents + public vehicle photos | **SOFTWARE VERIFIED — EXTERNAL ACTIVATION REQUIRED** | Local disk storage fallback for staging |
 | **Telematics / IoT** | Teltonika / Traccar | Engine immobilizer, GPS live tracking, odometer telemetry | **SOFTWARE VERIFIED — HARDWARE REQUIRED** | Rejects immobilization with HTTP 503 hardware gateway error |
+| **Competitive Feature** | In-App Host & Support Chat | Prisma models (`ChatConversation`, `ChatMessage`), `ChatService`, `ChatController`, `ChatConversationPage` UI | **BUILT & SOFTWARE VERIFIED** | Validates sender permissions; fail-closed RBAC |
+| **Competitive Feature** | Vehicle Waitlist & Alerts | Prisma model (`WaitlistEntry`), `WaitlistService`, `WaitlistController`, `JoinWaitlistSheet` UI | **BUILT & SOFTWARE VERIFIED** | Rejects invalid date ordering or missing city |
+| **Competitive Feature** | Social Auth (Google / Apple) | Not implemented in code; scoped in `docs/ROADMAP.md` | **NOT STARTED — SCHEDULED FOR FAST-FOLLOW** | Standard OTP authentication remains primary |
+| **Competitive Feature** | Rental Agreement & E-Sign | Not implemented in code; scoped in `docs/ROADMAP.md` | **NOT STARTED — SCHEDULED FOR FAST-FOLLOW** | Digital booking confirmation active |
+| **Competitive Feature** | Keyless / BLE Smartlock | Not implemented in code; scoped in `docs/ROADMAP.md` | **NOT STARTED — SCHEDULED FOR POST-LAUNCH** | Manual host OTP handover active |
+| **Competitive Feature** | Recurring Car Subscriptions | Not implemented in code; scoped in `docs/ROADMAP.md` | **NOT STARTED — SCHEDULED FOR POST-LAUNCH** | Fixed-duration daily rentals active |
+| **Competitive Feature** | Carbon Offset & Tracking | Not implemented in code; scoped in `docs/ROADMAP.md` | **NOT STARTED — SCHEDULED FOR POST-LAUNCH** | N/A |
+| **Enterprise Platform** | Self-Serve Data Export Center | `AdminExportService`, `AdminExportController`, `AdminDataExportCard` CSV export (Bookings, Payments, Vendors) | **BUILT & SOFTWARE VERIFIED** | Date validation + admin RBAC fail-closed |
+| **Enterprise Platform** | White-Label & Custom Domains | Not implemented in code; deferred in `docs/ROADMAP.md` | **NOT STARTED — DEFERRED** | Single-brand marketplace active |
+| **Enterprise Platform** | Gemini Autonomous AI Concierge | SDK & ping verified in `google-gemini-embed.spec.ts`; customer chatbot UI deferred | **NOT STARTED — DEFERRED** | Human support tickets & host chat active |
 
 ---
 

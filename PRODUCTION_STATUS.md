@@ -260,26 +260,19 @@ The table below documents the provisioning status, fallback behavior, and go-liv
       (Awaiting Live Commercial Credentials)
 ```
 
-> [!IMPORTANT]
-> **Production Boundary Certification**:
-> Every line of code, database migration, API route, security guard, double-entry financial ledger invariant, disaster recovery drill, and production release artifact across the DriveGo monorepo has been implemented, executed, and verified.
-> The platform is **100% turnkey ready for deployment**. The single remaining boundary is injecting live third-party commercial credentials (e.g. active Razorpay Merchant Key ID/Secret, DLT-registered MSG91 sender IDs, production Cloudflare R2 bucket keys, and Apple/Google store publishing certs).
+### 8.1 Production Readiness & Gap Classification Boundary
 
-| Area | Score | Status | Description |
-| :--- | :---: | :---: | :--- |
-| **Architecture** | **10.0 / 10** | 🟢 Complete | Clean domain boundaries, transactional outbox pattern, modular NestJS + Riverpod. |
-| **Backend** | **10.0 / 10** | 🟢 Complete | 62 controllers audited & guarded, fail-closed concurrency 503 resilience, global rate limiting. |
-| **Database** | **10.0 / 10** | 🟢 Complete | 32 migrations, zero orphan records, foreign key cascades, automated disaster recovery verified. |
-| **Financial Architecture** | **10.0 / 10** | 🟢 Complete | Double-entry general ledger, atomic transactional rollbacks, bank AES-256-GCM encryption. |
-| **Security & Hygiene** | **10.0 / 10** | 🟢 Complete | 0 leaked credentials across 894 source files, 0 mock_data in prod, fail-fast env gating. |
-| **Customer App** | **10.0 / 10** | 🟢 Complete | Flutter 3.x, 0 analyze issues, 194 tests, zero mock_data bundled in production. |
-| **Vendor App** | **10.0 / 10** | 🟢 Complete | Flutter 3.x, 0 analyze issues, 268 tests, complete fleet lifecycle & operational workflows. |
-| **Admin Control Tower** | **10.0 / 10** | 🟢 Complete | Flutter Web Release verified (`flutter build web --release`), 0 character wrapping, 62 tests. |
-| **Payments** | **10.0 / 10** | 🟢 Complete | Express `rawBody` HMAC verification, idempotent replay defense, fail-closed fallback. |
-| **Integrations** | **10.0 / 10** | 🟢 Complete | Turnkey adapters for Payments, SMS, WhatsApp, S3/R2, and GPS tracking with fail-closed security. |
-| **Testing** | **10.0 / 10** | 🟢 Complete | 2,194 automated tests passing (100%), real PostgreSQL mutations, HTTP E2E & failure injection. |
-| **DevOps & DR** | **10.0 / 10** | 🟢 Complete | Decoupled migration container, live automated DR drill executed with zero financial deviation. |
-| **OVERALL** | **100%** | 🟢 100% Ready | **100% Code & Operational Readiness — Awaiting Live Commercial Credentials Only.** |
+> [!IMPORTANT]
+> **Production Boundary Classification**:
+> In accordance with production truth principles, no overall percentage or unverified "100% Ready" claims are maintained. 
+> Every external integration is categorized as **"SOFTWARE VERIFIED — EXTERNAL ACTIVATION REQUIRED"** until live commercial production credentials are provisioned.
+> Furthermore, all competitive and enterprise capabilities are rigorously tracked as built, scheduled, or deferred.
+> 
+> For the authoritative classification table of all integration providers, competitive features, and enterprise capabilities, see:
+> **[docs/FINAL_LAUNCH_GATE_REPORT.md](docs/FINAL_LAUNCH_GATE_REPORT.md#6-provider-truth--integration-classification-matrix)**
+> 
+> For the explicit technical scoping, effort estimates, and scheduled tracking of upcoming features (Social Auth, Rental Agreement / E-Sign, Keyless / BLE, Recurring Subscriptions, Carbon Tracking) and deferred capabilities (White-labeling, Gemini Autonomous Concierge), see:
+> **[docs/ROADMAP.md](docs/ROADMAP.md)**
 
 ---
 
@@ -309,14 +302,14 @@ The table below documents the provisioning status, fallback behavior, and go-liv
    - Verified Admin Fleet endpoints enforce authentication and RBAC (401/403).
    - 18/18 tests passing cleanly. Total E2E: 28/28 tests passing across 2 suites.
 
-5. **Mathematically Reconciled Test Inventory (2,217 Tests Passed, 0 Failures)**:
-   - Backend Unit & Domain Specs (`car_rental_backend/src`): **1,653 passed** (133 suites)
+5. **Mathematically Reconciled Test Inventory (2,258 Tests Passed, 0 Failures)**:
+   - Backend Unit & Domain Specs (`car_rental_backend/src`): **1,689 passed** (136 suites)
    - Backend Redis Real Integration (`test/redis-real-integration.spec.ts`): **12 passed** (1 suite)
    - Backend Real HTTP E2E (`test/app.e2e-spec.ts` + `test/admin-http-mutations.e2e-spec.ts`): **28 passed** (2 suites)
-   - Flutter Customer App (`apps/customer_app`): **194 passed**
-   - Flutter Admin Panel (`apps/admin_panel`): **62 passed**
+   - Flutter Customer App (`apps/customer_app`): **197 passed**
+   - Flutter Admin Panel (`apps/admin_panel`): **64 passed**
    - Flutter Vendor App (`apps/vendor_app`): **268 passed**
-   - **Total Verified Tests: 2,217 passed (0 failed, 0 skipped)**
+   - **Total Verified Tests: 2,258 passed (0 failed, 0 skipped)** across the complete monorepo platform.
 
 6. **Production Release Build & Static Analysis**:
    - `flutter analyze` across `apps/customer_app`, `apps/admin_panel`, and `apps/vendor_app`: **0 issues found (No issues found!)**.

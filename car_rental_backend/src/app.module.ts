@@ -47,6 +47,8 @@ import { OperationsModule } from './operations/operations.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { FulfillmentModule } from './fulfillment/fulfillment.module';
 import { CorporateModule } from './corporate/corporate.module';
+import { ChatModule } from './chat/chat.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimiterGuard } from './common/guards/rate-limiter.guard';
@@ -106,6 +108,8 @@ import { validateEnv } from './common/env.validation';
     MarketplaceModule,
     FulfillmentModule,
     CorporateModule,
+    ChatModule,
+    WaitlistModule,
   ],
   controllers: [AppController],
   providers: [

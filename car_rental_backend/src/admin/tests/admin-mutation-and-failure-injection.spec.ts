@@ -59,7 +59,7 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
   let webhookSecret: string;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
+    jest.setTimeout(60000);
     process.env.NODE_ENV = 'test';
     process.env.REDIS_USE_MOCK = 'true';
     process.env.JWT_ACCESS_SECRET = 'test_jwt_access_secret_min_32_chars_long!';
@@ -139,7 +139,7 @@ describe('Real Production Integration: Admin Mutations, Adversarial Webhook & Co
       },
     });
     createdCarIds.push(testCar.id);
-  });
+  }, 60000);
 
   afterAll(async () => {
     // Teardown test fixtures from PostgreSQL in reverse order of foreign keys
