@@ -1,0 +1,6 @@
+name: car_rental_monorepo
+description: Workspace root for DriveGo car rental platform
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
