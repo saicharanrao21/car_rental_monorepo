@@ -93,6 +93,13 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
       const connection = new Redis(this.redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
+        retryStrategy: (times) => Math.min(times * 1000, 30000),
+      });
+
+      connection.on('error', (err: Error) => {
+        this.logger.warn(
+          `[REDIS_CONNECTION_ERROR] Queue: ${queueName} | Error: ${err.message}`,
+        );
       });
 
       const queue = new Queue(queueName, {
@@ -139,6 +146,13 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
       const connection = new Redis(this.redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
+        retryStrategy: (times) => Math.min(times * 1000, 30000),
+      });
+
+      connection.on('error', (err: Error) => {
+        this.logger.warn(
+          `[REDIS_WORKER_CONNECTION_ERROR] Queue: ${queueName} | Error: ${err.message}`,
+        );
       });
 
       const worker = new Worker(queueName, processor, {
@@ -159,10 +173,28 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
         );
       });
 
+      let rateLimitBackoffActive = false;
       worker.on('error', (err: Error) => {
         this.logger.warn(
           `[WORKER_ERROR] Queue: ${queueName} | Error: ${err.message}`,
         );
+
+        if (
+          err.message?.includes('max requests limit exceeded') ||
+          err.message?.includes('READONLY')
+        ) {
+          if (!rateLimitBackoffActive) {
+            rateLimitBackoffActive = true;
+            this.logger.warn(
+              `[WORKER_RATE_LIMIT_BACKOFF] Pausing worker for [${queueName}] for 60s due to Redis request limits.`,
+            );
+            worker.pause(true).catch(() => {});
+            setTimeout(() => {
+              rateLimitBackoffActive = false;
+              worker.resume().catch(() => {});
+            }, 60000);
+          }
+        }
       });
 
       this.workers.set(queueName, worker);
