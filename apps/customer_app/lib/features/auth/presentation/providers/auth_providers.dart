@@ -67,6 +67,42 @@ class AuthController extends AutoDisposeAsyncNotifier<void> {
       state = const AsyncData(null);
     }
   }
+
+  Future<UserModel?> signInWithGoogle(String idToken) async {
+    state = const AsyncLoading();
+    UserModel? user;
+    final res = await AsyncValue.guard(() async {
+      user = await ref.read(authRepositoryProvider).signInWithGoogle(idToken);
+      ref.read(sessionProvider.notifier).authenticate(user!);
+      return user;
+    });
+
+    if (res.hasError) {
+      state = AsyncError(res.error!, res.stackTrace!);
+      throw res.error!;
+    } else {
+      state = const AsyncData(null);
+    }
+    return user;
+  }
+
+  Future<UserModel?> signInWithApple(String identityToken, {String? fullName}) async {
+    state = const AsyncLoading();
+    UserModel? user;
+    final res = await AsyncValue.guard(() async {
+      user = await ref.read(authRepositoryProvider).signInWithApple(identityToken, fullName: fullName);
+      ref.read(sessionProvider.notifier).authenticate(user!);
+      return user;
+    });
+
+    if (res.hasError) {
+      state = AsyncError(res.error!, res.stackTrace!);
+      throw res.error!;
+    } else {
+      state = const AsyncData(null);
+    }
+    return user;
+  }
 }
 
 final authControllerProvider = AutoDisposeAsyncNotifierProvider<AuthController, void>(AuthController.new);

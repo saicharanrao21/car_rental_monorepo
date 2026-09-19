@@ -81,4 +81,59 @@ class ApiAuthRepository implements AuthRepository {
 
     return UserModel.fromJson(userJson);
   }
+
+  @override
+  Future<UserModel> signInWithGoogle(String idToken) async {
+    final response = await apiClient.dio.post(
+      '/auth/social/google',
+      data: {'idToken': idToken},
+    );
+
+    final data = response.data;
+    final accessToken = data['accessToken'] as String?;
+    final refreshToken = data['refreshToken'] as String?;
+
+    if (accessToken != null) {
+      await apiClient.tokenStorage.setAccessToken(accessToken);
+    }
+    if (refreshToken != null) {
+      await apiClient.tokenStorage.setRefreshToken(refreshToken);
+    }
+
+    final userJson = Map<String, dynamic>.from(data['user']);
+    if (userJson['profilePhotoUrl'] != null && userJson['profilePhoto'] == null) {
+      userJson['profilePhoto'] = userJson['profilePhotoUrl'];
+    }
+
+    return UserModel.fromJson(userJson);
+  }
+
+  @override
+  Future<UserModel> signInWithApple(String identityToken, {String? fullName}) async {
+    final response = await apiClient.dio.post(
+      '/auth/social/apple',
+      data: {
+        'identityToken': identityToken,
+        if (fullName != null) 'fullName': fullName,
+      },
+    );
+
+    final data = response.data;
+    final accessToken = data['accessToken'] as String?;
+    final refreshToken = data['refreshToken'] as String?;
+
+    if (accessToken != null) {
+      await apiClient.tokenStorage.setAccessToken(accessToken);
+    }
+    if (refreshToken != null) {
+      await apiClient.tokenStorage.setRefreshToken(refreshToken);
+    }
+
+    final userJson = Map<String, dynamic>.from(data['user']);
+    if (userJson['profilePhotoUrl'] != null && userJson['profilePhoto'] == null) {
+      userJson['profilePhoto'] = userJson['profilePhotoUrl'];
+    }
+
+    return UserModel.fromJson(userJson);
+  }
 }

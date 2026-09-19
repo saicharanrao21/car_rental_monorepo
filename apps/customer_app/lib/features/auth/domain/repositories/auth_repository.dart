@@ -8,4 +8,6 @@ abstract class AuthRepository {
     required String name,
     String? email,
   });
+  Future<UserModel> signInWithGoogle(String idToken);
+  Future<UserModel> signInWithApple(String identityToken, {String? fullName});
 }
