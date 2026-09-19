@@ -4,6 +4,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SocialAuthController } from './social-auth.controller';
+import { SocialAuthService } from './social-auth.service';
 import { OtpService } from './otp.service';
 import {
   SmsProviderService,
@@ -21,9 +23,10 @@ import { CommonModule } from '../common/common.module';
     JwtModule.register({}),
     CommonModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, SocialAuthController],
   providers: [
     AuthService,
+    SocialAuthService,
     OtpService,
     {
       provide: SmsProviderService,
@@ -48,6 +51,7 @@ import { CommonModule } from '../common/common.module';
   ],
   exports: [
     AuthService,
+    SocialAuthService,
     OtpService,
     SmsProviderService,
     JwtStrategy,

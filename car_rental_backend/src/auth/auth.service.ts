@@ -368,7 +368,7 @@ export class AuthService {
 
   // --- Helper Methods ---
 
-  private async issueTokens(userId: string, role: Role) {
+  async issueTokens(userId: string, role: Role) {
     // 1. Create RefreshToken record in DB first to obtain UUID/CUID
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const tokenRecord = await this.prisma.refreshToken.create({
