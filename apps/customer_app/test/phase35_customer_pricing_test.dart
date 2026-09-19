@@ -146,6 +146,9 @@ class MockPricingBookingRepository implements BookingRepository {
       );
 
   @override
+  Future<List<Map<String, dynamic>>> getAvailableCoupons({String? city}) async => [];
+
+  @override
   Future<Map<String, dynamic>> calculateLocationQuote({
     required String vendorId,
     String? pickupLocationId,

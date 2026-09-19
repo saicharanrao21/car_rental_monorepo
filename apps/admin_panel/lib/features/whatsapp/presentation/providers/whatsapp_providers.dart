@@ -30,3 +30,8 @@ final whatsAppMessagesProvider = FutureProvider<List<WhatsAppMessageModel>>((ref
     search: search,
   );
 });
+
+final whatsAppTemplatesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final repo = ref.watch(whatsAppRepositoryProvider);
+  return repo.getTemplates();
+});

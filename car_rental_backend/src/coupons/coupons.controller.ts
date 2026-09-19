@@ -74,4 +74,43 @@ export class CouponsController {
   async deleteCoupon(@Req() req: any, @Param('id') id: string) {
     return this.couponsService.deleteCoupon(id, req.user.userId);
   }
+
+  // 7. ADMIN: Get coupon redemption history
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/coupons/:id/usages')
+  async getCouponUsages(
+    @Param('id') id: string,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number,
+  ) {
+    return this.couponsService.getCouponUsages(id, {
+      skip: skip ? Number(skip) : 0,
+      take: take ? Number(take) : 50,
+    });
+  }
+
+  // 8. ADMIN: Toggle coupon status (active/inactive)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('admin/coupons/:id/toggle-status')
+  async toggleCouponStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.couponsService.toggleCouponStatus(
+      id,
+      Boolean(isActive),
+      req.user.userId,
+    );
+  }
+
+  // 9. ADMIN: Archive coupon
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('admin/coupons/:id/archive')
+  async archiveCoupon(@Req() req: any, @Param('id') id: string) {
+    return this.couponsService.archiveCoupon(id, req.user.userId);
+  }
 }

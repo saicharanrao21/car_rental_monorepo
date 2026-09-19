@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Body,
 } from '@nestjs/common';
 import { WhatsAppService } from './whatsapp.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -49,5 +50,31 @@ export class AdminWhatsAppController {
   async resendMessage(@Param('id') id: string, @Request() req: any) {
     const adminUserId = req.user?.userId || req.user?.id || 'admin';
     return this.whatsappService.resendMessage(id, adminUserId);
+  }
+
+  @Get('templates')
+  async getTemplates() {
+    return this.whatsappService.getRegisteredTemplates();
+  }
+
+  @Post('send')
+  async sendMessage(
+    @Request() req: any,
+    @Body()
+    body: {
+      phoneNumber: string;
+      templateName: string;
+      variables?: Record<string, any>;
+      userId?: string;
+      bookingId?: string;
+    },
+  ) {
+    const adminUserId = req.user?.userId || req.user?.id || 'admin';
+    return this.whatsappService.sendManualMessage(body, adminUserId);
+  }
+
+  @Get('messages/:id/timeline')
+  async getMessageTimeline(@Param('id') id: string) {
+    return this.whatsappService.getMessageTimeline(id);
   }
 }

@@ -10,4 +10,13 @@ abstract class WhatsAppRepository {
     int? take,
   });
   Future<WhatsAppMessageModel> resendMessage(String id);
+  Future<List<Map<String, dynamic>>> getTemplates();
+  Future<WhatsAppMessageModel> sendManualMessage({
+    required String phoneNumber,
+    required String templateName,
+    Map<String, dynamic>? variables,
+    String? bookingId,
+    String? userId,
+  });
+  Future<Map<String, dynamic>> getMessageTimeline(String id);
 }

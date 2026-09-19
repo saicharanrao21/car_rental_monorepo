@@ -543,4 +543,197 @@ export class WhatsAppService {
 
     return updated;
   }
+
+  // --- Admin Template Registry & Manual Composition ---
+
+  getRegisteredTemplates() {
+    return [
+      {
+        name: 'booking_confirmed',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Sent to customer immediately after booking and deposit escrow are confirmed.',
+        requiredVariables: ['customerName', 'bookingId', 'carName', 'pickupDate', 'pickupLocation', 'totalFare'],
+        bodySample: 'Hello {{1}}, your booking {{2}} for {{3}} on {{4}} at {{5}} is confirmed! Total: {{6}}.',
+      },
+      {
+        name: 'booking_cancelled',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Sent to customer when a booking is cancelled.',
+        requiredVariables: ['customerName', 'bookingId', 'cancellationReason', 'refundAmount'],
+        bodySample: 'Hello {{1}}, your booking {{2}} was cancelled (Reason: {{3}}). Refund amount: {{4}}.',
+      },
+      {
+        name: 'payment_successful',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Payment receipt confirmation with transaction ID.',
+        requiredVariables: ['customerName', 'bookingId', 'amount', 'paymentId'],
+        bodySample: 'Hello {{1}}, payment of {{3}} for booking {{2}} was successful (Txn ID: {{4}}).',
+      },
+      {
+        name: 'refund_processed',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Notification of processed refund to customer original payment method.',
+        requiredVariables: ['customerName', 'bookingId', 'refundAmount', 'refundId'],
+        bodySample: 'Hello {{1}}, refund of {{3}} for booking {{2}} has been processed (Refund ID: {{4}}).',
+      },
+      {
+        name: 'handover_ready',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Sent when vehicle is cleaned, inspected, and ready for pickup at hub.',
+        requiredVariables: ['customerName', 'bookingId', 'carName', 'pickupLocation'],
+        bodySample: 'Hello {{1}}, your vehicle {{3}} is ready for pickup at {{4}} for booking {{2}}.',
+      },
+      {
+        name: 'trip_reminder',
+        category: 'MARKETING',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Upcoming trip departure reminder 24h prior to pickup.',
+        requiredVariables: ['customerName', 'bookingId', 'startDate', 'pickupLocation'],
+        bodySample: 'Reminder: Hello {{1}}, your trip for booking {{2}} starts on {{3}} at {{4}}.',
+      },
+      {
+        name: 'emergency_alert',
+        category: 'AUTHENTICATION',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'SOS Roadside assistance and incident notification to operations.',
+        requiredVariables: ['customerName', 'incidentType', 'locationAddress', 'requestNumber'],
+        bodySample: 'EMERGENCY: Incident {{2}} reported by {{1}} at {{3}} (Ref: {{4}}).',
+      },
+      {
+        name: 'vendor_booking_alert',
+        category: 'UTILITY',
+        status: 'APPROVED',
+        language: 'en_US',
+        description: 'Operational alert to vendor when a new reservation is booked.',
+        requiredVariables: ['customerName', 'bookingId', 'carName', 'pickupDate', 'pickupLocation', 'totalFare'],
+        bodySample: 'Vendor Alert: New booking {{2}} for {{3}} starting on {{4}} at {{5}}.',
+      },
+    ];
+  }
+
+  async sendManualMessage(
+    payload: {
+      phoneNumber: string;
+      templateName: string;
+      variables?: Record<string, any>;
+      userId?: string;
+      bookingId?: string;
+    },
+    adminUserId: string,
+  ): Promise<WhatsAppMessage> {
+    const { phoneNumber, templateName, variables = {}, userId, bookingId } = payload;
+    if (!phoneNumber || !templateName) {
+      throw new BadRequestException('Recipient phoneNumber and templateName are required.');
+    }
+
+    const templates = this.getRegisteredTemplates();
+    const tpl = templates.find((t) => t.name === templateName);
+    if (!tpl) {
+      throw new BadRequestException(`Template '${templateName}' is not registered or supported.`);
+    }
+
+    const idempotencyKey = `manual_admin_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const typeMapping: Record<string, WhatsAppMessageType> = {
+      booking_confirmed: WhatsAppMessageType.BOOKING_CONFIRMED,
+      booking_cancelled: WhatsAppMessageType.BOOKING_CANCELLED,
+      payment_successful: WhatsAppMessageType.PAYMENT_SUCCESSFUL,
+      payment_failed: WhatsAppMessageType.PAYMENT_FAILED,
+      refund_processed: WhatsAppMessageType.REFUND_PROCESSED,
+      handover_ready: WhatsAppMessageType.HANDOVER_READY,
+      trip_reminder: WhatsAppMessageType.TRIP_REMINDER,
+      emergency_alert: WhatsAppMessageType.EMERGENCY_ALERT,
+      vendor_booking_alert: WhatsAppMessageType.BOOKING_CONFIRMED,
+    };
+    const messageType = typeMapping[templateName] || WhatsAppMessageType.MARKETING_PROMO;
+
+    const message = await this.sendTemplateMessage({
+      phoneNumber,
+      templateName,
+      variables,
+      userId,
+      bookingId,
+      idempotencyKey,
+      messageType,
+    });
+
+    await this.auditLogService.log(
+      adminUserId,
+      'WHATSAPP_MANUAL_DISPATCH',
+      'WhatsAppMessage',
+      message.id,
+      {
+        recipient: phoneNumber,
+        templateName,
+        variables,
+        userId,
+        bookingId,
+        status: message.status,
+      },
+    );
+
+    return message;
+  }
+
+  async getMessageTimeline(id: string) {
+    const msg = await this.prisma.whatsAppMessage.findUnique({
+      where: { id },
+    });
+    if (!msg) {
+      throw new NotFoundException(`WhatsApp message ${id} not found.`);
+    }
+
+    const timeline: Array<{ event: string; timestamp: Date; details?: string }> = [
+      { event: 'QUEUED', timestamp: msg.createdAt, details: 'Message enqueued in platform outbox' },
+    ];
+
+    if (msg.sentAt) {
+      timeline.push({
+        event: 'SENT',
+        timestamp: msg.sentAt,
+        details: `Dispatched to Meta Cloud API (Provider ID: ${msg.providerMessageId || 'N/A'})`,
+      });
+    }
+
+    if (msg.deliveredAt) {
+      timeline.push({
+        event: 'DELIVERED',
+        timestamp: msg.deliveredAt,
+        details: 'Delivered to recipient handset (confirmed via webhook)',
+      });
+    }
+
+    if (msg.readAt) {
+      timeline.push({
+        event: 'READ',
+        timestamp: msg.readAt,
+        details: 'Read receipt confirmed by recipient',
+      });
+    }
+
+    if (msg.failedAt) {
+      timeline.push({
+        event: 'FAILED',
+        timestamp: msg.failedAt,
+        details: `${msg.failureCode || 'ERROR'}: ${msg.failureReason || 'Delivery failed'}`,
+      });
+    }
+
+    return {
+      message: msg,
+      timeline,
+    };
+  }
 }

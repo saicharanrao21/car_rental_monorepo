@@ -248,6 +248,18 @@ class E2EBookingRepo implements BookingRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getAvailableCoupons({String? city}) async => [
+    {
+      'id': 'coup_500',
+      'code': 'DRIVEGO500',
+      'description': 'Flat ₹500 off on first ride',
+      'discountType': 'FLAT',
+      'discountValue': 500,
+      'minBookingAmount': 1000,
+    }
+  ];
+
+  @override
   Future<Map<String, dynamic>> calculateLocationQuote({
     required String vendorId,
     String? pickupLocationId,

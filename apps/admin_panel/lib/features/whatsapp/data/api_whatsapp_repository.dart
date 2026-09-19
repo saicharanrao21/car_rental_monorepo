@@ -44,4 +44,38 @@ class ApiWhatsAppRepository implements WhatsAppRepository {
     final response = await _apiClient.dio.post('/admin/whatsapp/resend/$id');
     return WhatsAppMessageModel.fromJson(response.data);
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTemplates() async {
+    final response = await _apiClient.dio.get('/admin/whatsapp/templates');
+    final raw = response.data as List<dynamic>? ?? [];
+    return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  @override
+  Future<WhatsAppMessageModel> sendManualMessage({
+    required String phoneNumber,
+    required String templateName,
+    Map<String, dynamic>? variables,
+    String? bookingId,
+    String? userId,
+  }) async {
+    final response = await _apiClient.dio.post(
+      '/admin/whatsapp/send',
+      data: {
+        'phoneNumber': phoneNumber,
+        'templateName': templateName,
+        'variables': variables ?? {},
+        if (bookingId != null && bookingId.isNotEmpty) 'bookingId': bookingId,
+        if (userId != null && userId.isNotEmpty) 'userId': userId,
+      },
+    );
+    return WhatsAppMessageModel.fromJson(response.data);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getMessageTimeline(String id) async {
+    final response = await _apiClient.dio.get('/admin/whatsapp/messages/$id/timeline');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }

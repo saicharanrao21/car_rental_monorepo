@@ -3,40 +3,58 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:models/models.dart';
 import 'package:gap/gap.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../../../../core/widgets/admin_data_grid.dart';
 import '../providers/admin_coupons_providers.dart';
 
-class AdminCouponsPage extends ConsumerWidget {
+class AdminCouponsPage extends ConsumerStatefulWidget {
   const AdminCouponsPage({super.key});
+
+  @override
+  ConsumerState<AdminCouponsPage> createState() => _AdminCouponsPageState();
+}
+
+class _AdminCouponsPageState extends ConsumerState<AdminCouponsPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _statusFilter = 'ALL'; // ALL, ACTIVE, INACTIVE
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showCouponForm(BuildContext context, WidgetRef ref, [CouponModel? coupon]) {
     AdminDetailDrawer.show(
       context: context,
       title: coupon == null ? 'Create Coupon' : 'Edit Coupon',
       subtitle: coupon != null ? 'Code: ${coupon.code}' : 'Configure promotional discount codes',
-      width: 480,
       child: _CouponFormModal(
         couponToEdit: coupon,
-        onSave: (Map<String, dynamic> data) async {
-          final messenger = ScaffoldMessenger.of(context);
+        onSave: (data) async {
           try {
             if (coupon == null) {
               await ref.read(adminCouponsProvider.notifier).createCoupon(data);
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Coupon created successfully!'), backgroundColor: Colors.green),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Coupon created successfully!'), backgroundColor: Colors.green),
+                );
+              }
             } else {
               await ref.read(adminCouponsProvider.notifier).updateCoupon(coupon.id, data);
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Coupon updated successfully!'), backgroundColor: Colors.green),
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Coupon updated successfully!'), backgroundColor: Colors.green),
+                );
+              }
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to save coupon: $e'), backgroundColor: Colors.red),
               );
             }
-            if (context.mounted) Navigator.of(context).pop();
-          } catch (e) {
-            messenger.showSnackBar(
-              SnackBar(content: Text('Failed to save coupon: $e'), backgroundColor: Colors.red),
-            );
           }
         },
       ),
@@ -46,41 +64,190 @@ class AdminCouponsPage extends ConsumerWidget {
   void _confirmDeleteCoupon(BuildContext context, WidgetRef ref, CouponModel coupon) {
     showDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Delete Coupon'),
-          content: Text('Are you sure you want to delete promo code "${coupon.code}"? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(adminCouponsProvider.notifier).deleteCoupon(coupon.id);
-                  messenger.showSnackBar(
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Coupon'),
+        content: Text('Are you sure you want to delete promo code "${coupon.code}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(adminCouponsProvider.notifier).deleteCoupon(coupon.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Coupon deleted successfully!'), backgroundColor: Colors.green),
                   );
-                } catch (e) {
-                  messenger.showSnackBar(
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to delete coupon: $e'), backgroundColor: Colors.red),
                   );
                 }
-              },
-              child: const Text('Delete'),
-            ),
-          ],
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleCouponStatus(BuildContext context, WidgetRef ref, CouponModel coupon) async {
+    try {
+      final newStatus = !coupon.isActive;
+      await ref.read(adminCouponsProvider.notifier).toggleStatus(coupon.id, newStatus);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Coupon ${coupon.code} is now ${newStatus ? "Active" : "Inactive"}'),
+            backgroundColor: newStatus ? Colors.green : Colors.orange,
+          ),
         );
-      },
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to toggle status: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showCouponUsagesDialog(BuildContext context, WidgetRef ref, CouponModel coupon) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.history, color: Color(0xFF2563EB), size: 24),
+                        ),
+                        const Gap(12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Redemption History: ${coupon.code}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Total Usages: ${coupon.usageCount} redemptions',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(height: 32),
+                Expanded(
+                  child: FutureBuilder<Map<String, dynamic>>(
+                    future: ref.read(adminCouponsProvider.notifier).fetchCouponUsages(coupon.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: AppLoader());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error loading redemptions: ${snapshot.error}'));
+                      }
+                      final data = snapshot.data ?? {};
+                      final usages = (data['usages'] as List<dynamic>?) ?? [];
+
+                      if (usages.isEmpty) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey),
+                              Gap(12),
+                              Text('No redemptions yet for this coupon code.', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+
+                      return ListView.separated(
+                        itemCount: usages.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, idx) {
+                          final u = usages[idx] as Map<String, dynamic>;
+                          final usedAt = u['usedAt'] != null
+                              ? dateFormat.format(DateTime.parse(u['usedAt'].toString()))
+                              : 'N/A';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.green.withValues(alpha: 0.1),
+                              child: const Icon(Icons.check, color: Colors.green, size: 18),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  u['customerName']?.toString() ?? 'Customer',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                const Gap(8),
+                                if (u['customerPhone'] != null)
+                                  Text(
+                                    '(${u['customerPhone']})',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              'Booking: ${u['bookingId']} • Car: ${u['carName']} • $usedAt',
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                            trailing: Text(
+                              '-₹${u['discountAmount']}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A), fontSize: 14),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final couponsAsync = ref.watch(adminCouponsProvider);
 
     return Scaffold(
@@ -113,7 +280,62 @@ class AdminCouponsPage extends ConsumerWidget {
                 ),
               ],
             ),
-            const Gap(24),
+            const Gap(16),
+
+            // Search & Filter Bar
+            AppCard(
+              margin: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Search by promo code or description...',
+                        prefixIcon: Icon(Icons.search, size: 20),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (val) => setState(() {}),
+                    ),
+                  ),
+                  const Gap(16),
+                  Row(
+                    children: [
+                      const Text('Status:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Gap(8),
+                      ChoiceChip(
+                        label: const Text('All'),
+                        selected: _statusFilter == 'ALL',
+                        onSelected: (val) {
+                          if (val) setState(() => _statusFilter = 'ALL');
+                        },
+                      ),
+                      const Gap(6),
+                      ChoiceChip(
+                        label: const Text('Active'),
+                        selected: _statusFilter == 'ACTIVE',
+                        onSelected: (val) {
+                          if (val) setState(() => _statusFilter = 'ACTIVE');
+                        },
+                      ),
+                      const Gap(6),
+                      ChoiceChip(
+                        label: const Text('Inactive'),
+                        selected: _statusFilter == 'INACTIVE',
+                        onSelected: (val) {
+                          if (val) setState(() => _statusFilter = 'INACTIVE');
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Gap(16),
+
             Expanded(
               child: couponsAsync.when(
                 loading: () => const AdminTableSkeleton(),
@@ -122,10 +344,22 @@ class AdminCouponsPage extends ConsumerWidget {
                   onRetry: () => ref.invalidate(adminCouponsProvider),
                 ),
                 data: (coupons) {
+                  final query = _searchController.text.trim().toLowerCase();
+                  final filteredCoupons = coupons.where((c) {
+                    if (_statusFilter == 'ACTIVE' && !c.isActive) return false;
+                    if (_statusFilter == 'INACTIVE' && c.isActive) return false;
+                    if (query.isNotEmpty) {
+                      final matchesCode = c.code.toLowerCase().contains(query);
+                      final matchesDesc = c.description?.toLowerCase().contains(query) ?? false;
+                      if (!matchesCode && !matchesDesc) return false;
+                    }
+                    return true;
+                  }).toList();
+
                   return AdminDataGrid<CouponModel>(
-                    items: coupons,
-                    emptyTitle: 'No Coupons Configured',
-                    emptyMessage: 'Click "Create Coupon" to add your first promotional discount code.',
+                    items: filteredCoupons,
+                    emptyTitle: 'No Coupons Found',
+                    emptyMessage: 'No coupons matched your current search or filter criteria.',
                     emptyIcon: Icons.local_offer_outlined,
                     onRowTap: (c) => _showCouponForm(context, ref, c),
                     columns: [
@@ -163,11 +397,24 @@ class AdminCouponsPage extends ConsumerWidget {
                       AdminDataColumn(
                         title: 'USAGE COUNT',
                         numeric: true,
-                        builder: (c) => Text('${c.usageCount} used', style: const TextStyle(fontSize: 12.5)),
+                        builder: (c) => InkWell(
+                          onTap: () => _showCouponUsagesDialog(context, ref, c),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${c.usageCount} used', style: const TextStyle(fontSize: 12.5, decoration: TextDecoration.underline, color: Color(0xFF2563EB))),
+                              const Gap(4),
+                              const Icon(Icons.open_in_new, size: 12, color: Color(0xFF2563EB)),
+                            ],
+                          ),
+                        ),
                       ),
                       AdminDataColumn(
                         title: 'STATUS',
-                        builder: (c) => AdminStatusBadge(status: c.isActive ? 'ACTIVE' : 'INACTIVE'),
+                        builder: (c) => InkWell(
+                          onTap: () => _toggleCouponStatus(context, ref, c),
+                          child: AdminStatusBadge(status: c.isActive ? 'ACTIVE' : 'INACTIVE'),
+                        ),
                       ),
                       AdminDataColumn(
                         title: 'ACTIONS',
@@ -175,9 +422,23 @@ class AdminCouponsPage extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              icon: const Icon(Icons.history_outlined, size: 18, color: Color(0xFF2563EB)),
+                              tooltip: 'View Redemptions',
+                              onPressed: () => _showCouponUsagesDialog(context, ref, c),
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               tooltip: 'Edit Coupon',
                               onPressed: () => _showCouponForm(context, ref, c),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                c.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                                size: 18,
+                                color: c.isActive ? Colors.orange : Colors.green,
+                              ),
+                              tooltip: c.isActive ? 'Deactivate' : 'Activate',
+                              onPressed: () => _toggleCouponStatus(context, ref, c),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
@@ -330,41 +591,51 @@ class _CouponFormModalState extends State<_CouponFormModal> {
               AppTextField(
                 label: 'Coupon Code',
                 controller: _codeController,
-                hint: 'e.g. DRIVEGO20',
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Code is required';
-                  return null;
-                },
+                hint: 'e.g. SUMMER2026',
+                validator: (val) => val == null || val.trim().isEmpty ? 'Code is required' : null,
               ),
               const Gap(12),
               AppTextField(
                 label: 'Description',
                 controller: _descController,
-                hint: 'e.g. 20% off up to ₹500',
+                hint: 'e.g. 20% off up to ₹1,000 for holiday bookings',
               ),
               const Gap(12),
-              DropdownButtonFormField<String>(
-                initialValue: _discountType,
-                decoration: const InputDecoration(labelText: 'Discount Type', border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(value: 'PERCENTAGE', child: Text('Percentage (%)')),
-                  DropdownMenuItem(value: 'FIXED', child: Text('Fixed Amount (₹)')),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _discountType,
+                      decoration: const InputDecoration(
+                        labelText: 'Discount Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'PERCENTAGE', child: Text('Percentage (%)')),
+                        DropdownMenuItem(value: 'FIXED', child: Text('Fixed Amount (₹)')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _discountType = val);
+                      },
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: AppTextField(
+                      label: _discountType == 'PERCENTAGE' ? 'Discount (%)' : 'Discount (₹)',
+                      controller: _discountValController,
+                      hint: _discountType == 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 500',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Value required';
+                        final num = double.tryParse(val.trim());
+                        if (num == null || num <= 0) return 'Must be > 0';
+                        if (_discountType == 'PERCENTAGE' && num > 100) return 'Max 100%';
+                        return null;
+                      },
+                    ),
+                  ),
                 ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _discountType = val);
-                },
-              ),
-              const Gap(12),
-              AppTextField(
-                label: 'Discount Value',
-                controller: _discountValController,
-                hint: _discountType == 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 300',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Value is required';
-                  if (double.tryParse(val.trim()) == null) return 'Must be a number';
-                  return null;
-                },
               ),
               const Gap(12),
               Row(
@@ -373,7 +644,7 @@ class _CouponFormModalState extends State<_CouponFormModal> {
                     child: AppTextField(
                       label: 'Max Discount (₹)',
                       controller: _maxDiscountController,
-                      hint: 'e.g. 500',
+                      hint: 'Optional cap (e.g. 1000)',
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),
                   ),

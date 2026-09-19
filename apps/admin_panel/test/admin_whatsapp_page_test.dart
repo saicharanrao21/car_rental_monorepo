@@ -68,6 +68,52 @@ class TestMockWhatsAppRepo implements WhatsAppRepository {
       createdAt: DateTime.now(),
     );
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTemplates() async {
+    return [
+      {
+        'name': 'booking_confirmed',
+        'category': 'UTILITY',
+        'status': 'APPROVED',
+        'language': 'en_US',
+        'sampleText': 'Your booking #{{1}} is confirmed!',
+        'requiredVariables': ['bookingId', 'carName', 'startDate'],
+      },
+    ];
+  }
+
+  @override
+  Future<WhatsAppMessageModel> sendManualMessage({
+    required String phoneNumber,
+    required String templateName,
+    Map<String, dynamic>? variables,
+    String? bookingId,
+    String? userId,
+  }) async {
+    return WhatsAppMessageModel(
+      id: 'manual_msg_1',
+      phoneNumber: phoneNumber,
+      templateName: templateName,
+      messageType: WhatsAppMessageType.bookingConfirmed,
+      status: WhatsAppMessageStatus.sent,
+      idempotencyKey: 'manual_key_1',
+      bookingId: bookingId,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> getMessageTimeline(String id) async {
+    return {
+      'messageId': id,
+      'status': 'SENT',
+      'timeline': [
+        {'status': 'QUEUED', 'timestamp': DateTime.now().toIso8601String(), 'description': 'Message queued'},
+        {'status': 'SENT', 'timestamp': DateTime.now().toIso8601String(), 'description': 'Dispatched to Meta'},
+      ],
+    };
+  }
 }
 
 void main() {

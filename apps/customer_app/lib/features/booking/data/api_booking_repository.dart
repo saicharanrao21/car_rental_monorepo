@@ -208,6 +208,27 @@ class ApiBookingRepository implements BookingRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getAvailableCoupons({String? city}) async {
+    try {
+      final response = await apiClient.dio.get(
+        '/coupons/available',
+        queryParameters: {
+          if (city != null && city.isNotEmpty) 'city': city,
+        },
+      );
+      final data = response.data;
+      if (data is List) {
+        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } else if (data is Map && data['data'] is List) {
+        return (data['data'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
   Future<List<BookingModel>> getBookingsForCustomer(String customerId) async {
     final response = await apiClient.dio.get('/bookings/me');
     final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);

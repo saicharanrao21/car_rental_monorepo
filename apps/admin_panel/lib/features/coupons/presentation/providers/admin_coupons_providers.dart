@@ -37,4 +37,22 @@ class AdminCouponsNotifier extends AsyncNotifier<List<CouponModel>> {
     await _apiClient.dio.delete('/admin/coupons/$id');
     ref.invalidateSelf();
   }
+
+  Future<void> toggleStatus(String id, bool isActive) async {
+    await _apiClient.dio.post('/admin/coupons/$id/toggle-status', data: {'isActive': isActive});
+    ref.invalidateSelf();
+  }
+
+  Future<void> archiveCoupon(String id) async {
+    await _apiClient.dio.post('/admin/coupons/$id/archive');
+    ref.invalidateSelf();
+  }
+
+  Future<Map<String, dynamic>> fetchCouponUsages(String id, {int skip = 0, int take = 50}) async {
+    final response = await _apiClient.dio.get(
+      '/admin/coupons/$id/usages',
+      queryParameters: {'skip': skip, 'take': take},
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }

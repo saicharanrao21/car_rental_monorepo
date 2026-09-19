@@ -75,4 +75,21 @@ export class UpdateCouponDto {
   @IsEnum(CarCategory)
   @IsOptional()
   carCategory?: CarCategory;
+
+  @IsString()
+  @IsOptional()
+  vendorId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  minRentalDays?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  stackable?: boolean;
 }

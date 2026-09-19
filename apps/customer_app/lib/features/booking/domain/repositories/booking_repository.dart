@@ -19,6 +19,9 @@ abstract class BookingRepository {
     String? carCategory,
   });
 
+  /// Fetches available active coupons eligible for the customer.
+  Future<List<Map<String, dynamic>>> getAvailableCoupons({String? city}) async => [];
+
   /// Calculates authoritative delivery and one-way location quote from backend engine.
   Future<Map<String, dynamic>> calculateLocationQuote({
     required String vendorId,

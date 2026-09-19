@@ -105,6 +105,28 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
     });
   }
 
+  Future<void> _applyCouponCode(String code, double subtotal) async {
+    _couponController.text = code;
+    await _applyCoupon(subtotal);
+  }
+
+  Future<void> _openAvailableCouponsSheet(BuildContext context, double subtotal) async {
+    final repo = ref.read(bookingRepositoryProvider);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AvailableCouponsSheet(
+        subtotal: subtotal,
+        onSelectCoupon: (code) {
+          Navigator.of(ctx).pop();
+          _applyCouponCode(code, subtotal);
+        },
+        fetchCoupons: () => repo.getAvailableCoupons(city: widget.vendor.city),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
@@ -438,6 +460,27 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                       ),
                     ],
                   ),
+                  const Gap(DDSSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => _openAvailableCouponsSheet(context, result.total),
+                      icon: const Icon(Icons.local_offer_outlined, size: 15, color: DDSColors.primaryBlue),
+                      label: Text(
+                        'View Available Offers & Coupons',
+                        style: DDSTypography.bodyMedium.copyWith(
+                          color: DDSColors.primaryBlue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -600,6 +643,297 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvailableCouponsSheet extends StatefulWidget {
+  final double subtotal;
+  final ValueChanged<String> onSelectCoupon;
+  final Future<List<Map<String, dynamic>>> Function() fetchCoupons;
+
+  const _AvailableCouponsSheet({
+    required this.subtotal,
+    required this.onSelectCoupon,
+    required this.fetchCoupons,
+  });
+
+  @override
+  State<_AvailableCouponsSheet> createState() => _AvailableCouponsSheetState();
+}
+
+class _AvailableCouponsSheetState extends State<_AvailableCouponsSheet> {
+  late Future<List<Map<String, dynamic>>> _futureCoupons;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureCoupons = widget.fetchCoupons();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      decoration: const BoxDecoration(
+        color: DDSColors.surfaceCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: DDSColors.borderMedium,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.local_offer, color: DDSColors.primaryBlue, size: 20),
+                const Gap(8),
+                Text(
+                  'Available Offers & Coupons',
+                  style: DDSTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: DDSColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _futureCoupons,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline, color: DDSColors.errorRed, size: 36),
+                          const Gap(12),
+                          Text(
+                            'Failed to load offers',
+                            style: DDSTypography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: DDSColors.textPrimary,
+                            ),
+                          ),
+                          const Gap(8),
+                          ElevatedButton(
+                            onPressed: () => setState(() {
+                              _futureCoupons = widget.fetchCoupons();
+                            }),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final coupons = snapshot.data ?? [];
+                if (coupons.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.discount_outlined, size: 48, color: DDSColors.textMuted.withValues(alpha: 0.5)),
+                          const Gap(12),
+                          Text(
+                            'No coupons currently available',
+                            style: DDSTypography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: DDSColors.textPrimary,
+                            ),
+                          ),
+                          const Gap(4),
+                          Text(
+                            'Check back soon or enter your promo code manually.',
+                            textAlign: TextAlign.center,
+                            style: DDSTypography.bodyMedium.copyWith(
+                              color: DDSColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  shrinkWrap: true,
+                  itemCount: coupons.length,
+                  separatorBuilder: (_, __) => const Gap(12),
+                  itemBuilder: (context, index) {
+                    final c = coupons[index];
+                    final code = c['code']?.toString() ?? '';
+                    final discountType = c['discountType']?.toString() ?? 'PERCENTAGE';
+                    final discountVal = (c['discountValue'] as num?)?.toDouble() ?? 0.0;
+                    final maxDiscount = (c['maxDiscountAmount'] as num?)?.toDouble();
+                    final minBooking = (c['minBookingAmount'] as num?)?.toDouble();
+                    final desc = c['description']?.toString() ?? '';
+
+                    final isPercentage = discountType == 'PERCENTAGE';
+                    final discountBadge = isPercentage
+                        ? '${discountVal.toInt()}% OFF'
+                        : '₹${discountVal.toInt()} OFF';
+
+                    final isMinAmountMet = minBooking == null || widget.subtotal >= minBooking;
+
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: DDSColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isMinAmountMet
+                              ? DDSColors.primaryBlue.withValues(alpha: 0.3)
+                              : DDSColors.borderMedium,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: DDSColors.infoBlueBg,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: DDSColors.primaryBlue.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  code,
+                                  style: DDSTypography.labelSmall.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: DDSColors.primaryBlue,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ),
+                              const Gap(8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: DDSColors.successGreenBg,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  discountBadge,
+                                  style: DDSTypography.labelSmall.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                    color: DDSColors.successGreen,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              ElevatedButton(
+                                onPressed: isMinAmountMet
+                                    ? () => widget.onSelectCoupon(code)
+                                    : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: DDSColors.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: DDSColors.borderMedium,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  minimumSize: const Size(60, 32),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'APPLY',
+                                  style: DDSTypography.labelSmall.copyWith(
+                                    color: isMinAmountMet ? Colors.white : DDSColors.textMuted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (desc.isNotEmpty) ...[
+                            const Gap(8),
+                            Text(
+                              desc,
+                              style: DDSTypography.bodyMedium.copyWith(
+                                fontSize: 12,
+                                color: DDSColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                          const Gap(6),
+                          Wrap(
+                            spacing: 12,
+                            children: [
+                              if (minBooking != null && minBooking > 0)
+                                Text(
+                                  'Min. booking ₹${minBooking.toInt()}',
+                                  style: DDSTypography.labelSmall.copyWith(
+                                    fontSize: 11,
+                                    color: isMinAmountMet ? DDSColors.textMuted : DDSColors.errorRed,
+                                    fontWeight: isMinAmountMet ? FontWeight.normal : FontWeight.w600,
+                                  ),
+                                ),
+                              if (maxDiscount != null && maxDiscount > 0 && isPercentage)
+                                Text(
+                                  'Max. discount ₹${maxDiscount.toInt()}',
+                                  style: DDSTypography.labelSmall.copyWith(
+                                    fontSize: 11,
+                                    color: DDSColors.textMuted,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          const Gap(12),
         ],
       ),
     );

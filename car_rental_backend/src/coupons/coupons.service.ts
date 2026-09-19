@@ -292,6 +292,10 @@ export class CouponsService {
         city: dto.city,
         tripType: dto.tripType,
         carCategory: dto.carCategory,
+        vendorId: dto.vendorId,
+        branchId: dto.branchId,
+        minRentalDays: dto.minRentalDays,
+        stackable: dto.stackable ?? false,
       },
     });
 
@@ -368,5 +372,120 @@ export class CouponsService {
     );
 
     return { success: true, message: 'Coupon deleted successfully.' };
+  }
+
+  // 7. Admin: Get coupon redemption history & usage records
+  async getCouponUsages(id: string, query: { skip?: number; take?: number }) {
+    const { skip = 0, take = 50 } = query;
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id },
+    });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found.');
+    }
+
+    const [usages, total] = await Promise.all([
+      this.prisma.couponUsage.findMany({
+        where: { couponId: id },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          booking: {
+            select: {
+              id: true,
+              status: true,
+              totalFare: true,
+              startDate: true,
+              endDate: true,
+              car: {
+                select: {
+                  id: true,
+                  make: true,
+                  model: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { usedAt: 'desc' },
+        skip: Number(skip),
+        take: Number(take),
+      }),
+      this.prisma.couponUsage.count({
+        where: { couponId: id },
+      }),
+    ]);
+
+    return {
+      coupon: {
+        id: coupon.id,
+        code: coupon.code,
+        description: coupon.description,
+        discountType: coupon.discountType,
+        discountValue: Number(coupon.discountValue),
+        usageCount: coupon.usageCount,
+        globalUsageLimit: coupon.globalUsageLimit,
+        perCustomerLimit: coupon.perCustomerLimit,
+      },
+      total,
+      usages: (usages as any[]).map((u) => ({
+        id: u.id,
+        discountAmount: Number(u.discountAmount),
+        usedAt: u.usedAt,
+        customerId: u.customerId,
+        customerName: u.customer?.name || 'Customer',
+        customerPhone: u.customer?.phone,
+        customerEmail: u.customer?.email,
+        bookingId: u.bookingId,
+        bookingStatus: u.booking?.status,
+        bookingTotalFare: u.booking ? Number(u.booking.totalFare) : 0,
+        carName: u.booking?.car
+          ? `${u.booking.car.make} ${u.booking.car.model}`
+          : 'Vehicle',
+      })),
+    };
+  }
+
+  // 8. Admin: Toggle coupon active/inactive status
+  async toggleCouponStatus(
+    id: string,
+    isActive: boolean,
+    adminUserId: string,
+  ) {
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id },
+    });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found.');
+    }
+
+    const updated = await this.prisma.coupon.update({
+      where: { id },
+      data: { isActive },
+    });
+
+    await this.auditLogService.log(
+      adminUserId,
+      isActive ? 'COUPON_ACTIVATED' : 'COUPON_DEACTIVATED',
+      'Coupon',
+      id,
+      { previousStatus: coupon.isActive, newStatus: isActive },
+    );
+
+    return {
+      ...updated,
+      discountValue: Number(updated.discountValue),
+    };
+  }
+
+  // 9. Admin: Archive coupon
+  async archiveCoupon(id: string, adminUserId: string) {
+    return this.toggleCouponStatus(id, false, adminUserId);
   }
 }
