@@ -43,7 +43,7 @@
 
 | State | Count | Percentage | Definition & Policy |
 |---|---|---|---|
-| **`COMPLETE`** | 26 / 26 | 100% | Full stack implemented, validated, and verified end-to-end |
+| **`SOFTWARE_VERIFIED`** | 26 / 26 | Verified | Full stack implemented, validated, and verified in test harness |
 | **`PARTIALLY_IMPLEMENTED`** | 0 / 26 | 0.0% | Gaps in user flow or backend mutation eliminated |
 | **`FOUNDATION_ONLY`** | 0 / 26 | 0.0% | Zero schema-only or mock-only features remain |
 | **`MISSING`** | 0 / 26 | 0.0% | All specified source requirements present in codebase |

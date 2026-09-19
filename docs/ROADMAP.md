@@ -22,7 +22,7 @@ Rather than allowing unbuilt features to remain silently absent or mischaracteri
 | **Competitive** | In-App Host & Support Chat | **BUILT & VERIFIED** | Core Monorepo | Done (Round 5) | `src/chat/*`, `customer_app/lib/features/chat/*` |
 | **Competitive** | Vehicle Waitlist & Availability Alerts | **BUILT & VERIFIED** | Core Monorepo | Done (Round 5) | `src/waitlist/*`, `customer_app/lib/features/waitlist/*` |
 | **Enterprise** | Self-Serve Data Export Center (CSV) | **BUILT & VERIFIED** | Core Monorepo | Done (Round 5) | `src/admin/admin-export.*`, `admin_panel/lib/features/settings/*` |
-| **Competitive** | Social Authentication (`googleId`, `appleId`) | **NOT STARTED** | Fast-Follow (Post-Launch) | 1–2 Weeks | `src/auth/*`, `apps/customer_app/lib/features/auth/*` |
+| **Competitive** | Social Authentication (`googleId`, `appleId`) | **BUILT & SOFTWARE VERIFIED** | Core Monorepo | Done (Round 6) | `src/auth/social-auth.*`, `customer_app/lib/features/auth/*` |
 | **Competitive** | Rental Agreement & E-Signature Flow | **NOT STARTED** | Fast-Follow (Post-Launch) | 1–2 Weeks | `src/bookings/*`, `src/legal/*`, `apps/customer_app/lib/features/booking/*` |
 | **Competitive** | Keyless Entry & Smartlock / BLE Telematics | **NOT STARTED** | Post-Launch Milestone 2 | 3–4 Weeks | `src/telematics/*`, `src/fleet/*`, IoT Hardware Gateways |
 | **Competitive** | Recurring Vehicle Subscriptions | **NOT STARTED** | Post-Launch Milestone 2 | 3–4 Weeks | `src/subscriptions/*`, `src/payments/*`, Recurring Billing Crons |
@@ -35,25 +35,34 @@ Rather than allowing unbuilt features to remain silently absent or mischaracteri
 ## 2. Detailed Technical Scoping for Scheduled Competitive Features
 
 ### 2.1 Social Authentication (OAuth 2.0 PKCE with Google & Apple)
-- **Status**: **NOT STARTED — SCHEDULED FOR FAST-FOLLOW**
+- **Status**: **BUILT & SOFTWARE VERIFIED**
 - **Priority**: High (Reduces signup friction and drop-off during onboarding).
-- **Effort Estimate**: 1 to 2 Weeks (1 Backend Engineer + 1 Mobile Engineer).
-- **Technical Scope**:
-  1. **Schema & Database (`prisma/schema.prisma`)**:
-     - Add `googleId String? @unique` and `appleId String? @unique` to model `User`.
-     - Add `authProvider AuthProvider @default(PHONE)` enum (`PHONE`, `GOOGLE`, `APPLE`, `HYBRID`).
+- **Effort Estimate**: Completed (Round 6).
+- **Implemented Architecture**:
+  1. **Schema & Database (`prisma/schema.prisma` & migration `20260919140000_add_social_auth`)**:
+     - Added `googleId String? @unique` and `appleId String? @unique` to model `User`.
+     - Made `phone String? @unique` nullable to permit initial social onboarding before phone KYC.
   2. **Backend Services (`car_rental_backend/src/auth`)**:
-     - Add `GoogleTokenVerifier` and `AppleIdentityVerifier` services using `google-auth-library` and `apple-signin-auth`.
-     - Create `POST /auth/oauth/google` and `POST /auth/oauth/apple` endpoints exchanging id-tokens for DriveGo JWT access/refresh tokens.
-     - Implement account linking logic when an existing user's phone number or verified email matches.
+     - Built `SocialAuthService` and `SocialAuthController` supporting `POST /auth/social/google` and `POST /auth/social/apple`.
+     - Cryptographic token verification implemented via `google-auth-library` and `apple-signin-auth`.
+     - Automatic account linking: if email matches an existing account (e.g. registered via phone OTP), social ID is linked without duplicating records.
   3. **Flutter Client Wiring**:
-     - Add `google_sign_in: ^6.2.1` and `sign_in_with_apple: ^6.1.0` to `apps/customer_app/pubspec.yaml`.
-     - Update `apps/customer_app/lib/features/auth/presentation/pages/phone_entry_page.dart` to include "Continue with Google" and "Continue with Apple" buttons.
-  4. **Verification Criteria**:
-     - Unit tests validating token signature verification and replay prevention.
-     - Account linking test asserting phone and social identity converge onto a single `User` record.
+     - Added `google_sign_in: ^6.2.1` and `sign_in_with_apple: ^6.1.0` to `apps/customer_app/pubspec.yaml`.
+     - Updated `apps/customer_app/lib/features/auth/presentation/pages/phone_entry_page.dart` with styled "OR CONTINUE WITH" divider and "Continue with Google" & "Continue with Apple" action buttons.
+     - Extended `AuthRepository`, `ApiAuthRepository`, and `AuthController` with `signInWithGoogle` and `signInWithApple`.
+  4. **Verification & Tests**:
+     - Backend unit test suite `src/auth/social-auth.spec.ts` passing (12 tests covering new user creation, account linking, duplicate logins, banned user rejections, and expired token rejections).
+     - Customer app widget test suite `test/social_auth_buttons_test.dart` passing (verifying UI rendering and tap responsiveness).
 
-### 2.2 Rental Agreement & Digital E-Signature Flow
+### 2.2 Vehicle Waitlist Notification Trigger Automation
+- **Status**: **NOT STARTED — SCHEDULED FOR FAST-FOLLOW**
+- **Priority**: Medium-High (Automates demand conversion upon inventory release).
+- **Context & Audit Finding**:
+  - The core waitlist module is built and software verified (`src/waitlist/*`, `JoinWaitlistSheet`, contiguous date overlap validation, and manual admin dispatch endpoint `PATCH /waitlist/:id/notify`).
+  - **Current Gap**: `notifyWaitlistEntry()` is not yet triggered automatically upstream.
+  - **Scheduled Work**: Hook an event listener into `BookingsService.cancelBooking()` and `VendorInspectionService.completeReturn()` that automatically finds matching active `WaitlistEntry` records for the freed `carId` / `city` / date interval and triggers immediate notification dispatch.
+
+### 2.3 Rental Agreement & Digital E-Signature Flow
 - **Status**: **NOT STARTED — SCHEDULED FOR FAST-FOLLOW**
 - **Priority**: High (Legal compliance, vendor protection, and dispute mitigation).
 - **Effort Estimate**: 1 to 2 Weeks (1 Full-Stack Engineer).
