@@ -1154,7 +1154,7 @@ export class PaymentsService {
         }
 
         return b;
-      });
+      }, { timeout: 20000, maxWait: 10000 });
 
       if (this.prisma.webhookEvent) {
         try {

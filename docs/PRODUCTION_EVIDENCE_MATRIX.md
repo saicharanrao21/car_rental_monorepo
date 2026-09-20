@@ -42,17 +42,17 @@ All test counts are extracted directly from active execution logs without manual
 
 ---
 
-## 4. Disaster Recovery & Financial Invariant Evidence
+## 4. Database Integrity Test & Financial Invariant Evidence (Not DR Restore Drill)
 
-Executed against live PostgreSQL datasource: `aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true`.
+*Note: In accordance with production audit standards, this drill tested transactional ledger invariants and snapshot cryptographic hashing on the active PostgreSQL datasource (`aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true`). It is classified as a **DATABASE INTEGRITY TEST**, not a destructive cold restore drill.*
 
-| Invariant Verification Item | Measurement / Baseline | Post-Restore Verification | Status |
+| Invariant Verification Item | Measurement / Baseline | Post-Verification Result | Status |
 |---|---|---|---|
-| **Ledger Mathematical Balance** | Total Debits: ₹9,801.20 | Total Credits: ₹9,801.20 | **DEBITS == CREDITS (100% Balanced)** |
+| **Ledger Mathematical Balance** | Total Debits: ₹9,801.20 | Total Credits: ₹9,801.20 | **DEBITS == CREDITS (Balanced)** |
 | **Orphan Record Checks** | Bookings: 0, Cars: 0, Payments: 0 | Bookings: 0, Cars: 0, Payments: 0 | **ZERO ORPHANS** |
 | **Snapshot Cryptographic Checksum** | SHA-256 Digest | `6cfa105ff7306a799bef418c718c25f2c1f3a1f40ba87e05cf2e64931e7c36e4` | **INTEGRITY PRESERVED** |
-| **Drill Execution Duration** | Start-to-Finish Elapsed Time | **3,178 ms** | **PASSED (100% SUCCESS)** |
-| **Certification Artifact** | Output JSON report | `car_rental_backend/artifacts/disaster-recovery-report.json` | **PERSISTED** |
+| **Drill Execution Duration** | Start-to-Finish Elapsed Time | **3,178 ms** | **PASSED** |
+| **Drill Report Artifact** | Output JSON report | `car_rental_backend/artifacts/disaster-recovery-report.json` | **PERSISTED** |
 
 ---
 

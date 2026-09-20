@@ -9,6 +9,11 @@ class ApiClient {
   static String get defaultBaseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
+    if (kReleaseMode) {
+      throw StateError(
+        'CRITICAL: API_BASE_URL must be specified for production release builds via --dart-define=API_BASE_URL=https://... Silent fallback to localhost/10.0.2.2 is prohibited in release mode.',
+      );
+    }
     return kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
   }
 
