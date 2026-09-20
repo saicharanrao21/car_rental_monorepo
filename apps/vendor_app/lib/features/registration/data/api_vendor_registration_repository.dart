@@ -40,6 +40,30 @@ class ApiVendorRegistrationRepository implements VendorRegistrationRepository {
       await apiClient.tokenStorage.setRefreshToken(refreshToken);
     }
 
+    // Upload documents if selected in draft
+    try {
+      if (draft.tradeLicensePath != null && draft.tradeLicensePath!.isNotEmpty) {
+        await apiClient.dio.post('/vendors/me/documents', data: {
+          'type': 'TRADE_LICENSE',
+          'fileUrl': draft.tradeLicensePath,
+        });
+      }
+      if (draft.insurancePath != null && draft.insurancePath!.isNotEmpty) {
+        await apiClient.dio.post('/vendors/me/documents', data: {
+          'type': 'INSURANCE',
+          'fileUrl': draft.insurancePath,
+        });
+      }
+      if (draft.rcBookPath != null && draft.rcBookPath!.isNotEmpty) {
+        await apiClient.dio.post('/vendors/me/documents', data: {
+          'type': 'RC_BOOK',
+          'fileUrl': draft.rcBookPath,
+        });
+      }
+    } catch (_) {
+      // Non-blocking: document upload failure during initial registration should not block vendor creation
+    }
+
     final userJson = Map<String, dynamic>.from(data['user']);
     final vendorJson = Map<String, dynamic>.from(userJson['vendor']);
 

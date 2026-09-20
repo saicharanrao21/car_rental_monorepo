@@ -18,6 +18,7 @@ import '../../features/disputes/presentation/pages/admin_disputes_page.dart';
 import '../../features/audit_log/presentation/pages/admin_audit_log_page.dart';
 import '../../features/notifications/presentation/pages/push_notifications_page.dart';
 import '../../features/banners/presentation/pages/banners_promotions_page.dart';
+import '../../features/coupons/presentation/pages/admin_coupons_page.dart';
 import '../../features/supported_cities/presentation/pages/supported_cities_page.dart';
 import '../../features/settings/presentation/pages/platform_settings_page.dart';
 import '../../features/support/presentation/pages/admin_support_tickets_page.dart';
@@ -136,6 +137,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/banners',
             builder: (context, state) => const BannersPromotionsPage(),
+          ),
+          GoRoute(
+            path: '/coupons',
+            builder: (context, state) => const AdminCouponsPage(),
           ),
           GoRoute(
             path: '/supported-cities',

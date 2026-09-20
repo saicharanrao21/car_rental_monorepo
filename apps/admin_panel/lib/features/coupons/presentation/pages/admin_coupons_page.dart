@@ -259,20 +259,23 @@ class _AdminCouponsPageState extends ConsumerState<AdminCouponsPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Coupon & Promo Code Management',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    Gap(4),
-                    Text(
-                      'Configure discount codes, usage caps, minimum booking thresholds, and promotional restrictions.',
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Coupon & Promo Code Management',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      Gap(4),
+                      Text(
+                        'Configure discount codes, usage caps, minimum booking thresholds, and promotional restrictions.',
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
+                const Gap(16),
                 AppButton(
                   text: 'Create Coupon',
                   isFullWidth: false,
@@ -606,6 +609,7 @@ class _CouponFormModalState extends State<_CouponFormModal> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _discountType,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Discount Type',
                         border: OutlineInputBorder(),
@@ -682,17 +686,23 @@ class _CouponFormModalState extends State<_CouponFormModal> {
                 ],
               ),
               const Gap(12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('First Booking Only'),
-                value: _firstBookingOnly,
-                onChanged: (val) => setState(() => _firstBookingOnly = val),
+              Material(
+                color: Colors.transparent,
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('First Booking Only'),
+                  value: _firstBookingOnly,
+                  onChanged: (val) => setState(() => _firstBookingOnly = val),
+                ),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active Status'),
-                value: _isActive,
-                onChanged: (val) => setState(() => _isActive = val),
+              Material(
+                color: Colors.transparent,
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Active Status'),
+                  value: _isActive,
+                  onChanged: (val) => setState(() => _isActive = val),
+                ),
               ),
               const Gap(20),
               _isSaving

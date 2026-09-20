@@ -100,6 +100,7 @@ class AdminShell extends ConsumerWidget {
       icon: Icons.trending_up_outlined,
       items: [
         AdminNavItem(label: 'Banners & Promotions', icon: Icons.view_carousel_outlined, route: '/banners'),
+        AdminNavItem(label: 'Coupons & Promo Codes', icon: Icons.local_offer_outlined, route: '/coupons'),
         AdminNavItem(label: 'Referral Campaigns', icon: Icons.card_giftcard_outlined, route: '/referrals'),
         AdminNavItem(label: 'Loyalty Program', icon: Icons.stars_outlined, route: '/loyalty'),
         AdminNavItem(label: 'Push Notifications', icon: Icons.notifications_none_outlined, route: '/notifications'),

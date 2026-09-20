@@ -12,4 +12,14 @@ export class VendorsQueryDto extends PaginationDto {
     message: 'verificationStatus must be PENDING, VERIFIED, or SUSPENDED',
   })
   verificationStatus?: VerificationStatus;
+
+  @IsOptional()
+  @IsEnum(VerificationStatus, {
+    message: 'status must be PENDING, VERIFIED, or SUSPENDED',
+  })
+  status?: VerificationStatus;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

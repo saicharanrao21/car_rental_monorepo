@@ -37,8 +37,20 @@ export class VendorsService {
       where.city = { equals: query.city, mode: 'insensitive' };
     }
 
-    if (query.verificationStatus) {
-      where.verificationStatus = query.verificationStatus;
+    const verificationStatus = query.verificationStatus || query.status;
+    if (verificationStatus) {
+      where.verificationStatus = verificationStatus;
+    }
+
+    if (query.search && query.search.trim()) {
+      const searchTerm = query.search.trim();
+      where.OR = [
+        { businessName: { contains: searchTerm, mode: 'insensitive' } },
+        { ownerName: { contains: searchTerm, mode: 'insensitive' } },
+        { city: { contains: searchTerm, mode: 'insensitive' } },
+        { user: { phone: { contains: searchTerm, mode: 'insensitive' } } },
+        { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+      ];
     }
 
     const [total, data] = await Promise.all([

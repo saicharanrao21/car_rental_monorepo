@@ -145,6 +145,14 @@ export class SubmitRequirementDto {
 
   @IsString()
   @IsOptional()
+  documentUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  fileUrl?: string;
+
+  @IsString()
+  @IsOptional()
   documentNumber?: string;
 
   @IsDateString()
@@ -158,6 +166,10 @@ export class SubmitRequirementDto {
   @IsObject()
   @IsOptional()
   submissionData?: Record<string, any>;
+
+  @IsObject()
+  @IsOptional()
+  submissionMetadata?: Record<string, any>;
 }
 
 export class ReviewRequirementDto {

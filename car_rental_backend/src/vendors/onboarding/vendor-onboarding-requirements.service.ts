@@ -10,6 +10,7 @@ import { RedisCacheService } from '../../redis/redis-cache.service';
 import { REDIS_NAMESPACES, DEFAULT_CACHE_TTLS } from '../../redis/redis-namespace.constants';
 import { AuditLogService } from '../../admin/audit-log.service';
 import { SystemConfigService } from '../../config-engine/system-config.service';
+import { DocumentType, DocumentStatus } from '@prisma/client';
 import {
   RequirementCategory,
   RequirementScope,
@@ -433,6 +434,35 @@ export class VendorOnboardingRequirementsService {
 
     const status = (dto as any).status || RequirementFulfillmentStatus.SUBMITTED;
 
+    let docId = dto.documentId;
+    const fileUrl = dto.documentUrl || dto.fileUrl;
+    if (!docId && fileUrl) {
+      let docType: DocumentType = DocumentType.TRADE_LICENSE;
+      const codeUpper = (def.code || '').toUpperCase();
+      if (codeUpper.includes('RC')) docType = DocumentType.RC_BOOK;
+      else if (codeUpper.includes('INSURANCE')) docType = DocumentType.INSURANCE;
+
+      try {
+        const newDoc = await this.prisma.document.create({
+          data: {
+            vendorId,
+            type: docType,
+            fileUrl,
+            status: DocumentStatus.PENDING,
+            expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+          },
+        });
+        docId = newDoc.id;
+      } catch (err) {
+        this.logger.warn(`Could not auto-create Document record for requirement submission: ${err}`);
+      }
+    }
+
+    const submissionData =
+      dto.submissionData ||
+      dto.submissionMetadata ||
+      (fileUrl ? { fileUrl } : undefined);
+
     // Upsert requirement state
     const state = await this.prisma.vendorRequirementState.upsert({
       where: {
@@ -442,11 +472,11 @@ export class VendorOnboardingRequirementsService {
         },
       },
       update: {
-        documentId: dto.documentId,
+        documentId: docId,
         documentNumber: dto.documentNumber,
         issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : undefined,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
-        submissionData: dto.submissionData ? dto.submissionData : undefined,
+        submissionData: submissionData ? submissionData : undefined,
         submittedAt: new Date(),
         status,
         rejectionReason: null, // clear previous rejection on resubmission
@@ -454,11 +484,11 @@ export class VendorOnboardingRequirementsService {
       create: {
         vendorId,
         requirementDefinitionId,
-        documentId: dto.documentId,
+        documentId: docId,
         documentNumber: dto.documentNumber,
         issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : undefined,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
-        submissionData: dto.submissionData ? dto.submissionData : undefined,
+        submissionData: submissionData ? submissionData : undefined,
         submittedAt: new Date(),
         status,
       },

@@ -14,7 +14,27 @@ class PendingApprovalPage extends ConsumerStatefulWidget {
   ConsumerState<PendingApprovalPage> createState() => _PendingApprovalPageState();
 }
 
-class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage> {
+class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(vendorComplianceControllerProvider.notifier).refreshAll();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final eligibilityAsync = ref.watch(vendorEligibilityProvider);

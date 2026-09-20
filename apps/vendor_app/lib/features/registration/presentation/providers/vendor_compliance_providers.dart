@@ -3,6 +3,7 @@ import '../../../../core/providers/api_providers.dart';
 import '../../data/api_vendor_compliance_repository.dart';
 import '../../domain/models/vendor_compliance_models.dart';
 import '../../domain/repositories/vendor_compliance_repository.dart';
+import '../../../../core/providers/vendor_session_provider.dart';
 
 final vendorComplianceRepositoryProvider = Provider<VendorComplianceRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -78,10 +79,13 @@ class VendorComplianceController extends AutoDisposeNotifier<AsyncValue<void>> {
     }
   }
 
-  void refreshAll() {
+  Future<void> refreshAll() async {
     ref.invalidate(vendorEligibilityProvider);
     ref.invalidate(vendorRequirementsProvider);
     ref.invalidate(vendorDepositSummaryProvider);
+    try {
+      await ref.read(vendorSessionProvider.notifier).checkSession();
+    } catch (_) {}
   }
 }
 

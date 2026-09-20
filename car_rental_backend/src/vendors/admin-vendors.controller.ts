@@ -14,6 +14,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, SubscriptionTier } from '@prisma/client';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
+import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorSponsorshipDto } from './dto/update-vendor-sponsorship.dto';
 import { VendorsQueryDto } from './dto/vendors-query.dto';
 import { redactVendor } from '../common/vendor-redactor.util';
@@ -60,6 +61,16 @@ export class AdminVendorsController {
       { subscriptionTier },
       req.user.userId,
     );
+  }
+
+  @Patch(':id/status')
+  @Roles(Role.ADMIN)
+  async updateStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateVendorStatusDto,
+  ) {
+    return this.vendorsService.updateStatus(id, dto, req.user.userId);
   }
 
   @Patch(':vendorId/documents/:id')
