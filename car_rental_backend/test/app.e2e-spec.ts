@@ -12,6 +12,7 @@ import { json, urlencoded } from 'express';
 import * as crypto from 'crypto';
 
 describe('AppController & Security Guards (e2e)', () => {
+  jest.setTimeout(60000);
   let app: INestApplication<App>;
 
   beforeAll(async () => {

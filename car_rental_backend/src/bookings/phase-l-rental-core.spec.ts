@@ -559,6 +559,7 @@ describe('Phase L: Enterprise Booking & Rental Core Engine', () => {
         odometerReading: 20750,
         fuelPercent: 100,
         handoverOtpCode: '654321',
+        returnTime: new Date('2026-10-03T10:15:00Z'),
       });
 
       expect(res.totalTripKm).toBe(750);

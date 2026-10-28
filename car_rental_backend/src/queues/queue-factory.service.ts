@@ -24,6 +24,7 @@ export class QueueFactoryService implements OnModuleInit, OnModuleDestroy {
     @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
   ) {
     this.isMockMode =
+      process.env.REDIS_USE_MOCK === 'true' ||
       this.configService.get<string>('REDIS_USE_MOCK') === 'true';
     this.redisUrl =
       this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379';

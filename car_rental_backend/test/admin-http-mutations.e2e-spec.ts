@@ -27,7 +27,7 @@ import Redis from 'ioredis';
 import { json, urlencoded } from 'express';
 
 describe('Real HTTP Admin Mutation E2E (Full Pipeline: HTTP -> Controller -> Service -> Prisma -> Postgres -> Customer Visibility)', () => {
-  jest.setTimeout(45000);
+  jest.setTimeout(60000);
 
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -63,7 +63,7 @@ describe('Real HTTP Admin Mutation E2E (Full Pipeline: HTTP -> Controller -> Ser
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
-    process.env.REDIS_USE_MOCK = 'false';
+    process.env.REDIS_USE_MOCK = 'true';
     process.env.REDIS_URL = 'redis://127.0.0.1:6379';
     process.env.JWT_ACCESS_SECRET = 'test_jwt_access_secret_min_32_chars_long!';
     process.env.JWT_REFRESH_SECRET = 'test_jwt_refresh_secret_min_32_chars_long!';

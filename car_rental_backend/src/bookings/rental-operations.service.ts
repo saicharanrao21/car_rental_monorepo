@@ -48,6 +48,7 @@ export interface ReturnExecutionRequest {
   newDamagesNotes?: string;
   damageEstimatedCost?: number;
   skipOtpForAdmin?: boolean;
+  returnTime?: Date;
 }
 
 export interface ReturnSettlementResult {
@@ -303,7 +304,7 @@ export class RentalOperationsService {
       const fuelCharge = fuelDeficit > 5 ? Math.round(fuelDeficit * 15) : 0;
 
       // Late return calculation: check if return is past scheduled end date + 45m grace period
-      const returnTime = new Date();
+      const returnTime = req.returnTime || new Date();
       const scheduledEnd = booking.endDate;
       const gracePeriodMs = 45 * 60 * 1000;
       let lateHours = 0;
