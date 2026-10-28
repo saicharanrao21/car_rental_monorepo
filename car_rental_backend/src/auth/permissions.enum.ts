@@ -77,6 +77,16 @@ export enum AdminPermission {
   MARKETPLACE_INTELLIGENCE = 'marketplace:intelligence',
 }
 
+export enum StaffRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  OPERATIONS_MANAGER = 'OPERATIONS_MANAGER',
+  CUSTOMER_SUPPORT = 'CUSTOMER_SUPPORT',
+  FINANCE_MANAGER = 'FINANCE_MANAGER',
+  MARKETING_MANAGER = 'MARKETING_MANAGER',
+  COMPLIANCE_OFFICER = 'COMPLIANCE_OFFICER',
+  READONLY_ANALYST = 'READONLY_ANALYST',
+}
+
 export const ROLE_PERMISSIONS_MATRIX: Record<Role, AdminPermission[]> = {
   [Role.ADMIN]: Object.values(AdminPermission), // Full Super Admin access
   [Role.SUPPORT_AGENT]: [
@@ -96,3 +106,100 @@ export const ROLE_PERMISSIONS_MATRIX: Record<Role, AdminPermission[]> = {
   [Role.VENDOR]: [],
   [Role.CUSTOMER]: [],
 };
+
+export const STAFF_ROLE_PERMISSIONS_MATRIX: Record<StaffRole, AdminPermission[]> = {
+  [StaffRole.SUPER_ADMIN]: Object.values(AdminPermission),
+  [StaffRole.OPERATIONS_MANAGER]: [
+    AdminPermission.VENDOR_READ,
+    AdminPermission.VENDOR_WRITE,
+    AdminPermission.VENDOR_REQUIREMENTS_READ,
+    AdminPermission.VENDOR_REQUIREMENTS_WRITE,
+    AdminPermission.VENDOR_DEPOSIT_READ,
+    AdminPermission.VENDOR_VERIFICATION_READ,
+    AdminPermission.VENDOR_VERIFICATION_WRITE,
+    AdminPermission.FLEET_MANAGEMENT,
+    AdminPermission.FLEET_READ,
+    AdminPermission.FLEET_WRITE,
+    AdminPermission.FLEET_VERIFY,
+    AdminPermission.LOCATION_READ,
+    AdminPermission.LOCATION_WRITE,
+    AdminPermission.BOOKING_READ,
+    AdminPermission.BOOKING_WRITE,
+    AdminPermission.EMERGENCY_DISPATCH,
+    AdminPermission.ANALYTICS_READ,
+  ],
+  [StaffRole.CUSTOMER_SUPPORT]: [
+    AdminPermission.USER_READ,
+    AdminPermission.BOOKING_READ,
+    AdminPermission.BOOKING_WRITE,
+    AdminPermission.SUPPORT_TICKET_READ,
+    AdminPermission.SUPPORT_TICKET_WRITE,
+    AdminPermission.EMERGENCY_DISPATCH,
+    AdminPermission.DISPUTE_RESOLVE,
+    AdminPermission.VENDOR_READ,
+    AdminPermission.FLEET_READ,
+  ],
+  [StaffRole.FINANCE_MANAGER]: [
+    AdminPermission.FINANCE_READ,
+    AdminPermission.FINANCE_WRITE,
+    AdminPermission.FINANCE_ADJUSTMENT,
+    AdminPermission.PAYOUT_APPROVE,
+    AdminPermission.PAYOUT_EXECUTE,
+    AdminPermission.REFUND_ADJUDICATE,
+    AdminPermission.DAMAGE_CLAIM_ADJUDICATE,
+    AdminPermission.RECONCILIATION_READ,
+    AdminPermission.RECONCILIATION_MANAGE,
+    AdminPermission.COMMISSION_MANAGE,
+    AdminPermission.WALLET_READ,
+    AdminPermission.WALLET_WRITE,
+    AdminPermission.WALLET_ADJUST,
+    AdminPermission.VENDOR_DEPOSIT_READ,
+    AdminPermission.VENDOR_DEPOSIT_WRITE,
+    AdminPermission.BOOKING_READ,
+    AdminPermission.ANALYTICS_READ,
+  ],
+  [StaffRole.MARKETING_MANAGER]: [
+    AdminPermission.COUPON_MANAGE,
+    AdminPermission.CAMPAIGN_MANAGE,
+    AdminPermission.BANNER_MANAGE,
+    AdminPermission.REFERRAL_READ,
+    AdminPermission.REFERRAL_WRITE,
+    AdminPermission.LOYALTY_READ,
+    AdminPermission.LOYALTY_WRITE,
+    AdminPermission.LOYALTY_ADJUST,
+    AdminPermission.ANALYTICS_READ,
+  ],
+  [StaffRole.COMPLIANCE_OFFICER]: [
+    AdminPermission.KYC_REVIEW,
+    AdminPermission.VENDOR_REQUIREMENTS_READ,
+    AdminPermission.VENDOR_REQUIREMENTS_WRITE,
+    AdminPermission.VENDOR_VERIFICATION_READ,
+    AdminPermission.VENDOR_VERIFICATION_WRITE,
+    AdminPermission.VENDOR_DEPOSIT_READ,
+    AdminPermission.DISPUTE_RESOLVE,
+    AdminPermission.AUDIT_LOG_READ,
+    AdminPermission.FRAUD_VIEW,
+    AdminPermission.USER_READ,
+    AdminPermission.VENDOR_READ,
+  ],
+  [StaffRole.READONLY_ANALYST]: [
+    AdminPermission.ANALYTICS_READ,
+    AdminPermission.MARKETPLACE_INTELLIGENCE,
+    AdminPermission.AUDIT_LOG_READ,
+    AdminPermission.BOOKING_READ,
+    AdminPermission.VENDOR_READ,
+    AdminPermission.FLEET_READ,
+    AdminPermission.USER_READ,
+    AdminPermission.FINANCE_READ,
+    AdminPermission.RECONCILIATION_READ,
+    AdminPermission.REFERRAL_READ,
+    AdminPermission.LOYALTY_READ,
+  ],
+};
+
+export function getPermissionsForUser(role: Role, staffRole?: string | null): AdminPermission[] {
+  if (staffRole && (staffRole as StaffRole) in STAFF_ROLE_PERMISSIONS_MATRIX) {
+    return STAFF_ROLE_PERMISSIONS_MATRIX[staffRole as StaffRole];
+  }
+  return ROLE_PERMISSIONS_MATRIX[role] || [];
+}

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BookingStatus } from '@prisma/client';
 import { UsersQueryDto } from './dto/users-query.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { BanUserDto } from './dto/ban-user.dto';
@@ -55,6 +56,10 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    if (query.role) {
+      where.role = query.role;
+    }
 
     if (query.search) {
       where.OR = [
@@ -163,5 +168,61 @@ export class UsersService {
     }
 
     return updated;
+  }
+
+  async anonymizeUser(id: string, adminUserId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        bookings: {
+          where: {
+            status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING] },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User #${id} not found.`);
+    }
+
+    if (user.bookings && user.bookings.length > 0) {
+      throw new BadRequestException(
+        `Cannot anonymize user #${id}: User has ${user.bookings.length} active rental reservation(s). Complete or cancel active trips before processing statutory privacy deletion.`,
+      );
+    }
+
+    const anonymized = await this.prisma.user.update({
+      where: { id },
+      data: {
+        name: 'Anonymized Customer',
+        email: null,
+        phone: null,
+        googleId: null,
+        appleId: null,
+        profilePhotoUrl: null,
+        fcmToken: null,
+        banned: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        banned: true,
+        updatedAt: true,
+      },
+    });
+
+    await this.auditLogService.log(
+      adminUserId,
+      'USER_PRIVACY_ANONYMIZED',
+      'User',
+      id,
+      {
+        reason: 'Statutory DPDP Act 2025 Right to Erasure / Anonymization fulfilled',
+      },
+    );
+
+    return anonymized;
   }
 }

@@ -732,6 +732,18 @@ export class PayoutsService {
       );
     }
 
+    // Segregation of Duties: If payout amount exceeds high-value threshold (₹50,000),
+    // the administrator executing the payout cannot be the same administrator who approved it.
+    if (
+      payout.amount.toNumber() > 50000 &&
+      payout.approvedByUserId &&
+      payout.approvedByUserId === adminUserId
+    ) {
+      throw new BadRequestException(
+        'Dual Authorization Policy: High-value payouts exceeding ₹50,000 cannot be executed by the same administrator who approved them. A secondary finance administrator must execute this transaction.',
+      );
+    }
+
     // 1. If an explicit providerTransferId is supplied by the operator (manual external bank transfer verification)
     if (dto?.providerTransferId && dto.providerTransferId.trim().length > 0) {
       const updated = await this.prisma.payout.update({

@@ -10,45 +10,114 @@ export class AdminDashboardService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [totalUsers, totalVendors, activeBookings, todaysBookings] =
-      await Promise.all([
-        this.prisma.user.count({
-          where: { role: Role.CUSTOMER },
-        }),
-        this.prisma.vendor.count(),
-        this.prisma.booking.count({
-          where: {
-            status: {
-              in: [
-                BookingStatus.PENDING,
-                BookingStatus.CONFIRMED,
-                BookingStatus.ONGOING,
-              ],
-            },
+    const [
+      totalUsers,
+      totalVendors,
+      activeBookings,
+      todaysBookings,
+      gbvAggregate,
+      pendingVendors,
+      pendingKyc,
+      pendingPayouts,
+      pendingRefunds,
+      depositAggregate,
+      totalCars,
+      activeCars,
+      activeDisputes,
+    ] = await Promise.all([
+      this.prisma.user.count({
+        where: { role: Role.CUSTOMER },
+      }),
+      this.prisma.vendor.count(),
+      this.prisma.booking.count({
+        where: {
+          status: {
+            in: [
+              BookingStatus.PENDING,
+              BookingStatus.CONFIRMED,
+              BookingStatus.ONGOING,
+            ],
           },
-        }),
-        this.prisma.booking.findMany({
-          where: {
-            createdAt: {
-              gte: today,
-            },
+        },
+      }),
+      this.prisma.booking.findMany({
+        where: {
+          createdAt: {
+            gte: today,
           },
-          select: {
-            platformFee: true,
+        },
+        select: {
+          platformFee: true,
+        },
+      }),
+      this.prisma.booking.aggregate({
+        _sum: { totalFare: true },
+        where: {
+          status: {
+            in: [
+              BookingStatus.CONFIRMED,
+              BookingStatus.ONGOING,
+              BookingStatus.COMPLETED,
+            ],
           },
-        }),
-      ]);
+        },
+      }),
+      this.prisma.vendor.count({
+        where: { verificationStatus: VerificationStatus.PENDING },
+      }),
+      (this.prisma as any).customerKyc
+        ? (this.prisma as any).customerKyc.count({ where: { status: 'PENDING' } })
+        : 0,
+      (this.prisma as any).payout
+        ? (this.prisma as any).payout.count({ where: { status: 'PENDING' } })
+        : 0,
+      (this.prisma as any).refund
+        ? (this.prisma as any).refund.count({ where: { status: 'PENDING' } })
+        : 0,
+      (this.prisma as any).vendorSecurityDeposit
+        ? (this.prisma as any).vendorSecurityDeposit.aggregate({
+            _sum: { amount: true },
+            where: { status: { in: ['PAID', 'HELD'] } },
+          })
+        : { _sum: { amount: 0 } },
+      this.prisma.car.count(),
+      this.prisma.car.count({
+        where: { operationalStatus: 'ACTIVE' },
+      }),
+      (this.prisma as any).dispute
+        ? (this.prisma as any).dispute.count({
+            where: { status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+          })
+        : 0,
+    ]);
 
     const todaysRevenue = todaysBookings.reduce(
       (sum, b) => sum + Number(b.platformFee),
       0,
     );
 
+    const grossBookingValue = Number(gbvAggregate?._sum?.totalFare || 0);
+    const heldDepositLiability = Number(depositAggregate?._sum?.amount || 0);
+    const fleetUtilizationPct =
+      totalCars > 0
+        ? Math.round(((totalCars - activeCars) / totalCars) * 100)
+        : 0;
+
     return {
       totalUsers,
       totalVendors,
       activeBookings,
       todaysRevenue,
+      grossBookingValue,
+      pendingVendorApprovals: pendingVendors,
+      pendingKycReviews: pendingKyc,
+      pendingPayoutsCount: pendingPayouts,
+      pendingRefundsCount: pendingRefunds,
+      heldDepositLiability,
+      totalCars,
+      availableCars: activeCars,
+      fleetUtilizationPct,
+      activeDisputes,
     };
   }
 

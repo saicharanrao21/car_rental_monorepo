@@ -51,6 +51,16 @@ class ApiAdminDashboardRepository implements AdminDashboardRepository {
       totalVendors: data['totalVendors'] as int? ?? 0,
       activeBookings: data['activeBookings'] as int? ?? 0,
       todaysRevenue: _toDouble(data['todaysRevenue']),
+      grossBookingValue: _toDouble(data['grossBookingValue']),
+      pendingVendorApprovals: data['pendingVendorApprovals'] as int? ?? 0,
+      pendingKycReviews: data['pendingKycReviews'] as int? ?? 0,
+      pendingPayoutsCount: data['pendingPayoutsCount'] as int? ?? 0,
+      pendingRefundsCount: data['pendingRefundsCount'] as int? ?? 0,
+      heldDepositLiability: _toDouble(data['heldDepositLiability']),
+      totalCars: data['totalCars'] as int? ?? 0,
+      availableCars: data['availableCars'] as int? ?? 0,
+      fleetUtilizationPct: data['fleetUtilizationPct'] as int? ?? 0,
+      activeDisputes: data['activeDisputes'] as int? ?? 0,
     );
   }
 

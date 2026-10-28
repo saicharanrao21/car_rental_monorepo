@@ -7,13 +7,25 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { AdminPermission, ROLE_PERMISSIONS_MATRIX } from '../permissions.enum';
+import { AdminPermission, StaffRole, getPermissionsForUser } from '../permissions.enum';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest();
+    const { user, method } = req;
+
+    // Read-only analyst guard: deny all mutating HTTP methods outright
+    if (user && user.staffRole === StaffRole.READONLY_ANALYST) {
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        throw new ForbiddenException(
+          'Access denied: Read-only analysts are strictly prohibited from mutating marketplace records.',
+        );
+      }
+    }
+
     const requiredPermissions = this.reflector.getAllAndOverride<AdminPermission[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
@@ -23,14 +35,12 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
-
     if (!user || !user.role) {
       throw new ForbiddenException('Access denied: Unauthorized user context.');
     }
 
     const userRole = user.role as Role;
-    const grantedPermissions = ROLE_PERMISSIONS_MATRIX[userRole] || [];
+    const grantedPermissions = getPermissionsForUser(userRole, user.staffRole);
 
     const hasAll = requiredPermissions.every((perm) =>
       grantedPermissions.includes(perm),

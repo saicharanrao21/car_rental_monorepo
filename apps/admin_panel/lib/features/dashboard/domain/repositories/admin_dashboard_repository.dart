@@ -5,12 +5,32 @@ class AdminKpis {
   final int totalVendors;
   final int activeBookings;
   final double todaysRevenue;
+  final double grossBookingValue;
+  final int pendingVendorApprovals;
+  final int pendingKycReviews;
+  final int pendingPayoutsCount;
+  final int pendingRefundsCount;
+  final double heldDepositLiability;
+  final int totalCars;
+  final int availableCars;
+  final int fleetUtilizationPct;
+  final int activeDisputes;
 
   const AdminKpis({
     required this.totalUsers,
     required this.totalVendors,
     required this.activeBookings,
     required this.todaysRevenue,
+    this.grossBookingValue = 0.0,
+    this.pendingVendorApprovals = 0,
+    this.pendingKycReviews = 0,
+    this.pendingPayoutsCount = 0,
+    this.pendingRefundsCount = 0,
+    this.heldDepositLiability = 0.0,
+    this.totalCars = 0,
+    this.availableCars = 0,
+    this.fleetUtilizationPct = 0,
+    this.activeDisputes = 0,
   });
 }
 

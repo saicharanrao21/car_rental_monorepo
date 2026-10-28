@@ -48,3 +48,4 @@ CREATE INDEX IF NOT EXISTS "VendorSecurityDeposit_providerPaymentId_idx" ON "Ven
 
 CREATE INDEX IF NOT EXISTS "VendorDepositPolicy_isActive_idx" ON "VendorDepositPolicy"("isActive");
 CREATE INDEX IF NOT EXISTS "VendorDepositPolicy_version_idx" ON "VendorDepositPolicy"("version");
+

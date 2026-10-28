@@ -262,7 +262,7 @@ export class AuthService {
     }
 
     // 3. Issue tokens
-    const tokens = await this.issueTokens(user.id, user.role);
+    const tokens = await this.issueTokens(user.id, user.role, user.staffRole);
 
     return {
       user,
@@ -330,7 +330,7 @@ export class AuthService {
         );
       }
 
-      const tokens = await this.issueTokens(user.id, user.role);
+      const tokens = await this.issueTokens(user.id, user.role, user.staffRole);
 
       return tokens;
     } catch (err) {
@@ -368,7 +368,7 @@ export class AuthService {
 
   // --- Helper Methods ---
 
-  async issueTokens(userId: string, role: Role) {
+  async issueTokens(userId: string, role: Role, staffRole?: string | null) {
     // 1. Create RefreshToken record in DB first to obtain UUID/CUID
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const tokenRecord = await this.prisma.refreshToken.create({
@@ -381,7 +381,7 @@ export class AuthService {
 
     // 2. Generate access and refresh tokens
     const accessToken = this.jwtService.sign(
-      { userId, role },
+      { userId, role, staffRole: staffRole || undefined },
       {
         secret: this.accessSecret,
         expiresIn: this.accessExpiry as any,

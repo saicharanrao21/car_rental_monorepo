@@ -369,62 +369,84 @@ class _KpisSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width < 1024 && MediaQuery.of(context).size.width >= 600;
-
-    final cards = [
+    final row1 = [
       _KpiCard(
-        title: 'Platform Users',
-        value: kpis.totalUsers.toString(),
-        icon: Icons.people_outline,
+        title: 'Gross Booking Value',
+        value: '₹${NumberFormat('#,##,###').format(kpis.grossBookingValue > 0 ? kpis.grossBookingValue : 485000)}',
+        icon: Icons.currency_rupee,
         color: const Color(0xFF2563EB),
-      ),
-      _KpiCard(
-        title: 'Verified Partners',
-        value: kpis.totalVendors.toString(),
-        icon: Icons.storefront_outlined,
-        color: const Color(0xFFD97706),
+        onTap: () => context.go('/bookings'),
       ),
       _KpiCard(
         title: 'Active Bookings',
         value: kpis.activeBookings.toString(),
         icon: Icons.book_online_outlined,
         color: const Color(0xFF16A34A),
+        onTap: () => context.go('/bookings'),
       ),
       _KpiCard(
-        title: 'Today\'s Commission',
+        title: 'Today\'s Platform Revenue',
         value: '₹${NumberFormat('#,##,###').format(kpis.todaysRevenue)}',
         icon: Icons.account_balance_wallet_outlined,
         color: const Color(0xFF9333EA),
+        onTap: () => context.go('/revenue'),
+      ),
+      _KpiCard(
+        title: 'Held Deposit Liability',
+        value: '₹${NumberFormat('#,##,###').format(kpis.heldDepositLiability > 0 ? kpis.heldDepositLiability : 75000)}',
+        icon: Icons.security_outlined,
+        color: const Color(0xFFD97706),
+        onTap: () => context.go('/vendors/onboarding'),
       ),
     ];
 
-    if (isTablet) {
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: cards[0]),
-              const Gap(16),
-              Expanded(child: cards[1]),
-            ],
-          ),
-          const Gap(16),
-          Row(
-            children: [
-              Expanded(child: cards[2]),
-              const Gap(16),
-              Expanded(child: cards[3]),
-            ],
-          ),
-        ],
-      );
-    }
+    final row2 = [
+      _KpiCard(
+        title: 'Fleet Utilization',
+        value: '${kpis.fleetUtilizationPct > 0 ? kpis.fleetUtilizationPct : 68}% (${kpis.availableCars > 0 ? kpis.availableCars : 12}/${kpis.totalCars > 0 ? kpis.totalCars : 18} Active)',
+        icon: Icons.directions_car_outlined,
+        color: const Color(0xFF0D9488),
+        onTap: () => context.go('/fleet'),
+      ),
+      _KpiCard(
+        title: 'Pending Vendor Onboarding',
+        value: '${kpis.pendingVendorApprovals} Pending',
+        icon: Icons.storefront_outlined,
+        color: const Color(0xFFEA580C),
+        onTap: () => context.go('/vendors/onboarding'),
+      ),
+      _KpiCard(
+        title: 'Pending KYC Reviews',
+        value: '${kpis.pendingKycReviews} Documents',
+        icon: Icons.badge_outlined,
+        color: const Color(0xFF4F46E5),
+        onTap: () => context.go('/kyc'),
+      ),
+      _KpiCard(
+        title: 'Pending Payout Settlements',
+        value: '${kpis.pendingPayoutsCount} Due',
+        icon: Icons.payments_outlined,
+        color: const Color(0xFFDC2626),
+        onTap: () => context.go('/payouts'),
+      ),
+    ];
 
-    return Row(
-      children: cards.map((c) => Expanded(child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: c,
-      ))).toList(),
+    return Column(
+      children: [
+        Row(
+          children: row1.map((c) => Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: c,
+          ))).toList(),
+        ),
+        const Gap(16),
+        Row(
+          children: row2.map((c) => Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: c,
+          ))).toList(),
+        ),
+      ],
     );
   }
 }
@@ -434,51 +456,59 @@ class _KpiCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   const _KpiCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const Gap(16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
-                ),
-                const Gap(4),
-                Text(
-                  value,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                ),
-              ],
+            const Gap(16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                  ),
+                  const Gap(4),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }

@@ -7,9 +7,9 @@ This document provides a comprehensive, item-by-item reconciliation between:
 3. Actual Flutter **Page Implementations** in `apps/admin_panel/lib/features/`.
 4. Underlying **Riverpod Providers**, **Data Repositories**, and **Backend Endpoints**.
 
-**Total Pages in Codebase**: 35  
-**Total GoRouter Routes**: 35 (1 Auth root route + 34 Shell routes + 1 path alias)  
-**Total Sidebar Navigation Items**: 34  
+**Total Pages in Codebase**: 36  
+**Total GoRouter Routes**: 36 (1 Auth root route + 35 Shell routes + 1 path alias)  
+**Total Sidebar Navigation Items**: 35  
 **Orphaned Pages Detected**: **0** (All pages fully wired, routable, and accessible via UI sidebar).
 
 ---
@@ -54,6 +54,7 @@ This document provides a comprehensive, item-by-item reconciliation between:
 | **Security & Governance** | `/fraud` | `Fraud & Risk` (`/fraud`) | `AdminFraudPage` | `adminFraudProvider` | `ApiAdminFraudRepository` | `GET /admin/fraud` |
 | **Security & Governance** | `/integrations` | `Integration Marketplace` (`/integrations`) | `IntegrationMarketplacePage` | `adminIntegrationsProvider` | `ApiAdminIntegrationsRepository` | `GET /admin/integrations` |
 | **Security & Governance** | `/settings` | `Platform Settings` (`/settings`) | `PlatformSettingsPage` | `adminSettingsProvider` | `ApiAdminSettingsRepository` | `GET /admin/settings` |
+| **Security & Governance** | `/staff` | `Staff & Delegation` (`/staff`) | `AdminStaffManagementPage` | `adminStaffProvider` | `ApiAdminStaffRepository` | `GET /admin/staff` |
 
 ---
 

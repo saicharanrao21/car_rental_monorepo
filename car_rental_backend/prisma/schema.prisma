@@ -428,6 +428,7 @@ model User {
   googleId         String?           @unique
   appleId          String?           @unique
   role             Role
+  staffRole        String?
   passwordHash     String?
   profilePhotoUrl  String?
   banned           Boolean           @default(false)
@@ -467,6 +468,7 @@ model User {
 
   @@index([phone])
   @@index([role])
+  @@index([staffRole])
 }
 
 model Vendor {

@@ -38,6 +38,7 @@ import '../../features/payouts/presentation/pages/admin_payouts_page.dart';
 import '../../features/corporate/presentation/pages/admin_corporate_accounts_page.dart';
 import '../../features/reconciliation/presentation/pages/admin_reconciliation_page.dart';
 import '../../features/operations_center/presentation/pages/admin_operations_command_center_page.dart';
+import '../../features/staff/presentation/pages/admin_staff_management_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -217,6 +218,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/operations-center',
             builder: (context, state) => const AdminOperationsCommandCenterPage(),
+          ),
+          GoRoute(
+            path: '/staff',
+            builder: (context, state) => const AdminStaffManagementPage(),
           ),
         ],
       ),

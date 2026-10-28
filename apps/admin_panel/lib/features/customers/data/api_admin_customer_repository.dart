@@ -39,7 +39,9 @@ class ApiAdminCustomerRepository implements AdminCustomerRepository {
 
   @override
   Future<List<UserModel>> getCustomers({String? searchQuery}) async {
-    final queryParams = <String, dynamic>{};
+    final queryParams = <String, dynamic>{
+      'role': 'CUSTOMER',
+    };
     if (searchQuery != null && searchQuery.isNotEmpty) {
       queryParams['search'] = searchQuery;
     }

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Body,
   Param,
@@ -72,5 +73,15 @@ export class UsersController {
     @Body() dto: BanUserDto,
   ) {
     return this.usersService.banUser(id, dto, req.user.userId);
+  }
+
+  @Post(':id/anonymize')
+  @Roles(Role.ADMIN)
+  async anonymizeUser(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    const adminUserId = req.user.userId || req.user.id;
+    return this.usersService.anonymizeUser(id, adminUserId);
   }
 }

@@ -26,6 +26,7 @@ This matrix details the full-stack wiring of the DriveGo Admin Panel (`apps/admi
 | **Compliance & Areas** | `/onboarding/reqs` | `adminRequirementsProvider` | `ApiAdminRequirementsRepo` -> `GET /admin/vendors/onboarding/definitions` | `AdminVendorOnboardingController.getDefinitions` (`GET /admin/vendors/onboarding/definitions`) | `OnboardingRequirementDefinition` | **CERTIFIED** |
 | **System & Security** | `/audit-logs` | `adminAuditLogsProvider` | `ApiAdminAuditRepo` -> `GET /admin/audit-logs` | `AuditLogsController.findAll` (`GET /admin/audit-logs`) | `AuditLog`, `User` | **CERTIFIED** |
 | **System & Security** | `/config` | `adminConfigEngineProvider` | `ApiAdminConfigRepo` -> `GET /admin/config-engine` | `ConfigEngineController.getConfig` (`GET /admin/config-engine`) | `SystemConfigParameter` | **CERTIFIED** |
+| **System & Security** | `/staff` | `adminStaffProvider` | `ApiAdminStaffRepo` -> `GET /admin/staff` | `AdminStaffController.findAll` (`GET /admin/staff`) | `User` (staffRole) | **CERTIFIED (Phase 2 Upgrade: Granular RBAC, Session Revocation, Provisioning)** |
 
 ---
 
@@ -45,3 +46,12 @@ This matrix details the full-stack wiring of the DriveGo Admin Panel (`apps/admi
   - Added `search?: string` and alias `status?: VerificationStatus` to `VendorsQueryDto`.
   - Updated `vendors.service.ts` `findAll()` to perform case-insensitive multi-field filtering across `businessName`, `ownerName`, `city`, `user.phone`, and `user.email`.
   - Added `@Patch(':id/status')` directly to `AdminVendorsController` with `Role.ADMIN` security enforcement.
+
+### 3.3 Granular Staff Roles & RBAC System (Phase 2 Upgrade)
+- **Prior Problem**: Single monolithic admin role (`Role.ADMIN`) with no granular staff roles, no read-only analyst role, no staff provisioning UI, and no bulk session revocation.
+- **Resolution**:
+  - Added `staffRole` column and index to `User` model via migration `20261029020000_add_user_staff_role`.
+  - Defined 7 granular staff roles: `SUPER_ADMIN`, `OPERATIONS_MANAGER`, `FINANCE_MANAGER`, `CUSTOMER_SUPPORT`, `COMPLIANCE_OFFICER`, `MARKETING_MANAGER`, `READONLY_ANALYST`.
+  - Added `AdminStaffController` with `/admin/staff` and `/admin/staff/roles` endpoints.
+  - Implemented `AdminStaffManagementPage` at `/staff` with full provisioning, role filtering, and session revocation.
+  - Added unit test `admin_staff_management_test.dart` passing 3/3 tests.
