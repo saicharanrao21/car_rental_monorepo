@@ -113,3 +113,4 @@ The DriveGo brand icon is an aerodynamic twin-wing vector mark that evokes:
 | **Primary Theme Tone**| Welcoming, aspirational, transparent, high-visual car cards | Dense, metric-focused, operational clarity, quick status actions |
 | **Authentication** | Phone OTP + Compliant Google/Apple Social Auth | Phone OTP business sign-in with partner role validation |
 | **Accent Hue** | Electric Cobalt & Amber Highlights | Operations Teal (`#16A394`) & Enterprise Slate |
+

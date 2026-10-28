@@ -254,3 +254,4 @@ Both applications were built via Flutter/Gradle:
 - WCAG AA/AAA contrast ratios and $\ge 48\,\text{dp}$ touch targets verified.
 - 100% of automated component, design, and regression tests passed across monorepo packages and apps.
 - Verified live on Android emulator (`Pixel_9`).
+

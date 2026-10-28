@@ -58,3 +58,5 @@ scratch/
 coverage/
 dist/
 tools/
+.latest_otp.json
+

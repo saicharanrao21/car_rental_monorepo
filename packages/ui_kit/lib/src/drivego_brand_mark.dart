@@ -167,3 +167,4 @@ class _DriveGoMarkPainter extends CustomPainter {
     return oldDelegate.isVendor != isVendor;
   }
 }
+
