@@ -63,15 +63,28 @@ class _VendorOnboardingConsolePageState
         return Colors.green;
       case 'PARTIALLY_PAID':
         return Colors.orange;
+      case 'PAYMENT_INITIATED':
+        return Colors.deepPurple;
+      case 'PAYMENT_FAILED':
+        return Colors.red;
+      case 'NOT_REQUIRED':
+        return Colors.teal;
+      case 'REFUND_PENDING':
+        return Colors.amber[800]!;
+      case 'PARTIALLY_REFUNDED':
+        return Colors.indigo;
+      case 'REVIEW_REQUIRED':
+        return Colors.deepOrange;
       case 'HELD':
         return Colors.purple;
       case 'REQUIRED':
+      case 'PENDING':
         return Colors.blue;
       case 'FORFEITED':
-        return Colors.red;
+        return Colors.red[800]!;
       case 'RELEASED':
       case 'REFUNDED':
-        return Colors.grey;
+        return Colors.grey[700]!;
       default:
         return Colors.blueGrey;
     }
@@ -558,14 +571,18 @@ class _VendorOnboardingConsolePageState
   // ==========================================
   // TAB 2: SECURITY DEPOSITS VIEW
   // ==========================================
-  Widget _buildDepositsTab(AsyncValue<List<VendorSecurityDepositModel>> depositsAsync) {
+  Widget _buildDepositsTab(
+      AsyncValue<List<VendorSecurityDepositModel>> depositsAsync) {
     return depositsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error loading deposits: $err')),
       data: (deposits) {
-        final totalRequired = deposits.fold<double>(0.0, (acc, d) => acc + d.requiredAmount);
-        final totalCollected = deposits.fold<double>(0.0, (acc, d) => acc + d.paidAmount);
-        final totalRemaining = deposits.fold<double>(0.0, (acc, d) => acc + d.remainingAmount);
+        final totalRequired =
+            deposits.fold<double>(0.0, (acc, d) => acc + d.requiredAmount);
+        final totalCollected =
+            deposits.fold<double>(0.0, (acc, d) => acc + d.paidAmount);
+        final totalRemaining =
+            deposits.fold<double>(0.0, (acc, d) => acc + d.remainingAmount);
         final totalHeld = deposits
             .where((d) => d.status == 'HELD')
             .fold<double>(0.0, (acc, d) => acc + d.paidAmount);
@@ -575,6 +592,9 @@ class _VendorOnboardingConsolePageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Global Policy Banner
+              _buildDepositPolicyHeaderCard(context),
+
               // Financial KPI Cards
               Row(
                 children: [
@@ -624,47 +644,82 @@ class _VendorOnboardingConsolePageState
                       child: TextField(
                         controller: _depositSearchController,
                         decoration: InputDecoration(
-                          hintText: 'Search by partner name or vendor ID...',
+                          hintText:
+                              'Search by partner name, vendor ID, or order ref...',
                           prefixIcon: const Icon(Icons.search, size: 20),
                           suffixIcon: _depositSearchController.text.isNotEmpty
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 18),
                                   onPressed: () {
                                     _depositSearchController.clear();
-                                    ref.read(depositSearchQueryProvider.notifier).state = '';
+                                    ref
+                                        .read(
+                                            depositSearchQueryProvider.notifier)
+                                        .state = '';
                                   },
                                 )
                               : null,
                           isDense: true,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFCBD5E1)),
                           ),
                         ),
                         onSubmitted: (val) {
-                          ref.read(depositSearchQueryProvider.notifier).state = val;
+                          ref.read(depositSearchQueryProvider.notifier).state =
+                              val;
                         },
                       ),
                     ),
                     const Gap(16),
-                    const Text('Status:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text('Status:',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                     const Gap(8),
                     DropdownButton<String?>(
                       value: ref.watch(depositStatusFilterProvider),
                       underline: const SizedBox.shrink(),
                       hint: const Text('All Statuses'),
                       items: const [
-                        DropdownMenuItem(value: null, child: Text('All Statuses')),
-                        DropdownMenuItem(value: 'REQUIRED', child: Text('Required')),
-                        DropdownMenuItem(value: 'PARTIALLY_PAID', child: Text('Partially Paid')),
-                        DropdownMenuItem(value: 'PAID', child: Text('Paid')),
-                        DropdownMenuItem(value: 'HELD', child: Text('Held')),
-                        DropdownMenuItem(value: 'RELEASED', child: Text('Released')),
-                        DropdownMenuItem(value: 'REFUNDED', child: Text('Refunded')),
-                        DropdownMenuItem(value: 'FORFEITED', child: Text('Forfeited')),
+                        DropdownMenuItem(
+                            value: null, child: Text('All Statuses')),
+                        DropdownMenuItem(
+                            value: 'NOT_REQUIRED',
+                            child: Text('Exempted / Not Required')),
+                        DropdownMenuItem(
+                            value: 'REQUIRED', child: Text('Required')),
+                        DropdownMenuItem(
+                            value: 'PAYMENT_INITIATED',
+                            child: Text('Payment Initiated')),
+                        DropdownMenuItem(
+                            value: 'PARTIALLY_PAID',
+                            child: Text('Partially Paid')),
+                        DropdownMenuItem(
+                            value: 'PAID', child: Text('Paid')),
+                        DropdownMenuItem(
+                            value: 'PAYMENT_FAILED',
+                            child: Text('Payment Failed')),
+                        DropdownMenuItem(
+                            value: 'REFUND_PENDING',
+                            child: Text('Refund Pending')),
+                        DropdownMenuItem(
+                            value: 'PARTIALLY_REFUNDED',
+                            child: Text('Partially Refunded')),
+                        DropdownMenuItem(
+                            value: 'REFUNDED', child: Text('Refunded')),
+                        DropdownMenuItem(
+                            value: 'REVIEW_REQUIRED',
+                            child: Text('Review Required')),
+                        DropdownMenuItem(
+                            value: 'HELD', child: Text('Held')),
+                        DropdownMenuItem(
+                            value: 'FORFEITED', child: Text('Forfeited')),
+                        DropdownMenuItem(
+                            value: 'RELEASED', child: Text('Released')),
                       ],
                       onChanged: (val) {
-                        ref.read(depositStatusFilterProvider.notifier).state = val;
+                        ref.read(depositStatusFilterProvider.notifier).state =
+                            val;
                       },
                     ),
                   ],
@@ -686,19 +741,22 @@ class _VendorOnboardingConsolePageState
                       )
                     : Table(
                         columnWidths: const {
-                          0: FlexColumnWidth(2.2),
-                          1: FlexColumnWidth(1.1),
-                          2: FlexColumnWidth(1.1),
-                          3: FlexColumnWidth(1.1),
-                          4: FlexColumnWidth(1.1),
-                          5: FlexColumnWidth(2.0),
+                          0: FlexColumnWidth(2.0),
+                          1: FlexColumnWidth(1.0),
+                          2: FlexColumnWidth(1.0),
+                          3: FlexColumnWidth(1.0),
+                          4: FlexColumnWidth(1.2),
+                          5: FlexColumnWidth(1.6),
+                          6: FlexColumnWidth(2.2),
                         },
-                        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                        defaultVerticalAlignment:
+                            TableCellVerticalAlignment.middle,
                         children: [
                           TableRow(
                             decoration: const BoxDecoration(
                               color: Color(0xFFF8FAFC),
-                              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                              border: Border(
+                                  bottom: BorderSide(color: Color(0xFFE2E8F0))),
                             ),
                             children: [
                               _buildTh('Partner Identity'),
@@ -706,22 +764,27 @@ class _VendorOnboardingConsolePageState
                               _buildTh('Paid'),
                               _buildTh('Remaining'),
                               _buildTh('Status'),
+                              _buildTh('Gateway / Order Ref'),
                               _buildTh('Controlled Actions'),
                             ],
                           ),
                           ...deposits.map((dep) {
                             return TableRow(
                               decoration: const BoxDecoration(
-                                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                                border: Border(
+                                    bottom:
+                                        BorderSide(color: Color(0xFFF1F5F9))),
                               ),
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        dep.vendorBusinessName ?? 'Partner Account',
+                                        dep.vendorBusinessName ??
+                                            'Partner Account',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
@@ -748,8 +811,10 @@ class _VendorOnboardingConsolePageState
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.all(16),
-                                  child: Text(_formatCurrency(dep.requiredAmount),
-                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  child: Text(
+                                      _formatCurrency(dep.requiredAmount),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.all(16),
@@ -776,8 +841,53 @@ class _VendorOnboardingConsolePageState
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: _buildBadge(
-                                    label: dep.status,
-                                    color: _getDepositStatusColor(dep.status),
+                                    label: dep.isExempt
+                                        ? 'EXEMPTED'
+                                        : dep.status,
+                                    color: dep.isExempt
+                                        ? Colors.teal
+                                        : _getDepositStatusColor(dep.status),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        dep.provider ?? 'RAZORPAY',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (dep.providerOrderId != null)
+                                        Text(
+                                          dep.providerOrderId!,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      if (dep.providerPaymentId != null)
+                                        Text(
+                                          'Pay: ${dep.providerPaymentId!}',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.teal,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      Text(
+                                        'Policy v${dep.policyVersion ?? 1}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.blueGrey,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Padding(
@@ -787,50 +897,74 @@ class _VendorOnboardingConsolePageState
                                     runSpacing: 6,
                                     children: [
                                       _buildActionButton(
+                                        label: dep.isExempt
+                                            ? 'Exempted'
+                                            : 'Exempt',
+                                        icon: Icons.verified_user_outlined,
+                                        color: Colors.teal,
+                                        onPressed: () =>
+                                            _showExemptionDialog(context, dep),
+                                      ),
+                                      _buildActionButton(
                                         label: 'Pay',
                                         icon: Icons.add_card_outlined,
                                         color: Colors.green,
-                                        onPressed: () => _showRecordPaymentDialog(context, dep),
+                                        onPressed: () =>
+                                            _showRecordPaymentDialog(
+                                                context, dep),
                                       ),
                                       _buildActionButton(
                                         label: 'Adjust',
                                         icon: Icons.tune_outlined,
                                         color: Colors.blue,
-                                        onPressed: () => _showAdjustDepositDialog(context, dep),
+                                        onPressed: () =>
+                                            _showAdjustDepositDialog(
+                                                context, dep),
                                       ),
-                                      if (dep.status == 'PAID' || dep.status == 'PARTIALLY_PAID')
+                                      if (dep.status == 'PAID' ||
+                                          dep.status == 'PARTIALLY_PAID')
                                         _buildActionButton(
                                           label: 'Hold',
                                           icon: Icons.pause_circle_outline,
                                           color: Colors.purple,
-                                          onPressed: () => _showHoldDepositDialog(context, dep),
+                                          onPressed: () =>
+                                              _showHoldDepositDialog(
+                                                  context, dep),
                                         ),
-                                      if (dep.status == 'HELD' || dep.status == 'PAID')
+                                      if (dep.status == 'HELD' ||
+                                          dep.status == 'PAID')
                                         _buildActionButton(
                                           label: 'Release',
                                           icon: Icons.lock_open_outlined,
                                           color: Colors.teal,
-                                          onPressed: () => _showReleaseDepositDialog(context, dep),
+                                          onPressed: () =>
+                                              _showReleaseDepositDialog(
+                                                  context, dep),
                                         ),
                                       if (dep.paidAmount > 0)
                                         _buildActionButton(
                                           label: 'Refund',
                                           icon: Icons.reply_outlined,
                                           color: Colors.blueGrey,
-                                          onPressed: () => _showRefundDepositDialog(context, dep),
+                                          onPressed: () =>
+                                              _showRefundDepositDialog(
+                                                  context, dep),
                                         ),
                                       if (dep.paidAmount > 0)
                                         _buildActionButton(
                                           label: 'Forfeit',
                                           icon: Icons.warning_amber_rounded,
                                           color: Colors.red,
-                                          onPressed: () => _showForfeitDepositDialog(context, dep),
+                                          onPressed: () =>
+                                              _showForfeitDepositDialog(
+                                                  context, dep),
                                         ),
                                       _buildActionButton(
                                         label: 'Ledger',
                                         icon: Icons.history_rounded,
                                         color: Colors.indigo,
-                                        onPressed: () => _showLedgerDrawer(context, dep),
+                                        onPressed: () =>
+                                            _showLedgerDrawer(context, dep),
                                       ),
                                     ],
                                   ),
@@ -845,6 +979,525 @@ class _VendorOnboardingConsolePageState
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDepositPolicyHeaderCard(BuildContext context) {
+    final policyAsync = ref.watch(adminDepositPolicyProvider);
+
+    return policyAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (policy) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF0F172A).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.shield_outlined,
+                            color: Color(0xFF0F172A), size: 20),
+                      ),
+                      const Gap(12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Centralized Vendor Security Deposit Policy',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const Gap(8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.blue[200]!),
+                                ),
+                                child: Text(
+                                  'Policy v${policy.version}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[800],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Gap(2),
+                          const Text(
+                            'Platform-wide financial governance controlling commercial onboarding deposit mandates.',
+                            style: TextStyle(
+                                fontSize: 12.5, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.edit_note, size: 18),
+                    label: const Text('Configure Policy'),
+                    onPressed: () => _showEditPolicyDialog(context, policy),
+                  ),
+                ],
+              ),
+              const Gap(16),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const Gap(16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildPolicyDetailPill(
+                      label: 'Mandatory Policy',
+                      value: policy.isRequired
+                          ? 'MANDATORY (Enforced)'
+                          : 'OPTIONAL (Waived)',
+                      color: policy.isRequired ? Colors.green : Colors.grey,
+                      icon: policy.isRequired
+                          ? Icons.check_circle
+                          : Icons.toggle_off,
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: _buildPolicyDetailPill(
+                      label: 'Standard Deposit',
+                      value: '₹${policy.amount.toStringAsFixed(0)} INR',
+                      color: Colors.blue,
+                      icon: Icons.currency_rupee,
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: _buildPolicyDetailPill(
+                      label: 'Refund Terms',
+                      value: policy.refundPolicy.replaceAll('_', ' '),
+                      color: Colors.teal,
+                      icon: Icons.assignment_return_outlined,
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: _buildPolicyDetailPill(
+                      label: 'Primary Gateway',
+                      value: policy.paymentProvider,
+                      color: Colors.indigo,
+                      icon: Icons.payment,
+                    ),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: _buildPolicyDetailPill(
+                      label: 'Payment Deadline',
+                      value: '${policy.deadlineDays} Days',
+                      color: Colors.deepPurple,
+                      icon: Icons.timelapse,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPolicyDetailPill({
+    required String label,
+    required String value,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const Gap(8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditPolicyDialog(
+      BuildContext context, VendorDepositPolicyModel policy) {
+    bool isRequired = policy.isRequired;
+    final amountCtrl =
+        TextEditingController(text: policy.amount.toStringAsFixed(0));
+    String refundPolicy = policy.refundPolicy;
+    String provider = policy.paymentProvider;
+    final deadlineCtrl =
+        TextEditingController(text: policy.deadlineDays.toString());
+    final descCtrl = TextEditingController(text: policy.description ?? '');
+    final conditionsCtrl =
+        TextEditingController(text: policy.refundConditions ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.shield_outlined, color: Color(0xFF0F172A)),
+                const Gap(8),
+                Text('Configure Deposit Policy (Current: v${policy.version})'),
+              ],
+            ),
+            content: SizedBox(
+              width: 580,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Mandatory Security Deposit',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text(
+                          'When enabled, new partners must pay deposit before onboarding activation.'),
+                      value: isRequired,
+                      onChanged: (val) =>
+                          setDialogState(() => isRequired = val),
+                    ),
+                    const Gap(16),
+                    TextField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Standard Security Deposit Amount (INR) *',
+                        hintText: 'e.g. 25000',
+                        border: OutlineInputBorder(),
+                        prefixText: '₹ ',
+                      ),
+                    ),
+                    const Gap(16),
+                    DropdownButtonFormField<String>(
+                      initialValue: refundPolicy,
+                      decoration: const InputDecoration(
+                        labelText: 'Refund Policy Terms *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'REFUNDABLE',
+                            child: Text('100% Fully Refundable')),
+                        DropdownMenuItem(
+                            value: 'PARTIALLY_REFUNDABLE',
+                            child: Text('Partially Refundable')),
+                        DropdownMenuItem(
+                            value: 'NON_REFUNDABLE',
+                            child: Text('Non-Refundable')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => refundPolicy = val);
+                        }
+                      },
+                    ),
+                    const Gap(16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: provider,
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Gateway',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'RAZORPAY',
+                                  child: Text('Razorpay Payment Gateway')),
+                              DropdownMenuItem(
+                                  value: 'CASHFREE',
+                                  child: Text('Cashfree Payments')),
+                              DropdownMenuItem(
+                                  value: 'STRIPE',
+                                  child: Text('Stripe Payments')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => provider = val);
+                              }
+                            },
+                          ),
+                        ),
+                        const Gap(12),
+                        Expanded(
+                          child: TextField(
+                            controller: deadlineCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Deadline (Days)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(16),
+                    TextField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Public Policy Description & Partner Terms',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const Gap(16),
+                    TextField(
+                      controller: conditionsCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Refund Conditions / Contract Clauses',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                  final deadline =
+                      int.tryParse(deadlineCtrl.text.trim()) ?? 14;
+                  if (amount < 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text('Please enter a valid deposit amount')),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(dialogCtx);
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  try {
+                    await ref
+                        .read(adminOnboardingRepositoryProvider)
+                        .updateDepositPolicy({
+                      'isRequired': isRequired,
+                      'amount': amount,
+                      'currency': 'INR',
+                      'refundPolicy': refundPolicy,
+                      'paymentProvider': provider,
+                      'deadlineDays': deadline,
+                      'description': descCtrl.text.trim(),
+                      'refundConditions': conditionsCtrl.text.trim(),
+                    });
+
+                    ref.invalidate(adminDepositPolicyProvider);
+                    ref.invalidate(adminDepositsProvider);
+
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Deposit policy updated successfully! New version published.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                          content: Text('Failed to update policy: $e'),
+                          backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                child: const Text('Publish New Policy Version'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showExemptionDialog(
+      BuildContext context, VendorSecurityDepositModel dep) {
+    bool isExempt = dep.isExempt;
+    final reasonCtrl = TextEditingController(text: dep.exemptionReason ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.verified_user_outlined, color: Colors.teal),
+                const Gap(8),
+                Text(
+                    'Manage Exemption: ${dep.vendorBusinessName ?? dep.vendorId}'),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Grant Security Deposit Exemption',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text(
+                        'Exempt partners do not need to pay security deposit to be approved.'),
+                    value: isExempt,
+                    onChanged: (val) => setDialogState(() => isExempt = val),
+                  ),
+                  const Gap(16),
+                  TextField(
+                    controller: reasonCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Exemption Justification / Audit Reason *',
+                      hintText:
+                          'e.g. Enterprise partner waiver signed by VP Operations',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final reason = reasonCtrl.text.trim();
+                  if (isExempt && reason.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Audit reason is required for exemptions.')),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(dialogCtx);
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  try {
+                    await ref
+                        .read(adminOnboardingRepositoryProvider)
+                        .setVendorExemption(
+                          dep.vendorId,
+                          isExempt: isExempt,
+                          reason:
+                              reason.isNotEmpty ? reason : 'Exemption revoked',
+                        );
+
+                    ref.invalidate(adminDepositsProvider);
+
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(isExempt
+                            ? 'Security deposit exemption granted for ${dep.vendorBusinessName ?? dep.vendorId}.'
+                            : 'Exemption revoked. Deposit requirement restored.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                          content: Text('Failed to update exemption: $e'),
+                          backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                child: const Text('Save Exemption Status'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 

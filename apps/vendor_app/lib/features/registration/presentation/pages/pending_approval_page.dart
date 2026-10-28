@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../domain/models/vendor_compliance_models.dart';
 import '../providers/vendor_compliance_providers.dart';
@@ -16,16 +17,197 @@ class PendingApprovalPage extends ConsumerStatefulWidget {
 
 class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
     with WidgetsBindingObserver {
+  late Razorpay _razorpay;
+  bool _isProcessingPayment = false;
+  double _currentDepositAmount = 25000;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _razorpay.clear();
     super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    setState(() => _isProcessingPayment = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final success = await ref
+          .read(vendorComplianceControllerProvider.notifier)
+          .verifyDepositPayment(
+            razorpayOrderId: response.orderId ?? '',
+            razorpayPaymentId: response.paymentId ?? '',
+            razorpaySignature: response.signature ?? '',
+          );
+
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+
+      if (success) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(
+              Icons.check_circle_rounded,
+              color: Colors.green,
+              size: 54,
+            ),
+            title: const Text('Security Deposit Paid'),
+            content: Text(
+              'Your payment of ₹${_currentDepositAmount.toStringAsFixed(0)} (Ref: ${response.paymentId}) has been cryptographically verified and recorded in the deposit ledger. Your onboarding requirement has been satisfied.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ref
+                      .read(vendorComplianceControllerProvider.notifier)
+                      .refreshAll();
+                },
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Payment verification failed on server. Please contact support if amount was deducted.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Verification error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.error_outline_rounded,
+            color: Colors.red, size: 50),
+        title: const Text('Payment Unsuccessful'),
+        content: Text(
+          response.message != null && response.message!.isNotEmpty
+              ? response.message!
+              : 'Payment was cancelled or failed by the payment provider (Code: ${response.code}). You can retry whenever you are ready.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry Payment'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _initiateDepositPayment();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'External wallet chosen: ${response.walletName ?? 'Unknown'}'),
+      ),
+    );
+  }
+
+  Future<void> _initiateDepositPayment() async {
+    setState(() => _isProcessingPayment = true);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final order = await ref
+          .read(vendorComplianceControllerProvider.notifier)
+          .createDepositOrder();
+
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+
+      if (order == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Unable to initiate deposit order. Please check network connection.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      _currentDepositAmount = order.amountInINR;
+
+      final options = {
+        'key': order.keyId,
+        'amount': order.amount,
+        'name': 'DriveGo Technologies',
+        'description':
+            'Vendor Security Deposit (Policy v${order.policyVersion})',
+        'order_id': order.orderId,
+        'prefill': {
+          'contact': order.phone,
+          'email': order.email,
+          'name': order.contactName.isNotEmpty
+              ? order.contactName
+              : order.businessName,
+        },
+        'notes': {
+          'purpose': order.purpose,
+          'policyVersion': order.policyVersion.toString(),
+        },
+        'theme': {
+          'color': '#0F172A',
+        },
+        'modal': {
+          'confirm_close': true,
+        },
+      };
+
+      _razorpay.open(options);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to initiate checkout: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -436,22 +618,38 @@ class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
         ),
       ),
       data: (deposit) {
+        final isWaivedOrExempt =
+            deposit.isExempt ||
+            deposit.status == 'NOT_REQUIRED' ||
+            !deposit.isRequired;
+        final isPaid =
+            deposit.status == 'PAID' ||
+            (deposit.remainingAmount <= 0 && deposit.paidAmount > 0);
+
         Color statusColor;
-        switch (deposit.status) {
-          case 'PAID':
-            statusColor = Colors.green;
-            break;
-          case 'PARTIALLY_PAID':
-            statusColor = Colors.blue;
-            break;
-          case 'HELD':
-            statusColor = Colors.deepOrange;
-            break;
-          case 'FORFEITED':
-            statusColor = Colors.red;
-            break;
-          default:
-            statusColor = Colors.amber[800]!;
+        String statusLabel;
+
+        if (isWaivedOrExempt) {
+          statusColor = Colors.teal;
+          statusLabel = 'EXEMPTED / WAIVED';
+        } else if (isPaid) {
+          statusColor = Colors.green;
+          statusLabel = 'FULLY PAID';
+        } else if (deposit.status == 'PARTIALLY_PAID') {
+          statusColor = Colors.blue;
+          statusLabel = 'PARTIALLY PAID';
+        } else if (deposit.status == 'PAYMENT_INITIATED') {
+          statusColor = Colors.deepPurple;
+          statusLabel = 'PAYMENT INITIATED';
+        } else if (deposit.status == 'PAYMENT_FAILED') {
+          statusColor = Colors.red;
+          statusLabel = 'PAYMENT FAILED';
+        } else if (deposit.status == 'HELD') {
+          statusColor = Colors.deepOrange;
+          statusLabel = 'HELD';
+        } else {
+          statusColor = Colors.amber[800]!;
+          statusLabel = 'PAYMENT REQUIRED';
         }
 
         return Card(
@@ -474,26 +672,38 @@ class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
+                            color: (isWaivedOrExempt ? Colors.teal : Colors.blue)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.account_balance_wallet, color: Colors.blue),
+                          child: Icon(
+                            isWaivedOrExempt
+                                ? Icons.verified_user
+                                : Icons.account_balance_wallet,
+                            color: isWaivedOrExempt ? Colors.teal : Colors.blue,
+                          ),
                         ),
                         const Gap(10),
                         const Text(
                           'Security Deposit',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        deposit.status.replaceAll('_', ' '),
+                        statusLabel,
                         style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.bold,
@@ -504,88 +714,204 @@ class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
                   ],
                 ),
                 const Gap(16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+
+                // 1. If Exempted / Waived:
+                if (isWaivedOrExempt) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.teal[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.teal[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
                           children: [
-                            const Text('Required', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            const Gap(4),
+                            Icon(Icons.check_circle,
+                                color: Colors.teal, size: 20),
+                            Gap(8),
                             Text(
-                              '₹${deposit.requiredAmount.toStringAsFixed(0)}',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Paid', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            const Gap(4),
-                            Text(
-                              '₹${deposit.paidAmount.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Remaining', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            const Gap(4),
-                            Text(
-                              '₹${deposit.remainingAmount.toStringAsFixed(0)}',
+                              'Deposit Requirement Waived',
                               style: TextStyle(
-                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: deposit.remainingAmount > 0 ? Colors.red : Colors.grey,
+                                color: Colors.teal,
+                                fontSize: 14,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Gap(14),
-                Text(
-                  deposit.allowPartialPayment
-                      ? 'Note: Partial payments are permitted. Minimum initial deposit amount is ₹${deposit.minInitialAmount.toStringAsFixed(0)}.'
-                      : 'Note: Full deposit of ₹${deposit.requiredAmount.toStringAsFixed(0)} must be paid in single transaction.',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey[600]),
-                ),
-                if (deposit.remainingAmount > 0) ...[
-                  const Gap(16),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        const Gap(6),
+                        Text(
+                          deposit.exemptionReason != null &&
+                                  deposit.exemptionReason!.isNotEmpty
+                              ? 'Exemption Reason: "${deposit.exemptionReason}"'
+                              : 'This vendor account has been granted an administrative security deposit exemption by DriveGo Super Admin.',
+                          style: TextStyle(
+                            color: Colors.teal[900],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.payment, size: 20),
-                    label: Text(
-                      'Pay Security Deposit (₹${deposit.remainingAmount.toStringAsFixed(0)})',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => _showPaymentDialog(context, deposit),
                   ),
+                ] else ...[
+                  // 2. Financial Amount Summary Box
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Required',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                              const Gap(4),
+                              Text(
+                                '₹${deposit.requiredAmount.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Paid',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                              const Gap(4),
+                              Text(
+                                '₹${deposit.paidAmount.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Remaining',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                              const Gap(4),
+                              Text(
+                                '₹${deposit.remainingAmount.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: deposit.remainingAmount > 0
+                                      ? Colors.red
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Gap(14),
+
+                  // Policy & Refund Terms Card
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50]?.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.blue[100]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline,
+                                size: 16, color: Colors.blue),
+                            const Gap(6),
+                            Text(
+                              'Refund Policy: ${deposit.refundPolicy.replaceAll('_', ' ')}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Gap(4),
+                        Text(
+                          deposit.policyDescription ??
+                              'DriveGo Partner Standard Security Deposit. 100% refundable upon partner contract termination and account settlement.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blueGrey[800],
+                            height: 1.3,
+                          ),
+                        ),
+                        if (deposit.providerPaymentId != null &&
+                            deposit.providerPaymentId!.isNotEmpty) ...[
+                          const Gap(6),
+                          Text(
+                            'Gateway Payment Ref: ${deposit.providerPaymentId}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  if (deposit.remainingAmount > 0) ...[
+                    const Gap(16),
+                    _isProcessingPayment
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        : ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.shield, size: 20),
+                            label: Text(
+                              'Pay Security Deposit via Razorpay (₹${deposit.remainingAmount.toStringAsFixed(0)})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            onPressed: _initiateDepositPayment,
+                          ),
+                  ],
                 ],
               ],
             ),
@@ -996,124 +1322,6 @@ class _PendingApprovalPageState extends ConsumerState<PendingApprovalPage>
             child: const Text('Submit for Review'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showPaymentDialog(BuildContext context, VendorDepositSummaryModel deposit) {
-    final amountCtrl =
-        TextEditingController(text: deposit.remainingAmount.toStringAsFixed(0));
-    final refCtrl = TextEditingController();
-    String selectedMethod = 'UPI';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) {
-          return AlertDialog(
-            title: const Text('Make Security Deposit Payment'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Remaining Deposit: ₹${deposit.remainingAmount.toStringAsFixed(0)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  if (deposit.allowPartialPayment)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Minimum Initial: ₹${deposit.minInitialAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 12, color: Colors.blue),
-                      ),
-                    ),
-                  const Gap(16),
-                  TextField(
-                    controller: amountCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Amount (₹) *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const Gap(14),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedMethod,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Method',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'UPI', child: Text('UPI / QR Code')),
-                      DropdownMenuItem(value: 'NETBANKING', child: Text('Net Banking')),
-                      DropdownMenuItem(value: 'CARD', child: Text('Debit / Credit Card')),
-                      DropdownMenuItem(value: 'NEFT', child: Text('Bank Wire (NEFT / RTGS)')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedMethod = val);
-                      }
-                    },
-                  ),
-                  const Gap(14),
-                  TextField(
-                    controller: refCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Transaction Reference / UTR Number',
-                      hintText: 'e.g., UPI-TXN-98421045',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () async {
-                  final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
-                  if (amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a valid payment amount')),
-                    );
-                    return;
-                  }
-                  final messenger = ScaffoldMessenger.of(context);
-                  Navigator.pop(dialogCtx);
-                  final success = await ref
-                      .read(vendorComplianceControllerProvider.notifier)
-                      .payDeposit(
-                        amount: amount,
-                        paymentMethod: selectedMethod,
-                        reference: refCtrl.text.trim(),
-                      );
-                  if (mounted) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          success
-                              ? 'Security deposit payment of ₹${amount.toStringAsFixed(0)} recorded successfully!'
-                              : 'Payment failed. Please verify amount and rules.',
-                        ),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Confirm Payment'),
-              ),
-            ],
-          );
-        },
       ),
     );
   }

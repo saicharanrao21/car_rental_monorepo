@@ -56,6 +56,42 @@ class VendorComplianceController extends AutoDisposeNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<VendorDepositOrderModel?> createDepositOrder() async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(vendorComplianceRepositoryProvider);
+      final order = await repo.createDepositOrder();
+      state = const AsyncValue.data(null);
+      return order;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
+  Future<bool> verifyDepositPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(vendorComplianceRepositoryProvider);
+      await repo.verifyDepositPayment(
+        razorpayOrderId: razorpayOrderId,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
+      );
+      state = const AsyncValue.data(null);
+      ref.invalidate(vendorDepositSummaryProvider);
+      ref.invalidate(vendorEligibilityProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
   Future<bool> payDeposit({
     required double amount,
     required String paymentMethod,

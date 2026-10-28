@@ -37,6 +37,12 @@ final onboardingDefinitionsProvider =
 final depositStatusFilterProvider = StateProvider<String?>((ref) => null);
 final depositSearchQueryProvider = StateProvider<String>((ref) => '');
 
+final adminDepositPolicyProvider =
+    FutureProvider.autoDispose<VendorDepositPolicyModel>((ref) async {
+  final repo = ref.watch(adminOnboardingRepositoryProvider);
+  return repo.getDepositPolicy();
+});
+
 final adminDepositsProvider =
     FutureProvider.autoDispose<List<VendorSecurityDepositModel>>((ref) async {
   final repo = ref.watch(adminOnboardingRepositoryProvider);

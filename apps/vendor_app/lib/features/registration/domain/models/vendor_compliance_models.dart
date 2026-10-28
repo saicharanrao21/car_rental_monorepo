@@ -123,6 +123,15 @@ class VendorDepositSummaryModel {
   final bool isFullyPaid;
   final double minInitialAmount;
   final bool allowPartialPayment;
+  final bool isRequired;
+  final bool isExempt;
+  final String? exemptionReason;
+  final String refundPolicy;
+  final String paymentProvider;
+  final String? providerOrderId;
+  final String? providerPaymentId;
+  final String? policyDescription;
+  final int? policyDeadlineDays;
 
   VendorDepositSummaryModel({
     required this.depositId,
@@ -138,9 +147,19 @@ class VendorDepositSummaryModel {
     required this.isFullyPaid,
     required this.minInitialAmount,
     required this.allowPartialPayment,
+    this.isRequired = true,
+    this.isExempt = false,
+    this.exemptionReason,
+    this.refundPolicy = 'REFUNDABLE',
+    this.paymentProvider = 'RAZORPAY',
+    this.providerOrderId,
+    this.providerPaymentId,
+    this.policyDescription,
+    this.policyDeadlineDays,
   });
 
   factory VendorDepositSummaryModel.fromJson(Map<String, dynamic> json) {
+    final pol = json['policy'] is Map<String, dynamic> ? json['policy'] as Map<String, dynamic> : null;
     return VendorDepositSummaryModel(
       depositId: json['depositId']?.toString() ?? '',
       vendorId: json['vendorId']?.toString() ?? '',
@@ -152,9 +171,65 @@ class VendorDepositSummaryModel {
       heldBalance: (json['heldBalance'] as num?)?.toDouble() ?? 0.0,
       refundedBalance: (json['refundedBalance'] as num?)?.toDouble() ?? 0.0,
       forfeitedBalance: (json['forfeitedBalance'] as num?)?.toDouble() ?? 0.0,
-      isFullyPaid: json['isFullyPaid'] == true,
+      isFullyPaid: json['isFullyPaid'] == true || json['isSatisfied'] == true,
       minInitialAmount: (json['minInitialAmount'] as num?)?.toDouble() ?? 0.0,
-      allowPartialPayment: json['allowPartialPayment'] != false,
+      allowPartialPayment: json['allowPartialPayment'] == true,
+      isRequired: json['isRequired'] != false,
+      isExempt: json['isExempt'] == true,
+      exemptionReason: json['exemptionReason']?.toString(),
+      refundPolicy: json['refundPolicy']?.toString() ?? pol?['refundPolicy']?.toString() ?? 'REFUNDABLE',
+      paymentProvider: json['paymentProvider']?.toString() ?? 'RAZORPAY',
+      providerOrderId: json['providerOrderId']?.toString(),
+      providerPaymentId: json['providerPaymentId']?.toString(),
+      policyDescription: pol?['description']?.toString(),
+      policyDeadlineDays: (pol?['deadlineDays'] as num?)?.toInt(),
+    );
+  }
+}
+
+class VendorDepositOrderModel {
+  final String orderId;
+  final int amount; // in paise
+  final double amountInINR;
+  final String currency;
+  final String keyId;
+  final String purpose;
+  final int policyVersion;
+  final String businessName;
+  final String contactName;
+  final String email;
+  final String phone;
+
+  VendorDepositOrderModel({
+    required this.orderId,
+    required this.amount,
+    required this.amountInINR,
+    required this.currency,
+    required this.keyId,
+    required this.purpose,
+    required this.policyVersion,
+    this.businessName = '',
+    this.contactName = '',
+    this.email = '',
+    this.phone = '',
+  });
+
+  factory VendorDepositOrderModel.fromJson(Map<String, dynamic> json) {
+    final v = json['vendor'] is Map<String, dynamic>
+        ? json['vendor'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    return VendorDepositOrderModel(
+      orderId: json['orderId']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      amountInINR: (json['amountInINR'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency']?.toString() ?? 'INR',
+      keyId: json['keyId']?.toString() ?? '',
+      purpose: json['purpose']?.toString() ?? 'VENDOR_SECURITY_DEPOSIT',
+      policyVersion: (json['policyVersion'] as num?)?.toInt() ?? 1,
+      businessName: v['businessName']?.toString() ?? '',
+      contactName: v['contactName']?.toString() ?? '',
+      email: v['email']?.toString() ?? '',
+      phone: v['phone']?.toString() ?? '',
     );
   }
 }

@@ -74,13 +74,94 @@ class RequirementDefinitionModel {
       };
 }
 
+class VendorDepositPolicyModel {
+  final String id;
+  final int version;
+  final bool isRequired;
+  final double amount;
+  final String currency;
+  final String refundPolicy;
+  final String? description;
+  final String? refundConditions;
+  final String paymentProvider;
+  final int deadlineDays;
+  final Map<String, dynamic>? exemptions;
+  final bool isActive;
+  final DateTime? effectiveFrom;
+  final String? updatedBy;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const VendorDepositPolicyModel({
+    required this.id,
+    required this.version,
+    required this.isRequired,
+    required this.amount,
+    required this.currency,
+    required this.refundPolicy,
+    this.description,
+    this.refundConditions,
+    required this.paymentProvider,
+    required this.deadlineDays,
+    this.exemptions,
+    required this.isActive,
+    this.effectiveFrom,
+    this.updatedBy,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory VendorDepositPolicyModel.fromJson(Map<String, dynamic> json) {
+    return VendorDepositPolicyModel(
+      id: json['id']?.toString() ?? '',
+      version: (json['version'] as num?)?.toInt() ?? 1,
+      isRequired: json['isRequired'] != false,
+      amount: (json['amount'] as num?)?.toDouble() ?? 25000.0,
+      currency: json['currency']?.toString() ?? 'INR',
+      refundPolicy: json['refundPolicy']?.toString() ?? 'REFUNDABLE',
+      description: json['description']?.toString(),
+      refundConditions: json['refundConditions']?.toString(),
+      paymentProvider: json['paymentProvider']?.toString() ?? 'RAZORPAY',
+      deadlineDays: (json['deadlineDays'] as num?)?.toInt() ?? 14,
+      exemptions: json['exemptions'] is Map<String, dynamic>
+          ? json['exemptions'] as Map<String, dynamic>
+          : null,
+      isActive: json['isActive'] != false,
+      effectiveFrom: json['effectiveFrom'] != null
+          ? DateTime.tryParse(json['effectiveFrom'].toString())
+          : null,
+      updatedBy: json['updatedBy']?.toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'isRequired': isRequired,
+      'amount': amount,
+      'currency': currency,
+      'refundPolicy': refundPolicy,
+      'description': description,
+      'refundConditions': refundConditions,
+      'paymentProvider': paymentProvider,
+      'deadlineDays': deadlineDays,
+      'exemptions': exemptions,
+    };
+  }
+}
+
 class VendorSecurityDepositModel {
   final String id;
   final String vendorId;
   final double requiredAmount;
   final double paidAmount;
   final double remainingAmount;
-  final String status; // REQUIRED, PENDING, PARTIALLY_PAID, PAID, HELD, RELEASED, REFUNDED, FORFEITED
+  final String status;
   final String? requirementCode;
   final int? requirementVersion;
   final DateTime? heldAt;
@@ -94,6 +175,14 @@ class VendorSecurityDepositModel {
   final String? vendorContactName;
   final String? vendorEmail;
   final String? vendorPhone;
+  final String? provider;
+  final String? providerOrderId;
+  final String? providerPaymentId;
+  final bool isExempt;
+  final String? exemptionReason;
+  final String? exemptedBy;
+  final DateTime? exemptedAt;
+  final int? policyVersion;
 
   const VendorSecurityDepositModel({
     required this.id,
@@ -115,6 +204,14 @@ class VendorSecurityDepositModel {
     this.vendorContactName,
     this.vendorEmail,
     this.vendorPhone,
+    this.provider,
+    this.providerOrderId,
+    this.providerPaymentId,
+    this.isExempt = false,
+    this.exemptionReason,
+    this.exemptedBy,
+    this.exemptedAt,
+    this.policyVersion,
   });
 
   factory VendorSecurityDepositModel.fromJson(Map<String, dynamic> json) {
@@ -149,6 +246,14 @@ class VendorSecurityDepositModel {
       vendorContactName: userMap != null ? userMap['name'] as String? : null,
       vendorEmail: userMap != null ? userMap['email'] as String? : null,
       vendorPhone: userMap != null ? userMap['phone'] as String? : null,
+      provider: json['provider']?.toString(),
+      providerOrderId: json['providerOrderId']?.toString(),
+      providerPaymentId: json['providerPaymentId']?.toString(),
+      isExempt: json['isExempt'] == true,
+      exemptionReason: json['exemptionReason']?.toString(),
+      exemptedBy: json['exemptedBy']?.toString(),
+      exemptedAt: json['exemptedAt'] != null ? DateTime.tryParse(json['exemptedAt'].toString()) : null,
+      policyVersion: (json['policyVersion'] as num?)?.toInt(),
     );
   }
 }

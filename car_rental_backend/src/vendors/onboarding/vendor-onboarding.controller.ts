@@ -21,6 +21,7 @@ import { VendorSecurityDepositService } from './vendor-security-deposit.service'
 import {
   SubmitRequirementDto,
   RecordDepositPaymentDto,
+  VerifyDepositPaymentDto,
 } from './onboarding.types';
 
 @Controller('vendors/me/onboarding')
@@ -77,6 +78,35 @@ export class VendorOnboardingController {
   async getDeposit(@Req() req: any) {
     const vendorId = await this.getVendorId(req);
     return this.depositService.getDepositSummary(vendorId);
+  }
+
+  @Get('deposit/policy')
+  async getDepositPolicy() {
+    return this.depositService.getActivePolicy();
+  }
+
+  @Post('deposit/create-order')
+  @HttpCode(HttpStatus.CREATED)
+  async createDepositOrder(@Req() req: any) {
+    const vendorId = await this.getVendorId(req);
+    return this.depositService.createDepositPaymentOrder(
+      vendorId,
+      req.user.userId,
+    );
+  }
+
+  @Post('deposit/verify-payment')
+  @HttpCode(HttpStatus.OK)
+  async verifyDepositPayment(
+    @Req() req: any,
+    @Body() dto: VerifyDepositPaymentDto,
+  ) {
+    const vendorId = await this.getVendorId(req);
+    return this.depositService.verifyDepositPayment(
+      vendorId,
+      dto,
+      req.user.userId,
+    );
   }
 
   @Post('deposit/payment')

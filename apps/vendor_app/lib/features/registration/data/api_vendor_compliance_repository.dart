@@ -60,4 +60,30 @@ class ApiVendorComplianceRepository implements VendorComplianceRepository {
       },
     );
   }
+
+  @override
+  Future<VendorDepositOrderModel> createDepositOrder() async {
+    final response =
+        await apiClient.dio.post('/vendors/me/onboarding/deposit/create-order');
+    return VendorDepositOrderModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyDepositPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    final response = await apiClient.dio.post(
+      '/vendors/me/onboarding/deposit/verify-payment',
+      data: {
+        'razorpayOrderId': razorpayOrderId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpaySignature': razorpaySignature,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

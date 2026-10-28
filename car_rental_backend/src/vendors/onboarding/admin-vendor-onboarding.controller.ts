@@ -35,6 +35,8 @@ import {
   ReleaseDepositDto,
   RefundDepositDto,
   ForfeitDepositDto,
+  UpdateDepositPolicyDto,
+  SetVendorExemptionDto,
 } from './onboarding.types';
 
 @Controller('admin/vendors')
@@ -190,8 +192,43 @@ export class AdminVendorOnboardingController {
   }
 
   // ==========================================
+  // VENDOR SECURITY DEPOSIT POLICY MANAGEMENT
+  // ==========================================
+
+  @Get('deposit/policy')
+  @RequirePermissions(AdminPermission.VENDOR_DEPOSIT_READ)
+  async getDepositPolicy() {
+    return this.depositService.getActivePolicy();
+  }
+
+  @Put('deposit/policy')
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.VENDOR_DEPOSIT_WRITE)
+  async updateDepositPolicy(
+    @Req() req: any,
+    @Body() dto: UpdateDepositPolicyDto,
+  ) {
+    return this.depositService.updatePolicy(dto, req.user?.userId);
+  }
+
+  // ==========================================
   // VENDOR SECURITY DEPOSIT MANAGEMENT
   // ==========================================
+
+  @Post(':id/deposit/exemption')
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.VENDOR_DEPOSIT_WRITE)
+  async setVendorExemption(
+    @Req() req: any,
+    @Param('id') vendorId: string,
+    @Body() dto: SetVendorExemptionDto,
+  ) {
+    return this.depositService.setVendorExemption(
+      vendorId,
+      dto,
+      req.user?.userId,
+    );
+  }
 
   @Get(':id/deposit')
   @RequirePermissions(AdminPermission.VENDOR_DEPOSIT_READ)

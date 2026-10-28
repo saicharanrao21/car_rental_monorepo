@@ -1044,6 +1044,85 @@ export class PaymentsService {
       });
 
       if (!payment) {
+        // Check if this webhook corresponds to a Vendor Security Deposit
+        const vendorDeposit = await this.prisma.vendorSecurityDeposit.findFirst({
+          where: {
+            OR: [
+              { providerOrderId: orderId },
+              { providerPaymentId: paymentId },
+            ],
+          },
+        });
+
+        if (vendorDeposit) {
+          this.logger.log(
+            `[WEBHOOK] Detected vendor security deposit webhook for deposit ${vendorDeposit.id}, order ${orderId}`,
+          );
+          if (vendorDeposit.status !== ('PAID' as any)) {
+            await this.prisma.$transaction(async (tx) => {
+              const depositAmount = Number(vendorDeposit.requiredAmount);
+              await tx.vendorSecurityDeposit.update({
+                where: { id: vendorDeposit.id },
+                data: {
+                  status: 'PAID' as any,
+                  paidAmount: depositAmount,
+                  remainingAmount: 0,
+                  providerPaymentId: paymentId,
+                },
+              });
+
+              const existingLedger = await tx.vendorDepositLedgerEntry.findFirst({
+                where: { reference: paymentId },
+              });
+              if (!existingLedger) {
+                await tx.vendorDepositLedgerEntry.create({
+                  data: {
+                    depositId: vendorDeposit.id,
+                    amount: depositAmount,
+                    direction: 'CREDIT',
+                    balanceBefore: Number(vendorDeposit.paidAmount),
+                    balanceAfter: depositAmount,
+                    transactionType: 'INITIAL_PAYMENT',
+                    paymentMethod: 'RAZORPAY_WEBHOOK',
+                    reference: paymentId,
+                    idempotencyKey: `wh_${paymentId}`,
+                    reason: `Razorpay webhook payment captured (Order: ${orderId})`,
+                    actorId: 'RAZORPAY_WEBHOOK',
+                    actorRole: 'SYSTEM',
+                  },
+                });
+              }
+
+              const reqDef = await tx.onboardingRequirementDefinition.findFirst({
+                where: { code: 'DEP_SECURITY', isActive: true },
+              });
+              if (reqDef) {
+                await tx.vendorRequirementState.upsert({
+                  where: {
+                    vendorId_requirementDefinitionId: {
+                      vendorId: vendorDeposit.vendorId,
+                      requirementDefinitionId: reqDef.id,
+                    },
+                  },
+                  update: {
+                    status: 'APPROVED' as any,
+                    reviewedByUserId: 'SYSTEM_WEBHOOK',
+                    reviewedAt: new Date(),
+                  },
+                  create: {
+                    vendorId: vendorDeposit.vendorId,
+                    requirementDefinitionId: reqDef.id,
+                    status: 'APPROVED' as any,
+                    reviewedByUserId: 'SYSTEM_WEBHOOK',
+                    reviewedAt: new Date(),
+                  },
+                });
+              }
+            });
+          }
+          return { received: true, vendorDepositProcessed: true };
+        }
+
         this.logger.warn(
           `Payment record not found for orderId: ${orderId}`,
         );

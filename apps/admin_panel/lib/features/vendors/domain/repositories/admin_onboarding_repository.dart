@@ -39,6 +39,16 @@ abstract interface class AdminOnboardingRepository {
     String? search,
   });
 
+  Future<VendorDepositPolicyModel> getDepositPolicy();
+
+  Future<VendorDepositPolicyModel> updateDepositPolicy(Map<String, dynamic> data);
+
+  Future<void> setVendorExemption(
+    String vendorId, {
+    required bool isExempt,
+    required String reason,
+  });
+
   Future<VendorSecurityDepositModel> getDeposit(String vendorId);
 
   Future<List<VendorDepositLedgerEntryModel>> getDepositLedger(String vendorId);

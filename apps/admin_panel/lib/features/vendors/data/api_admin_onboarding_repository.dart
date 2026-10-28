@@ -124,6 +124,42 @@ class ApiAdminOnboardingRepository implements AdminOnboardingRepository {
   }
 
   @override
+  Future<VendorDepositPolicyModel> getDepositPolicy() async {
+    final response = await apiClient.dio.get('/admin/vendors/deposit/policy');
+    return VendorDepositPolicyModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<VendorDepositPolicyModel> updateDepositPolicy(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await apiClient.dio.put(
+      '/admin/vendors/deposit/policy',
+      data: data,
+    );
+    return VendorDepositPolicyModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<void> setVendorExemption(
+    String vendorId, {
+    required bool isExempt,
+    required String reason,
+  }) async {
+    await apiClient.dio.post(
+      '/admin/vendors/$vendorId/deposit/exemption',
+      data: {
+        'isExempt': isExempt,
+        'reason': reason,
+      },
+    );
+  }
+
+  @override
   Future<VendorSecurityDepositModel> getDeposit(String vendorId) async {
     final response = await apiClient.dio.get('/admin/vendors/$vendorId/deposit');
     return VendorSecurityDepositModel.fromJson(response.data as Map<String, dynamic>);

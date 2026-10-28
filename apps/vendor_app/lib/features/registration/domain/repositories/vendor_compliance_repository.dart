@@ -14,4 +14,10 @@ abstract class VendorComplianceRepository {
     required String paymentMethod,
     String? referenceTransactionId,
   });
+  Future<VendorDepositOrderModel> createDepositOrder();
+  Future<Map<String, dynamic>> verifyDepositPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  });
 }

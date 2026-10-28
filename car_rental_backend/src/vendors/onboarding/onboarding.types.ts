@@ -301,6 +301,70 @@ export class HoldDepositDto {
   reason?: string;
 }
 
+export class UpdateDepositPolicyDto {
+  @IsBoolean()
+  isRequired: boolean;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @IsString()
+  @IsOptional()
+  currency?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  refundPolicy: string; // 'REFUNDABLE' | 'PARTIALLY_REFUNDABLE' | 'NON_REFUNDABLE'
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  refundConditions?: string;
+
+  @IsString()
+  @IsOptional()
+  paymentProvider?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  deadlineDays?: number;
+
+  @IsObject()
+  @IsOptional()
+  exemptions?: Record<string, any>;
+
+  @IsOptional()
+  effectiveFrom?: Date | string;
+}
+
+export class SetVendorExemptionDto {
+  @IsBoolean()
+  isExempt: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+}
+
+export class VerifyDepositPaymentDto {
+  @IsString()
+  @IsNotEmpty()
+  razorpayOrderId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  razorpayPaymentId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  razorpaySignature: string;
+}
+
 export interface VendorRequirementItem {
   id: string;
   requirementDefinitionId: string;
@@ -336,6 +400,17 @@ export interface VendorDepositSummary {
   remainingAmount: number;
   status: VendorDepositStatus;
   isSatisfied: boolean;
+  isRequired: boolean;
+  isExempt: boolean;
+  refundPolicy: string;
+  policyDescription?: string;
+  paymentProvider: string;
+  providerOrderId?: string | null;
+  providerPaymentId?: string | null;
+  allowPartialPayment?: boolean;
+  minInitialAmount?: number;
+  exemptionReason?: string;
+  policy?: any;
 }
 
 export interface VendorEligibilitySummary {
