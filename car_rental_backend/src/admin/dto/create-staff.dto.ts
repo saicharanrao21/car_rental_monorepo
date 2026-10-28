@@ -20,3 +20,4 @@ export class CreateStaffDto {
   @MinLength(8)
   password: string;
 }
+

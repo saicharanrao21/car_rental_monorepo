@@ -25,3 +25,4 @@ final staffRoleDefinitionsProvider = FutureProvider<List<StaffRoleDefinitionMode
   final repo = ref.watch(adminStaffRepositoryProvider);
   return repo.getRoleDefinitions();
 });
+

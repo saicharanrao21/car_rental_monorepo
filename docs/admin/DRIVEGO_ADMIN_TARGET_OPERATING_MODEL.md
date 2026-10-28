@@ -140,3 +140,4 @@ The platform establishes 7 distinct staff roles. Access control is enforced at b
      - Deletes stored driving license and identity images from cloud storage.
      - Preserves rental transaction ledger records, invoice numbers, and GST identifiers for 7-year statutory audit compliance.
      - Writes immutable entry to `/audit-log`.
+

@@ -120,3 +120,4 @@ Before exposing the Control Tower to live operations, complete the following act
 | 5 | Configure Meta WhatsApp API | Set `WHATSAPP_API_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` | PENDING META REVIEW |
 | 6 | Cloud Storage Presigned URLs | Set `STORAGE_PROVIDER=s3` and configure bucket credentials | PENDING CLOUD BUCKET |
 | 7 | Disaster Recovery Backup Schedule | Enable automated daily pg_dump to encrypted cold storage | READY FOR CRON SETUP |
+

@@ -18,3 +18,4 @@ export class UpdateStaffDto {
   @IsString()
   password?: string;
 }
+

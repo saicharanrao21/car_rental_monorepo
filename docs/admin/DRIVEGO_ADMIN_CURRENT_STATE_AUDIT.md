@@ -99,3 +99,4 @@ Status Key:
 - **Staff Management (`/staff`):** Provisioning, role updating, session revoking, and suspension controls.
 - **Role Hierarchy:** Enforces separation across 7 defined roles. Permissions guard rejects state mutations for `READONLY_ANALYST` and confines Support agents to customer care domains.
 - **Audit Logging (`/audit-log`):** Captures actor ID, target entity, action verb, timestamp, and IP address for all mutation operations.
+

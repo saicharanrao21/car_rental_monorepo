@@ -19,3 +19,4 @@ abstract interface class AdminStaffRepository {
   });
   Future<void> revokeStaffSessions(String id);
 }
+
