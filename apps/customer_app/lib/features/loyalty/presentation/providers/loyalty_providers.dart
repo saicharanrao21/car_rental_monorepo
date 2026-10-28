@@ -11,6 +11,7 @@ final loyaltyRepositoryProvider = Provider<LoyaltyRepository>((ref) {
 
 final loyaltyAccountProvider =
     FutureProvider.autoDispose<LoyaltyAccountModel>((ref) async {
+  ref.keepAlive();
   final repo = ref.watch(loyaltyRepositoryProvider);
   return repo.getLoyaltyAccount();
 });

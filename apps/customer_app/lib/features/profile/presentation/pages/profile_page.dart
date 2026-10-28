@@ -15,12 +15,13 @@ class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   String _getInitials(String name) {
-    if (name.trim().isEmpty) return '?';
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length > 1) {
+    final clean = name.trim();
+    if (clean.isEmpty) return '?';
+    final parts = clean.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length > 1 && parts[1].isNotEmpty) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return parts[0][0].toUpperCase();
+    return clean[0].toUpperCase();
   }
 
   void _showEditProfileBottomSheet(
@@ -417,9 +418,20 @@ class ProfilePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
-        child: Column(
+      body: RefreshIndicator(
+        color: DDSColors.primaryBlue,
+        backgroundColor: DDSColors.surfaceCard,
+        onRefresh: () async {
+          ref.invalidate(kycStatusProvider);
+          ref.invalidate(customerWalletProvider);
+          ref.invalidate(loyaltyAccountProvider);
+          ref.invalidate(myReferralCodeProvider);
+          ref.invalidate(wishlistIdsProvider);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+          padding: const EdgeInsets.symmetric(horizontal: DDSSpacing.md, vertical: DDSSpacing.sm),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Modern Profile Hero Card ──────────────────────────────
@@ -617,8 +629,97 @@ class ProfilePage extends ConsumerWidget {
                   ),
                 );
               },
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              loading: () => Container(
+                padding: const EdgeInsets.all(DDSSpacing.md),
+                decoration: BoxDecoration(
+                  color: DDSColors.surfaceCard,
+                  borderRadius: DDSRadius.largeBorderRadius,
+                  border: Border.all(color: DDSColors.borderLight),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: DDSColors.surfaceSubtle,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const Gap(DDSSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 140,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: DDSColors.surfaceSubtle,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const Gap(6),
+                          Container(
+                            width: 200,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: DDSColors.surfaceSubtle,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              error: (err, stack) => Container(
+                padding: const EdgeInsets.all(DDSSpacing.md),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer.withValues(alpha: 0.15),
+                  borderRadius: DDSRadius.largeBorderRadius,
+                  border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined, color: cs.error, size: 24),
+                    const Gap(DDSSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Account Status Unavailable',
+                            style: DDSTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: cs.error,
+                            ),
+                          ),
+                          const Gap(2),
+                          Text(
+                            'Unable to sync verification status with server.',
+                            style: DDSTypography.bodyMedium.copyWith(
+                              fontSize: 11,
+                              color: DDSColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => ref.invalidate(kycStatusProvider),
+                      icon: const Icon(Icons.refresh, size: 14),
+                      label: const Text('Retry', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: cs.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const Gap(DDSSpacing.md),
 
@@ -846,8 +947,9 @@ class ProfilePage extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _sectionHeader(BuildContext context, String title) {
     return Text(
@@ -997,8 +1099,9 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  String _getKycSubtitle(String status) {
-    switch (status.toUpperCase()) {
+  String _getKycSubtitle(dynamic rawStatus) {
+    final status = (rawStatus is String) ? rawStatus.toUpperCase() : 'NONE';
+    switch (status) {
       case 'VERIFIED':
         return 'Driving licence verified';
       case 'PENDING':

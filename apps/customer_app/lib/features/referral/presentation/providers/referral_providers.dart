@@ -9,6 +9,7 @@ final referralRepositoryProvider = Provider<ReferralRepository>((ref) {
 });
 
 final myReferralCodeProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  ref.keepAlive();
   final repo = ref.watch(referralRepositoryProvider);
   return repo.getMyReferralCode();
 });

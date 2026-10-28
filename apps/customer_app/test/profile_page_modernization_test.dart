@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -257,6 +258,377 @@ void main() {
       expect(find.text('Unavailable'), findsNWidgets(3)); // Wallet, Loyalty, Referral
       expect(find.text('Status Unavailable'), findsOneWidget); // KYC badge
       expect(find.text('Status unavailable'), findsOneWidget); // Driving Licence subtitle
+      expect(find.text('Account Status Unavailable'), findsOneWidget); // Account Health card error state
+      expect(find.text('Retry'), findsOneWidget); // Retry action present
+    });
+
+    // ── Additional 15 Section-7 Regression Tests ─────────────────────────────
+
+    testWidgets('11. Section 7.1: Profile renders skeleton & loading state without blanking during initial load', (tester) async {
+      final kycCompleter = Completer<Map<String, dynamic>>();
+      final walletCompleter = Completer<WalletModel>();
+      final loyaltyCompleter = Completer<LoyaltyAccountModel>();
+      final referralCompleter = Completer<Map<String, dynamic>>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) => kycCompleter.future),
+            customerWalletProvider.overrideWith((ref) => walletCompleter.future),
+            loyaltyAccountProvider.overrideWith((ref) => loyaltyCompleter.future),
+            myReferralCodeProvider.overrideWith((ref) => referralCompleter.future),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      // Pump initial frame only while requests are pending
+      await tester.pump();
+
+      // Screen structure must be visible immediately
+      expect(find.text('My Profile'), findsOneWidget);
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('Checking KYC...'), findsOneWidget);
+      expect(find.text('Account & Verification'), findsOneWidget);
+      expect(find.text('Driving Licence (KYC)'), findsOneWidget);
+      expect(find.text('Checking status...'), findsOneWidget);
+      expect(find.text('DriveGo Wallet & Credits'), findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+
+      // Cleanly complete all completers
+      kycCompleter.complete({'status': 'VERIFIED'});
+      walletCompleter.complete(testWallet);
+      loyaltyCompleter.complete(testLoyalty);
+      referralCompleter.complete({'code': 'DGAARAV1'});
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('12. Section 7.2: Profile remains visible and shows retry card when KYC fails', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) => Future.error(Exception('KYC service timeout'))),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Structure intact
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('Status Unavailable'), findsOneWidget);
+      expect(find.text('Account Status Unavailable'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('₹3500'), findsOneWidget); // Wallet untouched
+      expect(find.text('450 pts'), findsOneWidget); // Loyalty untouched
+      expect(find.text('Account & Verification'), findsOneWidget);
+    });
+
+    testWidgets('13. Section 7.3: Profile remains visible when wallet retrieval fails', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) async => {'status': 'VERIFIED'}),
+            customerWalletProvider.overrideWith((ref) => Future.error(Exception('Wallet DB unavailable'))),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('Verified Driver'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget); // Wallet only
+      expect(find.text('450 pts'), findsOneWidget); // Loyalty healthy
+      expect(find.text('₹250 Off'), findsOneWidget); // Referral healthy
+      expect(find.text('Account & Verification'), findsOneWidget);
+    });
+
+    testWidgets('14. Section 7.4: Profile remains visible when loyalty retrieval fails', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) async => {'status': 'VERIFIED'}),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) => Future.error(Exception('Loyalty 500'))),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('₹3500'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget); // Loyalty only
+      expect(find.text('₹250 Off'), findsOneWidget);
+      expect(find.text('Account & Verification'), findsOneWidget);
+    });
+
+    testWidgets('15. Section 7.5: Profile remains visible when referral retrieval fails', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) async => {'status': 'VERIFIED'}),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) => Future.error(Exception('Referral 503'))),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('₹3500'), findsOneWidget);
+      expect(find.text('450 pts'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget); // Referral only
+      expect(find.text('Account & Verification'), findsOneWidget);
+    });
+
+    testWidgets('16. Section 7.6: Multiple simultaneous request failures preserve complete screen', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) => Future.error(Exception('KYC 500'))),
+            customerWalletProvider.overrideWith((ref) => Future.error(Exception('Wallet 500'))),
+            loyaltyAccountProvider.overrideWith((ref) => Future.error(Exception('Loyalty 500'))),
+            myReferralCodeProvider.overrideWith((ref) => Future.error(Exception('Referral 500'))),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Zero blank screen — every major section and menu tile must remain present
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('Status Unavailable'), findsOneWidget);
+      expect(find.text('Account Status Unavailable'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNWidgets(3));
+      expect(find.text('Account & Verification'), findsOneWidget);
+      expect(find.text('Driving Licence (KYC)'), findsOneWidget);
+      expect(find.text('Personal Details'), findsOneWidget);
+      expect(find.text('Activity & Benefits'), findsOneWidget);
+      expect(find.text('Saved Cars (Wishlist)'), findsOneWidget);
+      expect(find.text('Support & Info'), findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+    });
+
+    testWidgets('17. Section 7.7: Transition from loading to error does not blank screen', (tester) async {
+      // Use delayed future that completes with error
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) => Future<Map<String, dynamic>>.delayed(
+                  const Duration(milliseconds: 100),
+                  () => throw Exception('Delayed error'),
+                )),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+
+      // Loading state
+      await tester.pump();
+      expect(find.text('Checking KYC...'), findsOneWidget);
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+
+      // Advance time to complete error
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle();
+
+      // Transited to error state smoothly
+      expect(find.text('Status Unavailable'), findsOneWidget);
+      expect(find.text('Account Status Unavailable'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+    });
+
+    testWidgets('18. Section 7.8: Authenticated session refresh updates header details smoothly', (tester) async {
+      final sessionNotifier = MockSessionNotifier(testUser);
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => sessionNotifier),
+            kycStatusProvider.overrideWith((ref) async => {'status': 'VERIFIED'}),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+
+      // Simulate profile update from session
+      const updatedUser = UserModel(
+        id: 'user_test_1',
+        phone: '+919876543210',
+        name: 'Aarav Updated Sharma',
+        email: 'aarav.new@example.com',
+        role: 'CUSTOMER',
+        banned: false,
+      );
+      sessionNotifier.authenticate(updatedUser);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav Updated Sharma'), findsOneWidget);
+      expect(find.text('aarav.new@example.com'), findsOneWidget);
+    });
+
+    testWidgets('19. Section 7.12: Waiting and idle duration does not trigger content disappearance', (tester) async {
+      await tester.pumpWidget(createSubject(user: testUser));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('₹3500'), findsOneWidget);
+
+      // Advance clock by 10 minutes of simulated inactivity
+      await tester.pump(const Duration(minutes: 10));
+      await tester.pumpAndSettle();
+
+      // Everything must remain rendered exactly as before
+      expect(find.text('Aarav Sharma'), findsOneWidget);
+      expect(find.text('₹3500'), findsOneWidget);
+      expect(find.text('450 pts'), findsOneWidget);
+      expect(find.text('Account & Verification'), findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+    });
+
+    testWidgets('20. Section 7.13: Incomplete and empty API responses handled safely without crashing', (tester) async {
+      const userWithMissingFields = UserModel(
+        id: 'u_incomplete',
+        phone: '+919999999999',
+        name: '    ', // whitespace only
+        email: null,   // null email
+        role: 'CUSTOMER',
+        banned: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(userWithMissingFields)),
+            kycStatusProvider.overrideWith((ref) async => <String, dynamic>{}), // Empty KYC response
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => <String, dynamic>{}), // Empty referral map
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Should default to fallback '?' initial and 'Verify Driving Licence'
+      expect(find.text('?'), findsOneWidget);
+      expect(find.text('Verify Driving Licence'), findsOneWidget);
+      expect(find.text('Account Status: Verification Required'), findsOneWidget);
+      expect(find.text('Account & Verification'), findsOneWidget);
+    });
+
+    testWidgets('21. Section 7.11: Pull-to-refresh invalidates and refreshes provider data cleanly', (tester) async {
+      int kycCallCount = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            sessionProvider.overrideWith(() => MockSessionNotifier(testUser)),
+            kycStatusProvider.overrideWith((ref) async {
+              kycCallCount++;
+              return {'status': 'VERIFIED'};
+            }),
+            customerWalletProvider.overrideWith((ref) async => testWallet),
+            loyaltyAccountProvider.overrideWith((ref) async => testLoyalty),
+            myReferralCodeProvider.overrideWith((ref) async => {'code': 'DGAARAV1'}),
+            wishlistIdsProvider.overrideWith((ref) {
+              final notifier = WishlistIdsNotifier(ref);
+              notifier.setInitial(const {});
+              return notifier;
+            }),
+          ],
+          child: const MaterialApp(home: ProfilePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(kycCallCount, 1);
+
+      // Trigger pull to refresh
+      await tester.fling(find.byType(SingleChildScrollView), const Offset(0, 300), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(kycCallCount, greaterThanOrEqualTo(2));
+      expect(find.text('Aarav Sharma'), findsOneWidget);
     });
   });
 }

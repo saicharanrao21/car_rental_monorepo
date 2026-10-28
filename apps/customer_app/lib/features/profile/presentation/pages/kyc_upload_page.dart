@@ -6,9 +6,14 @@ import 'package:gap/gap.dart';
 import '../../../../core/providers/api_providers.dart';
 
 final kycStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  ref.keepAlive();
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.dio.get('/kyc/status');
-  return response.data as Map<String, dynamic>;
+  final data = response.data;
+  if (data is Map<String, dynamic>) {
+    return data;
+  }
+  return {'status': 'NONE', 'kyc': null};
 });
 
 class KycUploadPage extends ConsumerStatefulWidget {

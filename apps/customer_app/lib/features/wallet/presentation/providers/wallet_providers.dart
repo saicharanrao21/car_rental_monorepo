@@ -11,6 +11,7 @@ final walletRepositoryProvider = Provider<WalletRepository>((ref) {
 
 final customerWalletProvider =
     FutureProvider.autoDispose<WalletModel>((ref) async {
+  ref.keepAlive();
   final repo = ref.watch(walletRepositoryProvider);
   return repo.getWallet();
 });

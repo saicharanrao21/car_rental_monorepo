@@ -111,7 +111,30 @@ class HomePopularCitiesWidget extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const SizedBox.shrink(),
+      loading: () => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const DriveGoSectionHeader(title: 'Explore Popular Cities'),
+          const Gap(12),
+          SizedBox(
+            height: 96,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 3,
+              itemBuilder: (_, __) => Container(
+                width: 140,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: DDSColors.surfaceCard,
+                  borderRadius: DDSRadius.mediumBorderRadius,
+                  border: Border.all(color: DDSColors.borderLight),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
