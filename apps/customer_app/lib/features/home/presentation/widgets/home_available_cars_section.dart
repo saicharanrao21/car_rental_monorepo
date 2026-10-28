@@ -24,23 +24,33 @@ class HomeAvailableCarsSection extends ConsumerWidget {
     return availableCarsVal.when(
       data: (cars) {
         if (cars.isEmpty) {
+          final emptyTitle = selectedCity.isNotEmpty
+              ? 'No Cars Available in $selectedCity'
+              : 'No Cars Available Nearby';
+          final actionText = selectedCity.isNotEmpty
+              ? 'Choose Another City'
+              : 'Select Your City';
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: DriveGoEmptyState(
-              title: 'No Cars Available in $selectedCity',
+              title: emptyTitle,
               subtitle: 'We are expanding rapidly! Try choosing a different pickup city or check back soon.',
               icon: Icons.directions_car_outlined,
-              actionText: 'Choose Another City',
+              actionText: actionText,
               onActionPressed: onSelectCityPressed,
             ),
           );
         }
 
+        final sectionTitle = selectedCity.isNotEmpty
+            ? 'Available in $selectedCity'
+            : 'Available Nearby';
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DriveGoSectionHeader(
-              title: 'Available in $selectedCity',
+              title: sectionTitle,
               actionText: 'See all (${cars.length})',
               onActionPressed: () {
                 context.go('/search?city=${Uri.encodeComponent(selectedCity)}');

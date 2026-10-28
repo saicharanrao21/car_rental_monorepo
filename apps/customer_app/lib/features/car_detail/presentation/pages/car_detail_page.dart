@@ -53,10 +53,11 @@ class _CarDetailPageState extends ConsumerState<CarDetailPage> {
   }
 
   void _handleShare(CarModel car) {
+    final city = car.vendor?['city'] as String?;
     Clipboard.setData(
       ClipboardData(
         text: 'Check out ${car.make} ${car.model} (${car.year}) on DriveGo: '
-            '₹${car.pricePerDay.toStringAsFixed(0)}/day in ${car.vendor != null ? car.vendor!['city'] ?? 'Mumbai' : 'Mumbai'}',
+            '₹${car.pricePerDay.toStringAsFixed(0)}/day${city != null ? ' in $city' : ''}',
       ),
     );
     ScaffoldMessenger.of(context).showSnackBar(

@@ -1,9 +1,18 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:core/core.dart';
 import 'api_providers.dart';
+
+enum LocationSource {
+  none,
+  gps,
+  manual,
+  saved,
+}
 
 enum LocationDetectionStatus {
   idle,
@@ -12,6 +21,7 @@ enum LocationDetectionStatus {
   serviceDisabled,
   permissionDenied,
   permanentlyDenied,
+  timeout,
   error,
 }
 
@@ -90,6 +100,9 @@ class UserLocationState {
   final LocationDetectionStatus detectionStatus;
   final String? lastError;
   final String? resolvedCity;
+  final String? resolvedLocality;
+  final String? resolvedState;
+  final LocationSource source;
   final bool isWithinOperationalRange;
   final List<ServerResolvedPickupHub> suggestedPickupLocations;
 
@@ -97,10 +110,13 @@ class UserLocationState {
     this.latitude,
     this.longitude,
     this.isPermissionGranted = false,
-    this.isRequestedThisSession = true,
+    this.isRequestedThisSession = false,
     this.detectionStatus = LocationDetectionStatus.idle,
     this.lastError,
     this.resolvedCity,
+    this.resolvedLocality,
+    this.resolvedState,
+    this.source = LocationSource.none,
     this.isWithinOperationalRange = true,
     this.suggestedPickupLocations = const [],
   });
@@ -113,6 +129,9 @@ class UserLocationState {
     LocationDetectionStatus? detectionStatus,
     String? lastError,
     String? resolvedCity,
+    String? resolvedLocality,
+    String? resolvedState,
+    LocationSource? source,
     bool? isWithinOperationalRange,
     List<ServerResolvedPickupHub>? suggestedPickupLocations,
   }) {
@@ -124,6 +143,9 @@ class UserLocationState {
       detectionStatus: detectionStatus ?? this.detectionStatus,
       lastError: lastError,
       resolvedCity: resolvedCity ?? this.resolvedCity,
+      resolvedLocality: resolvedLocality ?? this.resolvedLocality,
+      resolvedState: resolvedState ?? this.resolvedState,
+      source: source ?? this.source,
       isWithinOperationalRange: isWithinOperationalRange ?? this.isWithinOperationalRange,
       suggestedPickupLocations: suggestedPickupLocations ?? this.suggestedPickupLocations,
     );
@@ -134,6 +156,13 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
   final ApiClient? apiClient;
 
   UserLocationNotifier({this.apiClient}) : super(const UserLocationState());
+
+  static const String keySavedCity = 'drivego_selected_city';
+  static const String keySavedLat = 'drivego_selected_lat';
+  static const String keySavedLng = 'drivego_selected_lng';
+  static const String keySavedLocality = 'drivego_selected_locality';
+  static const String keySavedState = 'drivego_selected_state';
+  static const String keySavedSource = 'drivego_selected_source';
 
   static const Map<String, List<double>> _cityCoordinates = {
     'Mumbai': [19.0760, 72.8777],
@@ -146,9 +175,136 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
     'Kolkata': [22.5726, 88.3639],
   };
 
+  /// Loads saved location from SharedPreferences. Returns true if a valid location was restored.
+  Future<bool> loadSavedLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final city = prefs.getString(keySavedCity);
+      if (city != null && city.trim().isNotEmpty) {
+        final lat = prefs.getDouble(keySavedLat);
+        final lng = prefs.getDouble(keySavedLng);
+        final locality = prefs.getString(keySavedLocality);
+        final stateName = prefs.getString(keySavedState);
+        final sourceStr = prefs.getString(keySavedSource);
+        final source = sourceStr == 'manual'
+            ? LocationSource.manual
+            : LocationSource.saved;
+
+        state = state.copyWith(
+          resolvedCity: city.trim(),
+          resolvedLocality: locality,
+          resolvedState: stateName,
+          latitude: lat,
+          longitude: lng,
+          source: source,
+          detectionStatus: LocationDetectionStatus.success,
+        );
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[UserLocationNotifier] Error loading saved location: $e');
+    }
+    return false;
+  }
+
+  /// Persists selected location to durable storage
+  Future<void> saveLocation({
+    required String city,
+    double? lat,
+    double? lng,
+    String? locality,
+    String? stateName,
+    required LocationSource source,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(keySavedCity, city.trim());
+      if (lat != null) {
+        await prefs.setDouble(keySavedLat, lat);
+      } else {
+        await prefs.remove(keySavedLat);
+      }
+      if (lng != null) {
+        await prefs.setDouble(keySavedLng, lng);
+      } else {
+        await prefs.remove(keySavedLng);
+      }
+      if (locality != null) {
+        await prefs.setString(keySavedLocality, locality);
+      } else {
+        await prefs.remove(keySavedLocality);
+      }
+      if (stateName != null) {
+        await prefs.setString(keySavedState, stateName);
+      } else {
+        await prefs.remove(keySavedState);
+      }
+      await prefs.setString(keySavedSource, source.name);
+    } catch (e) {
+      debugPrint('[UserLocationNotifier] Error saving location: $e');
+    }
+  }
+
+  /// Sets manual location selection explicitly
+  Future<void> setManualLocation({
+    required String city,
+    double? lat,
+    double? lng,
+    String? locality,
+    String? stateName,
+  }) async {
+    double? resolvedLat = lat;
+    double? resolvedLng = lng;
+    if (resolvedLat == null || resolvedLng == null) {
+      if (_cityCoordinates.containsKey(city)) {
+        resolvedLat = _cityCoordinates[city]![0];
+        resolvedLng = _cityCoordinates[city]![1];
+      }
+    }
+
+    state = state.copyWith(
+      resolvedCity: city,
+      resolvedLocality: locality ?? city,
+      resolvedState: stateName,
+      latitude: resolvedLat,
+      longitude: resolvedLng,
+      source: LocationSource.manual,
+      detectionStatus: LocationDetectionStatus.success,
+      lastError: null,
+    );
+
+    await saveLocation(
+      city: city,
+      lat: resolvedLat,
+      lng: resolvedLng,
+      locality: locality,
+      stateName: stateName,
+      source: LocationSource.manual,
+    );
+  }
+
+  /// Clears saved location
+  Future<void> clearSavedLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(keySavedCity);
+      await prefs.remove(keySavedLat);
+      await prefs.remove(keySavedLng);
+      await prefs.remove(keySavedLocality);
+      await prefs.remove(keySavedState);
+      await prefs.remove(keySavedSource);
+    } catch (e) {
+      debugPrint('[UserLocationNotifier] Error clearing saved location: $e');
+    }
+    state = const UserLocationState();
+  }
+
   /// Explicitly detects current location with server-authoritative resolution
   Future<CurrentLocationResult> detectCurrentLocation() async {
-    state = state.copyWith(detectionStatus: LocationDetectionStatus.loading, lastError: null);
+    state = state.copyWith(
+      detectionStatus: LocationDetectionStatus.loading,
+      lastError: null,
+    );
 
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -189,14 +345,35 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         );
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      } on TimeoutException {
+        state = state.copyWith(
+          detectionStatus: LocationDetectionStatus.timeout,
+          lastError: 'Location request timed out. Please select your location manually.',
+        );
+        return const CurrentLocationResult(
+          status: LocationDetectionStatus.timeout,
+          message: 'Location request timed out. Please select your location manually.',
+        );
+      } catch (e) {
+        state = state.copyWith(
+          detectionStatus: LocationDetectionStatus.error,
+          lastError: 'GPS temporarily unavailable: $e',
+        );
+        return CurrentLocationResult(
+          status: LocationDetectionStatus.error,
+          message: 'GPS temporarily unavailable: $e',
+        );
+      }
 
-      String resolvedCity = _findNearestCity(position.latitude, position.longitude);
+      String? resolvedCity;
       String? resolvedState;
       double? distKm;
       bool isWithinRange = true;
@@ -217,7 +394,7 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
             final data = response.data as Map<String, dynamic>;
             final nearest = data['nearestCity'] as Map<String, dynamic>?;
             if (nearest != null) {
-              resolvedCity = nearest['name'] as String? ?? resolvedCity;
+              resolvedCity = nearest['name'] as String?;
               resolvedState = nearest['state'] as String?;
               distKm = (nearest['distanceKm'] as num?)?.toDouble();
               isWithinRange = nearest['isWithinOperationalRange'] as bool? ?? true;
@@ -232,8 +409,42 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
           }
         } catch (e) {
           debugPrint('Backend location resolution fallback: $e');
+          // Try /supported-cities/nearest fallback
+          try {
+            final fbResponse = await apiClient!.dio.get(
+              '/supported-cities/nearest',
+              queryParameters: {
+                'lat': position.latitude,
+                'lng': position.longitude,
+              },
+            );
+            if (fbResponse.statusCode == 200 && fbResponse.data is Map) {
+              final cData = fbResponse.data as Map<String, dynamic>;
+              resolvedCity = cData['name'] as String?;
+              resolvedState = cData['state'] as String?;
+            }
+          } catch (_) {}
         }
       }
+
+      // Client-side fallback if backend is unreachable
+      resolvedCity ??= _findNearestCity(position.latitude, position.longitude);
+
+      if (resolvedCity == null) {
+        state = state.copyWith(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          detectionStatus: LocationDetectionStatus.error,
+          lastError: 'Could not resolve location to a supported city. Please select manually.',
+          source: LocationSource.none,
+        );
+        return const CurrentLocationResult(
+          status: LocationDetectionStatus.error,
+          message: 'Could not resolve your location. Please select manually.',
+        );
+      }
+
+      final localityName = hubs.isNotEmpty ? hubs.first.name : resolvedCity;
 
       state = state.copyWith(
         latitude: position.latitude,
@@ -241,8 +452,21 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         isPermissionGranted: true,
         detectionStatus: LocationDetectionStatus.success,
         resolvedCity: resolvedCity,
+        resolvedLocality: localityName,
+        resolvedState: resolvedState,
+        source: LocationSource.gps,
         isWithinOperationalRange: isWithinRange,
         suggestedPickupLocations: hubs,
+        lastError: null,
+      );
+
+      await saveLocation(
+        city: resolvedCity,
+        lat: position.latitude,
+        lng: position.longitude,
+        locality: localityName,
+        stateName: resolvedState,
+        source: LocationSource.gps,
       );
 
       final message = !isWithinRange
@@ -255,7 +479,7 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         longitude: position.longitude,
         resolvedCity: resolvedCity,
         resolvedState: resolvedState,
-        resolvedLocality: hubs.isNotEmpty ? hubs.first.name : '$resolvedCity Central Hub',
+        resolvedLocality: localityName,
         distanceToCityCenterKm: distKm,
         isWithinOperationalRange: isWithinRange,
         suggestedPickupLocations: hubs,
@@ -277,13 +501,13 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
   Future<bool> openAppSettings() => Geolocator.openAppSettings();
   Future<bool> openLocationSettings() => Geolocator.openLocationSettings();
 
-  Future<void> requestLocationPermission(
+  Future<CurrentLocationResult?> requestLocationPermission(
     BuildContext context, {
     void Function(String city)? onCityAutoSelected,
     void Function(double lat, double lng)? onLocationResolved,
+    bool force = false,
   }) async {
-    if (state.isRequestedThisSession) return;
-
+    if (state.isRequestedThisSession && !force) return null;
     state = state.copyWith(isRequestedThisSession: true);
 
     // Show rationale dialog first
@@ -321,43 +545,24 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
       ),
     );
 
-    if (shouldProceed != true) return;
-
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 5),
-          ),
-        );
-
-        state = state.copyWith(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          isPermissionGranted: true,
-          detectionStatus: LocationDetectionStatus.success,
-        );
-
-        if (onLocationResolved != null) {
-          onLocationResolved(position.latitude, position.longitude);
-        } else if (onCityAutoSelected != null) {
-          final nearest = _findNearestCity(position.latitude, position.longitude);
-          onCityAutoSelected(nearest);
-        }
-      }
-    } catch (e) {
-      debugPrint('Geolocator error: $e');
+    if (shouldProceed != true) {
+      return null;
     }
+
+    final result = await detectCurrentLocation();
+    if (result.status == LocationDetectionStatus.success && result.resolvedCity != null) {
+      if (onLocationResolved != null && result.latitude != null && result.longitude != null) {
+        onLocationResolved(result.latitude!, result.longitude!);
+      }
+      if (onCityAutoSelected != null) {
+        onCityAutoSelected(result.resolvedCity!);
+      }
+    }
+    return result;
   }
 
-  String _findNearestCity(double lat, double lng) {
-    String nearest = 'Mumbai';
+  String? _findNearestCity(double lat, double lng) {
+    String? nearest;
     double minDistance = double.infinity;
 
     _cityCoordinates.forEach((city, coords) {
@@ -367,6 +572,11 @@ class UserLocationNotifier extends StateNotifier<UserLocationState> {
         nearest = city;
       }
     });
+
+    // If farther than 1000km from any known city in India, do not guess
+    if (minDistance > 1000) {
+      return null;
+    }
 
     return nearest;
   }

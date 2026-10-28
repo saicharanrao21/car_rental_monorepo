@@ -568,12 +568,11 @@ export class LocationsService {
       where: { isActive: true },
     });
 
-    let nearestCity = cities[0] || {
-      name: 'Mumbai',
-      state: 'Maharashtra',
-      latitude: 19.076,
-      longitude: 72.8777,
-    };
+    if (!cities || cities.length === 0) {
+      throw new NotFoundException('No active operational cities found.');
+    }
+
+    let nearestCity = cities[0];
     let minDistance = Infinity;
 
     for (const c of cities) {

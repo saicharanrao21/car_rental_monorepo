@@ -5,13 +5,16 @@ import '../../domain/repositories/search_repository.dart';
 import '../../data/api_search_repository.dart';
 import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/location_provider.dart';
+import '../../../home/home_providers.dart';
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   return ApiSearchRepository(apiClient: apiClient);
 });
 
-final searchCityProvider = StateProvider.autoDispose<String>((ref) => 'Mumbai');
+final searchCityProvider = StateProvider.autoDispose<String>((ref) {
+  return ref.watch(selectedCityProvider);
+});
 final searchTripTypeProvider = StateProvider.autoDispose<String?>((ref) => null);
 final searchDatesProvider = StateProvider.autoDispose<DateTimeRange?>((ref) => null);
 final searchPickupLocationProvider = StateProvider.autoDispose<String?>((ref) => null);

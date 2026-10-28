@@ -11,7 +11,7 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return ApiHomeRepository(apiClient: apiClient);
 });
 
-final selectedCityProvider = StateProvider<String>((ref) => 'Mumbai');
+final selectedCityProvider = StateProvider<String>((ref) => '');
 
 final availableCarsProvider = FutureProvider<List<CarModel>>((ref) async {
   final city = ref.watch(selectedCityProvider);
@@ -27,6 +27,7 @@ final availableCarsProvider = FutureProvider<List<CarModel>>((ref) async {
 
 final topVendorsProvider = FutureProvider<List<VendorModel>>((ref) async {
   final city = ref.watch(selectedCityProvider);
+  if (city.isEmpty) return [];
   final repo = ref.watch(homeRepositoryProvider);
   final vendors = await repo.getTopVendorsByCity(city);
   vendors.sort((a, b) => b.rating.compareTo(a.rating));

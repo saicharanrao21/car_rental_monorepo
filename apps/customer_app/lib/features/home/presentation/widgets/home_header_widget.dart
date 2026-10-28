@@ -36,6 +36,22 @@ class HomeHeaderWidget extends ConsumerWidget implements PreferredSizeWidget {
 
     final isLocating = locationState.detectionStatus == LocationDetectionStatus.loading;
 
+    final String locationDisplay;
+    if (isLocating) {
+      locationDisplay = 'Detecting your location...';
+    } else if (selectedCity.isNotEmpty) {
+      if (locationState.resolvedLocality != null &&
+          locationState.resolvedLocality!.isNotEmpty &&
+          locationState.resolvedLocality != selectedCity &&
+          !locationState.resolvedLocality!.toLowerCase().contains('central hub')) {
+        locationDisplay = '${locationState.resolvedLocality}, $selectedCity';
+      } else {
+        locationDisplay = selectedCity;
+      }
+    } else {
+      locationDisplay = 'Select your location';
+    }
+
     return AppBar(
       elevation: 0,
       backgroundColor: DDSColors.primaryNavy,
@@ -78,12 +94,16 @@ class HomeHeaderWidget extends ConsumerWidget implements PreferredSizeWidget {
                       size: 18,
                     ),
                     const Gap(4),
-                    Text(
-                      selectedCity.isNotEmpty ? selectedCity : 'Select City',
-                      style: DDSTypography.titleLarge.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                    Flexible(
+                      child: Text(
+                        locationDisplay,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DDSTypography.titleLarge.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     const Gap(2),

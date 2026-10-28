@@ -257,3 +257,4 @@ The full authentication cycle from Flutter clients to the NestJS backend was map
 | Default Admin Password Seed | **PROTECTED** | Guarded by production exception check in `seed.ts`; UI prefill removed |
 | Google / Apple OAuth Verification | **VERIFIED** | Cryptographic token verification intact; Google audience check added |
 | Brute Force Lockout Enforced | **VERIFIED** | 5-attempt threshold verified by regression test |
+

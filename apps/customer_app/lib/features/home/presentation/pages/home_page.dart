@@ -29,81 +29,38 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initLocationAndPermissions();
+      _initLocation();
     });
   }
 
-  void _initLocationAndPermissions() {
+  Future<void> _initLocation() async {
+    final locationNotifier = ref.read(userLocationProvider.notifier);
+
+    // 1. Check whether the app already has a valid, previously selected location
+    final hasSaved = await locationNotifier.loadSavedLocation();
+    if (hasSaved) {
+      final savedCity = ref.read(userLocationProvider).resolvedCity;
+      if (savedCity != null && savedCity.isNotEmpty) {
+        if (mounted) {
+          ref.read(selectedCityProvider.notifier).state = savedCity;
+        }
+        return; // Restored saved location without prompting
+      }
+    }
+
+    // 2. If no location has been selected, explain why location access is useful and request location permission
+    if (!mounted) return;
     final locationState = ref.read(userLocationProvider);
     if (!locationState.isRequestedThisSession) {
-      ref.read(userLocationProvider.notifier).requestLocationPermission(
+      await locationNotifier.requestLocationPermission(
         context,
         onCityAutoSelected: (nearestCity) {
           if (mounted) {
-            final currentSelected = ref.read(selectedCityProvider);
-            if (currentSelected != nearestCity) {
-              _showCityChangePrompt(nearestCity);
-            }
-          }
-        },
-        onLocationResolved: (lat, lng) async {
-          if (!mounted) return;
-          try {
-            final repo = ref.read(homeRepositoryProvider);
-            final nearest = await repo.getNearestCity(lat, lng);
-            if (mounted) {
-              final currentSelected = ref.read(selectedCityProvider);
-              if (currentSelected != nearest.name) {
-                _showCityChangePrompt(nearest.name);
-              }
-            }
-          } catch (e) {
-            debugPrint('Failed to fetch nearest city: $e');
+            ref.read(selectedCityProvider.notifier).state = nearestCity;
           }
         },
       );
     }
-  }
-
-  void _showCityChangePrompt(String detectedCity) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: DDSRadius.largeBorderRadius),
-        title: Row(
-          children: [
-            const Icon(Icons.my_location_rounded, color: DDSColors.primaryBlue),
-            const SizedBox(width: 8),
-            Text(
-              'Location Detected',
-              style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          'It looks like you are near $detectedCity. Would you like to switch your city to $detectedCity?',
-          style: DDSTypography.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Keep Current', style: DDSTypography.labelLarge.copyWith(color: DDSColors.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DDSColors.primaryBlue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: DDSRadius.smallBorderRadius),
-            ),
-            onPressed: () {
-              ref.read(selectedCityProvider.notifier).state = detectedCity;
-              Navigator.pop(ctx);
-            },
-            child: const Text('Switch City'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showCitySelector() {
@@ -121,6 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: _SearchableCitySelector(
           selectedCity: currentCity,
           onSelectCity: (city) {
+            ref.read(userLocationProvider.notifier).setManualLocation(city: city);
             ref.read(selectedCityProvider.notifier).state = city;
             Navigator.pop(context);
           },
@@ -179,8 +137,128 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Widget _buildLocationBanner(UserLocationState locationState) {
+    if (locationState.detectionStatus == LocationDetectionStatus.serviceDisabled) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: DDSColors.accentAmber.withValues(alpha: 0.12),
+          borderRadius: DDSRadius.mediumBorderRadius,
+          border: Border.all(color: DDSColors.accentAmber.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.location_off_rounded, color: DDSColors.accentAmber, size: 22),
+            const Gap(10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Location Services Disabled',
+                    style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const Gap(2),
+                  Text(
+                    'Turn on GPS to find cars near you or select manually.',
+                    style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => ref.read(userLocationProvider.notifier).openLocationSettings(),
+              child: const Text('Enable GPS', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (locationState.detectionStatus == LocationDetectionStatus.permissionDenied ||
+        locationState.detectionStatus == LocationDetectionStatus.permanentlyDenied) {
+      final isPermanent = locationState.detectionStatus == LocationDetectionStatus.permanentlyDenied;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: DDSColors.primaryBlue.withValues(alpha: 0.08),
+          borderRadius: DDSRadius.mediumBorderRadius,
+          border: Border.all(color: DDSColors.primaryBlue.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.location_on_outlined, color: DDSColors.primaryBlue, size: 22),
+            const Gap(10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isPermanent ? 'Location Permission Blocked' : 'Location Permission Denied',
+                    style: DDSTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const Gap(2),
+                  Text(
+                    isPermanent
+                        ? 'Enable in system settings to detect your city, or choose manually.'
+                        : 'Select your city manually to discover available cars.',
+                    style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            if (isPermanent)
+              TextButton(
+                onPressed: () => ref.read(userLocationProvider.notifier).openAppSettings(),
+                child: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+              )
+            else
+              TextButton(
+                onPressed: _showCitySelector,
+                child: const Text('Select City', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+      );
+    }
+
+    if (locationState.detectionStatus == LocationDetectionStatus.timeout) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: DDSColors.surfaceSubtle,
+          borderRadius: DDSRadius.mediumBorderRadius,
+          border: Border.all(color: DDSColors.borderMedium),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.timer_outlined, color: DDSColors.textMuted, size: 22),
+            const Gap(10),
+            Expanded(
+              child: Text(
+                'Location request timed out. You can select your city manually.',
+                style: DDSTypography.bodyMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: _showCitySelector,
+              child: const Text('Select City', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final locationState = ref.watch(userLocationProvider);
+
     return Scaffold(
       backgroundColor: DDSColors.bgCanvas,
       appBar: HomeHeaderWidget(
@@ -201,6 +279,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 0. Location Status / Warning Banner
+              _buildLocationBanner(locationState),
+
               // 1. Trip Type Pill Selector
               const HomeTripTypeSelectorWidget(),
               const Gap(14),
@@ -310,6 +391,59 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
           style: DDSTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
         ),
         const Gap(12),
+
+        // GPS Use Current Location Option
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: DDSRadius.smallBorderRadius,
+            onTap: () async {
+              Navigator.pop(context);
+              final res = await ref.read(userLocationProvider.notifier).detectCurrentLocation();
+              if (res.status == LocationDetectionStatus.success && res.resolvedCity != null) {
+                ref.read(selectedCityProvider.notifier).state = res.resolvedCity!;
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: DDSColors.primaryBlue.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.my_location_rounded, color: DDSColors.primaryBlue, size: 20),
+                  ),
+                  const Gap(12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Use Current Location',
+                          style: DDSTypography.bodyMedium.copyWith(
+                            color: DDSColors.primaryBlue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Detect nearby cars using GPS',
+                          style: DDSTypography.bodyMedium.copyWith(color: DDSColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const Gap(8),
+        const Divider(height: 1, color: DDSColors.borderLight),
+        const Gap(12),
+
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextField(
@@ -349,7 +483,7 @@ class _SearchableCitySelectorState extends ConsumerState<_SearchableCitySelector
         ),
         ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.45,
+            maxHeight: MediaQuery.of(context).size.height * 0.40,
           ),
           child: filteredCities.isEmpty
               ? Padding(

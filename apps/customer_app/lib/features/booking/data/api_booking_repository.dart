@@ -74,7 +74,7 @@ class ApiBookingRepository implements BookingRepository {
     final data = <String, dynamic>{
       'carId': draft.carId,
       'tripType': _mapTripTypeToBackend(draft.tripType),
-      'pickupLocation': draft.pickupLocation.isEmpty ? 'Mumbai' : draft.pickupLocation,
+      'pickupLocation': draft.pickupLocation.isEmpty ? 'Self-Pickup' : draft.pickupLocation,
       if (draft.dropLocation != null && draft.dropLocation!.isNotEmpty)
         'dropLocation': draft.dropLocation,
       'startDate': draft.startDate.toUtc().toIso8601String(),

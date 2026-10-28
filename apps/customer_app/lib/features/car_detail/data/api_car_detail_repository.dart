@@ -12,7 +12,7 @@ class ApiCarDetailRepository implements CarDetailRepository {
     final response = await apiClient.dio.get('/cars/$id');
     final json = Map<String, dynamic>.from(response.data);
     json['location'] ??= 'Location not specified';
-    json['city'] ??= 'Mumbai';
+    json['city'] ??= (json['vendor'] is Map ? json['vendor']['city'] : null) ?? 'City not specified';
     json['vendorId'] ??= 'v-default';
     return CarModel.fromJson(json);
   }

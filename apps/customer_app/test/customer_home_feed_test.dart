@@ -111,6 +111,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           homeRepositoryProvider.overrideWithValue(MockHomeMarketplaceRepo()),
+          selectedCityProvider.overrideWith((ref) => 'Mumbai'),
         ],
       );
 
@@ -143,6 +144,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           homeRepositoryProvider.overrideWithValue(MockHomeMarketplaceRepo()),
+          selectedCityProvider.overrideWith((ref) => 'Mumbai'),
         ],
       );
 
@@ -178,6 +180,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           homeRepositoryProvider.overrideWithValue(MockHomeMarketplaceRepo()),
+          selectedCityProvider.overrideWith((ref) => 'Mumbai'),
         ],
       );
 
@@ -207,6 +210,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           homeRepositoryProvider.overrideWithValue(MockHomeMarketplaceRepo()),
+          selectedCityProvider.overrideWith((ref) => 'Mumbai'),
         ],
       );
 

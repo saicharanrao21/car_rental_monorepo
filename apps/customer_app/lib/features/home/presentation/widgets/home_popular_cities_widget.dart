@@ -4,6 +4,7 @@ import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../home_providers.dart';
+import '../../../../core/providers/location_provider.dart';
 
 /// DriveGo Design System (DDS) — Popular Destination Cities Discovery Widget
 class HomePopularCitiesWidget extends ConsumerWidget {
@@ -42,6 +43,11 @@ class HomePopularCitiesWidget extends ConsumerWidget {
                       child: InkWell(
                         borderRadius: DDSRadius.mediumBorderRadius,
                         onTap: () {
+                          ref.read(userLocationProvider.notifier).setManualLocation(
+                            city: city.name,
+                            lat: city.latitude,
+                            lng: city.longitude,
+                          );
                           ref.read(selectedCityProvider.notifier).state = city.name;
                         },
                         child: Container(
