@@ -43,6 +43,15 @@ abstract class DDSTypography {
         color: DDSColors.textPrimary,
       );
 
+  // 1b. Headline Large: 26px / 700 / 34px
+  static TextStyle get headlineLarge => _font(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        height: 34 / 26,
+        letterSpacing: -0.3,
+        color: DDSColors.textPrimary,
+      );
+
   // 2. Headline Medium: 24px / 600 / 32px
   static TextStyle get headlineMedium => _font(
         fontSize: 24,
@@ -85,6 +94,15 @@ abstract class DDSTypography {
         fontWeight: FontWeight.w400,
         height: 20 / 14,
         letterSpacing: 0.0,
+        color: DDSColors.textSecondary,
+      );
+
+  // 6b. Body Small: 12px / 400 / 16px
+  static TextStyle get bodySmall => _font(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 16 / 12,
+        letterSpacing: 0.2,
         color: DDSColors.textSecondary,
       );
 

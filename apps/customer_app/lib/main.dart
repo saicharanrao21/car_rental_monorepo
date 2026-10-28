@@ -58,7 +58,7 @@ class CustomerApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Car Rental Customer',
+      title: 'DriveGo',
       theme: AppTheme.lightTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,

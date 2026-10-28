@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core/core.dart';
 
+/// DriveGo Design System (DDS) — Modern Vendor Partner App Shell
+/// Provides adaptive navigation (Bottom Navigation Bar on mobile, NavigationRail on tablet/desktop)
+/// with strict DDS tokens, safe-area ergonomics, and accessible touch targets.
 class VendorAppShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
@@ -10,58 +13,154 @@ class VendorAppShell extends StatelessWidget {
     required this.navigationShell,
   });
 
+  void _onTabSelected(BuildContext context, int index) {
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isTabletOrDesktop = DDSBreakpoints.isTablet(context) || DDSBreakpoints.isDesktop(context);
+
+    if (isTabletOrDesktop) {
+      return Scaffold(
+        backgroundColor: DDSColors.bgCanvas,
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: navigationShell.currentIndex,
+              onDestinationSelected: (index) => _onTabSelected(context, index),
+              backgroundColor: DDSColors.surfaceCard,
+              indicatorColor: DDSColors.primaryBlue.withValues(alpha: 0.12),
+              selectedIconTheme: const IconThemeData(color: DDSColors.primaryBlue, size: 24),
+              unselectedIconTheme: const IconThemeData(color: DDSColors.textSecondary, size: 24),
+              selectedLabelTextStyle: DDSTypography.labelSmall.copyWith(
+                color: DDSColors.primaryBlue,
+                fontWeight: FontWeight.bold,
+              ),
+              unselectedLabelTextStyle: DDSTypography.labelSmall.copyWith(
+                color: DDSColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+              labelType: NavigationRailLabelType.all,
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard_rounded),
+                  label: Text('Dashboard'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.directions_car_outlined),
+                  selectedIcon: Icon(Icons.directions_car_rounded),
+                  label: Text('Fleet'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.assignment_outlined),
+                  selectedIcon: Icon(Icons.assignment_rounded),
+                  label: Text('Bookings'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.payments_outlined),
+                  selectedIcon: Icon(Icons.payments_rounded),
+                  label: Text('Earnings'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: Text('Profile'),
+                ),
+              ],
+            ),
+            const VerticalDivider(width: 1, thickness: 1, color: DDSColors.borderLight),
+            Expanded(child: navigationShell),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
+      backgroundColor: DDSColors.bgCanvas,
       body: navigationShell,
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
+          color: DDSColors.surfaceCard,
+          border: Border(
+            top: BorderSide(color: DDSColors.borderLight, width: 1.0),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
+              color: Color(0x0A000000), // 4% subtle shadow
+              blurRadius: 12,
+              offset: Offset(0, -4),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: navigationShell.currentIndex,
-          onTap: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
+        child: SafeArea(
+          top: false,
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 64,
+              backgroundColor: DDSColors.surfaceCard,
+              surfaceTintColor: Colors.transparent,
+              indicatorColor: DDSColors.primaryBlue.withValues(alpha: 0.12),
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: DDSRadius.pillBorderRadius,
+              ),
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return DDSTypography.labelSmall.copyWith(
+                    color: DDSColors.primaryNavy,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  );
+                }
+                return DDSTypography.labelSmall.copyWith(
+                  color: DDSColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 11,
+                );
+              }),
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return const IconThemeData(color: DDSColors.primaryBlue, size: 24);
+                }
+                return const IconThemeData(color: DDSColors.textSecondary, size: 24);
+              }),
+            ),
+            child: NavigationBar(
+              selectedIndex: navigationShell.currentIndex,
+              onDestinationSelected: (index) => _onTabSelected(context, index),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard_rounded),
+                  label: 'Dashboard',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.directions_car_outlined),
+                  selectedIcon: Icon(Icons.directions_car_rounded),
+                  label: 'Fleet',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.assignment_outlined),
+                  selectedIcon: Icon(Icons.assignment_rounded),
+                  label: 'Bookings',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.payments_outlined),
+                  selectedIcon: Icon(Icons.payments_rounded),
+                  label: 'Earnings',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Profile',
+                ),
+              ],
+            ),
           ),
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontSize: 11),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard, color: AppColors.primary),
-              label: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.directions_car_outlined),
-              activeIcon: Icon(Icons.directions_car, color: AppColors.primary),
-              label: 'Fleet',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.assignment_outlined),
-              activeIcon: Icon(Icons.assignment, color: AppColors.primary),
-              label: 'Bookings',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.payments_outlined),
-              activeIcon: Icon(Icons.payments, color: AppColors.primary),
-              label: 'Earnings',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person, color: AppColors.primary),
-              label: 'Profile',
-            ),
-          ],
         ),
       ),
     );

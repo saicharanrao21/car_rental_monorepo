@@ -14,6 +14,8 @@ export 'src/drivego_dialog.dart';
 export 'src/drivego_section_header.dart';
 export 'src/drivego_chip.dart';
 export 'src/drivego_app_bar.dart';
+export 'src/social_auth_button.dart';
+export 'src/drivego_brand_mark.dart';
 
 // Legacy Components (forwards to DDS equivalents)
 export 'src/app_button.dart';
