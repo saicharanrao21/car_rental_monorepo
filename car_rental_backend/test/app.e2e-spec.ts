@@ -56,6 +56,25 @@ describe('AppController & Security Guards (e2e)', () => {
       });
   });
 
+  it('GET /health/live should respond with liveness alive', () => {
+    return request(app.getHttpServer())
+      .get('/health/live')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('alive');
+      });
+  });
+
+  it('GET /health/ready should respond with readiness ready', () => {
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('ready');
+        expect(res.body.db).toBe(true);
+      });
+  });
+
   it('GET /health should respond with health status', () => {
     return request(app.getHttpServer())
       .get('/health')

@@ -41,5 +41,26 @@ describe('AppController', () => {
         redis: true,
       });
     });
+
+    it('should return liveness status alive', () => {
+      const res = appController.getLiveness();
+      expect(res.status).toBe('alive');
+      expect(typeof res.uptime).toBe('number');
+      expect(typeof res.timestamp).toBe('string');
+    });
+
+    it('should return readiness status ready when database is available', async () => {
+      const res = await appController.getReadiness();
+      expect(res.status).toBe('ready');
+      expect(res.db).toBe(true);
+      expect(res.redis).toBe(true);
+    });
+
+    it('should reject readiness with 503 when database is unavailable', async () => {
+      mockPrismaService.$queryRaw.mockRejectedValueOnce(
+        new Error('Connection terminated'),
+      );
+      await expect(appController.getReadiness()).rejects.toThrow();
+    });
   });
 });
