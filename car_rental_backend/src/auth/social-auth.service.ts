@@ -28,8 +28,10 @@ export class SocialAuthService {
     picture?: string;
   }> {
     try {
+      const audience = process.env.GOOGLE_CLIENT_ID || undefined;
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
+        ...(audience ? { audience } : {}),
       });
       const payload = ticket.getPayload();
       if (!payload || !payload.sub) {

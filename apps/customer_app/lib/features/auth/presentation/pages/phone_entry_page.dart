@@ -16,7 +16,7 @@ class PhoneEntryPage extends ConsumerStatefulWidget {
 
 class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController(text: '9876543210');
+  final _phoneController = TextEditingController();
   String? _errorMessage;
 
   @override

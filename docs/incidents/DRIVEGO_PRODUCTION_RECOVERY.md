@@ -114,3 +114,4 @@ To promote commit `2b6cbb3` to the Render live environment:
    npm run build
    ```
 4. Render will bind to port `10000`, the liveness probe `GET /health/live` will return HTTP 200, and readiness `GET /health/ready` will confirm live Supabase connectivity.
+

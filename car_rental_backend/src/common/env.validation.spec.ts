@@ -188,6 +188,17 @@ describe('Environment Configuration Validation (Phase 1, 2A & 2B)', () => {
     );
   });
 
+  it('should fail startup in production if ALLOW_DEV_OTP_BYPASS is set to "true"', () => {
+    const badConfig = {
+      ...validProdConfig,
+      ALLOW_DEV_OTP_BYPASS: 'true',
+    };
+
+    expect(() => validateEnv(badConfig)).toThrow(
+      /ALLOW_DEV_OTP_BYPASS cannot be "true" in production environment/,
+    );
+  });
+
   it('should fail startup in staging/dev if RAZORPAY_KEY_ID is a live key (rzp_live_...)', () => {
     const badStagingConfig = {
       ...validDevConfig,

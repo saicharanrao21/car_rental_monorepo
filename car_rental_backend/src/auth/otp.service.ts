@@ -132,11 +132,19 @@ export class OtpService {
       );
     }
 
-    // 4. Compare input OTP code with stored bcrypt hash (support 123456 dev OTP in non-production or mock SMS mode)
-    const isDevBypass =
-      (process.env.NODE_ENV !== 'production' ||
-        process.env.SMS_PROVIDER === 'mock') &&
-      otp === '123456';
+    // 4. Compare input OTP code with stored bcrypt hash
+    // Dev bypass is strictly forbidden in production. In non-production environments,
+    // it requires explicit ALLOW_DEV_OTP_BYPASS=true configuration.
+    const isDevBypassAllowed =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ALLOW_DEV_OTP_BYPASS === 'true';
+
+    const isDevBypass = isDevBypassAllowed && otp === '123456';
+    if (isDevBypass) {
+      this.logger.warn(
+        `[SECURITY WARNING] Dev OTP bypass invoked for phone ending in ${phone.slice(-4)}. ALLOW_DEV_OTP_BYPASS is active.`,
+      );
+    }
     const isMatch = isDevBypass || bcrypt.compareSync(otp, latestOtp.otpHash);
 
     if (!isMatch) {

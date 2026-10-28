@@ -59,7 +59,7 @@ class _ReturnInspectionPageState extends ConsumerState<ReturnInspectionPage> {
   final String _newDamageSeverity = 'Minor';
   final _newDamageNotesCtrl = TextEditingController(text: 'Surface scratch on lower edge, ~3cm');
   final _claimAmountCtrl = TextEditingController(text: '1500');
-  final _returnOtpCtrl = TextEditingController(text: '987654');
+  final _returnOtpCtrl = TextEditingController();
 
   bool _isSubmitting = false;
 

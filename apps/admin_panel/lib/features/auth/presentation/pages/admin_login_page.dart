@@ -21,8 +21,8 @@ class AdminLoginPage extends ConsumerStatefulWidget {
 }
 
 class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
-  final _emailCtrl = TextEditingController(text: 'admin@platform.com');
-  final _passwordCtrl = TextEditingController(text: 'Admin@123');
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;

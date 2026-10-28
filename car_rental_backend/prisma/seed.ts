@@ -4,6 +4,11 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'CRITICAL SECURITY ERROR: Database seeding is forbidden in production environment.',
+    );
+  }
   console.log('Seeding database...');
 
   // 1. Clean existing data

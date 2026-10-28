@@ -55,6 +55,10 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  ALLOW_DEV_OTP_BYPASS?: string = 'false';
+
+  @IsString()
+  @IsOptional()
   SMS_PROVIDER?: string;
 
   @IsString()
@@ -240,7 +244,14 @@ export function validateEnv(
       }
     }
 
-    // 4. SMS Provider validations: Mock provider is forbidden in production
+    // 4. OTP Bypass validations: Dev OTP bypass is strictly forbidden in production
+    if (validatedConfig.ALLOW_DEV_OTP_BYPASS === 'true') {
+      validationErrors.push(
+        'PRODUCTION SECURITY ERROR: ALLOW_DEV_OTP_BYPASS cannot be "true" in production environment.',
+      );
+    }
+
+    // 5. SMS Provider validations: Mock provider is forbidden in production
     if (validatedConfig.SMS_PROVIDER === 'mock') {
       validationErrors.push(
         'PRODUCTION SECURITY ERROR: SMS_PROVIDER cannot be "mock" in production environment.',

@@ -61,7 +61,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
   final List<Map<String, dynamic>> _recordedDamages = [];
 
   // Handover Confirmation
-  final _handoverOtpCtrl = TextEditingController(text: '123456');
+  final _handoverOtpCtrl = TextEditingController();
   bool _isSubmitting = false;
   bool _simulateOffline = false;
 

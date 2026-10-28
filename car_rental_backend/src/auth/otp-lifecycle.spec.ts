@@ -199,4 +199,82 @@ describe('OTP Lifecycle & Security Hardening (Phase 2A)', () => {
       expect(numericOtp).toBeLessThan(1000000);
     }
   });
+
+  describe('Authentication Bypass Security Hardening & Regression Tests', () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    afterAll(() => {
+      process.env = originalEnv;
+    });
+
+    it('REGRESSION: should strictly reject fixed code "123456" in production environment', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.ALLOW_DEV_OTP_BYPASS = 'false';
+      process.env.SMS_PROVIDER = 'msg91';
+
+      await otpService.sendOtp('+919876543210');
+      const sentMsg = mockSmsProvider.sendSms.mock.calls[0][1];
+      const realOtp = sentMsg.match(/\b\d{6}\b/)[0];
+
+      if (realOtp === '123456') {
+        mockRedis.store.clear();
+        await otpService.sendOtp('+919876543210');
+      }
+
+      await expect(
+        otpService.verifyOtp('+919876543210', '123456'),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('REGRESSION: should reject "123456" even if SMS_PROVIDER is mock when ALLOW_DEV_OTP_BYPASS is not enabled', async () => {
+      process.env.NODE_ENV = 'staging';
+      process.env.SMS_PROVIDER = 'mock';
+      delete process.env.ALLOW_DEV_OTP_BYPASS;
+
+      await otpService.sendOtp('+919876543210');
+
+      await expect(
+        otpService.verifyOtp('+919876543210', '123456'),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('REGRESSION: should reject "123456" in production even if ALLOW_DEV_OTP_BYPASS is maliciously set to true', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.ALLOW_DEV_OTP_BYPASS = 'true';
+
+      await otpService.sendOtp('+919876543210');
+
+      await expect(
+        otpService.verifyOtp('+919876543210', '123456'),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('REGRESSION: should lock out OTP verification after 5 failed attempts with invalid OTP', async () => {
+      process.env.NODE_ENV = 'production';
+      await otpService.sendOtp('+919876543210');
+
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await expect(
+          otpService.verifyOtp('+919876543210', '000000'),
+        ).rejects.toThrow(/Invalid OTP\. \d attempts remaining\./);
+      }
+
+      await expect(
+        otpService.verifyOtp('+919876543210', '000000'),
+      ).rejects.toThrow(/Too many invalid attempts\. This OTP is now invalid\./);
+    });
+
+    it('should only permit 123456 dev bypass when NODE_ENV is non-production AND ALLOW_DEV_OTP_BYPASS is explicitly true', async () => {
+      process.env.NODE_ENV = 'development';
+      process.env.ALLOW_DEV_OTP_BYPASS = 'true';
+
+      await otpService.sendOtp('+919876543210');
+      const verified = await otpService.verifyOtp('+919876543210', '123456');
+      expect(verified).toBe(true);
+    });
+  });
 });

@@ -92,7 +92,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       _startCooldown();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP resent successfully. Enter 123456.')),
+          const SnackBar(content: Text('OTP resent successfully.')),
         );
       }
     } else {

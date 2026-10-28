@@ -86,10 +86,16 @@ export class Msg91SmsAdapter implements SmsProvider {
       if (match) otp = match[0];
     }
 
+    if (!otp) {
+      throw new Error(
+        'Cannot dispatch SMS OTP: OTP code is missing or unparseable.',
+      );
+    }
+
     const payload = {
       template_id: req.templateId || this.templateId,
       mobile,
-      otp: otp || '123456',
+      otp,
       sender: req.senderId || this.senderId,
     };
 
