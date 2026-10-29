@@ -1,13 +1,16 @@
 import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
+import { AdminPermission } from '../auth/permissions.enum';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from './audit-log.service';
 
 @Controller('admin/settings')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(Role.ADMIN)
 export class AdminSettingsController {
   constructor(
@@ -16,6 +19,7 @@ export class AdminSettingsController {
   ) {}
 
   @Get()
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_READ)
   async getSettings() {
     let settings = await this.prisma.platformSettings.findUnique({
       where: { id: 'singleton' },
@@ -39,6 +43,7 @@ export class AdminSettingsController {
   }
 
   @Patch()
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_WRITE)
   async updateSettings(
     @Req() req: any,
     @Body()
@@ -77,8 +82,9 @@ export class AdminSettingsController {
       },
     });
 
+    const adminUserId = req.user?.userId || req.user?.id;
     this.auditLogService.log(
-      req.user.userId,
+      adminUserId,
       'PLATFORM_SETTINGS_UPDATED',
       'PlatformSettings',
       'singleton',

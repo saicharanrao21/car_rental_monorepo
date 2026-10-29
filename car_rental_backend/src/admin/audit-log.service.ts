@@ -9,6 +9,46 @@ export class AuditLogService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private sanitizeMetadata(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((item) => this.sanitizeMetadata(item));
+    }
+
+    const SENSITIVE_KEYS = new Set([
+      'password',
+      'passwordhash',
+      'token',
+      'refreshtoken',
+      'accesstoken',
+      'secret',
+      'apikey',
+      'authorization',
+      'creditcard',
+      'cardnumber',
+      'cvv',
+      'cvc',
+      'pin',
+      'otp',
+    ]);
+
+    const sanitized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      const lowerKey = key.toLowerCase().replace(/[-_]/g, '');
+      if (SENSITIVE_KEYS.has(lowerKey)) {
+        sanitized[key] = '[REDACTED]';
+      } else if (value && typeof value === 'object') {
+        sanitized[key] = this.sanitizeMetadata(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+
   async log(
     adminUserId: string,
     action: string,
@@ -17,13 +57,14 @@ export class AuditLogService {
     metadata?: any,
   ): Promise<void> {
     try {
+      const sanitizedMeta = metadata ? this.sanitizeMetadata(metadata) : Prisma.JsonNull;
       await this.prisma.auditLog.create({
         data: {
           adminUserId,
           action,
           targetType,
           targetId,
-          metadata: metadata ? metadata : Prisma.JsonNull,
+          metadata: sanitizedMeta,
         },
       });
     } catch (err) {

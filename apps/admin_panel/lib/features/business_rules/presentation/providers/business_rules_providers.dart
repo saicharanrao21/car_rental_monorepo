@@ -90,11 +90,14 @@ final ruleAuditHistoryProvider =
 /// Permission gate provider: distinguishes read-only vs authorized editors.
 final canEditConfigurationsProvider = Provider<bool>((ref) {
   final session = ref.watch(adminSessionProvider);
-  // Platform admins have full write access
-  if (session.isAuthenticated) {
-    return true;
+  if (!session.isAuthenticated) {
+    return false;
   }
-  return false;
+  // Read-only analyst role and users lacking SYSTEM_CONFIG_WRITE are blocked
+  if (session.isReadOnly) {
+    return false;
+  }
+  return session.hasPermission('system:config:write');
 });
 
 class RuleMutationNotifier extends StateNotifier<AsyncValue<void>> {

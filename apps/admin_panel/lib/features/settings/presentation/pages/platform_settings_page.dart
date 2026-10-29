@@ -291,14 +291,16 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
       (key: 'AIRPORT_TRANSFER', label: 'Airport Transfer', subtitle: 'Dedicated airport pick & drop'),
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
+    return Material(
+      color: Colors.grey[50],
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
@@ -333,8 +335,9 @@ class _PlatformSettingsPageState extends ConsumerState<PlatformSettingsPage> {
           }),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLogoSlot() {
     return InkWell(
