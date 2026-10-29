@@ -89,4 +89,25 @@ export class SupportedCitiesController {
   async deleteCity(@Req() req: any, @Param('id') id: string) {
     return this.supportedCitiesService.delete(id, req.user.userId);
   }
+
+  @Get('admin/supported-cities/:id/service-areas')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getCityServiceAreas(@Param('id') id: string) {
+    return this.supportedCitiesService.getCityServiceAreas(id);
+  }
+
+  @Get('admin/supported-cities/:id/readiness')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getCityReadiness(@Param('id') id: string) {
+    return this.supportedCitiesService.getCityReadiness(id);
+  }
+
+  @Get('admin/supported-cities/:id/impact')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getCityImpact(@Param('id') id: string) {
+    return this.supportedCitiesService.getCityImpact(id);
+  }
 }

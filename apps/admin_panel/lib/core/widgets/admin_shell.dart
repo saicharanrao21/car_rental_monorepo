@@ -4,9 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../providers/admin_session_provider.dart';
+import '../providers/api_providers.dart';
 
 final sidebarExpandedProvider = StateProvider<bool>((ref) => true);
 final selectedDomainFilterProvider = StateProvider<String?>((ref) => null);
+
+final backendHealthProvider = FutureProvider.autoDispose<bool>((ref) async {
+  try {
+    final client = ref.read(apiClientProvider);
+    final res = await client.dio.get('/health');
+    return res.statusCode == 200;
+  } catch (_) {
+    return false;
+  }
+});
 
 class AdminDomainGroup {
   final String domainId;
@@ -45,80 +56,250 @@ class AdminShell extends ConsumerWidget {
 
   static const List<AdminDomainGroup> domainGroups = [
     AdminDomainGroup(
-      domainId: 'executive',
-      domainName: 'Executive',
+      domainId: 'overview',
+      domainName: 'Overview',
       icon: Icons.space_dashboard_rounded,
       items: [
-        AdminNavItem(label: 'Command Center', icon: Icons.space_dashboard_rounded, route: '/dashboard'),
-        AdminNavItem(label: 'Operations Live SLA', icon: Icons.radar_outlined, route: '/operations-center', badgeText: 'LIVE', badgeColor: Colors.blue),
-        AdminNavItem(label: 'Revenue & Reports', icon: Icons.account_balance_wallet_outlined, route: '/revenue'),
+        AdminNavItem(
+          label: 'Command Center',
+          icon: Icons.space_dashboard_rounded,
+          route: '/dashboard',
+        ),
       ],
     ),
     AdminDomainGroup(
       domainId: 'operations',
-      domainName: 'Operations & Fleet',
+      domainName: 'Operations',
       icon: Icons.local_shipping_outlined,
       items: [
-        AdminNavItem(label: 'Location Governance', icon: Icons.share_location_outlined, route: '/locations/governance'),
-        AdminNavItem(label: 'Live Operations Map', icon: Icons.map_outlined, route: '/locations'),
-        AdminNavItem(label: 'Bookings Management', icon: Icons.book_online_outlined, route: '/bookings'),
-        AdminNavItem(label: 'Fleet Inventory', icon: Icons.directions_car_outlined, route: '/fleet'),
-        AdminNavItem(label: 'Vendor Partners', icon: Icons.storefront_outlined, route: '/vendors'),
-        AdminNavItem(label: 'Vendor Onboarding & Deposits', icon: Icons.verified_user_outlined, route: '/vendors/onboarding'),
-        AdminNavItem(label: 'Supported Cities', icon: Icons.location_city_outlined, route: '/supported-cities'),
+        AdminNavItem(
+          label: 'Bookings Management',
+          icon: Icons.book_online_outlined,
+          route: '/bookings',
+        ),
+        AdminNavItem(
+          label: 'Live Operations Map',
+          icon: Icons.map_outlined,
+          route: '/locations',
+        ),
+        AdminNavItem(
+          label: 'Fleet & Vehicles',
+          icon: Icons.directions_car_outlined,
+          route: '/fleet',
+        ),
+        AdminNavItem(
+          label: 'Vendor Partners',
+          icon: Icons.storefront_outlined,
+          route: '/vendors',
+        ),
+        AdminNavItem(
+          label: 'Onboarding & Approvals',
+          icon: Icons.verified_user_outlined,
+          route: '/vendors/onboarding',
+          badgeText: 'APPROVALS',
+          badgeColor: Color(0xFFF59E0B),
+        ),
+        AdminNavItem(
+          label: 'Locations & Service Areas',
+          icon: Icons.share_location_outlined,
+          route: '/locations/governance',
+        ),
+        AdminNavItem(
+          label: 'Cities & Service Areas',
+          icon: Icons.location_city_outlined,
+          route: '/supported-cities',
+          badgeText: 'CONTROL',
+          badgeColor: Color(0xFF10B981),
+        ),
+        AdminNavItem(
+          label: 'Live Operations SLA',
+          icon: Icons.radar_outlined,
+          route: '/operations-center',
+          badgeText: 'LIVE',
+          badgeColor: Color(0xFF3B82F6),
+        ),
       ],
     ),
     AdminDomainGroup(
-      domainId: 'customer_care',
-      domainName: 'Customer Care',
+      domainId: 'customers_support',
+      domainName: 'Customers & Support',
       icon: Icons.support_agent_outlined,
       items: [
-        AdminNavItem(label: 'Customer Accounts', icon: Icons.people_outline, route: '/customers'),
-        AdminNavItem(label: 'KYC Document Review', icon: Icons.badge_outlined, route: '/kyc', badgeText: 'KYC', badgeColor: Color(0xFF2563EB)),
-        AdminNavItem(label: 'Support Tickets', icon: Icons.support_agent_outlined, route: '/support-tickets'),
-        AdminNavItem(label: 'Emergency SOS', icon: Icons.emergency_outlined, route: '/emergency-dispatch', badgeText: 'SOS', badgeColor: Colors.red),
-        AdminNavItem(label: 'Disputes & Claims', icon: Icons.gavel_outlined, route: '/disputes'),
+        AdminNavItem(
+          label: 'Customer Accounts',
+          icon: Icons.people_outline,
+          route: '/customers',
+        ),
+        AdminNavItem(
+          label: 'Identity & KYC Review',
+          icon: Icons.badge_outlined,
+          route: '/kyc',
+          badgeText: 'KYC',
+          badgeColor: Color(0xFF2563EB),
+        ),
+        AdminNavItem(
+          label: 'Support Tickets',
+          icon: Icons.support_agent_outlined,
+          route: '/support-tickets',
+        ),
+        AdminNavItem(
+          label: 'Disputes & Claims',
+          icon: Icons.gavel_outlined,
+          route: '/disputes',
+        ),
+        AdminNavItem(
+          label: 'Emergency SOS',
+          icon: Icons.emergency_outlined,
+          route: '/emergency-dispatch',
+          badgeText: 'SOS',
+          badgeColor: Colors.red,
+        ),
       ],
     ),
     AdminDomainGroup(
       domainId: 'finance',
-      domainName: 'Finance & Settlements',
+      domainName: 'Finance',
       icon: Icons.payments_outlined,
       items: [
-        AdminNavItem(label: 'Vendor Payouts & Settlement', icon: Icons.payments_outlined, route: '/payouts', badgeText: 'PHASE P', badgeColor: Color(0xFF10B981)),
-        AdminNavItem(label: 'Corporate Accounts & Credit', icon: Icons.business_outlined, route: '/corporate-accounts'),
-        AdminNavItem(label: 'Reconciliation Exceptions', icon: Icons.rule_folder_outlined, route: '/reconciliation'),
-        AdminNavItem(label: 'Wallet Management', icon: Icons.account_balance_wallet_outlined, route: '/wallet'),
-        AdminNavItem(label: 'Commission Settings', icon: Icons.percent_outlined, route: '/commission'),
-        AdminNavItem(label: 'Invoices & Billing', icon: Icons.receipt_long_outlined, route: '/invoices'),
-        AdminNavItem(label: 'Protection Packages', icon: Icons.shield_outlined, route: '/protection-packages'),
+        AdminNavItem(
+          label: 'Revenue & Reports',
+          icon: Icons.analytics_outlined,
+          route: '/revenue',
+        ),
+        AdminNavItem(
+          label: 'Vendor Payouts & Settlement',
+          icon: Icons.payments_outlined,
+          route: '/payouts',
+          badgeText: 'PAYOUTS',
+          badgeColor: Color(0xFF10B981),
+        ),
+        AdminNavItem(
+          label: 'Reconciliation Exceptions',
+          icon: Icons.rule_folder_outlined,
+          route: '/reconciliation',
+        ),
+        AdminNavItem(
+          label: 'Commission Settings',
+          icon: Icons.percent_outlined,
+          route: '/commission',
+        ),
+        AdminNavItem(
+          label: 'Invoices & Billing',
+          icon: Icons.receipt_long_outlined,
+          route: '/invoices',
+        ),
+        AdminNavItem(
+          label: 'Wallet & Ledger',
+          icon: Icons.account_balance_wallet_outlined,
+          route: '/wallet',
+        ),
+        AdminNavItem(
+          label: 'Protection Packages',
+          icon: Icons.shield_outlined,
+          route: '/protection-packages',
+        ),
+        AdminNavItem(
+          label: 'Corporate Accounts & Credit',
+          icon: Icons.business_outlined,
+          route: '/corporate-accounts',
+        ),
       ],
     ),
     AdminDomainGroup(
-      domainId: 'growth',
-      domainName: 'Growth & Marketing',
+      domainId: 'growth_communications',
+      domainName: 'Growth & Communications',
       icon: Icons.trending_up_outlined,
       items: [
-        AdminNavItem(label: 'Banners & Promotions', icon: Icons.view_carousel_outlined, route: '/banners'),
-        AdminNavItem(label: 'Coupons & Promo Codes', icon: Icons.local_offer_outlined, route: '/coupons'),
-        AdminNavItem(label: 'Referral Campaigns', icon: Icons.card_giftcard_outlined, route: '/referrals'),
-        AdminNavItem(label: 'Loyalty Program', icon: Icons.stars_outlined, route: '/loyalty'),
-        AdminNavItem(label: 'Push Notifications', icon: Icons.notifications_none_outlined, route: '/notifications'),
-        AdminNavItem(label: 'WhatsApp Messaging', icon: Icons.chat_outlined, route: '/whatsapp'),
+        AdminNavItem(
+          label: 'App Banners & Promotions',
+          icon: Icons.view_carousel_outlined,
+          route: '/banners',
+        ),
+        AdminNavItem(
+          label: 'Coupons & Promo Codes',
+          icon: Icons.local_offer_outlined,
+          route: '/coupons',
+        ),
+        AdminNavItem(
+          label: 'Referral Campaigns',
+          icon: Icons.card_giftcard_outlined,
+          route: '/referrals',
+        ),
+        AdminNavItem(
+          label: 'Loyalty Program',
+          icon: Icons.stars_outlined,
+          route: '/loyalty',
+        ),
+        AdminNavItem(
+          label: 'Push Notifications',
+          icon: Icons.notifications_none_outlined,
+          route: '/notifications',
+        ),
+        AdminNavItem(
+          label: 'WhatsApp Messaging',
+          icon: Icons.chat_outlined,
+          route: '/whatsapp',
+        ),
       ],
     ),
     AdminDomainGroup(
-      domainId: 'governance',
-      domainName: 'Security & Governance',
+      domainId: 'integrations_automation',
+      domainName: 'Integrations & Automation',
+      icon: Icons.hub_outlined,
+      items: [
+        AdminNavItem(
+          label: 'Integration Marketplace',
+          icon: Icons.storefront_outlined,
+          route: '/integrations',
+        ),
+        AdminNavItem(
+          label: 'Event & Notification Rules',
+          icon: Icons.rule_outlined,
+          route: '/notification-rules',
+          badgeText: 'RULES',
+          badgeColor: Color(0xFF6366F1),
+        ),
+        AdminNavItem(
+          label: 'Workflow Automation',
+          icon: Icons.precision_manufacturing_outlined,
+          route: '/automation',
+          badgeText: 'CRON',
+          badgeColor: Color(0xFF10B981),
+        ),
+      ],
+    ),
+    AdminDomainGroup(
+      domainId: 'security_platform',
+      domainName: 'Security & Platform',
       icon: Icons.security_outlined,
       items: [
-        AdminNavItem(label: 'Staff & Role Delegation', icon: Icons.badge_outlined, route: '/staff', badgeText: 'RBAC', badgeColor: Color(0xFF7C3AED)),
-        AdminNavItem(label: 'Automation Command Centre', icon: Icons.precision_manufacturing_outlined, route: '/automation', badgeText: 'PHASE L', badgeColor: Color(0xFF10B981)),
-        AdminNavItem(label: 'Business Rules Engine', icon: Icons.tune_rounded, route: '/business-rules'),
-        AdminNavItem(label: 'Audit Log', icon: Icons.history_outlined, route: '/audit-log'),
-        AdminNavItem(label: 'Fraud & Risk', icon: Icons.security_outlined, route: '/fraud'),
-        AdminNavItem(label: 'Integration Marketplace', icon: Icons.hub_outlined, route: '/integrations', badgeText: 'PHASE J', badgeColor: Color(0xFF3B82F6)),
-        AdminNavItem(label: 'Platform Settings', icon: Icons.settings_outlined, route: '/settings'),
+        AdminNavItem(
+          label: 'Staff & Role Delegation',
+          icon: Icons.badge_outlined,
+          route: '/staff',
+          badgeText: 'RBAC',
+          badgeColor: Color(0xFF7C3AED),
+        ),
+        AdminNavItem(
+          label: 'Audit Log',
+          icon: Icons.history_outlined,
+          route: '/audit-log',
+        ),
+        AdminNavItem(
+          label: 'Fraud & Risk',
+          icon: Icons.security_outlined,
+          route: '/fraud',
+        ),
+        AdminNavItem(
+          label: 'Business Rules Engine',
+          icon: Icons.tune_rounded,
+          route: '/business-rules',
+        ),
+        AdminNavItem(
+          label: 'Platform Settings',
+          icon: Icons.settings_outlined,
+          route: '/settings',
+        ),
       ],
     ),
   ];
@@ -232,16 +413,19 @@ class AdminShell extends ConsumerWidget {
 
                 // Domain Navigation Groups List
                 Expanded(
-                  child: ListView(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: domainGroups.map((group) {
-                      return _buildDomainAccordion(
-                        context,
-                        group: group,
-                        currentLocation: location,
-                        isExpanded: actualExpanded,
-                      );
-                    }).toList(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: domainGroups.map((group) {
+                        return _buildDomainAccordion(
+                          context,
+                          group: group,
+                          currentLocation: location,
+                          isExpanded: actualExpanded,
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
 
@@ -309,56 +493,112 @@ class AdminShell extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Breadcrumb Navigation
-                        Row(
-                          children: [
-                            Text(
-                              breadcrumbs.domainName,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Text(
+                                breadcrumbs.domainName,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            const Gap(8),
-                            Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
-                            const Gap(8),
-                            Text(
-                              breadcrumbs.itemLabel,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                              const Gap(8),
+                              Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
+                              const Gap(8),
+                              Flexible(
+                                child: Text(
+                                  breadcrumbs.itemLabel,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const Gap(16),
 
                         // System Health & Admin Controls
                         Row(
                           children: [
-                            // Operational Health Status Pill
+                            // Environment Indicator
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFA7F3D0)),
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(radius: 3.5, backgroundColor: Color(0xFF10B981)),
-                                  Gap(6),
-                                  Text(
-                                    'CONTROL TOWER LIVE',
-                                    style: TextStyle(
-                                      color: Color(0xFF065F46),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
+                              child: const Text(
+                                'PROD-READY',
+                                style: TextStyle(
+                                  color: Color(0xFF92400E),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            const Gap(10),
+
+                            // Operational Health Status Pill (Authoritative)
+                            ref.watch(backendHealthProvider).when(
+                              data: (healthy) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: healthy ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: healthy ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
                                   ),
-                                ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 3.5,
+                                      backgroundColor: healthy ? const Color(0xFF10B981) : Colors.red,
+                                    ),
+                                    const Gap(6),
+                                    Text(
+                                      healthy ? 'CONTROL TOWER LIVE' : 'API DISCONNECTED',
+                                      style: TextStyle(
+                                        color: healthy ? const Color(0xFF065F46) : const Color(0xFF991B1B),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              loading: () => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(radius: 3.5, backgroundColor: Color(0xFF94A3B8)),
+                                    Gap(6),
+                                    Text('CHECKING...', style: TextStyle(fontSize: 10, color: Color(0xFF475569))),
+                                  ],
+                                ),
+                              ),
+                              error: (_, __) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Text('API OFFLINE', style: TextStyle(fontSize: 10, color: Colors.red)),
                               ),
                             ),
                             const Gap(20),

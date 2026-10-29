@@ -153,6 +153,65 @@ class AdminIntegrationsRepository {
     }
   }
 
+  // ==========================================
+  // EVENT & NOTIFICATION RULES APIS
+  // ==========================================
+
+  Future<List<Map<String, dynamic>>> getNotificationRules() async {
+    try {
+      final response = await _apiClient.dio.get('/admin/integrations/notification-rules');
+      final data = response.data;
+      if (data is List) {
+        return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      throw _handleDioError(e, 'Failed to fetch notification rules');
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertNotificationRule(Map<String, dynamic> rule) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/admin/integrations/notification-rules',
+        data: rule,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw _handleDioError(e, 'Failed to save notification rule');
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleNotificationRule(String id, bool isEnabled) async {
+    try {
+      final response = await _apiClient.dio.patch(
+        '/admin/integrations/notification-rules/$id/toggle',
+        data: {'isEnabled': isEnabled},
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw _handleDioError(e, 'Failed to toggle notification rule');
+    }
+  }
+
+  Future<Map<String, dynamic>> simulateNotificationRule(
+    String eventType, {
+    String? recipientRole,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/admin/integrations/notification-rules/simulate',
+        data: {
+          'eventType': eventType,
+          if (recipientRole != null) 'recipientRole': recipientRole,
+        },
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw _handleDioError(e, 'Failed to simulate notification rule');
+    }
+  }
+
   String _handleDioError(DioException e, String fallback) {
     if (e.response?.data is Map && e.response?.data['message'] != null) {
       final msg = e.response?.data['message'];

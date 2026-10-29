@@ -868,6 +868,310 @@ export class AdminIntegrationsService {
       fallbackChain: binding?.fallbackChain || packs.slice(1).map((p) => p.id),
     };
   }
+
+  // ==========================================
+  // EVENT & NOTIFICATION RULES ENGINE
+  // ==========================================
+
+  private readonly defaultNotificationRules = [
+    {
+      id: 'rule-booking-confirmed',
+      eventType: 'BOOKING_CONFIRMED',
+      name: 'Booking Confirmation',
+      messageType: 'TRANSACTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['IN_APP', 'PUSH', 'EMAIL', 'WHATSAPP'],
+      priority: 'HIGH',
+      templateName: 'BOOKING_CONFIRMATION',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Sends real-time booking confirmation and itinerary across in-app, push, email, and WhatsApp.',
+    },
+    {
+      id: 'rule-booking-cancelled',
+      eventType: 'BOOKING_CANCELLED',
+      name: 'Booking Cancellation',
+      messageType: 'TRANSACTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['IN_APP', 'PUSH', 'EMAIL', 'SMS'],
+      priority: 'HIGH',
+      templateName: 'BOOKING_CANCELLATION',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Notifies customer immediately of booking cancellation terms and refund eligibility.',
+    },
+    {
+      id: 'rule-payment-succeeded',
+      eventType: 'PAYMENT_SUCCEEDED',
+      name: 'Payment Receipt',
+      messageType: 'TRANSACTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['IN_APP', 'PUSH', 'EMAIL', 'WHATSAPP'],
+      priority: 'HIGH',
+      templateName: 'PAYMENT_RECEIPT',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Issues verified tax invoice and payment confirmation across multiple channels.',
+    },
+    {
+      id: 'rule-payment-failed',
+      eventType: 'PAYMENT_FAILED',
+      name: 'Payment Failure & Retry',
+      messageType: 'TRANSACTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['IN_APP', 'PUSH', 'SMS'],
+      priority: 'HIGH',
+      templateName: 'PAYMENT_FAILURE',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Alerts customer of payment failure with a 15-minute retry hold before vehicle release.',
+    },
+    {
+      id: 'rule-refund-initiated',
+      eventType: 'REFUND_INITIATED',
+      name: 'Refund Processing Notice',
+      messageType: 'TRANSACTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['IN_APP', 'PUSH', 'EMAIL'],
+      priority: 'NORMAL',
+      templateName: 'REFUND_STATUS',
+      isEnabled: true,
+      quietHoursBypass: false,
+      retryLimit: 2,
+      description: 'Informs customer that refund credit is in transit to original payment instrument.',
+    },
+    {
+      id: 'rule-refund-failed',
+      eventType: 'REFUND_FAILED',
+      name: 'Refund Exception Alert',
+      messageType: 'CRITICAL_ALERT',
+      recipientRole: 'FINANCE_STAFF',
+      channels: ['IN_APP', 'EMAIL', 'SMS'],
+      priority: 'CRITICAL',
+      templateName: 'INTERNAL_FINANCE_ALERT',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 5,
+      description: 'Escalates automated refund gateway failures to DriveGo finance operations team.',
+    },
+    {
+      id: 'rule-vendor-approved',
+      eventType: 'VENDOR_APPLICATION_APPROVED',
+      name: 'Vendor Partner Approved',
+      messageType: 'OPERATIONAL',
+      recipientRole: 'VENDOR',
+      channels: ['IN_APP', 'EMAIL', 'WHATSAPP'],
+      priority: 'HIGH',
+      templateName: 'VENDOR_WELCOME',
+      isEnabled: true,
+      quietHoursBypass: false,
+      retryLimit: 3,
+      description: 'Sends merchant onboarding approval, operating yard instructions, and dashboard login.',
+    },
+    {
+      id: 'rule-vendor-rejected',
+      eventType: 'VENDOR_APPLICATION_REJECTED',
+      name: 'Vendor Application Rejection',
+      messageType: 'OPERATIONAL',
+      recipientRole: 'VENDOR',
+      channels: ['IN_APP', 'EMAIL'],
+      priority: 'NORMAL',
+      templateName: 'VENDOR_REJECTION',
+      isEnabled: true,
+      quietHoursBypass: false,
+      retryLimit: 2,
+      description: 'Explains document deficiencies and appeal remediation procedures.',
+    },
+    {
+      id: 'rule-vehicle-approved',
+      eventType: 'VEHICLE_APPROVED',
+      name: 'Vehicle Verification Live',
+      messageType: 'OPERATIONAL',
+      recipientRole: 'VENDOR',
+      channels: ['IN_APP', 'PUSH', 'WHATSAPP'],
+      priority: 'NORMAL',
+      templateName: 'FLEET_LIVE',
+      isEnabled: true,
+      quietHoursBypass: false,
+      retryLimit: 2,
+      description: 'Notifies partner that vehicle inspection passed and is now bookable by customers.',
+    },
+    {
+      id: 'rule-damage-claim',
+      eventType: 'DAMAGE_CLAIM_OPENED',
+      name: 'Vehicle Damage Claim',
+      messageType: 'CRITICAL_ALERT',
+      recipientRole: 'OPERATIONS_STAFF',
+      channels: ['IN_APP', 'EMAIL'],
+      priority: 'CRITICAL',
+      templateName: 'DISPUTE_ESCALATION',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Flags post-trip damage evidence and locks customer deposit pending review.',
+    },
+    {
+      id: 'rule-emergency-sos',
+      eventType: 'EMERGENCY_SOS_RAISED',
+      name: 'Emergency SOS Incident',
+      messageType: 'CRITICAL_ALERT',
+      recipientRole: 'EMERGENCY_DISPATCH',
+      channels: ['IN_APP', 'SMS', 'VOICE'],
+      priority: 'CRITICAL',
+      templateName: 'SOS_DISPATCH',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 5,
+      description: 'Dispatches high-priority telematics coordinates to DriveGo emergency incident team.',
+    },
+    {
+      id: 'rule-payout-failed',
+      eventType: 'PAYOUT_FAILED',
+      name: 'Vendor Payout Failure',
+      messageType: 'CRITICAL_ALERT',
+      recipientRole: 'FINANCE_STAFF',
+      channels: ['IN_APP', 'EMAIL'],
+      priority: 'HIGH',
+      templateName: 'INTERNAL_FINANCE_ALERT',
+      isEnabled: true,
+      quietHoursBypass: true,
+      retryLimit: 3,
+      description: 'Alerts finance desk of bank IMPS/NEFT payout failure or IFSC validation error.',
+    },
+    {
+      id: 'rule-promotional-campaign',
+      eventType: 'PROMOTIONAL_CAMPAIGN',
+      name: 'Promotional Offers & Marketing',
+      messageType: 'PROMOTIONAL',
+      recipientRole: 'CUSTOMER',
+      channels: ['PUSH', 'EMAIL'],
+      priority: 'LOW',
+      templateName: 'PROMOTIONAL_DISCOUNT',
+      isEnabled: true,
+      quietHoursBypass: false,
+      retryLimit: 1,
+      description: 'Marketing campaigns subject to TRAI quiet hours (09:00 - 21:00 only) and opt-in consent.',
+    },
+  ];
+
+  async getNotificationRules(): Promise<any[]> {
+    try {
+      const config = await this.prisma.systemConfig?.findUnique({
+        where: { key: 'communications.notification_rules' },
+      });
+      if (config && Array.isArray(config.value)) {
+        return config.value;
+      }
+    } catch {
+      // fallback to memory
+    }
+    return this.defaultNotificationRules;
+  }
+
+  async upsertNotificationRule(rule: any): Promise<any[]> {
+    const existing = await this.getNotificationRules();
+    const index = existing.findIndex((r) => r.id === rule.id || r.eventType === rule.eventType);
+    let updated: any[];
+    if (index >= 0) {
+      existing[index] = { ...existing[index], ...rule, updatedAt: new Date().toISOString() };
+      updated = [...existing];
+    } else {
+      updated = [
+        ...existing,
+        {
+          ...rule,
+          id: rule.id || `rule-${Date.now()}`,
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    }
+
+    try {
+      await this.prisma.systemConfig?.upsert({
+        where: { key: 'communications.notification_rules' },
+        create: {
+          key: 'communications.notification_rules',
+          category: 'COMMUNICATIONS',
+          description: 'Event-to-channel communication and notification dispatch policies',
+          value: updated,
+        },
+        update: {
+          value: updated,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to persist notification rules to SystemConfig: ${err}`);
+    }
+
+    return updated;
+  }
+
+  async toggleNotificationRule(id: string, isEnabled: boolean): Promise<any> {
+    const existing = await this.getNotificationRules();
+    const rule = existing.find((r) => r.id === id);
+    if (!rule) {
+      throw new NotFoundException(`Notification rule with ID [${id}] not found.`);
+    }
+    rule.isEnabled = isEnabled;
+    rule.updatedAt = new Date().toISOString();
+
+    try {
+      await this.prisma.systemConfig?.upsert({
+        where: { key: 'communications.notification_rules' },
+        create: {
+          key: 'communications.notification_rules',
+          category: 'COMMUNICATIONS',
+          description: 'Event-to-channel communication and notification dispatch policies',
+          value: existing,
+        },
+        update: {
+          value: existing,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to persist notification rule toggle: ${err}`);
+    }
+
+    return rule;
+  }
+
+  async simulateNotificationRule(eventType: string, recipientRole?: string): Promise<any> {
+    const rules = await this.getNotificationRules();
+    const rule = rules.find((r) => r.eventType === eventType);
+    if (!rule) {
+      return {
+        matched: false,
+        message: `No active notification rule registered for event '${eventType}'. Canonical fallback will apply.`,
+      };
+    }
+
+    const now = new Date();
+    const hour = now.getHours();
+    const isQuietHour = hour >= 21 || hour < 8;
+    const quietSuppressed = !rule.quietHoursBypass && isQuietHour && rule.messageType === 'PROMOTIONAL';
+
+    return {
+      matched: true,
+      ruleId: rule.id,
+      eventType: rule.eventType,
+      name: rule.name,
+      messageType: rule.messageType,
+      recipientRole: recipientRole || rule.recipientRole,
+      configuredChannels: rule.channels,
+      dispatchedChannels: quietSuppressed ? [] : rule.channels,
+      priority: rule.priority,
+      templateName: rule.templateName,
+      quietHoursActive: isQuietHour,
+      quietHoursSuppressed: quietSuppressed,
+      retryLimit: rule.retryLimit,
+      estimatedLatencyMs: 45,
+      projectedCostINR: rule.channels.includes('WHATSAPP') ? 0.45 : rule.channels.includes('SMS') ? 0.12 : 0.0,
+    };
+  }
 }
 
 

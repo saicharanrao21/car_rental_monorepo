@@ -194,6 +194,46 @@ export class ServiceAreasController {
     );
   }
 
+  @Get('admin/locations/service-areas/:id/readiness')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.LOCATION_READ)
+  async adminGetServiceAreaReadiness(@Param('id') id: string) {
+    return this.serviceAreasService.getServiceAreaReadiness(id);
+  }
+
+  @Get('admin/locations/service-areas/:id/impact')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.LOCATION_READ)
+  async adminGetServiceAreaImpact(@Param('id') id: string) {
+    return this.serviceAreasService.getServiceAreaImpact(id);
+  }
+
+  @Get('admin/locations/cities/:id/readiness')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.LOCATION_READ)
+  async adminGetCityReadiness(@Param('id') id: string) {
+    return this.serviceAreasService.getCityReadiness(id);
+  }
+
+  @Get('admin/locations/cities/:id/impact')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.LOCATION_READ)
+  async adminGetCityImpact(@Param('id') id: string) {
+    return this.serviceAreasService.getCityImpact(id);
+  }
+
+  @Get('admin/locations/cities/:id/service-areas')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.LOCATION_READ)
+  async adminGetCityServiceAreas(@Param('id') id: string) {
+    return this.serviceAreasService.findAllServiceAreas({ cityId: id });
+  }
+
   // =========================================================================
   // ADMIN: VENDOR COVERAGE ASSIGNMENTS
   // =========================================================================

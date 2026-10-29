@@ -250,7 +250,7 @@ export class ServiceAreasService {
           select: { id: true, name: true, state: true, status: true },
         },
         _count: {
-          select: { vendorAssignments: true },
+          select: { vendorAssignments: true, cars: true },
         },
       },
       orderBy: [{ priority: 'desc' }, { name: 'asc' }],
@@ -913,5 +913,316 @@ export class ServiceAreasService {
     } catch (err) {
       this.logger.warn(`Failed to invalidate vendor coverage caches: ${err}`);
     }
+  }
+
+  // =========================================================================
+  // OPERATIONAL READINESS & IMPACT PREVIEWS (PHASE 2 CONTROL TOWER)
+  // =========================================================================
+
+  async getServiceAreaReadiness(id: string) {
+    const area = await this.prisma.serviceArea.findUnique({
+      where: { id },
+      include: {
+        city: true,
+        vendorAssignments: {
+          where: { isActive: true },
+          include: {
+            vendor: {
+              select: { id: true, businessName: true, verificationStatus: true, isActive: true },
+            },
+          },
+        },
+        cars: {
+          where: {
+            operationalStatus: 'OPERATIONAL',
+            verificationStatus: 'APPROVED',
+            isAvailable: true,
+          },
+          select: { id: true, make: true, model: true, registrationNumber: true },
+        },
+      },
+    });
+
+    if (!area) {
+      throw new NotFoundException(`Service area with ID [${id}] not found.`);
+    }
+
+    const cityActive = area.city.status === ServiceAreaStatus.ACTIVE && area.city.isActive;
+    const validGeometry = area.latitude !== 0 && area.longitude !== 0 && area.radiusMeters > 0;
+    const activeVendorsCount = area.vendorAssignments.filter(
+      (va) => va.vendor && (va.vendor.verificationStatus === 'APPROVED' || va.vendor.isActive),
+    ).length;
+    const bookableCarsCount = area.cars.length;
+
+    const checklist = [
+      {
+        criterion: 'PARENT_CITY_ACTIVE',
+        label: 'Parent City Status',
+        passed: cityActive,
+        description: cityActive
+          ? `Parent city "${area.city.name}" is LIVE & ACTIVE.`
+          : `Parent city "${area.city.name}" is currently INACTIVE.`,
+      },
+      {
+        criterion: 'VALID_GEOMETRY',
+        label: 'Coverage Geometry & Radius',
+        passed: validGeometry,
+        description: validGeometry
+          ? `Valid center (${area.latitude.toFixed(4)}, ${area.longitude.toFixed(4)}) with ${(area.radiusMeters / 1000).toFixed(1)} km service radius.`
+          : 'Invalid coordinates or radius.',
+      },
+      {
+        criterion: 'APPROVED_VENDOR_COVERAGE',
+        label: 'Approved Partner Yard Coverage',
+        passed: activeVendorsCount >= 1,
+        description: activeVendorsCount >= 1
+          ? `${activeVendorsCount} approved vendor(s) operating in this area.`
+          : 'No approved vendors assigned to this service area.',
+      },
+      {
+        criterion: 'AVAILABLE_FLEET_INVENTORY',
+        label: 'Bookable Fleet Inventory',
+        passed: bookableCarsCount >= 1,
+        description: bookableCarsCount >= 1
+          ? `${bookableCarsCount} verified operational vehicle(s) ready for customer booking.`
+          : 'No operational vehicles currently assigned to this area.',
+      },
+    ];
+
+    const isReadyToLaunch = checklist.every((c) => c.passed);
+    const blockingReasons = checklist.filter((c) => !c.passed).map((c) => c.description);
+
+    return {
+      serviceAreaId: id,
+      name: area.name,
+      cityName: area.city.name,
+      currentStatus: area.status,
+      isReadyToLaunch,
+      checklist,
+      blockingReasons,
+      counts: {
+        activeVendorsCount,
+        bookableCarsCount,
+        radiusMeters: area.radiusMeters,
+      },
+    };
+  }
+
+  async getServiceAreaImpact(id: string) {
+    const area = await this.prisma.serviceArea.findUnique({
+      where: { id },
+      include: {
+        city: true,
+        vendorAssignments: {
+          where: { isActive: true },
+          include: {
+            vendor: {
+              select: { id: true, businessName: true, ownerName: true, phone: true },
+            },
+          },
+        },
+        cars: {
+          where: { isAvailable: true },
+          select: { id: true, make: true, model: true, registrationNumber: true, operationalStatus: true },
+        },
+      },
+    });
+
+    if (!area) {
+      throw new NotFoundException(`Service area with ID [${id}] not found.`);
+    }
+
+    const carIds = area.cars.map((c) => c.id);
+    const upcomingBookings = await this.prisma.booking.findMany({
+      where: {
+        carId: { in: carIds },
+        status: { in: ['CONFIRMED', 'PENDING'] },
+        startDate: { gte: new Date() },
+      },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        totalFare: true,
+        customer: { select: { id: true, name: true, phone: true } },
+      },
+      take: 20,
+      orderBy: { startDate: 'asc' },
+    });
+
+    const activeRentals = await this.prisma.booking.count({
+      where: {
+        carId: { in: carIds },
+        status: 'ACTIVE',
+      },
+    });
+
+    const affectedVendors = area.vendorAssignments.map((va) => ({
+      vendorId: va.vendor.id,
+      name: va.vendor.businessName || va.vendor.ownerName,
+      isPrimary: va.isPrimary,
+    }));
+
+    const recommendations: string[] = [];
+    if (activeRentals > 0) {
+      recommendations.push(
+        `There are ${activeRentals} active rental(s) in progress. Pausing this area will not interrupt active trips, but return logistics must be preserved.`,
+      );
+    }
+    if (upcomingBookings.length > 0) {
+      recommendations.push(
+        `${upcomingBookings.length} confirmed upcoming reservation(s) exist. Existing bookings will retain historical fulfillment terms; new bookings will be blocked.`,
+      );
+    }
+    if (affectedVendors.length > 0) {
+      recommendations.push(
+        `${affectedVendors.length} operating vendor(s) will be excluded from customer search in this area.`,
+      );
+    }
+
+    return {
+      serviceAreaId: id,
+      name: area.name,
+      cityName: area.city.name,
+      currentStatus: area.status,
+      affectedVendorsCount: affectedVendors.length,
+      affectedVehiclesCount: area.cars.length,
+      upcomingBookingsCount: upcomingBookings.length,
+      activeRentalsCount: activeRentals,
+      affectedVendors,
+      affectedVehicles: area.cars.slice(0, 15).map((c) => ({
+        id: c.id,
+        name: `${c.make} ${c.model}`,
+        regNumber: c.registrationNumber,
+        status: c.operationalStatus,
+      })),
+      upcomingBookings: upcomingBookings.map((b) => ({
+        id: b.id,
+        startDate: b.startDate,
+        endDate: b.endDate,
+        customerName: b.customer?.name,
+        fare: b.totalFare,
+      })),
+      safeToDeactivate: activeRentals === 0,
+      recommendations,
+    };
+  }
+
+  async getCityReadiness(cityId: string) {
+    const city = await this.prisma.supportedCity.findUnique({
+      where: { id: cityId },
+      include: {
+        serviceAreas: {
+          include: {
+            _count: {
+              select: { vendorAssignments: true, cars: true },
+            },
+          },
+        },
+      },
+    });
+    if (!city) {
+      throw new NotFoundException(`City with ID [${cityId}] not found.`);
+    }
+
+    const totalAreas = city.serviceAreas.length;
+    const activeAreas = city.serviceAreas.filter((a) => a.status === ServiceAreaStatus.ACTIVE).length;
+    const areasWithVendors = city.serviceAreas.filter((a) => a._count.vendorAssignments > 0).length;
+    const areasWithCars = city.serviceAreas.filter((a) => a._count.cars > 0).length;
+
+    const checklist = [
+      {
+        criterion: 'HAS_SERVICE_AREAS',
+        label: 'Configured Service Localities',
+        passed: totalAreas > 0,
+        description: totalAreas > 0 ? `${totalAreas} area(s) configured.` : 'No service areas added yet.',
+      },
+      {
+        criterion: 'ACTIVE_SERVICE_AREAS',
+        label: 'Active Service Localities',
+        passed: activeAreas > 0,
+        description: activeAreas > 0 ? `${activeAreas} active service area(s).` : 'No service areas in ACTIVE status.',
+      },
+      {
+        criterion: 'PARTNER_COVERAGE',
+        label: 'Vendor Partner Presence',
+        passed: areasWithVendors > 0,
+        description: areasWithVendors > 0 ? `${areasWithVendors} area(s) have assigned vendors.` : 'No vendors operating in this city.',
+      },
+      {
+        criterion: 'FLEET_INVENTORY',
+        label: 'Bookable Fleet Inventory',
+        passed: areasWithCars > 0,
+        description: areasWithCars > 0 ? `${areasWithCars} area(s) have vehicle inventory.` : 'No fleet inventory stationed in this city.',
+      },
+    ];
+
+    return {
+      cityId,
+      cityName: city.name,
+      state: city.state,
+      isActive: city.isActive,
+      status: city.status,
+      isReadyToLaunch: checklist.every((c) => c.passed),
+      checklist,
+      counts: {
+        totalAreas,
+        activeAreas,
+        areasWithVendors,
+        areasWithCars,
+      },
+    };
+  }
+
+  async getCityImpact(cityId: string) {
+    const city = await this.prisma.supportedCity.findUnique({
+      where: { id: cityId },
+      include: {
+        serviceAreas: {
+          include: {
+            cars: { select: { id: true } },
+            vendorAssignments: { select: { vendorId: true } },
+          },
+        },
+      },
+    });
+    if (!city) {
+      throw new NotFoundException(`City with ID [${cityId}] not found.`);
+    }
+
+    const allCarIds = city.serviceAreas.flatMap((a) => a.cars.map((c) => c.id));
+    const allVendorIds = Array.from(new Set(city.serviceAreas.flatMap((a) => a.vendorAssignments.map((v) => v.vendorId))));
+
+    const [upcomingBookingsCount, activeRentalsCount] = await Promise.all([
+      this.prisma.booking.count({
+        where: {
+          carId: { in: allCarIds },
+          status: { in: ['CONFIRMED', 'PENDING'] },
+          startDate: { gte: new Date() },
+        },
+      }),
+      this.prisma.booking.count({
+        where: {
+          carId: { in: allCarIds },
+          status: 'ACTIVE',
+        },
+      }),
+    ]);
+
+    return {
+      cityId,
+      cityName: city.name,
+      totalAreas: city.serviceAreas.length,
+      affectedVendorsCount: allVendorIds.length,
+      affectedVehiclesCount: allCarIds.length,
+      upcomingBookingsCount,
+      activeRentalsCount,
+      safeToDeactivate: activeRentalsCount === 0,
+      recommendations: [
+        `Deactivating ${city.name} will pause all ${city.serviceAreas.length} service area(s) and block new searches across the entire city.`,
+        activeRentalsCount > 0 ? `Alert: ${activeRentalsCount} active rentals are currently ongoing in ${city.name}.` : 'No active rentals currently in progress.',
+      ],
+    };
   }
 }

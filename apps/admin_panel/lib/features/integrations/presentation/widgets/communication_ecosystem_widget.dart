@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'notification_rules_centre_widget.dart';
 
 class CommunicationEcosystemWidget extends StatefulWidget {
   const CommunicationEcosystemWidget({super.key});
@@ -641,6 +642,7 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
         _buildSubTabBar(theme),
         const Gap(16),
         if (_selectedSubTab == 'MARKETPLACE') _buildMarketplaceView(theme),
+        if (_selectedSubTab == 'RULES') const NotificationRulesCentreWidget(),
         if (_selectedSubTab == 'ROUTING') _buildRoutingSimulatorView(theme),
         if (_selectedSubTab == 'TEMPLATES') _buildTemplatePreviewerView(theme),
         if (_selectedSubTab == 'DELIVERY') _buildDeliveryMonitorView(theme),
@@ -778,6 +780,11 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
               value: 'MARKETPLACE',
               label: Text('Gateway Catalog (44)'),
               icon: Icon(Icons.grid_view_rounded, size: 16),
+            ),
+            ButtonSegment(
+              value: 'RULES',
+              label: Text('Rules Centre (13)'),
+              icon: Icon(Icons.rule_rounded, size: 16),
             ),
             ButtonSegment(
               value: 'ROUTING',

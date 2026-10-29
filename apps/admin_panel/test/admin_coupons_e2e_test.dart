@@ -62,6 +62,7 @@ void main() {
       ProviderScope(
         overrides: [
           adminCouponsProvider.overrideWith(() => MockCouponsNotifier(sampleCoupons)),
+          backendHealthProvider.overrideWith((ref) => Future.value(true)),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -73,7 +74,7 @@ void main() {
 
     // Verify brand and breadcrumbs
     expect(find.text('DRIVEGO CONTROL'), findsOneWidget);
-    expect(find.text('Growth & Marketing'), findsWidgets);
+    expect(find.text('Growth & Communications'), findsWidgets);
     expect(find.text('Coupons & Promo Codes'), findsWidgets);
 
     // Verify page title and subtitle

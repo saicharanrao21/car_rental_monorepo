@@ -9,9 +9,12 @@ import '../widgets/payment_ecosystem_widget.dart';
 import '../widgets/communication_ecosystem_widget.dart';
 import '../widgets/provider_packs_ecosystem_widget.dart';
 import '../widgets/integration_control_plane_widget.dart';
+import '../widgets/notification_rules_centre_widget.dart';
 
 class IntegrationMarketplacePage extends ConsumerStatefulWidget {
-  const IntegrationMarketplacePage({super.key});
+  final String? initialTab;
+
+  const IntegrationMarketplacePage({super.key, this.initialTab});
 
   @override
   ConsumerState<IntegrationMarketplacePage> createState() =>
@@ -20,7 +23,13 @@ class IntegrationMarketplacePage extends ConsumerStatefulWidget {
 
 class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketplacePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _activeTab = 'CATALOG'; // 'CATALOG' | 'PACKS' | 'PAYMENTS' | 'COMMUNICATIONS' | 'OPERATIONS' | 'CONTROL_PLANE' | 'COMPARISON'
+  late String _activeTab; // 'CATALOG' | 'PACKS' | 'PAYMENTS' | 'COMMUNICATIONS' | 'RULES' | 'OPERATIONS' | 'CONTROL_PLANE' | 'COMPARISON'
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTab = widget.initialTab ?? 'CATALOG';
+  }
 
   static const List<Map<String, String>> _categories = [
     {'id': 'ALL', 'label': 'All Categories'},
@@ -108,6 +117,11 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                             value: 'COMMUNICATIONS',
                             label: Text('Communications'),
                             icon: Icon(Icons.mark_chat_unread_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'RULES',
+                            label: Text('Event & Notification Rules (13)'),
+                            icon: Icon(Icons.rule_rounded, size: 16),
                           ),
                           ButtonSegment(
                             value: 'OPERATIONS',
@@ -270,6 +284,13 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
           else if (_activeTab == 'COMMUNICATIONS')
             const SliverToBoxAdapter(
               child: SizedBox(width: double.infinity, child: CommunicationEcosystemWidget()),
+            )
+          else if (_activeTab == 'RULES')
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(width: double.infinity, child: NotificationRulesCentreWidget()),
+              ),
             )
           else if (_activeTab == 'OPERATIONS')
             const SliverToBoxAdapter(

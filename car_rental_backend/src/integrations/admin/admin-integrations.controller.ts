@@ -558,5 +558,35 @@ export class AdminIntegrationsController {
   async getEcosystemAudit() {
     return this.integrationsService.getEcosystemAudit();
   }
+
+  // ==========================================
+  // EVENT & NOTIFICATION RULES APIS
+  // ==========================================
+
+  @Get('notification-rules')
+  async getNotificationRules() {
+    return this.integrationsService.getNotificationRules();
+  }
+
+  @Post('notification-rules')
+  async upsertNotificationRule(@Body() rule: any) {
+    return this.integrationsService.upsertNotificationRule(rule);
+  }
+
+  @Patch('notification-rules/:id/toggle')
+  async toggleNotificationRule(
+    @Param('id') id: string,
+    @Body('isEnabled') isEnabled: boolean,
+  ) {
+    return this.integrationsService.toggleNotificationRule(id, isEnabled);
+  }
+
+  @Post('notification-rules/simulate')
+  async simulateNotificationRule(
+    @Body('eventType') eventType: string,
+    @Body('recipientRole') recipientRole?: string,
+  ) {
+    return this.integrationsService.simulateNotificationRule(eventType, recipientRole);
+  }
 }
 

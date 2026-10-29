@@ -71,15 +71,19 @@ export class AdminDashboardService {
       (this.prisma as any).payout
         ? (this.prisma as any).payout.count({ where: { status: 'PENDING' } })
         : 0,
-      (this.prisma as any).refund
-        ? (this.prisma as any).refund.count({ where: { status: 'PENDING' } })
-        : 0,
+      (this.prisma as any).paymentRefund
+        ? (this.prisma as any).paymentRefund.count({
+            where: { status: { in: ['REQUESTED', 'PENDING'] } },
+          })
+        : (this.prisma as any).refund
+          ? (this.prisma as any).refund.count({ where: { status: 'PENDING' } })
+          : 0,
       (this.prisma as any).vendorSecurityDeposit
         ? (this.prisma as any).vendorSecurityDeposit.aggregate({
-            _sum: { amount: true },
+            _sum: { paidAmount: true },
             where: { status: { in: ['PAID', 'HELD'] } },
           })
-        : { _sum: { amount: 0 } },
+        : { _sum: { paidAmount: 0 } },
       this.prisma.car.count(),
       this.prisma.car.count({
         where: { operationalStatus: 'ACTIVE' },
@@ -97,7 +101,11 @@ export class AdminDashboardService {
     );
 
     const grossBookingValue = Number(gbvAggregate?._sum?.totalFare || 0);
-    const heldDepositLiability = Number(depositAggregate?._sum?.amount || 0);
+    const heldDepositLiability = Number(
+      depositAggregate?._sum?.paidAmount ||
+        depositAggregate?._sum?.amount ||
+        0,
+    );
     const fleetUtilizationPct =
       totalCars > 0
         ? Math.round(((totalCars - activeCars) / totalCars) * 100)

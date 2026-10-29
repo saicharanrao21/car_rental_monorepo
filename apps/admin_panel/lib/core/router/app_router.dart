@@ -197,7 +197,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/integrations',
-            builder: (context, state) => const IntegrationMarketplacePage(),
+            builder: (context, state) {
+              final tab = state.uri.queryParameters['tab'];
+              return IntegrationMarketplacePage(initialTab: tab);
+            },
+          ),
+          GoRoute(
+            path: '/notification-rules',
+            builder: (context, state) => const IntegrationMarketplacePage(initialTab: 'RULES'),
           ),
           GoRoute(
             path: '/automation',

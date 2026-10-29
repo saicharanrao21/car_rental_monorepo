@@ -263,8 +263,12 @@ class AdminDashboardPage extends ConsumerWidget {
     required AsyncValue<OperationalLocationOverviewModel> operationalMapOverviewAsync,
     required AsyncValue<AdminKpis> kpisAsync,
   }) {
-    final pendingCount = pendingApprovalsAsync.asData?.value.length ?? 0;
-    final activeBookingsCount = kpisAsync.asData?.value.activeBookings ?? 0;
+    final kpis = kpisAsync.asData?.value;
+    final pendingCount = kpis?.pendingVendorApprovals ?? (pendingApprovalsAsync.asData?.value.length ?? 0);
+    final kycCount = kpis?.pendingKycReviews ?? 0;
+    final payoutsCount = kpis?.pendingPayoutsCount ?? 0;
+    final refundsCount = kpis?.pendingRefundsCount ?? 0;
+    final activeBookingsCount = kpis?.activeBookings ?? 0;
     final sosCount = operationalMapOverviewAsync.asData?.value.totalActiveSosAlerts ?? 0;
 
     return Container(
@@ -290,32 +294,44 @@ class AdminDashboardPage extends ConsumerWidget {
           const Gap(16),
           Expanded(
             child: Wrap(
-              spacing: 12,
+              spacing: 10,
               runSpacing: 8,
               children: [
                 _buildTriageChip(
-                  label: 'Pending Approvals ($pendingCount)',
+                  label: 'Approvals ($pendingCount)',
                   icon: Icons.storefront_outlined,
-                  color: pendingCount > 0 ? Colors.orange : Colors.grey,
-                  onTap: () => context.go('/vendors'),
+                  color: pendingCount > 0 ? const Color(0xFFEA580C) : const Color(0xFF64748B),
+                  onTap: () => context.go('/vendors/onboarding'),
                 ),
                 _buildTriageChip(
-                  label: 'Emergency SOS ($sosCount)',
+                  label: 'KYC Reviews ($kycCount)',
+                  icon: Icons.badge_outlined,
+                  color: kycCount > 0 ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                  onTap: () => context.go('/kyc'),
+                ),
+                _buildTriageChip(
+                  label: 'Payouts ($payoutsCount)',
+                  icon: Icons.payments_outlined,
+                  color: payoutsCount > 0 ? const Color(0xFF10B981) : const Color(0xFF64748B),
+                  onTap: () => context.go('/payouts'),
+                ),
+                _buildTriageChip(
+                  label: 'Refunds ($refundsCount)',
+                  icon: Icons.rule_folder_outlined,
+                  color: refundsCount > 0 ? const Color(0xFFDC2626) : const Color(0xFF64748B),
+                  onTap: () => context.go('/reconciliation'),
+                ),
+                _buildTriageChip(
+                  label: 'SOS Alerts ($sosCount)',
                   icon: Icons.emergency_outlined,
-                  color: sosCount > 0 ? Colors.red : Colors.green,
+                  color: sosCount > 0 ? Colors.red : const Color(0xFF16A34A),
                   onTap: () => context.go('/emergency-dispatch'),
                 ),
                 _buildTriageChip(
-                  label: 'Active On-Road ($activeBookingsCount)',
+                  label: 'Active Trips ($activeBookingsCount)',
                   icon: Icons.directions_car_outlined,
-                  color: Colors.blue,
+                  color: const Color(0xFF0284C7),
                   onTap: () => context.go('/bookings'),
-                ),
-                _buildTriageChip(
-                  label: 'Location Governance',
-                  icon: Icons.share_location_outlined,
-                  color: Colors.indigo,
-                  onTap: () => context.go('/locations/governance'),
                 ),
               ],
             ),
@@ -369,65 +385,59 @@ class _KpisSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currencyFmt = NumberFormat('#,##,###');
+
     final row1 = [
       _KpiCard(
         title: 'Gross Booking Value',
-        value: '₹${NumberFormat('#,##,###').format(kpis.grossBookingValue > 0 ? kpis.grossBookingValue : 485000)}',
+        subtitle: 'Cumulative confirmed booking volume',
+        value: '₹${currencyFmt.format(kpis.grossBookingValue)}',
         icon: Icons.currency_rupee,
         color: const Color(0xFF2563EB),
         onTap: () => context.go('/bookings'),
       ),
       _KpiCard(
-        title: 'Active Bookings',
-        value: kpis.activeBookings.toString(),
-        icon: Icons.book_online_outlined,
-        color: const Color(0xFF16A34A),
-        onTap: () => context.go('/bookings'),
-      ),
-      _KpiCard(
-        title: 'Today\'s Platform Revenue',
-        value: '₹${NumberFormat('#,##,###').format(kpis.todaysRevenue)}',
+        title: 'Platform Revenue (Today)',
+        subtitle: 'Collected platform take rate & fees',
+        value: '₹${currencyFmt.format(kpis.todaysRevenue)}',
         icon: Icons.account_balance_wallet_outlined,
         color: const Color(0xFF9333EA),
         onTap: () => context.go('/revenue'),
       ),
       _KpiCard(
-        title: 'Held Deposit Liability',
-        value: '₹${NumberFormat('#,##,###').format(kpis.heldDepositLiability > 0 ? kpis.heldDepositLiability : 75000)}',
-        icon: Icons.security_outlined,
-        color: const Color(0xFFD97706),
-        onTap: () => context.go('/vendors/onboarding'),
+        title: 'Active Trips On-Road',
+        subtitle: 'Vehicles currently with customers',
+        value: '${kpis.activeBookings} Bookings',
+        icon: Icons.book_online_outlined,
+        color: const Color(0xFF16A34A),
+        onTap: () => context.go('/bookings'),
       ),
     ];
 
     final row2 = [
       _KpiCard(
-        title: 'Fleet Utilization',
-        value: '${kpis.fleetUtilizationPct > 0 ? kpis.fleetUtilizationPct : 68}% (${kpis.availableCars > 0 ? kpis.availableCars : 12}/${kpis.totalCars > 0 ? kpis.totalCars : 18} Active)',
+        title: 'Active Fleet Utilization',
+        subtitle: '${kpis.availableCars} available out of ${kpis.totalCars} registered',
+        value: '${kpis.fleetUtilizationPct}% (${kpis.availableCars}/${kpis.totalCars})',
         icon: Icons.directions_car_outlined,
         color: const Color(0xFF0D9488),
         onTap: () => context.go('/fleet'),
       ),
       _KpiCard(
-        title: 'Pending Vendor Onboarding',
-        value: '${kpis.pendingVendorApprovals} Pending',
+        title: 'Vendor Partner Network',
+        subtitle: '${kpis.pendingVendorApprovals} applications awaiting verification',
+        value: '${kpis.totalVendors} Partners',
         icon: Icons.storefront_outlined,
         color: const Color(0xFFEA580C),
+        onTap: () => context.go('/vendors'),
+      ),
+      _KpiCard(
+        title: 'Held Deposit Liability',
+        subtitle: 'Vendor security escrow held in trust',
+        value: '₹${currencyFmt.format(kpis.heldDepositLiability)}',
+        icon: Icons.security_outlined,
+        color: const Color(0xFFD97706),
         onTap: () => context.go('/vendors/onboarding'),
-      ),
-      _KpiCard(
-        title: 'Pending KYC Reviews',
-        value: '${kpis.pendingKycReviews} Documents',
-        icon: Icons.badge_outlined,
-        color: const Color(0xFF4F46E5),
-        onTap: () => context.go('/kyc'),
-      ),
-      _KpiCard(
-        title: 'Pending Payout Settlements',
-        value: '${kpis.pendingPayoutsCount} Due',
-        icon: Icons.payments_outlined,
-        color: const Color(0xFFDC2626),
-        onTap: () => context.go('/payouts'),
       ),
     ];
 
@@ -453,6 +463,7 @@ class _KpisSection extends StatelessWidget {
 
 class _KpiCard extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final String value;
   final IconData icon;
   final Color color;
@@ -460,6 +471,7 @@ class _KpiCard extends StatelessWidget {
 
   const _KpiCard({
     required this.title,
+    this.subtitle,
     required this.value,
     required this.icon,
     required this.color,
@@ -495,13 +507,21 @@ class _KpiCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
                   ),
                   const Gap(4),
                   Text(
                     value,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                   ),
+                  if (subtitle != null) ...[
+                    const Gap(4),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),
