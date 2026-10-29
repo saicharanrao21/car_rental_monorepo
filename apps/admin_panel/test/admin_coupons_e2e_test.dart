@@ -74,7 +74,7 @@ void main() {
 
     // Verify brand and breadcrumbs
     expect(find.text('DRIVEGO CONTROL'), findsOneWidget);
-    expect(find.text('Growth & Communications'), findsWidgets);
+    expect(find.text('Growth & Campaigns'), findsWidgets);
     expect(find.text('Coupons & Promo Codes'), findsWidgets);
 
     // Verify page title and subtitle

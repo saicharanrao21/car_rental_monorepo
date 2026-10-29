@@ -39,6 +39,10 @@ import '../../features/corporate/presentation/pages/admin_corporate_accounts_pag
 import '../../features/reconciliation/presentation/pages/admin_reconciliation_page.dart';
 import '../../features/operations_center/presentation/pages/admin_operations_command_center_page.dart';
 import '../../features/staff/presentation/pages/admin_staff_management_page.dart';
+import '../../features/communications/presentation/pages/communications_overview_page.dart';
+import '../../features/communications/presentation/pages/communication_templates_page.dart';
+import '../../features/communications/presentation/pages/communication_delivery_logs_page.dart';
+import '../../features/campaigns/presentation/pages/admin_marketing_campaigns_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root_admin');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell_admin');
@@ -229,6 +233,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/staff',
             builder: (context, state) => const AdminStaffManagementPage(),
+          ),
+          GoRoute(
+            path: '/communications',
+            builder: (context, state) => const CommunicationsOverviewPage(),
+          ),
+          GoRoute(
+            path: '/templates',
+            builder: (context, state) => const CommunicationTemplatesPage(),
+          ),
+          GoRoute(
+            path: '/delivery-logs',
+            builder: (context, state) => const CommunicationDeliveryLogsPage(),
+          ),
+          GoRoute(
+            path: '/campaigns',
+            builder: (context, state) => const AdminMarketingCampaignsPage(),
           ),
         ],
       ),

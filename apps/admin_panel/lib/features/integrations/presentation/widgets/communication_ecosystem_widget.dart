@@ -3,17 +3,25 @@ import 'package:gap/gap.dart';
 import 'notification_rules_centre_widget.dart';
 
 class CommunicationEcosystemWidget extends StatefulWidget {
-  const CommunicationEcosystemWidget({super.key});
+  final String? initialSubTab;
+
+  const CommunicationEcosystemWidget({super.key, this.initialSubTab});
 
   @override
   State<CommunicationEcosystemWidget> createState() => _CommunicationEcosystemWidgetState();
 }
 
 class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWidget> {
-  String _selectedSubTab = 'MARKETPLACE'; // 'MARKETPLACE' | 'ROUTING' | 'TEMPLATES' | 'DELIVERY' | 'COMPLIANCE'
+  late String _selectedSubTab; // 'MARKETPLACE' | 'RULES' | 'ROUTING' | 'TEMPLATES' | 'DELIVERY' | 'COMPLIANCE' | 'OTP'
   String _searchQuery = '';
   String _selectedChannelFilter = 'ALL'; // 'ALL' | 'WHATSAPP' | 'SMS' | 'EMAIL' | 'PUSH' | 'VOICE'
   String _selectedStatusFilter = 'ALL';
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSubTab = widget.initialSubTab ?? 'MARKETPLACE';
+  }
 
   // Routing Simulator State
   String _simMessageType = 'OTP';
@@ -667,14 +675,21 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 600, maxWidth: 850),
+            constraints: const BoxConstraints(maxWidth: 700),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -692,12 +707,16 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
                         ),
                       ),
                     ),
-                    const Gap(12),
-                    const Icon(Icons.circle, color: Colors.greenAccent, size: 10),
-                    const Gap(6),
-                    const Text(
-                      'All 5 Channels Operational',
-                      style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.circle, color: Colors.greenAccent, size: 10),
+                        Gap(6),
+                        Text(
+                          'All 5 Channels Operational',
+                          style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -721,13 +740,15 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
               ],
             ),
           ),
-          const Spacer(),
-          const Gap(24),
-          _buildHeroMetric('44 Gateways', 'Across 5 Channels', Icons.cell_tower_rounded, Colors.cyanAccent),
-          const Gap(12),
-          _buildHeroMetric('99.8%', 'Delivery SLA', Icons.verified_rounded, Colors.greenAccent),
-          const Gap(12),
-          _buildHeroMetric('11 Languages', 'Auto-Localization', Icons.translate_rounded, Colors.amberAccent),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildHeroMetric('44 Gateways', 'Across 5 Channels', Icons.cell_tower_rounded, Colors.cyanAccent),
+              _buildHeroMetric('99.8%', 'Delivery SLA', Icons.verified_rounded, Colors.greenAccent),
+              _buildHeroMetric('11 Languages', 'Auto-Localization', Icons.translate_rounded, Colors.amberAccent),
+            ],
+          ),
         ],
       ),
     );
@@ -772,54 +793,53 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
   }
 
   Widget _buildSubTabBar(ThemeData theme) {
-    return Row(
-      children: [
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'MARKETPLACE',
-              label: Text('Gateway Catalog (44)'),
-              icon: Icon(Icons.grid_view_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'RULES',
-              label: Text('Rules Centre (13)'),
-              icon: Icon(Icons.rule_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'ROUTING',
-              label: Text('Routing Simulator'),
-              icon: Icon(Icons.alt_route_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'TEMPLATES',
-              label: Text('Multi-Language Templates'),
-              icon: Icon(Icons.text_snippet_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'DELIVERY',
-              label: Text('Delivery State Monitor'),
-              icon: Icon(Icons.monitor_heart_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'COMPLIANCE',
-              label: Text('Consent & Quiet Hours'),
-              icon: Icon(Icons.shield_rounded, size: 16),
-            ),
-            ButtonSegment(
-              value: 'OTP',
-              label: Text('OTP Security & Fallback'),
-              icon: Icon(Icons.password_rounded, size: 16),
-            ),
-          ],
-          selected: {_selectedSubTab},
-          onSelectionChanged: (set) {
-            setState(() {
-              _selectedSubTab = set.first;
-            });
-          },
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(
+            value: 'MARKETPLACE',
+            label: Text('Gateway Catalog (44)'),
+            icon: Icon(Icons.grid_view_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'RULES',
+            label: Text('Rules Centre (13)'),
+            icon: Icon(Icons.rule_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'ROUTING',
+            label: Text('Routing Simulator'),
+            icon: Icon(Icons.alt_route_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'TEMPLATES',
+            label: Text('Multi-Language Templates'),
+            icon: Icon(Icons.text_snippet_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'DELIVERY',
+            label: Text('Delivery State Monitor'),
+            icon: Icon(Icons.monitor_heart_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'COMPLIANCE',
+            label: Text('Consent & Quiet Hours'),
+            icon: Icon(Icons.shield_rounded, size: 16),
+          ),
+          ButtonSegment(
+            value: 'OTP',
+            label: Text('OTP Security & Fallback'),
+            icon: Icon(Icons.password_rounded, size: 16),
+          ),
+        ],
+        selected: {_selectedSubTab},
+        onSelectionChanged: (set) {
+          setState(() {
+            _selectedSubTab = set.first;
+          });
+        },
+      ),
     );
   }
 
@@ -891,7 +911,7 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 380,
-            mainAxisExtent: 220,
+            mainAxisExtent: 310,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
           ),
@@ -959,8 +979,10 @@ class _CommunicationEcosystemWidgetState extends State<CommunicationEcosystemWid
               ],
             ),
             const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
               children: [
                 _buildCardMiniMetric('Delivery', '${p['deliveryRate']}%', Colors.green),
                 _buildCardMiniMetric('Latency', p['latency'] as String, Colors.blueGrey),

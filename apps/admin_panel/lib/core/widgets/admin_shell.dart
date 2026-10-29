@@ -56,14 +56,26 @@ class AdminShell extends ConsumerWidget {
 
   static const List<AdminDomainGroup> domainGroups = [
     AdminDomainGroup(
-      domainId: 'overview',
-      domainName: 'Overview',
+      domainId: 'command_center',
+      domainName: 'Command Center',
       icon: Icons.space_dashboard_rounded,
       items: [
         AdminNavItem(
-          label: 'Command Center',
+          label: 'Executive Overview',
           icon: Icons.space_dashboard_rounded,
           route: '/dashboard',
+        ),
+        AdminNavItem(
+          label: 'Live Operations SLA',
+          icon: Icons.radar_outlined,
+          route: '/operations-center',
+          badgeText: 'LIVE',
+          badgeColor: Color(0xFF3B82F6),
+        ),
+        AdminNavItem(
+          label: 'Revenue & Reports',
+          icon: Icons.analytics_outlined,
+          route: '/revenue',
         ),
       ],
     ),
@@ -111,13 +123,6 @@ class AdminShell extends ConsumerWidget {
           badgeText: 'CONTROL',
           badgeColor: Color(0xFF10B981),
         ),
-        AdminNavItem(
-          label: 'Live Operations SLA',
-          icon: Icons.radar_outlined,
-          route: '/operations-center',
-          badgeText: 'LIVE',
-          badgeColor: Color(0xFF3B82F6),
-        ),
       ],
     ),
     AdminDomainGroup(
@@ -162,11 +167,6 @@ class AdminShell extends ConsumerWidget {
       icon: Icons.payments_outlined,
       items: [
         AdminNavItem(
-          label: 'Revenue & Reports',
-          icon: Icons.analytics_outlined,
-          route: '/revenue',
-        ),
-        AdminNavItem(
           label: 'Vendor Payouts & Settlement',
           icon: Icons.payments_outlined,
           route: '/payouts',
@@ -206,8 +206,8 @@ class AdminShell extends ConsumerWidget {
       ],
     ),
     AdminDomainGroup(
-      domainId: 'growth_communications',
-      domainName: 'Growth & Communications',
+      domainId: 'growth_campaigns',
+      domainName: 'Growth & Campaigns',
       icon: Icons.trending_up_outlined,
       items: [
         AdminNavItem(
@@ -221,6 +221,13 @@ class AdminShell extends ConsumerWidget {
           route: '/coupons',
         ),
         AdminNavItem(
+          label: 'Marketing Campaigns',
+          icon: Icons.campaign_outlined,
+          route: '/campaigns',
+          badgeText: 'GROWTH',
+          badgeColor: Color(0xFFEC4899),
+        ),
+        AdminNavItem(
           label: 'Referral Campaigns',
           icon: Icons.card_giftcard_outlined,
           route: '/referrals',
@@ -230,23 +237,20 @@ class AdminShell extends ConsumerWidget {
           icon: Icons.stars_outlined,
           route: '/loyalty',
         ),
-        AdminNavItem(
-          label: 'Push Notifications',
-          icon: Icons.notifications_none_outlined,
-          route: '/notifications',
-        ),
-        AdminNavItem(
-          label: 'WhatsApp Messaging',
-          icon: Icons.chat_outlined,
-          route: '/whatsapp',
-        ),
       ],
     ),
     AdminDomainGroup(
-      domainId: 'integrations_automation',
-      domainName: 'Integrations & Automation',
+      domainId: 'communications_integrations',
+      domainName: 'Communications & Integrations',
       icon: Icons.hub_outlined,
       items: [
+        AdminNavItem(
+          label: 'Communications Overview',
+          icon: Icons.mark_chat_unread_outlined,
+          route: '/communications',
+          badgeText: 'FABRIC',
+          badgeColor: Color(0xFF06B6D4),
+        ),
         AdminNavItem(
           label: 'Integration Marketplace',
           icon: Icons.storefront_outlined,
@@ -258,6 +262,26 @@ class AdminShell extends ConsumerWidget {
           route: '/notification-rules',
           badgeText: 'RULES',
           badgeColor: Color(0xFF6366F1),
+        ),
+        AdminNavItem(
+          label: 'Message Templates',
+          icon: Icons.text_snippet_outlined,
+          route: '/templates',
+        ),
+        AdminNavItem(
+          label: 'Delivery Logs & Retries',
+          icon: Icons.monitor_heart_outlined,
+          route: '/delivery-logs',
+        ),
+        AdminNavItem(
+          label: 'Push Notifications',
+          icon: Icons.notifications_none_outlined,
+          route: '/notifications',
+        ),
+        AdminNavItem(
+          label: 'WhatsApp Messaging',
+          icon: Icons.chat_outlined,
+          route: '/whatsapp',
         ),
         AdminNavItem(
           label: 'Workflow Automation',

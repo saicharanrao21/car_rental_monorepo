@@ -46,20 +46,20 @@ void main() {
     expect(find.text('DRIVEGO CONTROL'), findsOneWidget);
 
     // Verify Domain Headers (allowing offstage search if needed)
-    expect(find.text('OVERVIEW', skipOffstage: false), findsOneWidget);
+    expect(find.text('COMMAND CENTER', skipOffstage: false), findsOneWidget);
     expect(find.text('OPERATIONS', skipOffstage: false), findsOneWidget);
     expect(find.text('CUSTOMERS & SUPPORT', skipOffstage: false), findsOneWidget);
     expect(find.text('FINANCE', skipOffstage: false), findsOneWidget);
-    expect(find.text('GROWTH & COMMUNICATIONS', skipOffstage: false), findsOneWidget);
-    expect(find.text('INTEGRATIONS & AUTOMATION', skipOffstage: false), findsOneWidget);
+    expect(find.text('GROWTH & CAMPAIGNS', skipOffstage: false), findsOneWidget);
+    expect(find.text('COMMUNICATIONS & INTEGRATIONS', skipOffstage: false), findsOneWidget);
     expect(find.text('SECURITY & PLATFORM', skipOffstage: false), findsOneWidget);
 
     // Verify Operational Status chip
     expect(find.text('CONTROL TOWER LIVE'), findsOneWidget);
 
-    // Verify Breadcrumbs and sidebar labels (Command Center appears in both sidebar & top bar)
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('Command Center'), findsNWidgets(2));
+    // Verify Breadcrumbs and sidebar labels
+    expect(find.text('Command Center'), findsOneWidget);
+    expect(find.text('Executive Overview'), findsNWidgets(2));
 
     // Navigate to Locations & Service Areas
     await tester.tap(find.text('Locations & Service Areas', skipOffstage: false).first, warnIfMissed: false);
