@@ -78,3 +78,4 @@ Failure branches: `RETRYING` → `FALLBACK_PENDING` → `FALLBACK_SENT` → `FAI
 1. **TRAI NCPR DND Scrubbing**: Automated suppression of promotional messages to numbers listed on the national Do-Not-Disturb registry.
 2. **Quiet Hours Lockout**: Strict automated blocking of promotional marketing campaigns between 21:00 and 08:00 IST. Transactional OTP and emergency SOS messages bypass quiet hours automatically.
 3. **Opt-Out Governance**: Immediate honoring of customer channel unsubscribe preferences.
+

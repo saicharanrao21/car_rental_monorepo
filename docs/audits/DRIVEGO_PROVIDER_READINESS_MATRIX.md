@@ -111,3 +111,4 @@ This specification documents all 44 verified gateways across 12 infrastructure c
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `zoho_books` | **Zoho Books India GST API** *(Primary)* | `ADAPTER_IMPLEMENTED` | `HEALTHY` | Real-time | Automated GST tax invoices (B2C & B2B), E-Way bill generation |
 | `quickbooks` | **Intuit QuickBooks Online** | `CONTRACT_READY` | `HEALTHY` | Hourly batch | Multi-currency ledger consolidation |
+

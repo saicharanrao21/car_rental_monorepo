@@ -24,6 +24,7 @@ import { UpdatePromotionalCampaignDto } from './dto/update-promotional-campaign.
 import { CreateSponsoredCampaignDto } from './dto/create-sponsored-campaign.dto';
 import { CreateFeaturedListingDto } from './dto/create-featured-listing.dto';
 import { RecordAttributionDto } from './dto/record-attribution.dto';
+import { ValidateCampaignDto, RedeemCampaignDto } from './dto/redeem-campaign.dto';
 
 @Controller('growth')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
@@ -60,6 +61,16 @@ export class GrowthController {
   ) {
     const adminUserId = req.user.id || req.user.userId;
     return this.growthService.updatePromotionalCampaign(adminUserId, id, dto);
+  }
+
+  @Post('campaigns/validate')
+  async validateCampaign(@Body() dto: ValidateCampaignDto) {
+    return this.growthService.validateCampaign(dto);
+  }
+
+  @Post('campaigns/redeem')
+  async redeemCampaign(@Body() dto: RedeemCampaignDto) {
+    return this.growthService.redeemCampaign(dto);
   }
 
   // ── Sponsored Campaigns (Vendor & Admin) ──────────────────────────────────

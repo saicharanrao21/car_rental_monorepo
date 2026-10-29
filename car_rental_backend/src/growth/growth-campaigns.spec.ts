@@ -36,6 +36,7 @@ describe('GrowthCampaigns (Phase 27.4)', () => {
       bookingAttribution: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({ id: 'attr-1' }),
       },
       car: {
         findUnique: jest.fn(),
@@ -43,6 +44,8 @@ describe('GrowthCampaigns (Phase 27.4)', () => {
       vendor: {
         findUnique: jest.fn(),
       },
+      $transaction: jest.fn((callback) => callback(mockPrisma)),
+      $queryRaw: jest.fn(),
     };
 
     mockCacheService = {
@@ -210,6 +213,126 @@ describe('GrowthCampaigns (Phase 27.4)', () => {
         where: { id: 'sc-123' },
         data: { bookingsCount: { increment: 1 } },
       });
+    });
+  });
+
+  describe('Campaign Validation & Pessimistic Concurrency Redemption (Phase 3 Engine)', () => {
+    it('validates percentage campaign and bounds discount by maxDiscountAmount', async () => {
+      mockPrisma.promotionalCampaign.findUnique.mockResolvedValue({
+        id: 'camp-p1',
+        code: 'SAVE20',
+        isActive: true,
+        discountType: DiscountType.PERCENTAGE,
+        discountValue: 20,
+        maxDiscountAmount: 500,
+        minBookingAmount: 1000,
+        budget: 10000,
+        spentBudget: 1000,
+        maxRedemptions: 100,
+        redemptionCount: 10,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+      });
+
+      const res = await service.validateCampaign({
+        code: 'SAVE20',
+        bookingAmount: 4000,
+      });
+
+      expect(res.isValid).toBe(true);
+      // 20% of 4000 is 800, capped at maxDiscountAmount 500
+      expect(res.discountAmount).toBe(500);
+      expect(res.netPayable).toBe(3500);
+    });
+
+    it('rejects validation when minimum booking amount is not met', async () => {
+      mockPrisma.promotionalCampaign.findUnique.mockResolvedValue({
+        id: 'camp-p1',
+        code: 'MIN2000',
+        isActive: true,
+        discountType: DiscountType.FLAT,
+        discountValue: 200,
+        minBookingAmount: 2000,
+      });
+
+      await expect(
+        service.validateCampaign({
+          code: 'MIN2000',
+          bookingAmount: 1500,
+        }),
+      ).rejects.toThrow('Minimum booking amount of ₹2000 required for this promotion.');
+    });
+
+    it('redeems campaign with row lock, increments redemptions & spend atomically', async () => {
+      mockPrisma.bookingAttribution.findUnique.mockResolvedValue(null);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        {
+          id: 'camp-p1',
+          code: 'FESTIVE500',
+          isActive: true,
+          discountType: DiscountType.FLAT,
+          discountValue: 500,
+          budget: 5000,
+          spentBudget: 4000,
+          maxRedemptions: 10,
+          redemptionCount: 8,
+          minBookingAmount: 1000,
+        },
+      ]);
+      mockPrisma.promotionalCampaign.update.mockResolvedValue({ id: 'camp-p1' });
+
+      const redemption = await service.redeemCampaign({
+        code: 'FESTIVE500',
+        bookingId: 'booking-202',
+        bookingAmount: 2500,
+        customerId: 'user-101',
+      });
+
+      expect(redemption.success).toBe(true);
+      expect(redemption.discountAmount).toBe(500);
+      expect(mockPrisma.promotionalCampaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'camp-p1' },
+          data: expect.objectContaining({
+            redemptionCount: { increment: 1 },
+          }),
+        }),
+      );
+    });
+
+    it('automatically deactivates campaign when redemption exhausts remaining budget', async () => {
+      mockPrisma.bookingAttribution.findUnique.mockResolvedValue(null);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        {
+          id: 'camp-exhaust',
+          code: 'LAST500',
+          isActive: true,
+          discountType: DiscountType.FLAT,
+          discountValue: 500,
+          budget: 5000,
+          spentBudget: 4500, // + 500 = 5000 (exhausted)
+          maxRedemptions: 50,
+          redemptionCount: 9,
+          minBookingAmount: 1000,
+        },
+      ]);
+      mockPrisma.promotionalCampaign.update.mockResolvedValue({ id: 'camp-exhaust' });
+
+      const redemption = await service.redeemCampaign({
+        code: 'LAST500',
+        bookingId: 'booking-203',
+        bookingAmount: 2000,
+        customerId: 'user-102',
+      });
+
+      expect(redemption.success).toBe(true);
+      expect(mockPrisma.promotionalCampaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            isActive: false, // Auto-exhausted
+          }),
+        }),
+      );
     });
   });
 });

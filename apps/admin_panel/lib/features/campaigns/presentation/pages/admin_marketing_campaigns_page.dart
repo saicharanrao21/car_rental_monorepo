@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/providers/api_providers.dart';
 import '../../../../core/widgets/admin_detail_drawer.dart';
 import '../../../../core/widgets/admin_data_grid.dart';
+import '../providers/admin_campaigns_providers.dart';
 
 class AdminMarketingCampaignsPage extends ConsumerStatefulWidget {
   const AdminMarketingCampaignsPage({super.key});
@@ -18,13 +18,14 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
   String _searchQuery = '';
   String _cityFilter = 'ALL';
   String _statusFilter = 'ALL';
-  bool _isLoading = false;
+  bool _isDemoMode = false;
 
-  final List<Map<String, dynamic>> _campaigns = [
+  // Isolated Demo Data — only visible when the administrator explicitly enables demo mode
+  static final List<Map<String, dynamic>> _demoCampaigns = [
     {
-      'id': 'cmp_101',
+      'id': 'demo_cmp_101',
       'code': 'BLR_ESCAPE_20',
-      'name': 'Bangalore Monsoon Getaway 20% OFF',
+      'name': 'Bangalore Monsoon Getaway 20% OFF (Demo)',
       'type': 'WEEKEND',
       'city': 'Bangalore',
       'carCategory': 'SUV',
@@ -42,11 +43,12 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
       'channels': ['WHATSAPP', 'PUSH', 'BANNER'],
       'audience': 'Weekend Travelers (Bangalore)',
       'attributedGmv': 624000.0,
+      'isDemo': true,
     },
     {
-      'id': 'cmp_102',
+      'id': 'demo_cmp_102',
       'code': 'HYD_WELCOME_500',
-      'name': 'Hyderabad First Ride Welcome Bonus',
+      'name': 'Hyderabad First Ride Welcome Bonus (Demo)',
       'type': 'FIRST_BOOKING',
       'city': 'Hyderabad',
       'carCategory': 'ANY',
@@ -64,11 +66,12 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
       'channels': ['PUSH', 'SMS'],
       'audience': 'New Verified Customers (0 Bookings)',
       'attributedGmv': 289000.0,
+      'isDemo': true,
     },
     {
-      'id': 'cmp_103',
+      'id': 'demo_cmp_103',
       'code': 'MUM_LUXURY_30',
-      'name': 'Mumbai Corporate & Luxury Fleet Showcase',
+      'name': 'Mumbai Corporate & Luxury Fleet (Demo)',
       'type': 'SPONSORED',
       'city': 'Mumbai',
       'carCategory': 'LUXURY',
@@ -86,78 +89,9 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
       'channels': ['WHATSAPP', 'EMAIL', 'BANNER'],
       'audience': 'High LTV & Corporate Accounts',
       'attributedGmv': 840000.0,
-    },
-    {
-      'id': 'cmp_104',
-      'code': 'DELHI_DIWALI_FEST',
-      'name': 'Delhi-NCR Grand Festival Launch Promotion',
-      'type': 'FESTIVAL',
-      'city': 'Delhi-NCR',
-      'carCategory': 'ANY',
-      'discountType': 'PERCENTAGE',
-      'discountValue': 25.0,
-      'maxDiscountAmount': 2500.0,
-      'minBookingAmount': 4000.0,
-      'budget': 100000.0,
-      'spent': 0.0,
-      'redemptions': 0,
-      'maxRedemptions': 400,
-      'startDate': DateTime.now().add(const Duration(days: 5)),
-      'endDate': DateTime.now().add(const Duration(days: 25)),
-      'status': 'SCHEDULED',
-      'channels': ['WHATSAPP', 'PUSH', 'SMS'],
-      'audience': 'All Verified NCR Customers',
-      'attributedGmv': 0.0,
-    },
-    {
-      'id': 'cmp_105',
-      'code': 'SUMMER_DRIVE_PAUSED',
-      'name': 'Summer Long-Term Commute Pack',
-      'type': 'CITY_LAUNCH',
-      'city': 'Pune',
-      'carCategory': 'SEDAN',
-      'discountType': 'FLAT',
-      'discountValue': 1000.0,
-      'maxDiscountAmount': 1000.0,
-      'minBookingAmount': 5000.0,
-      'budget': 30000.0,
-      'spent': 22000.0,
-      'redemptions': 22,
-      'maxRedemptions': 30,
-      'startDate': DateTime.now().subtract(const Duration(days: 60)),
-      'endDate': DateTime.now().subtract(const Duration(days: 5)),
-      'status': 'EXPIRED',
-      'channels': ['SMS'],
-      'audience': 'Pune Tech Park Commuters',
-      'attributedGmv': 176000.0,
+      'isDemo': true,
     },
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchBackendCampaigns();
-  }
-
-  Future<void> _fetchBackendCampaigns() async {
-    try {
-      final client = ref.read(apiClientProvider);
-      final res = await client.dio.get('/growth/campaigns');
-      if (res.data != null && res.data is Map && res.data['campaigns'] is List) {
-        final list = res.data['campaigns'] as List;
-        if (list.isNotEmpty && mounted) {
-          setState(() {
-            _campaigns.clear();
-            for (final item in list) {
-              _campaigns.add(Map<String, dynamic>.from(item));
-            }
-          });
-        }
-      }
-    } catch (_) {
-      // Retain verified baseline
-    }
-  }
 
   @override
   void dispose() {
@@ -174,12 +108,13 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
     final budgetCtrl = TextEditingController(text: '50000');
     final maxRedemptionsCtrl = TextEditingController(text: '200');
 
-    String type = 'PROMOTIONAL';
+    String type = 'GENERAL';
     String city = 'ALL';
     String carCategory = 'ANY';
     String discountType = 'PERCENTAGE';
     String audienceSegment = 'ALL_CUSTOMERS';
     final Set<String> channels = {'PUSH', 'WHATSAPP'};
+    bool isSaving = false;
 
     AdminDetailDrawer.show(
       context: context,
@@ -208,22 +143,22 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                 border: OutlineInputBorder(),
               ),
             ),
-            const Gap(12),
+            const Gap(14),
+
             Row(
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: type,
-                    decoration: const InputDecoration(labelText: 'Campaign Type', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: 'Campaign Objective', border: OutlineInputBorder()),
                     items: const [
-                      DropdownMenuItem(value: 'PROMOTIONAL', child: Text('Promotional')),
-                      DropdownMenuItem(value: 'FIRST_BOOKING', child: Text('First Booking')),
-                      DropdownMenuItem(value: 'WEEKEND', child: Text('Weekend Special')),
-                      DropdownMenuItem(value: 'FESTIVAL', child: Text('Festival Holiday')),
-                      DropdownMenuItem(value: 'CITY_LAUNCH', child: Text('City Launch')),
-                      DropdownMenuItem(value: 'SPONSORED', child: Text('Vendor Sponsored')),
+                      DropdownMenuItem(value: 'GENERAL', child: Text('General Promotional')),
+                      DropdownMenuItem(value: 'FIRST_BOOKING', child: Text('New Customer Acquisition')),
+                      DropdownMenuItem(value: 'WEEKEND', child: Text('Weekend Escape')),
+                      DropdownMenuItem(value: 'FESTIVAL', child: Text('Festival Special')),
+                      DropdownMenuItem(value: 'CITY_LAUNCH', child: Text('City Launch Push')),
                     ],
-                    onChanged: (v) => setDrawerState(() => type = v ?? 'PROMOTIONAL'),
+                    onChanged: (v) => setDrawerState(() => type = v ?? 'GENERAL'),
                   ),
                 ),
                 const Gap(12),
@@ -232,7 +167,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     value: city,
                     decoration: const InputDecoration(labelText: 'Target City Scope', border: OutlineInputBorder()),
                     items: const [
-                      DropdownMenuItem(value: 'ALL', child: Text('All Live Cities')),
+                      DropdownMenuItem(value: 'ALL', child: Text('All Cities (National)')),
                       DropdownMenuItem(value: 'Bangalore', child: Text('Bangalore')),
                       DropdownMenuItem(value: 'Hyderabad', child: Text('Hyderabad')),
                       DropdownMenuItem(value: 'Mumbai', child: Text('Mumbai')),
@@ -245,7 +180,8 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                 ),
               ],
             ),
-            const Gap(12),
+            const Gap(14),
+
             Row(
               children: [
                 Expanded(
@@ -254,7 +190,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     decoration: const InputDecoration(labelText: 'Discount Structure', border: OutlineInputBorder()),
                     items: const [
                       DropdownMenuItem(value: 'PERCENTAGE', child: Text('Percentage (% OFF)')),
-                      DropdownMenuItem(value: 'FLAT', child: Text('Flat Amount (₹ OFF)')),
+                      DropdownMenuItem(value: 'FLAT', child: Text('Flat Cash (₹ OFF)')),
                     ],
                     onChanged: (v) => setDrawerState(() => discountType = v ?? 'PERCENTAGE'),
                   ),
@@ -265,14 +201,15 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     controller: discountValCtrl,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: discountType == 'PERCENTAGE' ? 'Discount Value (%) *' : 'Discount Amount (₹) *',
+                      labelText: discountType == 'PERCENTAGE' ? 'Discount (%) *' : 'Flat Discount (₹) *',
                       border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
               ],
             ),
-            const Gap(12),
+            const Gap(14),
+
             Row(
               children: [
                 Expanded(
@@ -291,14 +228,15 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     controller: minBookingCtrl,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Min Booking Value (₹)',
+                      labelText: 'Min Booking Fare (₹)',
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
               ],
             ),
-            const Gap(12),
+            const Gap(14),
+
             Row(
               children: [
                 Expanded(
@@ -307,6 +245,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'Total Budget Cap (₹) *',
+                      helperText: 'Auto-stops when depleted',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -318,6 +257,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'Max Redemptions *',
+                      helperText: 'Overall customer limit',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -326,18 +266,14 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
             ),
             const Gap(14),
 
-            // Target Audience Segment
             DropdownButtonFormField<String>(
               value: audienceSegment,
-              decoration: const InputDecoration(
-                labelText: 'Target Customer Segment *',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Target Audience Segment', border: OutlineInputBorder()),
               items: const [
-                DropdownMenuItem(value: 'ALL_CUSTOMERS', child: Text('All KYC-Verified Customers (~124,000 users)')),
-                DropdownMenuItem(value: 'FIRST_TIME', child: Text('Registered Users With 0 Completed Bookings (~28,500 users)')),
-                DropdownMenuItem(value: 'DORMANT_60D', child: Text('Dormant Users (>60 days inactive) (~18,200 users)')),
-                DropdownMenuItem(value: 'HIGH_LTV_VIP', child: Text('DriveGo Elite VIP Members (5+ trips) (~6,400 users)')),
+                DropdownMenuItem(value: 'ALL_CUSTOMERS', child: Text('All Registered & Verified Customers')),
+                DropdownMenuItem(value: 'NEW_USERS_ONLY', child: Text('New Customers (0 Past Bookings)')),
+                DropdownMenuItem(value: 'LAPSED_USERS', child: Text('Dormant Customers (No trip in 60+ days)')),
+                DropdownMenuItem(value: 'HIGH_LTV_VIP', child: Text('DriveGo Elite VIP Members (5+ trips)')),
               ],
               onChanged: (v) => setDrawerState(() => audienceSegment = v ?? 'ALL_CUSTOMERS'),
             ),
@@ -367,7 +303,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
             ),
             const Gap(20),
 
-            // Estimated Reach Calculation Card
+            // Budget Protection Notice Card
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -377,11 +313,11 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info_outline, color: Color(0xFF1E40AF), size: 18),
+                  Icon(Icons.shield_outlined, color: Color(0xFF1E40AF), size: 18),
                   Gap(10),
                   Expanded(
                     child: Text(
-                      'Audience calculation: Estimated immediate reach is ~24,500 eligible customers. Budget burn stops automatically upon reaching budget cap.',
+                      'Server-Authoritative Safeguard: Concurrent redemptions are serialized via row-level locks. Campaign automatically pauses when budget or redemption cap is exhausted.',
                       style: TextStyle(color: Color(0xFF1E40AF), fontSize: 12),
                     ),
                   ),
@@ -391,13 +327,13 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
             const Gap(24),
 
             FilledButton.icon(
-              icon: const Icon(Icons.rocket_launch_outlined),
-              label: const Text('Launch Marketing Campaign'),
+              icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.rocket_launch_outlined),
+              label: Text(isSaving ? 'Creating Campaign...' : 'Launch Marketing Campaign'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0F172A),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () async {
+              onPressed: isSaving ? null : () async {
                 if (nameCtrl.text.isEmpty || codeCtrl.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please enter campaign name and code.')),
@@ -405,59 +341,43 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                   return;
                 }
 
-                final newCamp = {
-                  'id': 'cmp_${DateTime.now().millisecondsSinceEpoch}',
-                  'code': codeCtrl.text.trim().toUpperCase(),
-                  'name': nameCtrl.text.trim(),
-                  'type': type,
-                  'city': city,
-                  'carCategory': carCategory,
-                  'discountType': discountType,
-                  'discountValue': double.tryParse(discountValCtrl.text) ?? 20.0,
-                  'maxDiscountAmount': double.tryParse(maxDiscountCtrl.text) ?? 1500.0,
-                  'minBookingAmount': double.tryParse(minBookingCtrl.text) ?? 3000.0,
-                  'budget': double.tryParse(budgetCtrl.text) ?? 50000.0,
-                  'spent': 0.0,
-                  'redemptions': 0,
-                  'maxRedemptions': int.tryParse(maxRedemptionsCtrl.text) ?? 200,
-                  'startDate': DateTime.now(),
-                  'endDate': DateTime.now().add(const Duration(days: 30)),
-                  'status': 'ACTIVE',
-                  'channels': channels.toList(),
-                  'audience': audienceSegment,
-                  'attributedGmv': 0.0,
-                };
+                setDrawerState(() => isSaving = true);
 
                 try {
-                  final client = ref.read(apiClientProvider);
-                  await client.dio.post('/growth/campaigns', data: {
-                    'code': newCamp['code'],
-                    'name': newCamp['name'],
-                    'type': newCamp['type'],
-                    'city': newCamp['city'] == 'ALL' ? null : newCamp['city'],
-                    'discountType': newCamp['discountType'],
-                    'discountValue': newCamp['discountValue'],
-                    'maxDiscountAmount': newCamp['maxDiscountAmount'],
-                    'minBookingAmount': newCamp['minBookingAmount'],
-                    'budget': newCamp['budget'],
-                    'maxRedemptions': newCamp['maxRedemptions'],
+                  await ref.read(adminCampaignsProvider.notifier).createCampaign({
+                    'code': codeCtrl.text.trim().toUpperCase(),
+                    'name': nameCtrl.text.trim(),
+                    'type': type,
+                    'city': city == 'ALL' ? null : city,
+                    'carCategory': carCategory == 'ANY' ? null : carCategory,
+                    'discountType': discountType,
+                    'discountValue': double.tryParse(discountValCtrl.text) ?? 20.0,
+                    'maxDiscountAmount': double.tryParse(maxDiscountCtrl.text),
+                    'minBookingAmount': double.tryParse(minBookingCtrl.text),
+                    'budget': double.tryParse(budgetCtrl.text),
+                    'maxRedemptions': int.tryParse(maxRedemptionsCtrl.text),
                   });
-                } catch (_) {
-                  // Handled locally
-                }
 
-                Navigator.of(ctx).pop();
-                setState(() {
-                  _campaigns.insert(0, newCamp);
-                });
+                  Navigator.of(ctx).pop();
 
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Campaign launched and scheduled successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Campaign created and saved to database successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (err) {
+                  setDrawerState(() => isSaving = false);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to create campaign: $err'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
             ),
@@ -469,6 +389,9 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
 
   void _inspectCampaign(Map<String, dynamic> c) {
     final cur = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    final budget = (c['budget'] as num?)?.toDouble() ?? 0.0;
+    final spent = (c['spent'] as num?)?.toDouble() ?? 0.0;
+    final utilization = budget > 0 ? ((spent / budget) * 100).toStringAsFixed(1) : '0.0';
 
     AdminDetailDrawer.show(
       context: context,
@@ -500,10 +423,10 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Budget Utilization (${((c['spent'] / c['budget']) * 100).toStringAsFixed(1)}%)',
+                    Text('Budget Utilization ($utilization%)',
                         style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
                     Text(
-                      '${cur.format(c['spent'])} / ${cur.format(c['budget'])}',
+                      '${cur.format(spent)} / ${budget > 0 ? cur.format(budget) : 'No Cap'}',
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                   ],
@@ -512,7 +435,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                    value: (c['spent'] / c['budget']).clamp(0.0, 1.0),
+                    value: budget > 0 ? (spent / budget).clamp(0.0, 1.0) : 0.0,
                     backgroundColor: const Color(0xFFCBD5E1),
                     valueColor: const AlwaysStoppedAnimation(Color(0xFF0F172A)),
                     minHeight: 8,
@@ -528,17 +451,36 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
           _buildInfoRow('Discount', '${c['discountValue']}${c['discountType'] == 'PERCENTAGE' ? '%' : '₹'} OFF'),
           _buildInfoRow('Max Cap', cur.format(c['maxDiscountAmount'] ?? 0)),
           _buildInfoRow('Min Booking', cur.format(c['minBookingAmount'] ?? 0)),
-          _buildInfoRow('Redemptions', '${c['redemptions']} / ${c['maxRedemptions']}'),
+          _buildInfoRow('Redemptions', '${c['redemptions']} / ${c['maxRedemptions'] ?? 'Unlimited'}'),
           _buildInfoRow('Audience Segment', c['audience']?.toString() ?? 'All Customers'),
           const Gap(24),
           OutlinedButton.icon(
             icon: Icon(c['status'] == 'ACTIVE' ? Icons.pause_circle_outline : Icons.play_circle_outline),
             label: Text(c['status'] == 'ACTIVE' ? 'Pause Campaign' : 'Resume Campaign'),
-            onPressed: () {
+            onPressed: () async {
+              final newActive = c['status'] != 'ACTIVE';
               Navigator.of(context).pop();
-              setState(() {
-                c['status'] = c['status'] == 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-              });
+
+              try {
+                await ref.read(adminCampaignsProvider.notifier).toggleCampaign(c['id'].toString(), newActive);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(newActive ? 'Campaign resumed.' : 'Campaign paused.'),
+                      backgroundColor: Colors.blueGrey,
+                    ),
+                  );
+                }
+              } catch (err) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to update campaign status: $err'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
           ),
         ],
@@ -564,7 +506,12 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
     final theme = Theme.of(context);
     final cur = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
-    final filtered = _campaigns.where((c) {
+    final asyncCampaigns = ref.watch(adminCampaignsProvider);
+    final List<Map<String, dynamic>> rawList = _isDemoMode
+        ? _demoCampaigns
+        : (asyncCampaigns.value ?? []);
+
+    final filtered = rawList.where((c) {
       if (_cityFilter != 'ALL' && c['city'] != _cityFilter) return false;
       if (_statusFilter != 'ALL' && c['status'] != _statusFilter) return false;
       if (_searchQuery.isNotEmpty) {
@@ -575,6 +522,13 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
       }
       return true;
     }).toList();
+
+    // Dynamically calculate KPIs from actual campaigns list (never hardcoded)
+    final activeCount = rawList.where((c) => c['status'] == 'ACTIVE').length;
+    final totalRedemptions = rawList.fold<int>(0, (sum, c) => sum + ((c['redemptions'] as num?)?.toInt() ?? 0));
+    final totalSpent = rawList.fold<double>(0.0, (sum, c) => sum + ((c['spent'] as num?)?.toDouble() ?? 0.0));
+    final totalBudget = rawList.fold<double>(0.0, (sum, c) => sum + ((c['budget'] as num?)?.toDouble() ?? 0.0));
+    final totalAttributedGmv = rawList.fold<double>(0.0, (sum, c) => sum + ((c['attributedGmv'] as num?)?.toDouble() ?? 0.0));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -622,6 +576,23 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                             ),
                           ),
                         ),
+                        if (_isDemoMode)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                            ),
+                            child: const Text(
+                              'DEMO DATA MODE',
+                              style: TextStyle(
+                                color: Color(0xFFB45309),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const Gap(4),
@@ -631,29 +602,40 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     ),
                   ],
                 ),
-                FilledButton.icon(
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Create Campaign'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  ),
-                  onPressed: _showCreateCampaignDrawer,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: Icon(_isDemoMode ? Icons.toggle_on : Icons.toggle_off, color: _isDemoMode ? Colors.orange : Colors.grey),
+                      label: Text(_isDemoMode ? 'Exit Demo Mode' : 'View Demo Data'),
+                      onPressed: () => setState(() => _isDemoMode = !_isDemoMode),
+                    ),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Create Campaign'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      ),
+                      onPressed: _showCreateCampaignDrawer,
+                    ),
+                  ],
                 ),
               ],
             ),
             const Gap(20),
 
-            // Top KPI Bar
+            // Top Dynamic KPI Bar (Driven authoritatively by data)
             Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                _buildSummaryKpi('Active Campaigns', '4 Active', Icons.campaign_outlined, const Color(0xFF059669)),
-                _buildSummaryKpi('Total Reach', '245,800', Icons.people_outline, const Color(0xFF3B82F6)),
-                _buildSummaryKpi('Redemptions', '14,290 trips', Icons.check_circle_outlined, const Color(0xFF6366F1)),
-                _buildSummaryKpi('Budget Spent', '₹1,04,900 / ₹2.85L', Icons.currency_rupee_outlined, const Color(0xFFF59E0B)),
-                _buildSummaryKpi('Attributed GMV', '₹1.42 Cr (13.5x)', Icons.trending_up_outlined, const Color(0xFF10B981)),
+                _buildSummaryKpi('Active Campaigns', '$activeCount Active', Icons.campaign_outlined, const Color(0xFF059669)),
+                _buildSummaryKpi('Total Campaigns', '${rawList.length} Total', Icons.layers_outlined, const Color(0xFF3B82F6)),
+                _buildSummaryKpi('Redemptions', '$totalRedemptions trips', Icons.check_circle_outlined, const Color(0xFF6366F1)),
+                _buildSummaryKpi('Budget Spent', '${cur.format(totalSpent)} / ${totalBudget > 0 ? cur.format(totalBudget) : 'N/A'}', Icons.currency_rupee_outlined, const Color(0xFFF59E0B)),
+                _buildSummaryKpi('Attributed GMV', cur.format(totalAttributedGmv), Icons.trending_up_outlined, const Color(0xFF10B981)),
               ],
             ),
             const Gap(20),
@@ -678,7 +660,7 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                         isDense: true,
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                      onChanged: (v) => setState(() => _searchQuery = v),
                     ),
                   ),
                   const Gap(16),
@@ -692,9 +674,8 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                       DropdownMenuItem(value: 'Mumbai', child: Text('Mumbai')),
                       DropdownMenuItem(value: 'Delhi-NCR', child: Text('Delhi-NCR')),
                       DropdownMenuItem(value: 'Pune', child: Text('Pune')),
-                      DropdownMenuItem(value: 'Chennai', child: Text('Chennai')),
                     ],
-                    onChanged: (val) => setState(() => _cityFilter = val ?? 'ALL'),
+                    onChanged: (v) => setState(() => _cityFilter = v ?? 'ALL'),
                   ),
                   const Gap(16),
                   DropdownButton<String>(
@@ -702,130 +683,238 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     underline: const SizedBox.shrink(),
                     items: const [
                       DropdownMenuItem(value: 'ALL', child: Text('All Statuses')),
-                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
-                      DropdownMenuItem(value: 'SCHEDULED', child: Text('Scheduled')),
+                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active Only')),
                       DropdownMenuItem(value: 'PAUSED', child: Text('Paused')),
+                      DropdownMenuItem(value: 'SCHEDULED', child: Text('Scheduled')),
+                      DropdownMenuItem(value: 'EXHAUSTED', child: Text('Budget Exhausted')),
                       DropdownMenuItem(value: 'EXPIRED', child: Text('Expired')),
                     ],
-                    onChanged: (val) => setState(() => _statusFilter = val ?? 'ALL'),
+                    onChanged: (v) => setState(() => _statusFilter = v ?? 'ALL'),
+                  ),
+                  const Gap(16),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    tooltip: 'Refresh from Server',
+                    onPressed: () => ref.read(adminCampaignsProvider.notifier).refresh(),
                   ),
                 ],
               ),
             ),
             const Gap(16),
 
-            // Campaigns Data Grid
+            // Main Content Area with Explicit Loading, Error, Empty, and Live States
             Expanded(
-              child: AdminDataGrid<Map<String, dynamic>>(
-                items: filtered,
-                emptyTitle: 'No campaigns found',
-                emptyMessage: 'No campaigns match the selected filters.',
-                onRowTap: (item) => _inspectCampaign(item),
-                columns: [
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'CAMPAIGN CODE',
-                    fixedWidth: 160,
-                    builder: (item) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          item['code'] as String,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
-                        ),
-                        Text(
-                          item['type'] as String,
-                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'NAME & CITY SCOPE',
-                    flex: 2,
-                    builder: (item) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(item['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Row(
+              child: _isDemoMode
+                  ? _buildDataGrid(theme, cur, filtered)
+                  : asyncCampaigns.when(
+                      loading: () => const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
-                            const Gap(4),
-                            Text(item['city'] as String, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            CircularProgressIndicator(),
+                            Gap(16),
+                            Text('Loading campaigns from server...', style: TextStyle(color: Colors.grey)),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'DISCOUNT',
-                    fixedWidth: 120,
-                    builder: (item) => Text(
-                      '${item['discountValue']}${item['discountType'] == 'PERCENTAGE' ? '%' : '₹'} OFF',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF2563EB)),
-                    ),
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'SPENT / BUDGET',
-                    fixedWidth: 150,
-                    builder: (item) => Text(
-                      '${cur.format(item['spent'])} / ${cur.format(item['budget'])}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'REDEMPTIONS',
-                    fixedWidth: 120,
-                    builder: (item) => Text(
-                      '${item['redemptions']} / ${item['maxRedemptions']}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'STATUS',
-                    fixedWidth: 110,
-                    builder: (item) {
-                      final status = item['status'] as String;
-                      Color bg = const Color(0xFFECFDF5);
-                      Color fg = const Color(0xFF065F46);
-                      if (status == 'PAUSED') {
-                        bg = const Color(0xFFFEF3C7);
-                        fg = const Color(0xFF92400E);
-                      } else if (status == 'EXPIRED') {
-                        bg = const Color(0xFFF1F5F9);
-                        fg = const Color(0xFF475569);
-                      } else if (status == 'SCHEDULED') {
-                        bg = const Color(0xFFEFF6FF);
-                        fg = const Color(0xFF1E40AF);
-                      }
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: bg,
-                          borderRadius: BorderRadius.circular(6),
+                      ),
+                      error: (err, stack) => Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cloud_off_rounded, color: Colors.red, size: 48),
+                              const Gap(12),
+                              const Text('Failed to load campaigns', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const Gap(6),
+                              Text(err.toString(), textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                              const Gap(16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Retry'),
+                                    onPressed: () => ref.read(adminCampaignsProvider.notifier).refresh(),
+                                  ),
+                                  const Gap(12),
+                                  FilledButton.icon(
+                                    icon: const Icon(Icons.play_circle_outline),
+                                    label: const Text('View Sample Demo Data'),
+                                    onPressed: () => setState(() => _isDemoMode = true),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Text(
-                          status,
-                          style: TextStyle(color: fg, fontSize: 10.5, fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    },
-                  ),
-                  AdminDataColumn<Map<String, dynamic>>(
-                    title: 'ACTIONS',
-                    fixedWidth: 90,
-                    builder: (item) => IconButton(
-                      icon: const Icon(Icons.insights_rounded, size: 18),
-                      tooltip: 'View Performance',
-                      onPressed: () => _inspectCampaign(item),
+                      ),
+                      data: (campaigns) {
+                        if (campaigns.isEmpty) {
+                          return Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(32),
+                              constraints: const BoxConstraints(maxWidth: 480),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.campaign_outlined, color: Colors.blueGrey, size: 48),
+                                  const Gap(12),
+                                  const Text('No Marketing Campaigns Found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const Gap(6),
+                                  Text(
+                                    'No promotional or growth campaigns are currently registered in the database. Create your first campaign to boost bookings.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                  ),
+                                  const Gap(16),
+                                  FilledButton.icon(
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Create First Campaign'),
+                                    onPressed: _showCreateCampaignDrawer,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                        return _buildDataGrid(theme, cur, filtered);
+                      },
                     ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDataGrid(ThemeData theme, NumberFormat cur, List<Map<String, dynamic>> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: AdminDataGrid<Map<String, dynamic>>(
+        items: items,
+        columns: [
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'CAMPAIGN CODE',
+            fixedWidth: 160,
+            builder: (item) => Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Text(
+                    item['code'] as String,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
+                if (item['isDemo'] == true) ...[
+                  const Gap(4),
+                  const Text('(DEMO)', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold)),
+                ],
+              ],
+            ),
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'CAMPAIGN DETAILS',
+            flex: 2,
+            builder: (item) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(item['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                    const Gap(4),
+                    Text(item['city'] as String, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'DISCOUNT',
+            fixedWidth: 120,
+            builder: (item) => Text(
+              '${item['discountValue']}${item['discountType'] == 'PERCENTAGE' ? '%' : '₹'} OFF',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF2563EB)),
+            ),
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'SPENT / BUDGET',
+            fixedWidth: 150,
+            builder: (item) => Text(
+              '${cur.format(item['spent'])} / ${item['budget'] > 0 ? cur.format(item['budget']) : 'No Cap'}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'REDEMPTIONS',
+            fixedWidth: 120,
+            builder: (item) => Text(
+              '${item['redemptions']} / ${item['maxRedemptions'] > 0 ? item['maxRedemptions'] : '∞'}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'STATUS',
+            fixedWidth: 110,
+            builder: (item) {
+              final status = item['status'] as String;
+              Color bg = const Color(0xFFECFDF5);
+              Color fg = const Color(0xFF065F46);
+              if (status == 'PAUSED') {
+                bg = const Color(0xFFFEF3C7);
+                fg = const Color(0xFF92400E);
+              } else if (status == 'EXPIRED' || status == 'EXHAUSTED') {
+                bg = const Color(0xFFF1F5F9);
+                fg = const Color(0xFF475569);
+              } else if (status == 'SCHEDULED') {
+                bg = const Color(0xFFEFF6FF);
+                fg = const Color(0xFF1E40AF);
+              }
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(color: fg, fontSize: 10.5, fontWeight: FontWeight.bold),
+                ),
+              );
+            },
+          ),
+          AdminDataColumn<Map<String, dynamic>>(
+            title: 'ACTIONS',
+            fixedWidth: 90,
+            builder: (item) => IconButton(
+              icon: const Icon(Icons.insights_rounded, size: 18),
+              tooltip: 'View Performance',
+              onPressed: () => _inspectCampaign(item),
+            ),
+          ),
+        ],
       ),
     );
   }

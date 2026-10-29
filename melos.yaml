@@ -1,8 +1,11 @@
 name: car_rental_monorepo
 
 packages:
-  - apps/**
-  - packages/**
+  - apps/*
+  - packages/*
+
+ignore:
+  - 'apps/admin_panel/.widget_preview'
 
 scripts:
   get:

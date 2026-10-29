@@ -8,6 +8,7 @@ import 'package:admin_panel/features/communications/presentation/pages/communica
 import 'package:admin_panel/features/communications/presentation/pages/communication_templates_page.dart';
 import 'package:admin_panel/features/communications/presentation/pages/communication_delivery_logs_page.dart';
 import 'package:admin_panel/features/campaigns/presentation/pages/admin_marketing_campaigns_page.dart';
+import 'package:admin_panel/features/campaigns/presentation/providers/admin_campaigns_providers.dart';
 import 'package:admin_panel/features/notifications/presentation/providers/admin_notifications_providers.dart';
 
 void main() {
@@ -54,6 +55,7 @@ void main() {
           'failedCount': 9,
         })),
         adminDeliveriesProvider.overrideWith(() => MockDeliveriesNotifier()),
+        adminCampaignsProvider.overrideWith(() => MockCampaignsNotifier()),
       ],
       child: MaterialApp.router(
         routerConfig: router,
@@ -149,7 +151,7 @@ void main() {
 
     // Verify KPIs
     expect(find.text('Active Campaigns'), findsOneWidget);
-    expect(find.text('Total Reach'), findsOneWidget);
+    expect(find.text('Total Campaigns'), findsOneWidget);
     expect(find.text('Attributed GMV'), findsOneWidget);
 
     // Verify Table items
@@ -159,6 +161,70 @@ void main() {
     // Verify Create Campaign button
     expect(find.text('Create Campaign'), findsOneWidget);
   });
+}
+
+class MockCampaignsNotifier extends AutoDisposeAsyncNotifier<List<Map<String, dynamic>>>
+    implements AdminCampaignsNotifier {
+  @override
+  Future<List<Map<String, dynamic>>> build() async {
+    return [
+      {
+        'id': 'cmp_101',
+        'code': 'BLR_ESCAPE_20',
+        'name': 'Bangalore Monsoon Getaway 20% OFF',
+        'type': 'WEEKEND',
+        'city': 'Bangalore',
+        'carCategory': 'SUV',
+        'discountType': 'PERCENTAGE',
+        'discountValue': 20.0,
+        'maxDiscountAmount': 1500.0,
+        'minBookingAmount': 3500.0,
+        'budget': 50000.0,
+        'spent': 28400.0,
+        'redemptions': 142,
+        'maxRedemptions': 250,
+        'startDate': DateTime.now().subtract(const Duration(days: 10)),
+        'endDate': DateTime.now().add(const Duration(days: 20)),
+        'status': 'ACTIVE',
+        'channels': ['WHATSAPP', 'PUSH', 'BANNER'],
+        'audience': 'Weekend Travelers (Bangalore)',
+        'attributedGmv': 624000.0,
+        'isDemo': false,
+      },
+      {
+        'id': 'cmp_102',
+        'code': 'HYD_WELCOME_500',
+        'name': 'Hyderabad First Ride Welcome Bonus',
+        'type': 'FIRST_BOOKING',
+        'city': 'Hyderabad',
+        'carCategory': 'ANY',
+        'discountType': 'FLAT',
+        'discountValue': 500.0,
+        'maxDiscountAmount': 500.0,
+        'minBookingAmount': 2000.0,
+        'budget': 75000.0,
+        'spent': 34500.0,
+        'redemptions': 69,
+        'maxRedemptions': 150,
+        'startDate': DateTime.now().subtract(const Duration(days: 25)),
+        'endDate': DateTime.now().add(const Duration(days: 35)),
+        'status': 'ACTIVE',
+        'channels': ['PUSH', 'SMS'],
+        'audience': 'New Verified Customers (0 Bookings)',
+        'attributedGmv': 289000.0,
+        'isDemo': false,
+      },
+    ];
+  }
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> createCampaign(Map<String, dynamic> data) async {}
+
+  @override
+  Future<void> toggleCampaign(String id, bool isActive) async {}
 }
 
 class MockDeliveriesNotifier extends AutoDisposeAsyncNotifier<List<NotificationDeliveryModel>> implements AdminDeliveriesNotifier {

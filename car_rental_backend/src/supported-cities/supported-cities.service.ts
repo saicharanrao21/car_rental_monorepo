@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { BookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../admin/audit-log.service';
 
@@ -312,7 +313,7 @@ export class SupportedCitiesService {
       this.prisma.booking.count({
         where: {
           carId: { in: allCarIds },
-          status: 'ACTIVE',
+          status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.HANDOVER_READY, BookingStatus.RETURN_PENDING] },
         },
       }),
     ]);

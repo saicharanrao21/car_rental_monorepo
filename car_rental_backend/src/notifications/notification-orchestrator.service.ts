@@ -175,7 +175,7 @@ export class NotificationOrchestratorService {
     const prefs = await this.getUserPreferences(recipientId);
 
     // Determine candidate channels
-    let candidateChannels: NotificationChannel[] = overrideChannels || [
+    const baseChannels: NotificationChannel[] = overrideChannels || [
       NotificationChannel.IN_APP,
       NotificationChannel.PUSH,
       NotificationChannel.SMS,
@@ -183,9 +183,10 @@ export class NotificationOrchestratorService {
       NotificationChannel.EMAIL,
     ];
 
-    if (!overrideChannels && ruleAllowedChannels) {
-      candidateChannels = candidateChannels.filter((ch) => ruleAllowedChannels.has(ch));
-    }
+    // Authoritative Policy Enforcement: Caller-supplied overrides can NEVER bypass admin notification rules
+    let candidateChannels: NotificationChannel[] = ruleAllowedChannels
+      ? baseChannels.filter((ch) => ruleAllowedChannels.has(ch))
+      : baseChannels;
 
     // Filter by user preference, quiet hours, and contact details
     const channelsToDispatch: NotificationChannel[] = candidateChannels.filter((channel) => {

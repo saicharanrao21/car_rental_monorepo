@@ -20,6 +20,10 @@
 | **DEF-VEND-02** | **MEDIUM** | Vendor App (`vendor_approval_sync_test.dart`) | `FakeVendorComplianceRepository` missing `createDepositOrder` & `verifyDepositPayment` | **RESOLVED** |
 | **DEF-CUST-01** | **LOW** | Customer App (`social_auth_buttons_test.dart`) | Stale widget text expectations (`Verify Phone`, `Send OTP`) vs modern DDS design | **RESOLVED** |
 | **DEF-CUST-02** | **LOW** | Customer App (`startup_flow_test.dart`) | Split brand wordmark (`Drive` + `Go`) and button text (`Continue` vs `Next`) in tests | **RESOLVED** |
+| **DEF-CI-01** | **CRITICAL** | CI Pipeline (`.github/workflows/ci-flutter.yml`) | GitHub Actions CI Melos workspace failure on run `40856331755` | **RESOLVED** |
+| **DEF-NOTIF-02** | **CRITICAL** | Backend (`notification-orchestrator.service.ts`) | Caller channel override bypassed admin notification rules and swallowed DB errors | **RESOLVED** |
+| **DEF-CAMP-01** | **HIGH** | Admin & Backend (`growth.service.ts`, Admin UI) | Static mock campaigns on UI and missing row-level locking (`FOR UPDATE`) on checkout | **RESOLVED** |
+| **DEF-CITY-01** | **CRITICAL** | Backend & Admin UI (`service-areas.service.ts`, Cities UI) | Unverified vendor counting bug and unsafe force deactivation override | **RESOLVED** |
 
 ---
 
@@ -109,4 +113,50 @@
   - Onboarding slide 1 title to `'Find Your Drive'` and button to `'Continue'`.
 - **Remediation**: Updated test finders to match the modernized DDS UI contracts.
 - **Verification Evidence**: `social_auth_buttons_test.dart` (**PASS**); `startup_flow_test.dart` (**12/12 passed**); entire customer app suite (**215/215 passed**).
+
+---
+
+### 2.8. DEF-CI-01: GitHub Actions CI Melos Bootstrap Failure
+- **Component**: `.github/workflows/ci-flutter.yml`, `pubspec.yaml`, `melos.yaml`
+- **Root Cause**: CI run `40856331755` failed at `melos bootstrap` because unpinned `dart pub global activate melos` installed Melos 8.10.0, which broke classic `melos.yaml` workspaces that lack Dart Pub Workspaces configuration and root `melos` dependency.
+- **Remediation**:
+  1. Pinned Melos to `6.3.3` in `.github/workflows/ci-flutter.yml`.
+  2. Added `melos: ^6.3.0` to root `pubspec.yaml` `dev_dependencies`.
+  3. Added `dart pub get` before `melos bootstrap` in workflow.
+  4. Scoped packages to `apps/*` and `packages/*` and ignored `apps/admin_panel/.widget_preview` in `melos.yaml`.
+- **Verification Evidence**: Local `dart run melos bootstrap` succeeded across all 7 packages.
+
+---
+
+### 2.9. DEF-NOTIF-02: Notification Orchestrator Channel Override Bypass & Swallowed Errors
+- **Component**: `car_rental_backend/src/notifications/notification-orchestrator.service.ts`, `car_rental_backend/src/integrations/admin/admin-integrations.service.ts`
+- **Root Cause**: In `publishEvent`, caller-supplied `overrideChannels` bypassed admin-configured event notification rules because `overrideChannels` was used directly instead of being intersected with `ruleAllowedChannels`. Additionally, in `AdminIntegrationsService`, database persistence errors were caught and swallowed, giving a false appearance of persistence.
+- **Remediation**:
+  1. Enforced strict intersection between `baseChannels` and `ruleAllowedChannels`.
+  2. Ensured disabled rules unconditionally abort event dispatch.
+  3. Replaced swallowed warnings with `InternalServerErrorException` and state rollbacks on database write failure.
+- **Verification Evidence**: `phase31-multi-channel-notifications.spec.ts` (**14/14 passed**).
+
+---
+
+### 2.10. DEF-CAMP-01: Campaign Engine Mock Data & Concurrency Over-Redemption Vulnerability
+- **Component**: `apps/admin_panel/lib/features/campaigns/...`, `car_rental_backend/src/growth/...`
+- **Root Cause**: `AdminMarketingCampaignsPage` displayed static hardcoded demo campaigns and lacked a state notifier. The backend `GrowthService` lacked row-level locking for campaign validations and redemptions, leaving the platform vulnerable to race conditions and budget overages under concurrent checkout.
+- **Remediation**:
+  1. Implemented transactional pessimistic row locking (`SELECT ... FOR UPDATE`) in `growth.service.ts`.
+  2. Implemented automatic deactivation when redemptions hit budget or redemption caps.
+  3. Exposed `POST /growth/campaigns/validate` and `POST /growth/campaigns/redeem` on `GrowthController`.
+  4. Created `adminCampaignsProvider` with real dynamic KPIs and an isolated Demo Mode toggle.
+- **Verification Evidence**: `growth-campaigns.spec.ts` (**10/10 passed**); `admin_communications_and_campaigns_test.dart` (**4/4 passed**).
+
+---
+
+### 2.11. DEF-CITY-01: City & Serviceability Safety Flaw & Unsafe Deactivation
+- **Component**: `car_rental_backend/src/locations/service-areas.service.ts`, `apps/admin_panel/lib/features/supported_cities/presentation/pages/supported_cities_page.dart`
+- **Root Cause**: Vendor eligibility in `service-areas.service.ts` used `va.vendor.isActive || va.vendor.verificationStatus === 'APPROVED'`. In Prisma, `Vendor` has no `isActive` field and uses enum `VerificationStatus.VERIFIED`. In the admin UI, an unsafe "Force Deactivate" button allowed administrators to deactivate a city with active ongoing rentals.
+- **Remediation**:
+  1. Corrected eligibility predicates to strictly require verified status and active assignment.
+  2. Added backend active rental guards in `updateCity`, `setCityStatus`, and `setServiceAreaStatus` blocking deactivation when active rentals exist.
+  3. Replaced the "Force Deactivate" UI button with a disabled `Deactivation Blocked (X Active Rentals)` button.
+- **Verification Evidence**: `readiness-impact-control-tower.spec.ts` (**9/9 passed**); `admin_city_serviceability_control_tower_test.dart` (**4/4 passed**); full Admin Panel test suite (**83/83 passed**).
 

@@ -309,6 +309,41 @@ describe('Phase 31: Multi-Channel Operational Notification Platform', () => {
       expect(dispatchedChannels).not.toContain(NotificationChannel.SMS);
       expect(dispatchedChannels).not.toContain(NotificationChannel.WHATSAPP);
     });
+
+    it('should strictly prevent caller channel overrides from bypassing admin notification rules', async () => {
+      mockPrisma.systemConfig = {
+        findUnique: jest.fn().mockResolvedValue({
+          key: 'communications.notification_rules',
+          value: [
+            {
+              id: 'rule-booking-confirmed',
+              eventType: 'BOOKING_CONFIRMED',
+              isEnabled: true,
+              channels: ['IN_APP', 'EMAIL'], // Admin allows only IN_APP and EMAIL
+              quietHoursBypass: true,
+            },
+          ],
+        }),
+      };
+
+      // Caller attempts to force SMS and WHATSAPP via overrideChannels
+      await orchestrator.publishEvent({
+        eventType: 'BOOKING_CONFIRMED',
+        recipientId: testUser.id,
+        entityType: 'BOOKING',
+        entityId: 'BK_OVERRIDE_ATTEMPT',
+        variables: { bookingId: 'BK_OVERRIDE_ATTEMPT' },
+        channels: [NotificationChannel.SMS, NotificationChannel.WHATSAPP, NotificationChannel.EMAIL],
+      });
+
+      const deliveryCalls = mockPrisma.notificationDelivery.create.mock.calls;
+      const dispatchedChannels = deliveryCalls.map((c: any) => c[0].data.channel);
+
+      // Only EMAIL should pass because SMS and WHATSAPP are forbidden by admin rule
+      expect(dispatchedChannels).toEqual([NotificationChannel.EMAIL]);
+      expect(dispatchedChannels).not.toContain(NotificationChannel.SMS);
+      expect(dispatchedChannels).not.toContain(NotificationChannel.WHATSAPP);
+    });
   });
 
   describe('4. Direct Channel Execution & Delivery Tracking', () => {

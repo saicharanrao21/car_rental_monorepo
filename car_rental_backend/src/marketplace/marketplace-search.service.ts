@@ -10,7 +10,17 @@ import {
   MarketplaceFacetsDto,
   FacetCountItem,
 } from './dto/marketplace-result.dto';
-import { CarCategory, TripType, FuelType, BookingStatus, Prisma } from '@prisma/client';
+import {
+  CarCategory,
+  TripType,
+  FuelType,
+  BookingStatus,
+  Prisma,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
+  VerificationStatus,
+  ServiceAreaStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class MarketplaceSearchService {
@@ -46,14 +56,47 @@ export class MarketplaceSearchService {
     // 1. Build database filter criteria for candidate vehicles
     const carWhere: Prisma.CarWhereInput = {
       isAvailable: true,
+      operationalStatus: VehicleOperationalStatus.ACTIVE,
+      verificationStatus: VehicleVerificationStatus.VERIFIED,
       vendor: {
-        verificationStatus: 'VERIFIED',
+        verificationStatus: VerificationStatus.VERIFIED,
       },
-      OR: [
-        { serviceAreaId: null },
-        { serviceArea: { status: 'ACTIVE' } },
-      ],
     };
+
+    // Filter by location (City / Locality / Pickup Hub)
+    if (query.pickupLocation && query.pickupLocation.trim().length > 0) {
+      const loc = query.pickupLocation.trim();
+      carWhere.OR = [
+        {
+          serviceArea: {
+            OR: [
+              { city: { name: { equals: loc, mode: 'insensitive' } } },
+              { name: { contains: loc, mode: 'insensitive' } },
+            ],
+            status: ServiceAreaStatus.ACTIVE,
+          },
+        },
+        {
+          pickupHub: {
+            city: { equals: loc, mode: 'insensitive' },
+            isActive: true,
+          },
+        },
+        {
+          vendor: {
+            city: { equals: loc, mode: 'insensitive' },
+            verificationStatus: VerificationStatus.VERIFIED,
+          },
+          serviceAreaId: null, // Allow fallback to vendor city ONLY when car has no explicit area
+        },
+      ];
+    } else {
+      // Default: ensure any car linked to a service area only surfaces if the area is ACTIVE
+      carWhere.OR = [
+        { serviceAreaId: null },
+        { serviceArea: { status: ServiceAreaStatus.ACTIVE } },
+      ];
+    }
 
     // Filter by vendor(s)
     if (query.vendorIds && query.vendorIds.length > 0) {

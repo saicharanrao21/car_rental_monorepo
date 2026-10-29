@@ -14,7 +14,8 @@ import { UpdatePromotionalCampaignDto } from './dto/update-promotional-campaign.
 import { CreateSponsoredCampaignDto } from './dto/create-sponsored-campaign.dto';
 import { CreateFeaturedListingDto } from './dto/create-featured-listing.dto';
 import { RecordAttributionDto } from './dto/record-attribution.dto';
-import { Prisma } from '@prisma/client';
+import { ValidateCampaignDto, RedeemCampaignDto } from './dto/redeem-campaign.dto';
+import { Prisma, CarCategory } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -356,5 +357,259 @@ export class GrowthService {
     } catch (err: any) {
       this.logger.warn(`Failed recording ${type} event: ${err?.message}`);
     }
+  }
+
+  // ── 5. Concurrency-Safe Campaign Validation & Budget Enforcement ───────────
+
+  async validateCampaign(dto: ValidateCampaignDto) {
+    const cleanCode = dto.code.trim().toUpperCase();
+    const now = new Date();
+
+    const campaign = await this.prisma.promotionalCampaign.findUnique({
+      where: { code: cleanCode },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign code '${cleanCode}' not found.`);
+    }
+
+    if (!campaign.isActive) {
+      throw new BadRequestException('This campaign is currently paused or inactive.');
+    }
+
+    if (campaign.startDate && now < campaign.startDate) {
+      throw new BadRequestException('This campaign has not started yet.');
+    }
+
+    if (campaign.endDate && now > campaign.endDate) {
+      throw new BadRequestException('This campaign has expired.');
+    }
+
+    if (campaign.city && dto.city && campaign.city.toLowerCase() !== dto.city.toLowerCase()) {
+      throw new BadRequestException(`This campaign is valid only in ${campaign.city}.`);
+    }
+
+    if (campaign.carCategory && dto.carCategory && campaign.carCategory !== dto.carCategory) {
+      throw new BadRequestException(`This campaign is valid only for ${campaign.carCategory} vehicles.`);
+    }
+
+    if (campaign.minBookingAmount && dto.bookingAmount < Number(campaign.minBookingAmount)) {
+      throw new BadRequestException(
+        `Minimum booking amount of ₹${campaign.minBookingAmount} required for this promotion.`,
+      );
+    }
+
+    if (campaign.maxRedemptions && campaign.redemptionCount >= campaign.maxRedemptions) {
+      throw new BadRequestException('This campaign has reached its maximum redemption cap.');
+    }
+
+    // Calculate discount
+    let discount = 0;
+    if (campaign.discountType === 'PERCENTAGE') {
+      discount = (dto.bookingAmount * Number(campaign.discountValue)) / 100;
+      if (campaign.maxDiscountAmount) {
+        discount = Math.min(discount, Number(campaign.maxDiscountAmount));
+      }
+    } else {
+      discount = Number(campaign.discountValue);
+    }
+    discount = Math.min(discount, dto.bookingAmount);
+
+    if (campaign.budget) {
+      const remainingBudget = Number(campaign.budget) - Number(campaign.spentBudget);
+      if (remainingBudget <= 0 || discount > remainingBudget) {
+        throw new BadRequestException('This campaign budget has been exhausted.');
+      }
+    }
+
+    return {
+      isValid: true,
+      campaignId: campaign.id,
+      code: campaign.code,
+      name: campaign.name,
+      discountType: campaign.discountType,
+      discountAmount: Math.round(discount * 100) / 100,
+      netPayable: Math.max(0, Math.round((dto.bookingAmount - discount) * 100) / 100),
+    };
+  }
+
+  /**
+   * Concurrency-safe atomic campaign redemption.
+   * Uses transaction-scoped row-level locking (FOR UPDATE) to prevent
+   * race conditions and budget overages under concurrent load.
+   */
+  async redeemCampaign(dto: RedeemCampaignDto) {
+    const cleanCode = dto.code.trim().toUpperCase();
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Check idempotency: if this booking already redeemed this campaign, return existing
+      const existingAttribution = await tx.bookingAttribution.findUnique({
+        where: { bookingId: dto.bookingId },
+        include: { campaign: true },
+      });
+
+      if (existingAttribution && existingAttribution.campaign?.code === cleanCode) {
+        return {
+          success: true,
+          idempotent: true,
+          attributionId: existingAttribution.id,
+          campaignId: existingAttribution.campaignId,
+          code: cleanCode,
+        };
+      }
+
+      // 2. Lock campaign row pessimistically to serialize concurrent redemptions
+      const campaignRows = await tx.$queryRaw<any[]>`
+        SELECT id, code, name, "isActive", "startDate", "endDate", city, "carCategory",
+               "discountType", "discountValue", "maxDiscountAmount", "minBookingAmount",
+               budget, "spentBudget", "redemptionCount", "maxRedemptions"
+        FROM "PromotionalCampaign"
+        WHERE code = ${cleanCode}
+        FOR UPDATE
+      `;
+
+      if (!campaignRows || campaignRows.length === 0) {
+        throw new NotFoundException(`Campaign code '${cleanCode}' not found.`);
+      }
+
+      const campaign = campaignRows[0];
+      const now = new Date();
+
+      if (!campaign.isActive) {
+        throw new BadRequestException('This campaign is currently inactive or paused.');
+      }
+
+      if (campaign.startDate && now < new Date(campaign.startDate)) {
+        throw new BadRequestException('This campaign has not started yet.');
+      }
+
+      if (campaign.endDate && now > new Date(campaign.endDate)) {
+        throw new BadRequestException('This campaign has expired.');
+      }
+
+      if (campaign.city && dto.city && campaign.city.toLowerCase() !== dto.city.toLowerCase()) {
+        throw new BadRequestException(`This campaign is valid only in ${campaign.city}.`);
+      }
+
+      if (campaign.carCategory && dto.carCategory && campaign.carCategory !== dto.carCategory) {
+        throw new BadRequestException(`This campaign is valid only for ${campaign.carCategory} vehicles.`);
+      }
+
+      if (campaign.minBookingAmount && dto.bookingAmount < Number(campaign.minBookingAmount)) {
+        throw new BadRequestException(
+          `Minimum booking amount of ₹${campaign.minBookingAmount} required for this promotion.`,
+        );
+      }
+
+      if (campaign.maxRedemptions && campaign.redemptionCount >= campaign.maxRedemptions) {
+        throw new BadRequestException('This campaign has reached its maximum redemption cap.');
+      }
+
+      // Calculate discount
+      let discount = 0;
+      if (campaign.discountType === 'PERCENTAGE') {
+        discount = (dto.bookingAmount * Number(campaign.discountValue)) / 100;
+        if (campaign.maxDiscountAmount) {
+          discount = Math.min(discount, Number(campaign.maxDiscountAmount));
+        }
+      } else {
+        discount = Number(campaign.discountValue);
+      }
+      discount = Math.min(discount, dto.bookingAmount);
+
+      const budget = campaign.budget ? Number(campaign.budget) : null;
+      const spentBudget = Number(campaign.spentBudget || 0);
+
+      if (budget !== null) {
+        const newSpent = spentBudget + discount;
+        if (newSpent > budget) {
+          throw new BadRequestException('Campaign budget ceiling reached. No further redemptions permitted.');
+        }
+      }
+
+      const newRedemptionCount = campaign.redemptionCount + 1;
+      const newSpentBudget = spentBudget + discount;
+      const isExhausted =
+        (campaign.maxRedemptions && newRedemptionCount >= campaign.maxRedemptions) ||
+        (budget !== null && newSpentBudget >= budget);
+
+      // 3. Atomically increment redemption count and spent budget
+      await tx.promotionalCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          redemptionCount: { increment: 1 },
+          spentBudget: { increment: new Decimal(discount) },
+          ...(isExhausted ? { isActive: false } : {}),
+        },
+      });
+
+      // 4. Record booking attribution
+      const attribution = await tx.bookingAttribution.upsert({
+        where: { bookingId: dto.bookingId },
+        create: {
+          bookingId: dto.bookingId,
+          source: 'CAMPAIGN',
+          campaignId: campaign.id,
+          metadata: {
+            code: cleanCode,
+            discountAmount: discount,
+            customerId: dto.customerId,
+            redeemedAt: now.toISOString(),
+          },
+        },
+        update: {
+          source: 'CAMPAIGN',
+          campaignId: campaign.id,
+          metadata: {
+            code: cleanCode,
+            discountAmount: discount,
+            customerId: dto.customerId,
+            redeemedAt: now.toISOString(),
+          },
+        },
+      });
+
+      return {
+        success: true,
+        attributionId: attribution.id,
+        campaignId: campaign.id,
+        code: cleanCode,
+        discountAmount: discount,
+        spentBudget: newSpentBudget,
+        redemptionCount: newRedemptionCount,
+        isExhausted: !!isExhausted,
+      };
+    });
+  }
+
+  async reverseCampaignRedemption(bookingId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const attribution = await tx.bookingAttribution.findUnique({
+        where: { bookingId },
+        include: { campaign: true },
+      });
+
+      if (!attribution || !attribution.campaignId || !attribution.campaign) {
+        return { reversed: false, reason: 'No campaign attribution found for booking' };
+      }
+
+      const meta = (attribution.metadata as any) || {};
+      const discount = Number(meta.discountAmount || 0);
+
+      // Decrement redemptionCount and spentBudget atomically
+      await tx.promotionalCampaign.update({
+        where: { id: attribution.campaignId },
+        data: {
+          redemptionCount: { decrement: Math.max(0, 1) },
+          spentBudget: { decrement: new Decimal(Math.max(0, discount)) },
+        },
+      });
+
+      await tx.bookingAttribution.delete({
+        where: { id: attribution.id },
+      });
+
+      return { reversed: true, campaignId: attribution.campaignId, restoredBudget: discount };
+    });
   }
 }

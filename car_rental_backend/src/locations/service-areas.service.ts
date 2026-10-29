@@ -13,7 +13,13 @@ import { REDIS_NAMESPACES, DEFAULT_CACHE_TTLS } from '../redis/redis-namespace.c
 import { AuditLogService } from '../admin/audit-log.service';
 import { SystemConfigService } from '../config-engine/system-config.service';
 import { DEFAULT_SYSTEM_CONFIGS, LocationRulesConfig } from '../config-engine/system-config.interface';
-import { ServiceAreaStatus, VerificationStatus } from '@prisma/client';
+import {
+  ServiceAreaStatus,
+  VerificationStatus,
+  VehicleOperationalStatus,
+  VehicleVerificationStatus,
+  BookingStatus,
+} from '@prisma/client';
 import {
   CreateCityDto,
   UpdateCityDto,
@@ -157,6 +163,30 @@ export class ServiceAreasService {
     const updatedStatus = dto.status ?? city.status;
     const isActive = updatedStatus === ServiceAreaStatus.ACTIVE;
 
+    // Safety guard: prevent deactivation of city with active rentals
+    if (updatedStatus !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
+      const activeBookingsCount = await this.prisma.booking.count({
+        where: {
+          car: {
+            OR: [
+              { serviceArea: { cityId: id } },
+              { pickupHub: { city: { equals: city.name, mode: 'insensitive' } } },
+              { vendor: { city: { equals: city.name, mode: 'insensitive' } } },
+            ],
+          },
+          status: {
+            in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.PENDING],
+          },
+        },
+      });
+
+      if (activeBookingsCount > 0) {
+        throw new BadRequestException(
+          `Cannot deactivate city "${city.name}". There are ${activeBookingsCount} active or ongoing bookings in this city. Complete or resolve all active bookings before deactivating.`,
+        );
+      }
+    }
+
     const updatedCity = await this.prisma.supportedCity.update({
       where: { id },
       data: {
@@ -200,6 +230,30 @@ export class ServiceAreasService {
     const city = await this.prisma.supportedCity.findUnique({ where: { id } });
     if (!city) {
       throw new NotFoundException(`City with ID [${id}] not found.`);
+    }
+
+    // Safety guard: prevent deactivation of city with active rentals
+    if (status !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
+      const activeBookingsCount = await this.prisma.booking.count({
+        where: {
+          car: {
+            OR: [
+              { serviceArea: { cityId: id } },
+              { pickupHub: { city: { equals: city.name, mode: 'insensitive' } } },
+              { vendor: { city: { equals: city.name, mode: 'insensitive' } } },
+            ],
+          },
+          status: {
+            in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.PENDING],
+          },
+        },
+      });
+
+      if (activeBookingsCount > 0) {
+        throw new BadRequestException(
+          `Cannot deactivate city "${city.name}". There are ${activeBookingsCount} active or ongoing bookings in this city. Complete or resolve all active bookings before deactivating.`,
+        );
+      }
     }
 
     const updated = await this.prisma.supportedCity.update({
@@ -437,6 +491,22 @@ export class ServiceAreasService {
       throw new BadRequestException(
         `Cannot activate service area "${area.name}" because its parent city "${area.city.name}" is INACTIVE. Activate the city first.`,
       );
+    }
+
+    // Guard: Cannot deactivate service area with active rentals
+    if (status !== ServiceAreaStatus.ACTIVE && area.status === ServiceAreaStatus.ACTIVE) {
+      const activeBookingsCount = await this.prisma.booking.count({
+        where: {
+          car: { serviceAreaId: id },
+          status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.PENDING] },
+        },
+      });
+
+      if (activeBookingsCount > 0) {
+        throw new BadRequestException(
+          `Cannot deactivate service area "${area.name}". There are ${activeBookingsCount} active bookings in this area. Complete or resolve all active bookings before deactivating.`,
+        );
+      }
     }
 
     const updated = await this.prisma.serviceArea.update({
@@ -928,14 +998,14 @@ export class ServiceAreasService {
           where: { isActive: true },
           include: {
             vendor: {
-              select: { id: true, businessName: true, verificationStatus: true, isActive: true },
+              select: { id: true, businessName: true, verificationStatus: true },
             },
           },
         },
         cars: {
           where: {
-            operationalStatus: 'OPERATIONAL',
-            verificationStatus: 'APPROVED',
+            operationalStatus: VehicleOperationalStatus.ACTIVE,
+            verificationStatus: VehicleVerificationStatus.VERIFIED,
             isAvailable: true,
           },
           select: { id: true, make: true, model: true, registrationNumber: true },
@@ -950,7 +1020,9 @@ export class ServiceAreasService {
     const cityActive = area.city.status === ServiceAreaStatus.ACTIVE && area.city.isActive;
     const validGeometry = area.latitude !== 0 && area.longitude !== 0 && area.radiusMeters > 0;
     const activeVendorsCount = area.vendorAssignments.filter(
-      (va) => va.vendor && (va.vendor.verificationStatus === 'APPROVED' || va.vendor.isActive),
+      (va) =>
+        va.vendor &&
+        va.vendor.verificationStatus === VerificationStatus.VERIFIED,
     ).length;
     const bookableCarsCount = area.cars.length;
 
@@ -1017,7 +1089,7 @@ export class ServiceAreasService {
           where: { isActive: true },
           include: {
             vendor: {
-              select: { id: true, businessName: true, ownerName: true, phone: true },
+              select: { id: true, businessName: true, ownerName: true },
             },
           },
         },
@@ -1054,7 +1126,7 @@ export class ServiceAreasService {
     const activeRentals = await this.prisma.booking.count({
       where: {
         carId: { in: carIds },
-        status: 'ACTIVE',
+        status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.HANDOVER_READY, BookingStatus.RETURN_PENDING] },
       },
     });
 
@@ -1205,7 +1277,7 @@ export class ServiceAreasService {
       this.prisma.booking.count({
         where: {
           carId: { in: allCarIds },
-          status: 'ACTIVE',
+          status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.HANDOVER_READY, BookingStatus.RETURN_PENDING] },
         },
       }),
     ]);

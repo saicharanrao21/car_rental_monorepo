@@ -65,3 +65,4 @@ sequenceDiagram
 2. **Geographic City Scoping**: Campaigns can be restricted to specific active cities (e.g., `Bangalore`, `Hyderabad`, `Mumbai`) or apply globally (`ALL`).
 3. **Regulatory Quiet Hours Lockout**: Promotional campaigns cannot dispatch between 21:00 and 08:00 IST. The orchestrator defers promotional batches to 08:00 IST next morning.
 4. **Attribution & GMV ROI**: Every booking using the promo code increments `attributedGmv`, providing immediate ROI visibility in the Control Tower.
+

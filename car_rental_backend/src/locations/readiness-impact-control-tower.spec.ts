@@ -82,11 +82,11 @@ describe('Readiness & Impact Previews + Notification Rules Control Tower Suite',
         vendorAssignments: [
           {
             isActive: true,
-            vendor: { id: 'v1', businessName: 'Apex Wheels', verificationStatus: 'APPROVED', isActive: true },
+            vendor: { id: 'v1', businessName: 'Apex Wheels', verificationStatus: 'VERIFIED', isActive: true },
           },
         ],
         cars: [
-          { id: 'c1', make: 'Hyundai', model: 'Creta', registrationNumber: 'TS09EA1234' },
+          { id: 'c1', make: 'Hyundai', model: 'Creta', registrationNumber: 'TS09EA1234', operationalStatus: 'ACTIVE', verificationStatus: 'VERIFIED' },
         ],
       });
 
@@ -137,7 +137,7 @@ describe('Readiness & Impact Previews + Notification Rules Control Tower Suite',
           },
         ],
         cars: [
-          { id: 'c1', make: 'Hyundai', model: 'Creta', registrationNumber: 'TS09EA1234', operationalStatus: 'OPERATIONAL' },
+          { id: 'c1', make: 'Hyundai', model: 'Creta', registrationNumber: 'TS09EA1234', operationalStatus: 'ACTIVE' },
         ],
       });
 
@@ -200,6 +200,44 @@ describe('Readiness & Impact Previews + Notification Rules Control Tower Suite',
       expect(sim.matched).toBe(true);
       expect(sim.configuredChannels).toEqual(expect.arrayContaining(['IN_APP', 'PUSH', 'EMAIL', 'WHATSAPP']));
       expect(sim.priority).toBe('HIGH');
+    });
+
+    it('throws InternalServerErrorException when database persistence fails during rule toggle', async () => {
+      mockPrisma.systemConfig.findUnique.mockResolvedValue(null);
+      mockPrisma.systemConfig.upsert.mockRejectedValue(new Error('Connection lost to DB'));
+
+      await expect(
+        adminIntegrationsService.toggleNotificationRule('rule-booking-confirmed', false),
+      ).rejects.toThrow('Failed to persist notification rule toggle to database');
+    });
+  });
+
+  describe('Deactivation Safety Guardrails', () => {
+    it('blocks city deactivation if ongoing active rentals exist', async () => {
+      mockPrisma.supportedCity.findUnique.mockResolvedValue({
+        id: 'city-hyd',
+        name: 'Hyderabad',
+        isActive: true,
+        status: 'ACTIVE',
+      });
+      mockPrisma.booking.count.mockResolvedValue(3); // 3 active rentals
+
+      await expect(
+        serviceAreasService.setCityStatus('city-hyd', 'INACTIVE'),
+      ).rejects.toThrow('Cannot deactivate city "Hyderabad". There are 3 active or ongoing bookings in this city.');
+    });
+
+    it('blocks service area deactivation if ongoing active rentals exist', async () => {
+      mockPrisma.serviceArea.findUnique.mockResolvedValue({
+        id: 'area-gachibowli',
+        name: 'Gachibowli',
+        status: 'ACTIVE',
+      });
+      mockPrisma.booking.count.mockResolvedValue(2); // 2 active rentals
+
+      await expect(
+        serviceAreasService.setServiceAreaStatus('area-gachibowli', 'INACTIVE'),
+      ).rejects.toThrow('Cannot deactivate service area "Gachibowli". There are 2 active bookings in this area.');
     });
   });
 });

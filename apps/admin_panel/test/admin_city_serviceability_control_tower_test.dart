@@ -374,6 +374,7 @@ void main() {
     expect(find.text('Vehicles Offline'), findsOneWidget);
     expect(find.text('Upcoming Trips'), findsOneWidget);
     expect(find.text('Active Rentals'), findsOneWidget);
-    expect(find.text('Force Deactivate (Unsafe)'), findsOneWidget);
+    expect(find.textContaining('Deactivation Blocked'), findsOneWidget);
+    expect(find.text('Force Deactivate (Unsafe)'), findsNothing);
   });
 }

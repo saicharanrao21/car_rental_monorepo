@@ -1390,10 +1390,14 @@ class _ImpactReportDialog extends StatelessWidget {
         if (onConfirmDeactivate != null)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: hasActiveRentals ? const Color(0xFFDC2626) : const Color(0xFFF59E0B),
+              backgroundColor: hasActiveRentals ? Colors.grey : const Color(0xFFF59E0B),
             ),
-            onPressed: onConfirmDeactivate,
-            child: Text(hasActiveRentals ? 'Force Deactivate (Unsafe)' : 'Confirm Deactivation'),
+            onPressed: hasActiveRentals ? null : onConfirmDeactivate,
+            child: Text(
+              hasActiveRentals
+                  ? 'Deactivation Blocked (${report.activeRentalsCount} Active Rentals)'
+                  : 'Confirm Deactivation',
+            ),
           ),
       ],
     );

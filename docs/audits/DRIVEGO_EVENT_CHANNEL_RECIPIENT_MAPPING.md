@@ -53,3 +53,4 @@ Each of the 13 canonical events is stored in `SystemConfig` (`key: 'communicatio
 1. When `rule.isEnabled == false`, event dispatch is suppressed immediately before any queue allocation.
 2. In production (`NODE_ENV === 'production'`), mock providers are rejected with fatal configuration error.
 3. If an event has `quietHoursBypass == false` and the current IST time is between 21:00 and 08:00, marketing and non-critical notifications are queued until 08:00 IST.
+

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, Optional, Logger } from '@nestjs/common';
 import { ProviderRegistryService } from '../registry/provider-registry.service';
 import { IntegrationConfigService } from '../config/integration-config.service';
 import { ProviderHealthService } from '../health/provider-health.service';
@@ -67,6 +67,7 @@ import {
 
 @Injectable()
 export class AdminIntegrationsService {
+  private readonly logger = new Logger(AdminIntegrationsService.name);
   constructor(
     private readonly registry: ProviderRegistryService,
     private readonly configService: IntegrationConfigService,
@@ -1103,8 +1104,11 @@ export class AdminIntegrationsService {
           value: updated,
         },
       });
-    } catch (err) {
-      this.logger.warn(`Failed to persist notification rules to SystemConfig: ${err}`);
+    } catch (err: any) {
+      this.logger.error(`Failed to persist notification rules to SystemConfig: ${err?.message || err}`);
+      throw new InternalServerErrorException(
+        `Failed to persist notification rule changes to system database: ${err?.message || 'Database error'}`,
+      );
     }
 
     return updated;
@@ -1116,6 +1120,7 @@ export class AdminIntegrationsService {
     if (!rule) {
       throw new NotFoundException(`Notification rule with ID [${id}] not found.`);
     }
+    const previousState = rule.isEnabled;
     rule.isEnabled = isEnabled;
     rule.updatedAt = new Date().toISOString();
 
@@ -1132,8 +1137,13 @@ export class AdminIntegrationsService {
           value: existing,
         },
       });
-    } catch (err) {
-      this.logger.warn(`Failed to persist notification rule toggle: ${err}`);
+    } catch (err: any) {
+      // Revert in-memory modification on persistence failure
+      rule.isEnabled = previousState;
+      this.logger.error(`Failed to persist notification rule toggle: ${err?.message || err}`);
+      throw new InternalServerErrorException(
+        `Failed to persist notification rule toggle to database: ${err?.message || 'Database error'}`,
+      );
     }
 
     return rule;

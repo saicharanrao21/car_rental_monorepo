@@ -37,10 +37,12 @@ jobs:
           cache: true
 
       - name: Setup Melos
-        run: dart pub global activate melos
+        run: dart pub global activate melos 6.3.3
 
       - name: Bootstrap Workspace
-        run: melos bootstrap
+        run: |
+          dart pub get
+          melos bootstrap
 
       - name: Run Tests (Customer App)
         working-directory: apps/customer_app
