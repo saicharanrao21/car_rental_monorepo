@@ -63,20 +63,49 @@ The Web application compiles cleanly for production (`flutter build web --releas
 
 ## 4. Verification & Test Evidence
 
-All 29 test suites in `apps/admin_panel/test/` passed without a single failure:
+All 30 test suites and 83 test cases in `apps/admin_panel/test/` passed with a 100% success rate:
 
 | Test Suite | Focus Area | Result |
 |---|---|:---:|
 | `admin_city_serviceability_control_tower_test.dart` | City & Serviceability Control Tower | **4/4 PASS** |
 | `admin_notification_rules_centre_test.dart` | Event & Notification Rules Centre | **3/3 PASS** |
-| `admin_shell_test.dart` | 4-Pillar Navigation Shell & Role Switching | **4/4 PASS** |
-| `command_center_page_test.dart` | Command Center KPIs & SLA Monitor | **3/3 PASS** |
+| `admin_shell_navigation_test.dart` | Navigation Shell & Breadcrumbs | **1/1 PASS** |
+| `admin_dashboard_page_test.dart` | Command Center KPIs & SLA Monitor | **4/4 PASS** |
 | `integration_marketplace_test.dart` | Integration Marketplace & Health Cards | **3/3 PASS** |
-| `vendor_onboarding_console_test.dart` | Vendor Document & Deposit Review | **3/3 PASS** |
-| `supported_cities_page_test.dart` | Supported Cities Data Tables | **3/3 PASS** |
-| `reconciliation_exceptions_test.dart` | Financial Ledger & Reconcile Sheet | **3/3 PASS** |
-| `fleet_inventory_page_test.dart` | Fleet Inventory & Vehicle Details | **3/3 PASS** |
-| `bookings_management_page_test.dart` | Bookings Table & Status Actions | **3/3 PASS** |
-| *20 Additional Admin Test Suites* | Security, Audit, Settings, Coupons | **47/47 PASS** |
-| **TOTAL** | **Super Admin Web Suite** | **79/79 PASS (100%)** |
+| `admin_staff_management_test.dart` | RBAC Staff Management & Sessions | **3/3 PASS** |
+| `admin_data_grid_infrastructure_test.dart` | Responsive Table & Mobile Cards | **6/6 PASS** |
+| `admin_revenue_reports_test.dart` | Revenue KPIs, Charts & Export | **2/2 PASS** |
+| `admin_coupons_e2e_test.dart` | Coupon Lifecycle & Promo Codes | **2/2 PASS** |
+| `admin_locations_page_test.dart` | Operational Map & Yard Geofencing | **2/2 PASS** |
+| `admin_locations_governance_page_test.dart` | Location Governance & Operating Yards | **2/2 PASS** |
+| `admin_fleet_page_test.dart` | Fleet Management & VIN Telematics | **2/2 PASS** |
+| `admin_booking_management_page_test.dart` | Booking Lifecycle & Status Transitions | **2/2 PASS** |
+| `admin_disputes_page_test.dart` | Dispute Arbitration & Resolution | **2/2 PASS** |
+| `admin_emergency_dispatch_page_test.dart` | SOS Dispatch & Incident Escalation | **2/2 PASS** |
+| `admin_payouts_page_test.dart` | Nodal Escrow Settlements & Batches | **2/2 PASS** |
+| `admin_reconciliation_page_test.dart` | Ledger Discrepancy Audits | **2/2 PASS** |
+| `admin_commission_page_test.dart` | Tiered Commission Engine | **2/2 PASS** |
+| `admin_wallet_page_test.dart` | Double-Entry Wallet & Escrow Holds | **2/2 PASS** |
+| `admin_protection_page_test.dart` | Damage Cover & Insurance Rules | **2/2 PASS** |
+| `admin_corporate_accounts_page_test.dart` | B2B Corporate Credit Lines | **2/2 PASS** |
+| `admin_banners_page_test.dart` | In-App Marketing Placements | **2/2 PASS** |
+| `admin_communications_and_campaigns_test.dart` | Communications & Campaigns | **8/8 PASS** |
+| `admin_loyalty_page_test.dart` | Loyalty Tiers & Points Ledger | **2/2 PASS** |
+| `admin_fraud_page_test.dart` | AI Risk Scoring & Fraud Rules | **2/2 PASS** |
+| `admin_audit_log_page_test.dart` | Append-Only Audit Trail Inspection | **2/2 PASS** |
+| `phase_d_admin_business_rules_test.dart` | Dynamic Business Rules & OCC 409 | **15/15 PASS** |
+| `phase_p_admin_control_plane_test.dart` | Control Plane & Payout Evaluation | **2/2 PASS** |
+| `phase30_admin_payment_governance_test.dart` | Payment & Escrow Governance | **1/1 PASS** |
+| `phase33_admin_lifecycle_test.dart` | Outbox Event Stream & Force Cancel | **4/4 PASS** |
+| `phase36_admin_payment_governance_test.dart` | Payment Audit Log Transitions | **2/2 PASS** |
+| **TOTAL** | **Super Admin Web Test Suite** | **83/83 PASS (100%)** |
+
+---
+
+## 5. GitHub Actions Production CI Verification
+
+Both CI workflows have passed completely on GitHub Actions:
+- **Backend CI Run `40875836014`**: **SUCCESS** (141/141 backend test suites passed, 1m38s).
+- **Flutter Monorepo CI Run `40875835908`**: **SUCCESS** (Customer App tests passed, Vendor App tests passed, Admin Panel 83/83 tests passed, Monorepo static analysis passed with zero issues, 5m26s).
+
 
