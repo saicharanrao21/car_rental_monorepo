@@ -68,3 +68,4 @@ Prior to switching DNS to production traffic:
 4. **Monitoring & Alerts**:
    - Wire Sentry / Datadog APM for backend uncaught exceptions.
    - Enable Slack/Email webhooks for internal critical alerts (`REFUND_FAILED`, `PAYOUT_FAILED`, `EMERGENCY_SOS_RAISED`).
+

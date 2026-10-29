@@ -206,3 +206,4 @@ sequenceDiagram
 - **Backend Controller**: `car_rental_backend/src/integrations/admin/admin-integrations.controller.ts`
 - **Backend Orchestrator**: `car_rental_backend/src/notifications/notification-orchestrator.service.ts`
 - **Evidence**: `phase31-multi-channel-notifications.spec.ts` (13/13 PASS); `admin_notification_rules_centre_test.dart` (3/3 PASS).
+

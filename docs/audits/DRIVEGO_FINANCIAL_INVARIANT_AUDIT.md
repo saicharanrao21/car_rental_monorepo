@@ -125,3 +125,4 @@ model VendorDepositPolicy {
    - Test: Visual evidence 01: `01_customer_payment_state.png` (PASS)
    - Test: Visual evidence 02: `02_customer_payment_recovery_pending.png` (PASS)
    - **Result**: **PASS**.
+

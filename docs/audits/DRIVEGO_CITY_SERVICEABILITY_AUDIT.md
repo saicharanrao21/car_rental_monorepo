@@ -133,3 +133,4 @@ If `activeRentalsCount > 0`, the Super Admin UI displays a **High-Risk Caution B
    - Test 3: Service Areas Workspace sheet opens and renders areas (PASS)
    - Test 4: City readiness scorecard dialog renders progress and metrics (PASS)
    - **Result**: **4/4 passed (100%)**.
+
