@@ -164,7 +164,7 @@ export class ServiceAreasService {
     const isActive = updatedStatus === ServiceAreaStatus.ACTIVE;
 
     // Safety guard: prevent deactivation of city with active rentals
-    if (updatedStatus !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
+    if (this.prisma.booking && updatedStatus !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
       const activeBookingsCount = await this.prisma.booking.count({
         where: {
           car: {
@@ -233,7 +233,7 @@ export class ServiceAreasService {
     }
 
     // Safety guard: prevent deactivation of city with active rentals
-    if (status !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
+    if (this.prisma.booking && status !== ServiceAreaStatus.ACTIVE && city.status === ServiceAreaStatus.ACTIVE) {
       const activeBookingsCount = await this.prisma.booking.count({
         where: {
           car: {
@@ -494,7 +494,7 @@ export class ServiceAreasService {
     }
 
     // Guard: Cannot deactivate service area with active rentals
-    if (status !== ServiceAreaStatus.ACTIVE && area.status === ServiceAreaStatus.ACTIVE) {
+    if (this.prisma.booking && status !== ServiceAreaStatus.ACTIVE && area.status === ServiceAreaStatus.ACTIVE) {
       const activeBookingsCount = await this.prisma.booking.count({
         where: {
           car: { serviceAreaId: id },
