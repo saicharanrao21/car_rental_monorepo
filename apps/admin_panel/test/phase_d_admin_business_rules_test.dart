@@ -366,7 +366,8 @@ void main() {
       expect(find.textContaining('READ-ONLY MODE'), findsOneWidget);
 
       // Save button should be disabled
-      final saveBtn = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Save Changes'));
+      final saveBtnFinder = find.ancestor(of: find.text('Save Changes'), matching: find.byType(ElevatedButton));
+      final saveBtn = tester.widget<ElevatedButton>(saveBtnFinder);
       expect(saveBtn.enabled, isFalse);
     });
   });

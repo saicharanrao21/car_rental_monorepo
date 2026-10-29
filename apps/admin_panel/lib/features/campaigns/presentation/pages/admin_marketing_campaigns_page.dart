@@ -358,16 +358,15 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     'maxRedemptions': int.tryParse(maxRedemptionsCtrl.text),
                   });
 
+                  if (!ctx.mounted) return;
                   Navigator.of(ctx).pop();
 
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Campaign created and saved to database successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Campaign created and saved to database successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 } catch (err) {
                   setDrawerState(() => isSaving = false);
                   if (mounted) {

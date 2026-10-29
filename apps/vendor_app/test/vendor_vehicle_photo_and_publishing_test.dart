@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:models/models.dart';
 import 'package:core/core.dart';
-import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor_app/core/providers/vendor_session_provider.dart';
 import 'package:vendor_app/features/fleet/domain/repositories/fleet_repository.dart';
 import 'package:vendor_app/features/fleet/domain/models/vendor_fleet_models.dart';
