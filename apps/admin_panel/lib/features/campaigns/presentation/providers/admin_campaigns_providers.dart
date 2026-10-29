@@ -91,3 +91,4 @@ final adminCampaignsProvider =
     AutoDisposeAsyncNotifierProvider<AdminCampaignsNotifier, List<Map<String, dynamic>>>(
   () => AdminCampaignsNotifier(),
 );
+

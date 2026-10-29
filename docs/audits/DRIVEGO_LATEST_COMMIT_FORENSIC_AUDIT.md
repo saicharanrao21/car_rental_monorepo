@@ -152,3 +152,4 @@ The monorepo is in a certified, healthy, and production-ready state:
 3. The Campaign Engine features row-level pessimistic locking (`SELECT ... FOR UPDATE`), server-authoritative budget tracking, and a decoupled Riverpod admin interface.
 4. City and serviceability governance strictly prevents deactivation of locations with active bookings, both at the backend API level and in the Flutter Admin Control Tower UI.
 5. All 83 Admin Panel tests, 46 backend unit/integration tests, and production builds pass with zero errors.
+

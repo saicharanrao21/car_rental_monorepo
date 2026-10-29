@@ -38,3 +38,4 @@ export class RedeemCampaignDto extends ValidateCampaignDto {
   @IsString()
   customerId: string;
 }
+
