@@ -6,7 +6,34 @@ import '../../../../core/providers/api_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:models/models.dart';
+import 'package:dio/dio.dart';
 import '../../domain/models/vendor_fleet_models.dart';
+
+final vendorPickupHubsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final client = ref.watch(apiClientProvider).dio;
+  try {
+    final response = await client.get('/locations/vendors/me/hubs');
+    if (response.data is List) {
+      return List<Map<String, dynamic>>.from(
+        (response.data as List).map((x) => Map<String, dynamic>.from(x as Map)),
+      );
+    }
+  } catch (_) {}
+  return [];
+});
+
+final supportedCitiesProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  final client = ref.watch(apiClientProvider).dio;
+  try {
+    final response = await client.get('/locations/cities');
+    if (response.data is List) {
+      return (response.data as List)
+          .map((c) => (c is Map ? (c['name'] ?? c['city']) : c).toString())
+          .toList();
+    }
+  } catch (_) {}
+  return ['Hyderabad', 'Bengaluru', 'Mumbai', 'Delhi-NCR', 'Pune'];
+});
 
 final fleetRepositoryProvider = Provider<FleetRepository>((ref) {
   return ApiFleetRepository(apiClient: ref.watch(apiClientProvider));
@@ -128,9 +155,16 @@ class FleetController extends AutoDisposeAsyncNotifier<void> {
   Future<bool> addCar(CarModel car) async {
     state = const AsyncValue.loading();
     final result = await AsyncValue.guard(() async {
-      await ref.read(fleetRepositoryProvider).addCar(car);
-      ref.invalidate(fleetCarsProvider);
-      ref.invalidate(dashboardStatsProvider);
+      try {
+        await ref.read(fleetRepositoryProvider).addCar(car);
+        ref.invalidate(fleetCarsProvider);
+        ref.invalidate(dashboardStatsProvider);
+      } on DioException catch (e) {
+        final serverMsg = e.response?.data is Map
+            ? (e.response?.data['message'] ?? e.message)
+            : e.message;
+        throw Exception(serverMsg ?? 'Failed to add vehicle to fleet.');
+      }
     });
     state = result;
     return !result.hasError;
@@ -139,9 +173,16 @@ class FleetController extends AutoDisposeAsyncNotifier<void> {
   Future<bool> updateCar(CarModel car) async {
     state = const AsyncValue.loading();
     final result = await AsyncValue.guard(() async {
-      await ref.read(fleetRepositoryProvider).updateCar(car);
-      ref.invalidate(fleetCarsProvider);
-      ref.invalidate(dashboardStatsProvider);
+      try {
+        await ref.read(fleetRepositoryProvider).updateCar(car);
+        ref.invalidate(fleetCarsProvider);
+        ref.invalidate(dashboardStatsProvider);
+      } on DioException catch (e) {
+        final serverMsg = e.response?.data is Map
+            ? (e.response?.data['message'] ?? e.message)
+            : e.message;
+        throw Exception(serverMsg ?? 'Failed to update vehicle.');
+      }
     });
     state = result;
     return !result.hasError;

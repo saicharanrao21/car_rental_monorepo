@@ -830,27 +830,18 @@ export class VendorSecurityDepositService {
       });
 
       if (!deposit) {
-        let defaultAmount = 25000;
-        if (this.systemConfigService) {
-          try {
-            const config = await this.systemConfigService.getConfig<VendorOnboardingRulesConfig>(
-              'vendor.onboarding.rules',
-            );
-            if (config?.defaultSecurityDepositAmount) {
-              defaultAmount = config.defaultSecurityDepositAmount;
-            }
-          } catch {}
-        }
+        const policy = await this.getActivePolicy();
+        const requiredAmount = policy.isRequired ? Number(policy.amount) : 0;
 
         deposit = await tx.vendorSecurityDeposit.create({
           data: {
             vendorId,
-            requiredAmount: defaultAmount,
+            requiredAmount,
             paidAmount: 0,
-            remainingAmount: defaultAmount,
-            status: VendorDepositStatus.REQUIRED,
+            remainingAmount: requiredAmount,
+            status: policy.isRequired ? VendorDepositStatus.REQUIRED : VendorDepositStatus.NOT_REQUIRED,
             requirementCode: 'DEP_SECURITY',
-            requirementVersion: 1,
+            requirementVersion: policy.version || 1,
           },
         });
       }

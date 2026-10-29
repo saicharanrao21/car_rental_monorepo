@@ -1,16 +1,28 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:models/models.dart';
 import '../providers/fleet_providers.dart';
 import '../../../../core/providers/vendor_session_provider.dart';
+import '../../../../core/providers/api_providers.dart';
 
 class AddEditCarPage extends ConsumerStatefulWidget {
   final String? carId;
+  final List<String>? initialPhotos;
+  final String? initialHubId;
+  final String? initialHubName;
 
-  const AddEditCarPage({super.key, this.carId});
+  const AddEditCarPage({
+    super.key,
+    this.carId,
+    this.initialPhotos,
+    this.initialHubId,
+    this.initialHubName,
+  });
 
   @override
   ConsumerState<AddEditCarPage> createState() => _AddEditCarPageState();
@@ -20,6 +32,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   int _currentStep = 0;
   final int _totalSteps = 6;
   bool _isSubmitting = false;
+  bool _isUploadingPhoto = false;
 
   bool get isEditMode => widget.carId != null && widget.carId!.isNotEmpty;
 
@@ -41,17 +54,11 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   bool _isAC = true;
   List<String> _selectedTripTypes = [];
   List<String> _photos = [];
-  String _selectedHub = 'Main Hub';
+  String? _selectedHubId;
+  String? _selectedHubName;
   bool _isAvailableOnPublish = true;
 
   late List<int> _years;
-
-  static const List<String> samplePhotos = [
-    'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
-    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
-    'https://images.unsplash.com/photo-1503376780353-7e6692767b70',
-    'https://images.unsplash.com/photo-1583121274602-3e2820c69888',
-  ];
 
   @override
   void initState() {
@@ -105,13 +112,16 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
         _selectedTripTypes = List.from(car.availableTripTypes);
         _photos = List.from(car.photos);
         _isAvailableOnPublish = car.isAvailable;
+        _selectedHubId = car.pickupHubId;
       }
     } else {
       _selectedYear = currentYear;
       _selectedCategory = 'Sedan';
       _selectedFuelType = 'Petrol';
-      _selectedTripTypes = ['Local', 'Outstation', 'Airport Transfer', 'Self-Drive'];
-      _photos = [samplePhotos.first];
+      _selectedTripTypes = ['Self-Drive', 'Outstation', 'Local', 'Airport Transfer'];
+      _photos = widget.initialPhotos != null ? List.from(widget.initialPhotos!) : []; // Authentic photos required - zero sample photos!
+      _selectedHubId = widget.initialHubId;
+      _selectedHubName = widget.initialHubName;
     }
   }
 
@@ -176,6 +186,16 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
         _showError('Per km rate must be greater than 0');
         return false;
       }
+    } else if (step == 3) {
+      if (_photos.isEmpty) {
+        _showError('Please upload at least 1 authentic vehicle photo before continuing.');
+        return false;
+      }
+    } else if (step == 4) {
+      if (_selectedHubId == null || _selectedHubId!.isEmpty) {
+        _showError('Please select or register an operating yard for vehicle pickup.');
+        return false;
+      }
     }
     return true;
   }
@@ -187,6 +207,256 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
         backgroundColor: const Color(0xFFEF4444),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+
+      final bytes = await pickedFile.readAsBytes();
+      final ext = pickedFile.name.split('.').last.toLowerCase();
+      String contentType = 'image/jpeg';
+      if (ext == 'png') {
+        contentType = 'image/png';
+      } else if (ext == 'webp') {
+        contentType = 'image/webp';
+      }
+
+      final uploadService = UploadService(apiClient: ref.read(apiClientProvider));
+      final result = await uploadService.uploadFileBytes(
+        fileType: 'car-photo',
+        contentType: contentType,
+        fileBytes: bytes,
+      );
+
+      final photoUrl = result.publicUrl ?? result.uploadUrl;
+      if (mounted) {
+        setState(() {
+          _photos.add(photoUrl);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vehicle photo uploaded successfully!'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Photo upload failed: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
+  }
+
+  void _showPhotoSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add Vehicle Photo',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Gap(8),
+              const Text(
+                'Choose authentic photos of your actual vehicle (front, back, interior).',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Capture live exterior or interior photo', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _pickAndUploadPhoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Select existing vehicle photo from device', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _pickAndUploadPhoto(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddHubDialog() {
+    final nameCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    String selectedCity = 'Hyderabad';
+    final supportedCitiesAsync = ref.read(supportedCitiesProvider);
+    final cities = supportedCitiesAsync.value ?? ['Hyderabad', 'Bengaluru', 'Mumbai', 'Delhi-NCR', 'Pune'];
+    if (!cities.contains(selectedCity) && cities.isNotEmpty) {
+      selectedCity = cities.first;
+    }
+    bool isSavingHub = false;
+
+    showDialog(
+      context: context,
+      builder: (dlgContext) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Add Operating Yard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Yard / Hub Name *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const Gap(4),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Madhapur Central Yard',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const Gap(12),
+                    const Text('Operating City *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const Gap(4),
+                    DropdownButtonFormField<String>(
+                      value: selectedCity,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      items: cities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDlgState(() => selectedCity = val);
+                      },
+                    ),
+                    const Gap(12),
+                    const Text('Physical Address *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const Gap(4),
+                    TextField(
+                      controller: addressCtrl,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Plot 12, Hitec City Main Road',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSavingHub ? null : () => Navigator.of(dlgContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSavingHub
+                      ? null
+                      : () async {
+                          final name = nameCtrl.text.trim();
+                          final address = addressCtrl.text.trim();
+                          if (name.isEmpty || address.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter yard name and physical address'),
+                                backgroundColor: Color(0xFFEF4444),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDlgState(() => isSavingHub = true);
+                          try {
+                            final client = ref.read(apiClientProvider).dio;
+                            final res = await client.post('/locations/hubs', data: {
+                              'name': name,
+                              'address': address,
+                              'city': selectedCity,
+                              'latitude': 17.4482,
+                              'longitude': 78.3914,
+                              'serviceRadiusKm': 25,
+                            });
+                            final newHub = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+                            ref.invalidate(vendorPickupHubsProvider);
+                            if (newHub != null && newHub['id'] != null) {
+                              setState(() {
+                                _selectedHubId = newHub['id'].toString();
+                                _selectedHubName = newHub['name']?.toString() ?? name;
+                              });
+                            }
+                            if (Navigator.of(dlgContext).canPop()) {
+                              Navigator.of(dlgContext).pop();
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Operating yard registered successfully!'),
+                                  backgroundColor: Color(0xFF10B981),
+                                ),
+                              );
+                            }
+                          } catch (err) {
+                            setDlgState(() => isSavingHub = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to register yard: $err'),
+                                  backgroundColor: const Color(0xFFEF4444),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isSavingHub
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Register Yard'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -211,6 +481,17 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
   }
 
   Future<void> _submitCar() async {
+    if (_photos.isEmpty) {
+      _showError('Please upload at least 1 authentic vehicle photo before publishing.');
+      setState(() => _currentStep = 3);
+      return;
+    }
+    if (_selectedHubId == null || _selectedHubId!.isEmpty) {
+      _showError('Please select or register an operating yard for vehicle pickup.');
+      setState(() => _currentStep = 4);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final vendorId = ref.read(vendorSessionProvider).vendor?.id ?? '';
@@ -232,20 +513,36 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       fuelType: _selectedFuelType ?? 'Petrol',
       seating: seating,
       isAC: _isAC,
-      photos: _photos.isNotEmpty ? _photos : [samplePhotos.first],
+      photos: _photos,
       pricePerKm: priceKm,
       pricePerDay: priceDay,
       pricePerHour: priceHour,
       registrationNumber: regNum,
       availableTripTypes: _selectedTripTypes.isNotEmpty ? _selectedTripTypes : ['Local', 'Outstation'],
       isAvailable: _isAvailableOnPublish,
+      pickupHubId: _selectedHubId,
     );
 
+    final fleetController = ref.read(fleetControllerProvider.notifier);
     bool success = false;
-    if (isEditMode) {
-      success = await ref.read(fleetControllerProvider.notifier).updateCar(carData);
-    } else {
-      success = await ref.read(fleetControllerProvider.notifier).addCar(carData);
+    try {
+      if (isEditMode) {
+        success = await fleetController.updateCar(carData).timeout(const Duration(seconds: 15));
+      } else {
+        success = await fleetController.addCar(carData).timeout(const Duration(seconds: 15));
+      }
+    } on TimeoutException {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        _showError('Vehicle submission timed out after 15 seconds. Please check your network or try again.');
+        return;
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        _showError('Submission error: $e');
+        return;
+      }
     }
 
     if (mounted) {
@@ -253,20 +550,22 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEditMode ? 'Vehicle updated successfully' : 'Vehicle published to fleet!'),
+            content: Text(isEditMode
+                ? 'Vehicle updated successfully'
+                : 'Vehicle submitted for admin review! (Draft / Pending Verification)'),
             backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
           ),
         );
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save vehicle. Please check network/server logs.'),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
+        final error = ref.read(fleetControllerProvider).error;
+        final errorMsg = error != null
+            ? error.toString().replaceFirst('Exception: ', '')
+            : 'Failed to save vehicle. Please check network/server logs.';
+        _showError(errorMsg);
       }
     }
   }
@@ -769,124 +1068,347 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Vehicle Media & Gallery',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-        ),
-        const Gap(4),
-        const Text(
-          'Upload clear exterior and interior photos of the vehicle.',
-          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-        ),
-        const Gap(20),
-
-        // Photo Grid Preview
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            ..._photos.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final photoUrl = entry.value;
-              return Stack(
-                children: [
-                  Container(
-                    width: 100,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(photoUrl, fit: BoxFit.cover),
-                    ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _photos.removeAt(idx);
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, size: 12, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  final nextSample = samplePhotos[_photos.length % samplePhotos.length];
-                  _photos.add(nextSample);
-                });
-              },
-              child: Container(
-                width: 100,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Vehicle Media & Gallery',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                 ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 24),
-                    Gap(4),
-                    Text('Add Photo', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
-                  ],
+                Gap(4),
+                Text(
+                  'Upload genuine photos of your vehicle (min. 1 required).',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
                 ),
-              ),
+              ],
             ),
+            if (_photos.isNotEmpty)
+              TextButton.icon(
+                onPressed: _isUploadingPhoto ? null : _showPhotoSourceSheet,
+                icon: const Icon(Icons.add_photo_alternate, size: 18),
+                label: const Text('Add More'),
+              ),
           ],
         ),
+        const Gap(16),
+
+        // Quality Guidance Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Color(0xFF64748B), size: 18),
+              Gap(10),
+              Expanded(
+                child: Text(
+                  'Stock photos and sample placeholders are strictly rejected by Admin verification. The first photo will be used as the listing cover.',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Gap(16),
+
+        if (_photos.isEmpty)
+          GestureDetector(
+            onTap: _isUploadingPhoto ? null : _showPhotoSourceSheet,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+              ),
+              child: Column(
+                children: [
+                  _isUploadingPhoto
+                      ? const CircularProgressIndicator()
+                      : const Icon(Icons.add_a_photo_outlined, size: 48, color: AppColors.primary),
+                  const Gap(12),
+                  Text(
+                    _isUploadingPhoto ? 'Uploading to secure storage...' : 'Tap to Upload Real Vehicle Photos',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                  ),
+                  const Gap(4),
+                  const Text(
+                    'High quality front, rear, and interior photos required',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              ..._photos.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final photoUrl = entry.value;
+                final isCover = idx == 0;
+                return Stack(
+                  children: [
+                    Container(
+                      width: 105,
+                      height: 105,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isCover ? AppColors.primary : const Color(0xFFCBD5E1),
+                          width: isCover ? 2 : 1,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: Image.network(
+                          photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, _, __) => Container(
+                            color: const Color(0xFFE2E8F0),
+                            child: const Center(
+                              child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isCover)
+                      Positioned(
+                        bottom: 4,
+                        left: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'COVER',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _photos.removeAt(idx);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              if (_isUploadingPhoto)
+                Container(
+                  width: 105,
+                  height: 105,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: _showPhotoSourceSheet,
+                  child: Container(
+                    width: 105,
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 24),
+                        Gap(4),
+                        Text('Add Photo', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
       ],
     );
   }
 
   // STEP 5: OPERATIONS & HUB
   Widget _buildStep5Operations() {
+    final hubsAsync = ref.watch(vendorPickupHubsProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Operations & Hub Assignment',
+          'Operations & Yard Assignment',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
         ),
         const Gap(4),
         const Text(
-          'Assign pickup location and set initial operational availability.',
+          'Assign vehicle to your operating yard/pickup hub in a platform-supported city.',
           style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
         ),
         const Gap(20),
 
-        const Text('Pickup Hub *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Operating Yard / Pickup Hub *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            TextButton.icon(
+              onPressed: _showAddHubDialog,
+              icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+              label: const Text('Add Yard', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
         const Gap(6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFCBD5E1)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedHub,
-              isExpanded: true,
-              items: ['Main Hub', 'Airport Service Hub', 'Downtown Station']
-                  .map((h) => DropdownMenuItem(value: h, child: Text(h)))
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedHub = val ?? 'Main Hub'),
+
+        hubsAsync.when(
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
             ),
           ),
+          error: (err, _) => Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                const Gap(8),
+                Expanded(
+                  child: Text('Failed to load hubs: $err', style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B))),
+                ),
+              ],
+            ),
+          ),
+          data: (hubs) {
+            if (hubs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.storefront_outlined, size: 36, color: Color(0xFF94A3B8)),
+                    const Gap(8),
+                    const Text(
+                      'No Operating Yards Found',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                    ),
+                    const Gap(4),
+                    const Text(
+                      'Every vehicle must be stationed at a genuine registered yard. Please add your operating yard below.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                    const Gap(12),
+                    ElevatedButton.icon(
+                      onPressed: _showAddHubDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Register First Operating Yard'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final currentSelection = hubs.any((h) => (h['id'] ?? '') == _selectedHubId)
+                ? _selectedHubId
+                : hubs.first['id']?.toString();
+
+            if (_selectedHubId != currentSelection || _selectedHubName == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _selectedHubId = currentSelection;
+                    final match = hubs.firstWhere((h) => (h['id'] ?? '') == currentSelection, orElse: () => {});
+                    _selectedHubName = match['name']?.toString() ?? 'Yard';
+                  });
+                }
+              });
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedHubId,
+                  isExpanded: true,
+                  hint: const Text('Select Operating Yard'),
+                  items: hubs.map((h) {
+                    final hubId = h['id']?.toString() ?? '';
+                    final hubName = h['name']?.toString() ?? 'Operating Yard';
+                    final city = h['city']?.toString() ?? '';
+                    return DropdownMenuItem<String>(
+                      value: hubId,
+                      child: Text('$hubName ($city)', overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedHubId = val;
+                      final match = hubs.firstWhere((h) => (h['id'] ?? '') == val, orElse: () => {});
+                      _selectedHubName = match['name']?.toString() ?? 'Yard';
+                    });
+                  },
+                ),
+              ),
+            );
+          },
         ),
         const Gap(20),
 
@@ -905,7 +1427,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                 children: [
                   Text('Make Available Immediately', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   Gap(2),
-                  Text('Car will accept customer bookings upon publish', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                  Text('Car will accept customer bookings once verified by admin', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
                 ],
               ),
               Switch(
@@ -1003,8 +1525,9 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
               _buildReviewRow('Air Conditioning', _isAC ? 'Yes (AC)' : 'No (Non-AC)'),
               _buildReviewRow('Daily Rental Rate', '₹${_priceDayCtrl.text.trim()}/day'),
               _buildReviewRow('Hourly Rate', '₹${_priceHourCtrl.text.trim()}/hr'),
-              _buildReviewRow('Pickup Hub', _selectedHub),
+              _buildReviewRow('Pickup Yard', _selectedHubName ?? _selectedHubId ?? 'Assigned Yard'),
               _buildReviewRow('Initial Status', _isAvailableOnPublish ? 'Available (Active)' : 'Draft (Offline)'),
+              _buildReviewRow('Authentic Photos', '${_photos.length} uploaded'),
             ],
           ),
         ),

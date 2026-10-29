@@ -28,6 +28,7 @@ class CarModel with _$CarModel {
     double? distanceKm,
     @Default(false) bool isSponsored,
     Map<String, dynamic>? vendor,
+    String? pickupHubId,
   }) = _CarModel;
 
   factory CarModel.fromJson(Map<String, dynamic> json) {

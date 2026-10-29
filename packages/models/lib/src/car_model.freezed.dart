@@ -38,6 +38,7 @@ mixin _$CarModel {
   double? get distanceKm => throw _privateConstructorUsedError;
   bool get isSponsored => throw _privateConstructorUsedError;
   Map<String, dynamic>? get vendor => throw _privateConstructorUsedError;
+  String? get pickupHubId => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $CarModelCopyWith<CarModel> get copyWith =>
@@ -70,7 +71,8 @@ abstract class $CarModelCopyWith<$Res> {
       List<DateTime> blockedDates,
       double? distanceKm,
       bool isSponsored,
-      Map<String, dynamic>? vendor});
+      Map<String, dynamic>? vendor,
+      String? pickupHubId});
 }
 
 /// @nodoc
@@ -107,6 +109,7 @@ class _$CarModelCopyWithImpl<$Res, $Val extends CarModel>
     Object? distanceKm = freezed,
     Object? isSponsored = null,
     Object? vendor = freezed,
+    Object? pickupHubId = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -193,6 +196,10 @@ class _$CarModelCopyWithImpl<$Res, $Val extends CarModel>
           ? _value.vendor
           : vendor // ignore: cast_nullable_to_non_nullable
               as Map<String, dynamic>?,
+      pickupHubId: freezed == pickupHubId
+          ? _value.pickupHubId
+          : pickupHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -226,7 +233,8 @@ abstract class _$$CarModelImplCopyWith<$Res>
       List<DateTime> blockedDates,
       double? distanceKm,
       bool isSponsored,
-      Map<String, dynamic>? vendor});
+      Map<String, dynamic>? vendor,
+      String? pickupHubId});
 }
 
 /// @nodoc
@@ -261,6 +269,7 @@ class __$$CarModelImplCopyWithImpl<$Res>
     Object? distanceKm = freezed,
     Object? isSponsored = null,
     Object? vendor = freezed,
+    Object? pickupHubId = freezed,
   }) {
     return _then(_$CarModelImpl(
       id: null == id
@@ -347,6 +356,10 @@ class __$$CarModelImplCopyWithImpl<$Res>
           ? _value._vendor
           : vendor // ignore: cast_nullable_to_non_nullable
               as Map<String, dynamic>?,
+      pickupHubId: freezed == pickupHubId
+          ? _value.pickupHubId
+          : pickupHubId // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -380,7 +393,8 @@ class _$CarModelImpl implements _CarModel {
       final List<DateTime> blockedDates = const [],
       this.distanceKm,
       this.isSponsored = false,
-      final Map<String, dynamic>? vendor})
+      final Map<String, dynamic>? vendor,
+      this.pickupHubId})
       : _photos = photos,
         _availableTripTypes = availableTripTypes,
         _blockedDates = blockedDates,
@@ -463,8 +477,11 @@ class _$CarModelImpl implements _CarModel {
   }
 
   @override
+  final String? pickupHubId;
+
+  @override
   String toString() {
-    return 'CarModel(id: $id, vendorId: $vendorId, make: $make, model: $model, year: $year, type: $type, fuelType: $fuelType, seating: $seating, isAC: $isAC, photos: $photos, pricePerKm: $pricePerKm, pricePerDay: $pricePerDay, pricePerHour: $pricePerHour, registrationNumber: $registrationNumber, isAvailable: $isAvailable, rating: $rating, availableTripTypes: $availableTripTypes, blockedDates: $blockedDates, distanceKm: $distanceKm, isSponsored: $isSponsored, vendor: $vendor)';
+    return 'CarModel(id: $id, vendorId: $vendorId, make: $make, model: $model, year: $year, type: $type, fuelType: $fuelType, seating: $seating, isAC: $isAC, photos: $photos, pricePerKm: $pricePerKm, pricePerDay: $pricePerDay, pricePerHour: $pricePerHour, registrationNumber: $registrationNumber, isAvailable: $isAvailable, rating: $rating, availableTripTypes: $availableTripTypes, blockedDates: $blockedDates, distanceKm: $distanceKm, isSponsored: $isSponsored, vendor: $vendor, pickupHubId: $pickupHubId)';
   }
 
   @override
@@ -503,7 +520,9 @@ class _$CarModelImpl implements _CarModel {
                 other.distanceKm == distanceKm) &&
             (identical(other.isSponsored, isSponsored) ||
                 other.isSponsored == isSponsored) &&
-            const DeepCollectionEquality().equals(other._vendor, _vendor));
+            const DeepCollectionEquality().equals(other._vendor, _vendor) &&
+            (identical(other.pickupHubId, pickupHubId) ||
+                other.pickupHubId == pickupHubId));
   }
 
   @override
@@ -529,7 +548,8 @@ class _$CarModelImpl implements _CarModel {
         const DeepCollectionEquality().hash(_blockedDates),
         distanceKm,
         isSponsored,
-        const DeepCollectionEquality().hash(_vendor)
+        const DeepCollectionEquality().hash(_vendor),
+        pickupHubId
       ]);
 
   @JsonKey(ignore: true)
@@ -561,7 +581,8 @@ abstract class _CarModel implements CarModel {
       final List<DateTime> blockedDates,
       final double? distanceKm,
       final bool isSponsored,
-      final Map<String, dynamic>? vendor}) = _$CarModelImpl;
+      final Map<String, dynamic>? vendor,
+      final String? pickupHubId}) = _$CarModelImpl;
 
   @override
   String get id;
@@ -605,6 +626,8 @@ abstract class _CarModel implements CarModel {
   bool get isSponsored;
   @override
   Map<String, dynamic>? get vendor;
+  @override
+  String? get pickupHubId;
   @override
   @JsonKey(ignore: true)
   _$$CarModelImplCopyWith<_$CarModelImpl> get copyWith =>

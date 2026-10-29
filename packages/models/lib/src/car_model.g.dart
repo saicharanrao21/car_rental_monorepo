@@ -33,6 +33,7 @@ CarModel _$CarModelFromJson(Map<String, dynamic> json) => CarModel(
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       isSponsored: json['isSponsored'] as bool,
       vendor: json['vendor'] as Map<String, dynamic>?,
+      pickupHubId: json['pickupHubId'] as String?,
     );
 
 Map<String, dynamic> _$CarModelToJson(CarModel instance) => <String, dynamic>{
@@ -58,4 +59,5 @@ Map<String, dynamic> _$CarModelToJson(CarModel instance) => <String, dynamic>{
       'distanceKm': instance.distanceKm,
       'isSponsored': instance.isSponsored,
       'vendor': instance.vendor,
+      'pickupHubId': instance.pickupHubId,
     };

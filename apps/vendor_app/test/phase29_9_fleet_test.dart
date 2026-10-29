@@ -357,6 +357,9 @@ void main() {
         fleetRepositoryProvider.overrideWithValue(mockRepo),
         dashboardRepositoryProvider.overrideWithValue(mockDashboardRepo),
         vendorSessionProvider.overrideWith(() => MockSessionNotifier(testVendor)),
+        vendorPickupHubsProvider.overrideWith((ref) => [
+          {'id': 'hub_1', 'name': 'Central Operating Yard', 'city': 'Hyderabad'},
+        ]),
       ],
       child: MaterialApp(
         home: MediaQuery(
@@ -515,7 +518,39 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
-      // Step 4: Media & Photos
+      // Step 4: Media & Photos (Verify zero stock photo requirement blocks without photos)
+      expect(find.text('STEP 4 OF 6: MEDIA & PHOTOS'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Please upload at least 1 authentic vehicle photo before continuing.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      // Re-launch with authentic photo and yard assignment to test full completion
+      await tester.pumpWidget(buildTestApp(const AddEditCarPage(
+        key: Key('wizard_with_photos'),
+        initialPhotos: ['https://example.com/kia_seltos_live.jpg'],
+        initialHubId: 'hub_1',
+      )));
+      await tester.pumpAndSettle();
+
+      // Fill Identity again
+      await tester.enterText(find.widgetWithText(TextField, 'e.g. Maruti Suzuki, Hyundai, Tata'), 'Kia');
+      await tester.enterText(find.widgetWithText(TextField, 'e.g. Swift, Creta, Nexon, Thar'), 'Seltos');
+      await tester.enterText(find.widgetWithText(TextField, 'e.g. MH 12 AB 1234'), 'MH 14 GT 7777');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Step 2
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Step 3
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Step 4: Has authentic photo now, proceed to Step 5
       expect(find.text('STEP 4 OF 6: MEDIA & PHOTOS'), findsOneWidget);
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -533,7 +568,7 @@ void main() {
       await tester.tap(find.text('Publish Vehicle'));
       await tester.pumpAndSettle();
 
-      expect(mockRepo.cars.any((c) => c.make == 'Kia' && c.model == 'Seltos'), true);
+      expect(mockRepo.cars.any((c) => c.make == 'Kia' && c.model == 'Seltos' && c.pickupHubId == 'hub_1'), true);
     });
 
     testWidgets('7. Bulk CSV Upload parses and validates rows with actionable rejection errors', (tester) async {

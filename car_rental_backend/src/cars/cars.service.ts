@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -844,13 +845,17 @@ export class CarsService {
           supportEmail: 'support@drivego.in',
           supportPhone: '+919876543210',
           appVersion: '1.0.0',
-          enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION'],
+          enabledTripTypes: ['SELF_DRIVE', 'OUTSTATION', 'LOCAL', 'AIRPORT_TRANSFER'],
         },
       });
     }
 
+    const effectiveEnabled = settings.enabledTripTypes && settings.enabledTripTypes.length > 0
+      ? settings.enabledTripTypes
+      : ['SELF_DRIVE', 'OUTSTATION', 'LOCAL', 'AIRPORT_TRANSFER'];
+
     const invalidTypes = tripTypes.filter(
-      (t) => !settings.enabledTripTypes.includes(t as any),
+      (t) => !effectiveEnabled.includes(t as any),
     );
     if (invalidTypes.length > 0) {
       throw new BadRequestException(
@@ -887,6 +892,18 @@ export class CarsService {
       }
     }
 
+    const regTrimmed = dto.registrationNumber.trim().toUpperCase();
+    if (this.prisma.car?.findFirst) {
+      const existing = await this.prisma.car.findFirst({
+        where: { registrationNumber: regTrimmed },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `A vehicle with registration number '${regTrimmed}' already exists in the marketplace.`,
+        );
+      }
+    }
+
     const created = await this.prisma.car.create({
       data: {
         vendorId: vendor.id,
@@ -897,12 +914,14 @@ export class CarsService {
         fuelType: dto.fuelType,
         seating: dto.seating,
         isAC: dto.isAC,
-        registrationNumber: dto.registrationNumber,
+        registrationNumber: regTrimmed,
         photos: dto.photos || [],
         pricePerKm: dto.pricePerKm,
         pricePerDay: dto.pricePerDay,
         pricePerHour: dto.pricePerHour,
-        isAvailable: dto.isAvailable !== undefined ? dto.isAvailable : true,
+        isAvailable: false, // Newly created vehicles are drafts awaiting admin verification
+        operationalStatus: VehicleOperationalStatus.DRAFT,
+        verificationStatus: VehicleVerificationStatus.PENDING,
         availableTripTypes: dto.availableTripTypes || [],
         pickupHubId: dto.pickupHubId ?? undefined,
       },

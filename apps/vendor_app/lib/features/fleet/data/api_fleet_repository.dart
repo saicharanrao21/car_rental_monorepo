@@ -30,6 +30,7 @@ class ApiFleetRepository implements FleetRepository {
       'pricePerHour': car.pricePerHour,
       if (!isUpdate) 'isAvailable': car.isAvailable,
       'availableTripTypes': tripTypesUpper,
+      if (car.pickupHubId != null && car.pickupHubId!.isNotEmpty) 'pickupHubId': car.pickupHubId,
     };
   }
 
