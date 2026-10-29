@@ -133,30 +133,33 @@ class _AdminAutomationOverviewPageState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.precision_manufacturing_outlined,
+                                color: Color(0xFF10B981),
+                                size: 26,
                               ),
                             ),
-                            child: const Icon(
-                              Icons.precision_manufacturing_outlined,
-                              color: Color(0xFF10B981),
-                              size: 26,
-                            ),
-                          ),
-                          const Gap(16),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 700),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                            const Gap(16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     const Text(
                                       'Enterprise Operations & Automation Core',
@@ -167,7 +170,6 @@ class _AdminAutomationOverviewPageState
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    const Gap(10),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
@@ -205,7 +207,9 @@ class _AdminAutomationOverviewPageState
                           ),
                         ],
                       ),
-                      FilledButton.icon(
+                    ),
+                    const Gap(16),
+                    FilledButton.icon(
                         icon: _isTriggering
                             ? const SizedBox(
                                 width: 14,

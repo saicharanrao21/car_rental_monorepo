@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
+import 'package:intl/intl.dart';
 import '../../../integrations/presentation/widgets/communication_ecosystem_widget.dart';
 import '../../../notifications/presentation/providers/admin_notifications_providers.dart';
 
@@ -48,30 +49,7 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
                             color: const Color(0xFF0F172A),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFA7F3D0)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 14),
-                              Gap(6),
-                              Text(
-                                'ALL 5 CHANNELS OPERATIONAL',
-                                style: TextStyle(
-                                  color: Color(0xFF065F46),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _buildChannelHealthBadge(),
                       ],
                     ),
                     const Gap(4),
@@ -135,19 +113,147 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
     );
   }
 
+  Widget _buildChannelHealthBadge() {
+    final statsAsync = ref.watch(adminDeliveryStatsProvider);
+
+    return statsAsync.when(
+      data: (stats) {
+        final total = (stats['overview']?['total'] ?? stats['totalDeliveries'] ?? 0) as num;
+        final failed = (stats['overview']?['failed'] ?? stats['failedCount'] ?? 0) as num;
+        final deadLetter = (stats['overview']?['deadLetter'] ?? stats['deadLetterCount'] ?? 0) as num;
+        final retrying = (stats['overview']?['retrying'] ?? stats['retryingCount'] ?? 0) as num;
+
+        String label = 'ALL 5 CHANNELS OPERATIONAL';
+        Color bgColor = const Color(0xFFECFDF5);
+        Color borderColor = const Color(0xFFA7F3D0);
+        Color fgColor = const Color(0xFF065F46);
+        IconData icon = Icons.check_circle_rounded;
+
+        final failureRate = total > 0 ? (failed + deadLetter) / total : 0.0;
+
+        if (deadLetter > 50 || failureRate > 0.10) {
+          label = 'CRITICAL: HIGH DISPATCH FAILURE';
+          bgColor = const Color(0xFFFEF2F2);
+          borderColor = const Color(0xFFFECACA);
+          fgColor = const Color(0xFF991B1B);
+          icon = Icons.error_rounded;
+        } else if (deadLetter > 10 || failureRate > 0.02 || retrying > 50) {
+          label = 'DEGRADED CHANNELS DETECTED';
+          bgColor = const Color(0xFFFFFBEB);
+          borderColor = const Color(0xFFFDE68A);
+          fgColor = const Color(0xFF92400E);
+          icon = Icons.warning_amber_rounded;
+        } else if (total == 0) {
+          label = 'CHANNELS STANDBY';
+          bgColor = const Color(0xFFF1F5F9);
+          borderColor = const Color(0xFFCBD5E1);
+          fgColor = const Color(0xFF475569);
+          icon = Icons.radio_button_unchecked;
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: fgColor, size: 14),
+              const Gap(6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fgColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF64748B)),
+            ),
+            Gap(6),
+            Text(
+              'OBSERVING CHANNELS...',
+              style: TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (_, __) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFFECACA)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_rounded, color: Color(0xFFDC2626), size: 14),
+            Gap(6),
+            Text(
+              'CHANNELS TEMPORARILY UNAVAILABLE',
+              style: TextStyle(
+                color: Color(0xFF991B1B),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTelemetrySummary(ThemeData theme) {
     final statsAsync = ref.watch(adminDeliveryStatsProvider);
     final stats = statsAsync.valueOrNull;
-    final totalDeliveries = stats?['overview']?['total'] != null
-        ? stats!['overview']['total'].toString()
-        : '1,482,900';
-    final deliveryRate = stats?['overview']?['deliveryRate']?.toString() ?? '99.82%';
-    final queuedBuffer = stats?['overview']?['queued']?.toString() ?? '142';
-    final failedCount = stats?['overview']?['failed']?.toString() ?? '18';
-    final deadLetterCount = stats?['overview']?['deadLetter']?.toString() ?? '42';
-    final deliveredSubtitle = stats?['overview']?['delivered'] != null
-        ? '${stats!['overview']['delivered']} msgs'
-        : '1,476,972 msgs';
+
+    final totalVal = stats?['overview']?['total'] ?? stats?['totalDeliveries'];
+    final deliveredVal = stats?['overview']?['delivered'] ?? stats?['deliveredCount'];
+    final queuedVal = stats?['overview']?['queued'] ?? stats?['queuedCount'];
+    final failedVal = stats?['overview']?['failed'] ?? stats?['failedCount'];
+    final deadLetterVal = stats?['overview']?['deadLetter'] ?? stats?['deadLetterCount'];
+
+    final totalDeliveries = totalVal != null
+        ? NumberFormat('#,###').format(totalVal)
+        : (statsAsync.isLoading ? '...' : '0');
+    final deliveryRate = stats?['overview']?['deliveryRate']?.toString() ??
+        (totalVal is num && totalVal > 0 && deliveredVal is num
+            ? '${(deliveredVal / totalVal * 100).toStringAsFixed(2)}%'
+            : (statsAsync.isLoading ? '...' : '100%'));
+    final queuedBuffer = queuedVal != null ? queuedVal.toString() : (statsAsync.isLoading ? '...' : '0');
+    final failedCount = failedVal != null ? failedVal.toString() : (statsAsync.isLoading ? '...' : '0');
+    final deadLetterCount = deadLetterVal != null ? deadLetterVal.toString() : (statsAsync.isLoading ? '...' : '0');
+    final deliveredSubtitle = deliveredVal != null
+        ? '${NumberFormat('#,###').format(deliveredVal)} msgs'
+        : (statsAsync.isLoading ? 'Loading...' : '0 msgs');
 
     return Container(
       padding: const EdgeInsets.all(20),

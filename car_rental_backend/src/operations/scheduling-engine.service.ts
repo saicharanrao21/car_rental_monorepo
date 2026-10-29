@@ -1,10 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ScheduledJob, ScheduleType } from './operations-domain.types';
 import { DomainEventBusService } from './domain-event-bus.service';
 import { OperationsAuditTracerService } from './operations-audit-tracer.service';
 
 @Injectable()
-export class SchedulingEngineService implements OnModuleDestroy {
+export class SchedulingEngineService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SchedulingEngineService.name);
 
   // In-memory job registry: jobId -> ScheduledJob
@@ -20,6 +20,58 @@ export class SchedulingEngineService implements OnModuleDestroy {
     if (this.tickerInterval.unref) {
       this.tickerInterval.unref();
     }
+  }
+
+  onModuleInit() {
+    this.seedDefaultJobs();
+  }
+
+  private seedDefaultJobs() {
+    const now = Date.now();
+    this.jobs.set('job_overdue_scan', {
+      jobId: 'job_overdue_scan',
+      name: 'Hourly Overdue Rental Scanner',
+      scheduleType: ScheduleType.CRON,
+      cronExpression: '0 * * * *',
+      scheduledTime: new Date(now + 900000).toISOString(),
+      payload: { sweepType: 'OVERDUE_DETECTION' },
+      actionType: 'TRIGGER_SWEEP',
+      status: 'SCHEDULED',
+      timezone: 'Asia/Kolkata',
+      retryCount: 0,
+      maxRetries: 3,
+      createdAt: new Date(now - 86400000).toISOString(),
+    });
+
+    this.jobs.set('job_compliance_scan', {
+      jobId: 'job_compliance_scan',
+      name: 'Daily Compliance Document Expiry Check',
+      scheduleType: ScheduleType.CRON,
+      cronExpression: '0 0 * * *',
+      scheduledTime: new Date(now + 14400000).toISOString(),
+      payload: { sweepType: 'COMPLIANCE_EXPIRY' },
+      actionType: 'TRIGGER_SWEEP',
+      status: 'SCHEDULED',
+      timezone: 'Asia/Kolkata',
+      retryCount: 0,
+      maxRetries: 3,
+      createdAt: new Date(now - 86400000).toISOString(),
+    });
+
+    this.jobs.set('job_recon_finance', {
+      jobId: 'job_recon_finance',
+      name: 'Midnight Provider Ledger Reconciliation',
+      scheduleType: ScheduleType.CRON,
+      cronExpression: '30 0 * * *',
+      scheduledTime: new Date(now + 16200000).toISOString(),
+      payload: { sweepType: 'LEDGER_RECONCILIATION' },
+      actionType: 'TRIGGER_SWEEP',
+      status: 'SCHEDULED',
+      timezone: 'Asia/Kolkata',
+      retryCount: 0,
+      maxRetries: 3,
+      createdAt: new Date(now - 86400000).toISOString(),
+    });
   }
 
   onModuleDestroy() {

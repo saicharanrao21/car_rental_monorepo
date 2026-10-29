@@ -69,13 +69,13 @@ This document provides a comprehensive, item-by-item reconciliation between:
 | Registered Route | Sidebar Label & Route | Page Class | Riverpod Provider | Repository Implementation | Backend API Endpoint |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/communications` | `Communications Overview` (`/communications`) | `CommunicationsOverviewPage` | `apiClientProvider` | `CommunicationEcosystemWidget` | `GET /integrations/providers`, `GET /notifications/stats` |
-| `/integrations` | `Integration Marketplace` (`/integrations`) | `IntegrationMarketplacePage` | `marketplaceNotifierProvider` | `ApiAdminIntegrationsRepository` | `GET /integrations/providers` |
-| `/notification-rules` | `Event & Notification Rules` (`/notification-rules`) | `IntegrationMarketplacePage` (tab: RULES) | `adminIntegrationsRepositoryProvider` | `ApiAdminIntegrationsRepository` | `GET /integrations/notification-rules`, `PATCH .../toggle` |
+| `/integrations` | `Integration Marketplace` (`/integrations`) | `IntegrationMarketplacePage` | `marketplaceNotifierProvider` | `AdminIntegrationsRepository` | `GET /admin/integrations/marketplace`, `GET /admin/integrations/runtime/overview` |
+| `/notification-rules` | `Event & Notification Rules` (`/notification-rules`) | `IntegrationMarketplacePage` (tab: RULES) | `adminIntegrationsRepositoryProvider` | `AdminIntegrationsRepository` | `GET /admin/integrations/notification-rules`, `PATCH .../toggle` |
 | `/templates` | `Message Templates` (`/templates`) | `CommunicationTemplatesPage` | Local State + DLT / Meta registry | `CommunicationTemplatesPage` | `GET /notifications/templates` |
 | `/delivery-logs` | `Delivery Logs & Retries` (`/delivery-logs`) | `CommunicationDeliveryLogsPage` | `adminDeliveriesProvider`, `adminDeliveryStatsProvider` | `ApiAdminNotificationsRepository` | `GET /admin/notifications/deliveries`, `POST .../retry` |
 | `/notifications` | `Push Notifications` (`/notifications`) | `PushNotificationsPage` | `adminNotificationsProvider` | `ApiAdminNotificationsRepository` | `GET /admin/notifications/history`, `POST .../send` |
 | `/whatsapp` | `WhatsApp Messaging` (`/whatsapp`) | `AdminWhatsAppPage` | `adminWhatsAppProvider` | `ApiAdminWhatsAppRepository` | `GET /admin/whatsapp` |
-| `/automation` | `Workflow Automation` (`/automation`) | `AdminAutomationOverviewPage` | `adminAutomationProvider` | `ApiAdminAutomationRepository` | `GET /admin/automation` |
+| `/automation` | `Workflow Automation` (`/automation`) | `AdminAutomationOverviewPage` | `adminWorkflowsProvider`, `adminExecutionsProvider`, `adminApprovalsProvider`, `adminSchedulesProvider` | `ApiAdminOperationsRepository` | `GET /api/v1/operations/workflows`, `/executions`, `/rules`, `/approvals`, `/schedules` |
 
 ### Workspace 7: Security & Platform (`security_platform`)
 | Registered Route | Sidebar Label & Route | Page Class | Riverpod Provider | Repository Implementation | Backend API Endpoint |

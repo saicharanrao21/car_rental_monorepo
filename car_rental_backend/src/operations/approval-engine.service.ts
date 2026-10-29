@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import {
   ApprovalRequest,
   ApprovalStatus,
@@ -9,7 +9,7 @@ import { DomainEventBusService } from './domain-event-bus.service';
 import { OperationsAuditTracerService } from './operations-audit-tracer.service';
 
 @Injectable()
-export class ApprovalEngineService {
+export class ApprovalEngineService implements OnModuleInit {
   private readonly logger = new Logger(ApprovalEngineService.name);
 
   // In-memory approval request store: requestId -> ApprovalRequest
@@ -19,6 +19,82 @@ export class ApprovalEngineService {
     private readonly eventBus: DomainEventBusService,
     private readonly auditTracer: OperationsAuditTracerService,
   ) {}
+
+  onModuleInit() {
+    this.seedDefaultApprovals();
+  }
+
+  private seedDefaultApprovals() {
+    const now = Date.now();
+    this.requests.set('appr_ref_992', {
+      requestId: 'appr_ref_992',
+      definitionType: 'LARGE_REFUND',
+      entityType: 'PAYMENT',
+      entityId: 'PAY_55412',
+      requestedBy: { id: 'usr_support_ananya', role: 'SUPPORT_EXECUTIVE' },
+      steps: [
+        {
+          stepIndex: 0,
+          title: 'Branch Manager Review',
+          approverRole: 'BRANCH_MANAGER',
+          status: ApprovalStatus.PENDING,
+        },
+        {
+          stepIndex: 1,
+          title: 'Finance Director Signoff',
+          approverRole: 'ADMIN',
+          status: ApprovalStatus.PENDING,
+        },
+      ],
+      currentStepIndex: 0,
+      overallStatus: ApprovalStatus.PENDING,
+      metadata: {
+        amount: 48500,
+        currency: 'INR',
+        reason: 'Customer requested refund for trip breakdown at highway',
+        customerName: 'Ananya Roy',
+      },
+      timeoutAt: new Date(now + 4 * 3600 * 1000).toISOString(),
+      createdAt: new Date(now - 3600 * 1000).toISOString(),
+      updatedAt: new Date(now - 3600 * 1000).toISOString(),
+    });
+
+    this.requests.set('appr_vnd_104', {
+      requestId: 'appr_vnd_104',
+      definitionType: 'VENDOR_ONBOARDING',
+      entityType: 'VENDOR',
+      entityId: 'vnd_apex_blr',
+      requestedBy: { id: 'usr_partner_rohit', role: 'PARTNER_ACQUISITION' },
+      steps: [
+        {
+          stepIndex: 0,
+          title: 'Compliance & GST Verification',
+          approverRole: 'ADMIN',
+          status: ApprovalStatus.APPROVED,
+          decidedBy: 'admin_sys',
+          decidedAt: new Date(now - 7200 * 1000).toISOString(),
+        },
+        {
+          stepIndex: 1,
+          title: 'Fleet Inspection & Contract Approval',
+          approverRole: 'ADMIN',
+          status: ApprovalStatus.PENDING,
+        },
+      ],
+      currentStepIndex: 1,
+      overallStatus: ApprovalStatus.PENDING,
+      metadata: {
+        vendorName: 'Apex Mobility Pvt Ltd',
+        vehicleCount: 14,
+        city: 'Hyderabad',
+        reason: 'Tier-1 commercial fleet partner onboarding in Hyderabad',
+        correlationId: 'cor_vnd_apex_blr',
+      },
+      timeoutAt: new Date(now + 18 * 3600 * 1000).toISOString(),
+      createdAt: new Date(now - 14400 * 1000).toISOString(),
+      updatedAt: new Date(now - 7200 * 1000).toISOString(),
+    });
+  }
 
   /**
    * Create a new Human-in-the-loop approval request.

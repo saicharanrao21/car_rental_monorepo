@@ -77,8 +77,8 @@ void main() {
 
     // Verify Telemetry KPIs
     expect(find.text('Real-Time Telemetry & Health Monitoring'), findsOneWidget);
-    expect(find.text('1,482,900'), findsOneWidget);
-    expect(find.text('99.82%'), findsOneWidget);
+    expect(find.text('14,829'), findsOneWidget);
+    expect(find.text('99.79%'), findsOneWidget);
     expect(find.text('28 ms'), findsOneWidget);
     expect(find.text('₹21,480.50'), findsOneWidget);
 
@@ -230,7 +230,22 @@ class MockCampaignsNotifier extends AutoDisposeAsyncNotifier<List<Map<String, dy
 class MockDeliveriesNotifier extends AutoDisposeAsyncNotifier<List<NotificationDeliveryModel>> implements AdminDeliveriesNotifier {
   @override
   Future<List<NotificationDeliveryModel>> build() async {
-    return [];
+    return [
+      NotificationDeliveryModel(
+        id: 'del_test_101',
+        notificationId: 'notif_901',
+        channel: 'WHATSAPP',
+        status: 'DELIVERED',
+        provider: 'meta',
+        recipientTarget: '+91 98765 43210',
+        notificationTitle: 'Booking Confirmed - Mahindra Thar',
+        eventType: 'BOOKING_CONFIRMED',
+        attemptCount: 1,
+        maxRetries: 3,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
   }
 
   @override

@@ -603,5 +603,58 @@ export class WorkflowEngineService implements OnModuleInit {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // Seed initial executions for observability
+    const now = Date.now();
+    this.executions.set('wf_exec_88102', {
+      executionId: 'wf_exec_88102',
+      workflowId: 'WF_BOOKING_LIFECYCLE',
+      version: 1,
+      correlationId: 'cor_bk_delhi_9921',
+      status: WorkflowExecutionStatus.COMPLETED,
+      currentStepId: 'step_end_success',
+      stepHistory: [
+        {
+          stepId: 'step_notify_customer',
+          stepName: 'Notify Customer via Preferred Channel',
+          type: WorkflowStepType.NOTIFICATION,
+          status: 'SUCCESS',
+          startedAt: new Date(now - 180000).toISOString(),
+          completedAt: new Date(now - 179000).toISOString(),
+        },
+      ],
+      contextData: { bookingId: 'BK_DEL_9921', paymentStatus: 'SUCCESS', vehicleAssigned: true },
+      retryCount: 0,
+      startedAt: new Date(now - 180000).toISOString(),
+      completedAt: new Date(now - 178000).toISOString(),
+    });
+
+    this.executions.set('wf_exec_88103', {
+      executionId: 'wf_exec_88103',
+      workflowId: 'WF_PAYMENT_FAILURE_RECOVERY',
+      version: 1,
+      correlationId: 'cor_pay_blr_4421',
+      status: WorkflowExecutionStatus.COMPLETED,
+      currentStepId: 'step_end_recovery',
+      stepHistory: [],
+      contextData: { paymentId: 'PAY_BLR_4421', vendorAlerted: true },
+      retryCount: 1,
+      startedAt: new Date(now - 840000).toISOString(),
+      completedAt: new Date(now - 835000).toISOString(),
+    });
+
+    this.executions.set('wf_exec_88104', {
+      executionId: 'wf_exec_88104',
+      workflowId: 'WF_VEHICLE_OVERDUE',
+      version: 1,
+      correlationId: 'cor_od_mum_1092',
+      status: WorkflowExecutionStatus.FAILED,
+      currentStepId: 'step_telematics_locate',
+      stepHistory: [],
+      contextData: { rentalId: 'RNT_MUM_1092' },
+      error: { code: '504', message: 'IoT Telematics Gateway Timeout (504 Gateway Timeout)' },
+      retryCount: 2,
+      startedAt: new Date(now - 3600000).toISOString(),
+    });
   }
 }

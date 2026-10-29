@@ -460,8 +460,7 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
             Expanded(
               child: deliveriesAsync.when(
                 data: (deliveries) {
-                  // Fallback to sample verified items if real list is empty
-                  final list = deliveries.isEmpty ? _getVerifiedSampleDeliveries() : deliveries;
+                  final list = deliveries;
 
                   final filtered = list.where((d) {
                     if (_searchQuery.isNotEmpty) {
@@ -572,7 +571,37 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, __) => Center(child: Text('Error loading deliveries: $e')),
+                error: (e, __) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 36),
+                        const Gap(12),
+                        const Text(
+                          'Failed to load delivery logs',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                        ),
+                        const Gap(6),
+                        Text(
+                          '$e',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                        ),
+                        const Gap(16),
+                        FilledButton.icon(
+                          onPressed: () => ref.refresh(adminDeliveriesProvider),
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Retry Fetch'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -615,117 +644,5 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
         ],
       ),
     );
-  }
-
-  List<NotificationDeliveryModel> _getVerifiedSampleDeliveries() {
-    final now = DateTime.now();
-    return [
-      NotificationDeliveryModel(
-        id: 'del_101',
-        notificationId: 'notif_901',
-        channel: 'WHATSAPP',
-        status: 'DELIVERED',
-        provider: 'meta',
-        providerMessageId: 'wamid.HBgMOTE5ODc2NTQzMjEwFQIAERgSMTQ1',
-        recipientTarget: '+91 98765 43210',
-        recipientName: 'Rahul Sharma',
-        notificationTitle: 'Booking Confirmed - Mahindra Thar',
-        eventType: 'BOOKING_CONFIRMED',
-        attemptCount: 1,
-        maxRetries: 3,
-        sentAt: now.subtract(const Duration(minutes: 4)),
-        deliveredAt: now.subtract(const Duration(minutes: 4, seconds: 2)),
-        createdAt: now.subtract(const Duration(minutes: 5)),
-        updatedAt: now.subtract(const Duration(minutes: 4)),
-      ),
-      NotificationDeliveryModel(
-        id: 'del_102',
-        notificationId: 'notif_902',
-        channel: 'SMS',
-        status: 'DELIVERED',
-        provider: 'msg91',
-        providerMessageId: 'msg91_trans_8921829',
-        recipientTarget: '+91 91234 56789',
-        recipientName: 'Ananya Roy',
-        notificationTitle: 'Handover Verification OTP: 749210',
-        eventType: 'HANDOVER_INSPECTION_OTP',
-        attemptCount: 1,
-        maxRetries: 3,
-        sentAt: now.subtract(const Duration(minutes: 12)),
-        deliveredAt: now.subtract(const Duration(minutes: 11, seconds: 58)),
-        createdAt: now.subtract(const Duration(minutes: 12)),
-        updatedAt: now.subtract(const Duration(minutes: 11)),
-      ),
-      NotificationDeliveryModel(
-        id: 'del_103',
-        notificationId: 'notif_903',
-        channel: 'EMAIL',
-        status: 'DELIVERED',
-        provider: 'resend',
-        providerMessageId: 'resend_email_489217',
-        recipientTarget: 'arjun.mehta@gmail.com',
-        recipientName: 'Arjun Mehta',
-        notificationTitle: 'Invoice & Security Deposit Refund Summary',
-        eventType: 'DEPOSIT_REFUND_PROCESSED',
-        attemptCount: 1,
-        maxRetries: 3,
-        sentAt: now.subtract(const Duration(minutes: 35)),
-        deliveredAt: now.subtract(const Duration(minutes: 34)),
-        createdAt: now.subtract(const Duration(minutes: 36)),
-        updatedAt: now.subtract(const Duration(minutes: 34)),
-      ),
-      NotificationDeliveryModel(
-        id: 'del_104',
-        notificationId: 'notif_904',
-        channel: 'PUSH',
-        status: 'DELIVERED',
-        provider: 'fcm',
-        providerMessageId: 'fcm_projects_drivego_messages_981',
-        recipientTarget: 'fcm_token_device_andr_90',
-        recipientName: 'Pooja Hegde',
-        notificationTitle: 'Vehicle Ready for Handover at Airport Hub',
-        eventType: 'VEHICLE_DISPATCH_READY',
-        attemptCount: 1,
-        maxRetries: 3,
-        sentAt: now.subtract(const Duration(minutes: 50)),
-        deliveredAt: now.subtract(const Duration(minutes: 49)),
-        createdAt: now.subtract(const Duration(minutes: 50)),
-        updatedAt: now.subtract(const Duration(minutes: 49)),
-      ),
-      NotificationDeliveryModel(
-        id: 'del_105',
-        notificationId: 'notif_905',
-        channel: 'SMS',
-        status: 'RETRYING',
-        provider: 'msg91',
-        providerMessageId: 'msg91_dnd_4829',
-        recipientTarget: '+91 99887 76655',
-        recipientName: 'Vikram Joshi',
-        notificationTitle: 'Payment Reminder for Booking #BK-9021',
-        eventType: 'PAYMENT_REMINDER',
-        attemptCount: 2,
-        maxRetries: 3,
-        lastError: 'Carrier congestion, queuing failover to Twilio India',
-        sentAt: now.subtract(const Duration(minutes: 2)),
-        createdAt: now.subtract(const Duration(minutes: 3)),
-        updatedAt: now.subtract(const Duration(minutes: 1)),
-      ),
-      NotificationDeliveryModel(
-        id: 'del_106',
-        notificationId: 'notif_906',
-        channel: 'WHATSAPP',
-        status: 'FAILED',
-        provider: 'meta',
-        recipientTarget: '+91 97766 55443',
-        recipientName: 'Sneha Patel',
-        notificationTitle: 'Trip Extension Approved',
-        eventType: 'TRIP_EXTENSION_CONFIRMED',
-        attemptCount: 3,
-        maxRetries: 3,
-        lastError: 'RECIPIENT_NOT_ON_WHATSAPP (Status 400)',
-        createdAt: now.subtract(const Duration(hours: 1)),
-        updatedAt: now.subtract(const Duration(minutes: 55)),
-      ),
-    ];
   }
 }
