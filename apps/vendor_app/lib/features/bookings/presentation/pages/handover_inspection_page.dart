@@ -196,15 +196,6 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
 
     final odo = double.tryParse(_odometerCtrl.text.trim()) ?? 42390.0;
     final otp = _handoverOtpCtrl.text.trim();
-    if (otp.length != 6 || int.tryParse(otp) == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFEF4444),
-          content: Text('Please enter a valid 6-digit customer handover OTP.'),
-        ),
-      );
-      return;
-    }
 
     if (_simulateOffline) {
       // Save offline draft
@@ -217,6 +208,7 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
           'fuelPercent': _selectedFuelPercent,
           'photos': _burstPhotos.values.toList(),
           'damages': _recordedDamages,
+          'otp': otp,
           'timestamp': DateTime.now().toIso8601String(),
         };
         return newMap;
@@ -251,6 +243,16 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
               child: const Text('Back to Bookings'),
             ),
           ],
+        ),
+      );
+      return;
+    }
+
+    if (otp.length != 6 || int.tryParse(otp) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFEF4444),
+          content: Text('Please enter a valid 6-digit customer handover OTP.'),
         ),
       );
       return;

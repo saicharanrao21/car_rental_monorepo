@@ -15,8 +15,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify phone entry input and submit button exist
-    expect(find.text('Verify Phone'), findsOneWidget);
-    expect(find.text('Send OTP'), findsOneWidget);
+    expect(find.text('Welcome to DriveGo'), findsOneWidget);
+    expect(find.text('Continue with Phone'), findsOneWidget);
 
     // Verify social divider
     expect(find.text('OR CONTINUE WITH'), findsOneWidget);

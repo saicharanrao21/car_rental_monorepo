@@ -149,23 +149,68 @@ export class NotificationOrchestratorService {
       return existing;
     }
 
-    // 5. Check User Channel Preferences
+    // 5. Evaluate Platform Notification Rules from SystemConfig
+    const activeRule = await this.getActiveRuleForEvent(eventType);
+    if (activeRule && activeRule.isEnabled === false) {
+      this.logger.log(
+        `[NOTIF-ORCHESTRATOR] Event '${eventType}' is disabled by admin notification policy. Skipping dispatch.`,
+      );
+      return null;
+    }
+
+    // Check Quiet Hours compliance (TRAI standard 21:00 - 08:00 IST)
+    const now = new Date();
+    const istMinutes = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) % 1440;
+    const istHour = Math.floor(istMinutes / 60);
+    const isQuietHours = istHour >= 21 || istHour < 8;
+    const quietHoursBypass = activeRule ? !!activeRule.quietHoursBypass : isTransactional;
+
+    // Allowed channels from rule if specified
+    const ruleAllowedChannels: Set<NotificationChannel> | null =
+      activeRule && Array.isArray(activeRule.channels)
+        ? new Set(activeRule.channels.map((c: string) => c as NotificationChannel))
+        : null;
+
+    // Check User Channel Preferences
     const prefs = await this.getUserPreferences(recipientId);
 
-    // Determine enabled channels
-    const channelsToDispatch: NotificationChannel[] = overrideChannels || [
+    // Determine candidate channels
+    let candidateChannels: NotificationChannel[] = overrideChannels || [
       NotificationChannel.IN_APP,
-      ...(isTransactional || prefs.promotionalPush ? [NotificationChannel.PUSH] : []),
-      ...((isTransactional ? prefs.operationalSms : prefs.promotionalSms) && user.phone
-        ? [NotificationChannel.SMS]
-        : []),
-      ...((isTransactional ? prefs.operationalWhatsApp : prefs.promotionalWhatsApp) && user.phone
-        ? [NotificationChannel.WHATSAPP]
-        : []),
-      ...((isTransactional ? prefs.operationalEmail : prefs.promotionalEmail) && user.email
-        ? [NotificationChannel.EMAIL]
-        : []),
+      NotificationChannel.PUSH,
+      NotificationChannel.SMS,
+      NotificationChannel.WHATSAPP,
+      NotificationChannel.EMAIL,
     ];
+
+    if (!overrideChannels && ruleAllowedChannels) {
+      candidateChannels = candidateChannels.filter((ch) => ruleAllowedChannels.has(ch));
+    }
+
+    // Filter by user preference, quiet hours, and contact details
+    const channelsToDispatch: NotificationChannel[] = candidateChannels.filter((channel) => {
+      if (channel === NotificationChannel.IN_APP) {
+        return true;
+      }
+      if (channel === NotificationChannel.PUSH) {
+        return isTransactional || prefs.promotionalPush;
+      }
+      if (channel === NotificationChannel.SMS) {
+        if (!user.phone) return false;
+        if (isQuietHours && !quietHoursBypass) return false;
+        return isTransactional ? prefs.operationalSms : prefs.promotionalSms;
+      }
+      if (channel === NotificationChannel.WHATSAPP) {
+        if (!user.phone) return false;
+        if (isQuietHours && !quietHoursBypass) return false;
+        return isTransactional ? prefs.operationalWhatsApp : prefs.promotionalWhatsApp;
+      }
+      if (channel === NotificationChannel.EMAIL) {
+        if (!user.email) return false;
+        return isTransactional ? prefs.operationalEmail : prefs.promotionalEmail;
+      }
+      return true;
+    });
 
     // 6. Synchronously Persist Canonical In-App Notification (Single Source of Truth)
     const notification = await this.prisma.notification.create({
@@ -761,6 +806,23 @@ export class NotificationOrchestratorService {
     }
 
     return prefs;
+  }
+
+  // ── Platform Dynamic Notification Rules Resolution ────────────────────────
+
+  private async getActiveRuleForEvent(eventType: string): Promise<any | null> {
+    try {
+      if (!this.prisma.systemConfig?.findUnique) return null;
+      const config = await this.prisma.systemConfig.findUnique({
+        where: { key: 'communications.notification_rules' },
+      });
+      if (config && Array.isArray(config.value)) {
+        return (config.value as any[]).find((r) => r.eventType === eventType) || null;
+      }
+    } catch (err: any) {
+      this.logger.debug(`Could not read notification rules from DB: ${err?.message}`);
+    }
+    return null;
   }
 
   // ── Admin Delivery Telemetry & Observability ──────────────────────────────

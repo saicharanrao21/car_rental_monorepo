@@ -49,6 +49,10 @@ export class MarketplaceSearchService {
       vendor: {
         verificationStatus: 'VERIFIED',
       },
+      OR: [
+        { serviceAreaId: null },
+        { serviceArea: { status: 'ACTIVE' } },
+      ],
     };
 
     // Filter by vendor(s)

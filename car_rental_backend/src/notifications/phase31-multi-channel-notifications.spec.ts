@@ -84,6 +84,9 @@ describe('Phase 31: Multi-Channel Operational Notification Platform', () => {
           Promise.resolve({ id: where.id, ...data }),
         ),
       },
+      systemConfig: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
     };
 
     mockFcm = {
@@ -245,6 +248,66 @@ describe('Phase 31: Multi-Channel Operational Notification Platform', () => {
       expect(mockQueueProducer.dispatchSmsNotification).not.toHaveBeenCalled();
       expect(mockQueueProducer.dispatchEmailNotification).not.toHaveBeenCalled();
       expect(mockQueueProducer.dispatchWhatsAppNotification).not.toHaveBeenCalled();
+    });
+
+    it('should suppress dispatch entirely when admin notification rule is disabled', async () => {
+      mockPrisma.systemConfig = {
+        findUnique: jest.fn().mockResolvedValue({
+          key: 'communications.notification_rules',
+          value: [
+            {
+              id: 'rule-booking-confirmed',
+              eventType: 'BOOKING_CONFIRMED',
+              isEnabled: false,
+              channels: ['IN_APP', 'PUSH'],
+            },
+          ],
+        }),
+      };
+
+      const result = await orchestrator.publishEvent({
+        eventType: 'BOOKING_CONFIRMED',
+        recipientId: testUser.id,
+        entityType: 'BOOKING',
+        entityId: 'BK_DISABLED_01',
+        variables: { bookingId: 'BK_DISABLED_01' },
+      });
+
+      expect(result).toBeNull();
+      expect(mockPrisma.notification.create).not.toHaveBeenCalled();
+      expect(mockPrisma.notificationDelivery.create).not.toHaveBeenCalled();
+    });
+
+    it('should strictly limit dispatch to channels permitted by admin notification rule', async () => {
+      mockPrisma.systemConfig = {
+        findUnique: jest.fn().mockResolvedValue({
+          key: 'communications.notification_rules',
+          value: [
+            {
+              id: 'rule-booking-confirmed',
+              eventType: 'BOOKING_CONFIRMED',
+              isEnabled: true,
+              channels: ['IN_APP', 'EMAIL'],
+              quietHoursBypass: true,
+            },
+          ],
+        }),
+      };
+
+      await orchestrator.publishEvent({
+        eventType: 'BOOKING_CONFIRMED',
+        recipientId: testUser.id,
+        entityType: 'BOOKING',
+        entityId: 'BK_CH_RESTRICT_01',
+        variables: { bookingId: 'BK_CH_RESTRICT_01' },
+      });
+
+      const deliveryCalls = mockPrisma.notificationDelivery.create.mock.calls;
+      const dispatchedChannels = deliveryCalls.map((c: any) => c[0].data.channel);
+      expect(dispatchedChannels).toEqual([NotificationChannel.IN_APP, NotificationChannel.EMAIL]);
+      expect(dispatchedChannels).not.toContain(NotificationChannel.PUSH);
+      expect(dispatchedChannels).not.toContain(NotificationChannel.SMS);
+      expect(dispatchedChannels).not.toContain(NotificationChannel.WHATSAPP);
     });
   });
 

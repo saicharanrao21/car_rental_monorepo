@@ -80,6 +80,30 @@ class FakeVendorComplianceRepository implements VendorComplianceRepository {
     required String paymentMethod,
     String? referenceTransactionId,
   }) async {}
+
+  @override
+  Future<VendorDepositOrderModel> createDepositOrder() async =>
+      VendorDepositOrderModel(
+        orderId: 'order_test_123',
+        amount: 2500000,
+        amountInINR: 25000.0,
+        currency: 'INR',
+        keyId: 'rzp_test_mock',
+        purpose: 'SECURITY_DEPOSIT',
+        policyVersion: 1,
+        businessName: 'DriveGo Partner',
+        contactName: 'Partner Admin',
+        email: 'partner@drivego.in',
+        phone: '+919876543210',
+      );
+
+  @override
+  Future<Map<String, dynamic>> verifyDepositPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async =>
+      {'status': 'VERIFIED', 'orderId': razorpayOrderId};
 }
 
 void main() {

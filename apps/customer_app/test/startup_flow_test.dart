@@ -7,6 +7,7 @@ import 'package:customer_app/main.dart';
 import 'package:customer_app/features/onboarding/data/onboarding_storage.dart';
 import 'package:customer_app/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:customer_app/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:customer_app/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:customer_app/features/auth/presentation/pages/phone_entry_page.dart';
 import 'package:customer_app/features/home/presentation/pages/home_page.dart';
 import 'package:customer_app/features/home/home_providers.dart';
@@ -95,14 +96,15 @@ void main() {
       );
 
       // Initially on Splash
-      expect(find.text('DriveGo'), findsOneWidget);
+      expect(find.byType(SplashPage), findsOneWidget);
+      expect(find.text('Drive'), findsOneWidget);
 
       // Wait for splash timer and initialization to complete
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
       // Should now be on OnboardingPage
       expect(find.byType(OnboardingPage), findsOneWidget);
-      expect(find.text('Find Your Perfect Car'), findsOneWidget);
+      expect(find.text('Find Your Drive'), findsOneWidget);
     });
 
     testWidgets('5. Onboarding completed + no session -> Splash navigates to PhoneEntryPage (Login)', (tester) async {
@@ -189,12 +191,12 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 2));
       expect(find.byType(OnboardingPage), findsOneWidget);
 
-      // Tap Next (slide 1 -> 2)
-      await tester.tap(find.text('Next'));
+      // Tap Continue (slide 1 -> 2)
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
-      // Tap Next (slide 2 -> 3)
-      await tester.tap(find.text('Next'));
+      // Tap Continue (slide 2 -> 3)
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
       // Tap 'Get Started' on slide 3
@@ -266,7 +268,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // Should be stably showing Splash
-      expect(find.text('DriveGo'), findsOneWidget);
+      expect(find.byType(SplashPage), findsOneWidget);
+      expect(find.text('Drive'), findsOneWidget);
       expect(find.byType(OnboardingPage), findsNothing);
       expect(find.byType(PhoneEntryPage), findsNothing);
       expect(find.byType(HomePage), findsNothing);

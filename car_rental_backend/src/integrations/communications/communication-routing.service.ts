@@ -248,6 +248,11 @@ export class CommunicationRoutingService {
       .sort((a, b) => b.totalScore - a.totalScore);
 
     const primaryCandidate = eligibleCandidates[0];
+    if (!primaryCandidate && process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `[COMMUNICATION_ROUTING_ERROR] No eligible communication provider configured or available for channel ${targetChannel} (country: ${country}). Mock fallback is forbidden in production environment.`,
+      );
+    }
     const primaryProviderId = primaryCandidate ? primaryCandidate.providerId : 'mock_sms';
 
     // 3. Build Fallback Chain across providers and channels

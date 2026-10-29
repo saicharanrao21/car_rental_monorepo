@@ -120,7 +120,12 @@ export class BookingsService {
       // Fetch car outside of the transaction to do validations and resolve fares
       const car = await this.prisma.car.findUnique({
         where: { id: dto.carId },
-        include: { vendor: true },
+        include: {
+          vendor: true,
+          serviceArea: {
+            include: { city: true },
+          },
+        },
       });
 
       if (!car) {
@@ -149,6 +154,19 @@ export class BookingsService {
 
       if (!car.isAvailable) {
         throw new ConflictException('This car is marked as unavailable.');
+      }
+
+      // Check service area and city operational status
+      if (car.serviceArea && car.serviceArea.status !== 'ACTIVE') {
+        throw new ConflictException(
+          `Cannot book vehicle: Assigned service area '${car.serviceArea.name}' is currently ${car.serviceArea.status}.`,
+        );
+      }
+
+      if (car.serviceArea?.city && car.serviceArea.city.status !== 'ACTIVE') {
+        throw new ConflictException(
+          `Cannot book vehicle: City '${car.serviceArea.city.name}' is currently ${car.serviceArea.city.status}.`,
+        );
       }
 
       // If eligibility service is wired, perform authoritative check
