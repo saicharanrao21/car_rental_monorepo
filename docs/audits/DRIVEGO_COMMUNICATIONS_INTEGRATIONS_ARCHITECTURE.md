@@ -118,3 +118,4 @@ To prevent unauthorized staff from harvesting customer contact information from 
 - In accordance with Indian Telecom Regulations (TRAI), promotional messaging is strictly prohibited between **21:00 and 08:00 IST**.
 - Operational and security messages (`BOOKING_CONFIRMED`, `OTP`, `EMERGENCY_SOS`) have `quietHoursBypass: true` and dispatch 24/7.
 - Marketing campaigns have `quietHoursBypass: false` and are automatically queued or suppressed if triggered outside the allowed window.
+

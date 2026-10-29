@@ -97,3 +97,4 @@ flutter test
 - **Customer Application:** Device registration, in-app notification center, SSE streaming, and SMS/WhatsApp booking updates remain fully operational.
 - **Vendor Application:** Onboarding approval notices, fleet live alerts, and payout notifications continue working seamlessly.
 - **Financial Ledger & Bookings:** No alterations to database models or financial calculation services.
+

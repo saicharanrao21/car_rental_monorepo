@@ -153,3 +153,4 @@ Each capability is classified under one of the 10 forensic status codes:
 | 6 | **Push Notifications** | Push Announcements & Audience Target | `PushNotificationsPage` | FCM Service + Device Registry | Duplicate delivery table | **A** | **CONSOLIDATE:** Retain composer; link to unified Delivery Logs. |
 | 7 | **WhatsApp Messaging** | WhatsApp Business API Management | `AdminWhatsAppPage` | Real Meta API + Timeline | Fully connected | **A** | **KEEP:** Retain as dedicated channel console under Messaging. |
 | 8 | **Workflow Automation** | Rental Sweeper & Event Workflows | `AdminAutomationOverviewPage` | Real `RentalAutomationService` + Ops API | Hardcoded mock workflows in UI | **F** | **FIX:** Connect to `RentalAutomationService` & `OperationsController`. |
+
