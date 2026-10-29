@@ -79,7 +79,7 @@ class _IntegrationMarketplacePageState extends ConsumerState<IntegrationMarketpl
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Integration Marketplace & Operations Control Centre',
+                              'Integrations Hub & Operations Control Centre',
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),

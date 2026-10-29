@@ -155,3 +155,4 @@ The security and platform enhancements strictly adhere to monorepo safety guidel
 1. **Zero Database Migrations Required:** Reuses existing Prisma models (`User`, `AuditLog`, `SystemConfig`, `PlatformSettings`, `RefreshToken`).
 2. **Zero Breaking Changes to External APIs:** Customer mobile app, vendor mobile app, booking workflows, Razorpay payment processing, and wallet integrations remain 100% operational.
 3. **No Mocks in Production Paths:** All mock services are confined to `*.spec.ts` and `*_test.dart` harness files.
+

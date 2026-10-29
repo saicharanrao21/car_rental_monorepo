@@ -132,10 +132,14 @@ class _CommunicationTemplatesPageState extends ConsumerState<CommunicationTempla
     _selectedTemplate = _templates.first;
   }
 
+  bool _hasUnresolvedVariables(String text) {
+    return RegExp(r'\{\{[a-zA-Z0-9_]+\}\}').hasMatch(text);
+  }
+
   String _interpolate(String raw) {
     var result = raw;
     _customVariables.forEach((k, v) {
-      result = result.replaceAll('{{$k}}', v);
+      result = result.replaceAll('{{$k}}', v.trim().isEmpty ? '[$k: EMPTY]' : v);
     });
     return result;
   }
@@ -608,11 +612,44 @@ class _CommunicationTemplatesPageState extends ConsumerState<CommunicationTempla
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        _interpolate((_selectedTemplate['samples'] as Map<String, dynamic>)[_selectedLanguage] ??
-                                            (_selectedTemplate['samples'] as Map<String, dynamic>)['en'] as String),
-                                        style: const TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF0F172A)),
-                                      ),
+                                  Builder(builder: (context) {
+                                    final interpolated = _interpolate(
+                                        (_selectedTemplate['samples'] as Map<String, dynamic>)[_selectedLanguage] ??
+                                            (_selectedTemplate['samples'] as Map<String, dynamic>)['en'] as String);
+                                    final hasUnresolved = _hasUnresolvedVariables(interpolated);
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (hasUnresolved) ...[
+                                          Container(
+                                            margin: const EdgeInsets.only(bottom: 8),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFEF2F2),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFFFECACA)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.warning_amber_rounded, size: 14, color: Colors.red),
+                                                Gap(4),
+                                                Text(
+                                                  'Unresolved template variables detected',
+                                                  style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        Text(
+                                          interpolated,
+                                          style: const TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF0F172A)),
+                                        ),
+                                      ],
+                                    );
+                                  }),
                                       const Gap(10),
                                       Align(
                                         alignment: Alignment.bottomRight,

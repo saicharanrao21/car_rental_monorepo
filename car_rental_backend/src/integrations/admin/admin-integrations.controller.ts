@@ -13,7 +13,10 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { AdminPermission } from '../../auth/permissions.enum';
 import { Role } from '@prisma/client';
 import { AdminIntegrationsService } from './admin-integrations.service';
 import { IntegrationCategory } from '../registry/provider.types';
@@ -37,7 +40,7 @@ import {
 } from '../runtime/runtime.types';
 
 @Controller(['api/v1/integrations/admin', 'admin/integrations'])
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(Role.ADMIN)
 export class AdminIntegrationsController {
   constructor(private readonly integrationsService: AdminIntegrationsService) {}
@@ -565,16 +568,19 @@ export class AdminIntegrationsController {
   // ==========================================
 
   @Get('notification-rules')
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_READ)
   async getNotificationRules() {
     return this.integrationsService.getNotificationRules();
   }
 
   @Post('notification-rules')
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_WRITE)
   async upsertNotificationRule(@Body() rule: any) {
     return this.integrationsService.upsertNotificationRule(rule);
   }
 
   @Patch('notification-rules/:id/toggle')
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_WRITE)
   async toggleNotificationRule(
     @Param('id') id: string,
     @Body('isEnabled') isEnabled: boolean,
@@ -583,6 +589,7 @@ export class AdminIntegrationsController {
   }
 
   @Post('notification-rules/simulate')
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_READ)
   async simulateNotificationRule(
     @Body('eventType') eventType: string,
     @Body('recipientRole') recipientRole?: string,

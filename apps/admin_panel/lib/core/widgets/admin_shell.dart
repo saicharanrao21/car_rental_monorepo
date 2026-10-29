@@ -252,8 +252,8 @@ class AdminShell extends ConsumerWidget {
           badgeColor: Color(0xFF06B6D4),
         ),
         AdminNavItem(
-          label: 'Integration Marketplace',
-          icon: Icons.storefront_outlined,
+          label: 'Integrations Hub',
+          icon: Icons.device_hub_outlined,
           route: '/integrations',
         ),
         AdminNavItem(

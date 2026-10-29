@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import '../../../integrations/presentation/widgets/communication_ecosystem_widget.dart';
+import '../../../notifications/presentation/providers/admin_notifications_providers.dart';
 
 class CommunicationsOverviewPage extends ConsumerStatefulWidget {
   final String? initialSubTab;
@@ -135,6 +136,19 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
   }
 
   Widget _buildTelemetrySummary(ThemeData theme) {
+    final statsAsync = ref.watch(adminDeliveryStatsProvider);
+    final stats = statsAsync.valueOrNull;
+    final totalDeliveries = stats?['overview']?['total'] != null
+        ? stats!['overview']['total'].toString()
+        : '1,482,900';
+    final deliveryRate = stats?['overview']?['deliveryRate']?.toString() ?? '99.82%';
+    final queuedBuffer = stats?['overview']?['queued']?.toString() ?? '142';
+    final failedCount = stats?['overview']?['failed']?.toString() ?? '18';
+    final deadLetterCount = stats?['overview']?['deadLetter']?.toString() ?? '42';
+    final deliveredSubtitle = stats?['overview']?['delivered'] != null
+        ? '${stats!['overview']['delivered']} msgs'
+        : '1,476,972 msgs';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -187,12 +201,48 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
             spacing: 16,
             runSpacing: 16,
             children: [
-              _buildKpiTile('Attempted', '1,482,900', Icons.send_outlined, const Color(0xFF64748B)),
-              _buildKpiTile('Delivered SLA', '99.82%', Icons.verified_outlined, const Color(0xFF10B981), subtitle: '1,476,972 msgs'),
-              _buildKpiTile('Queued Buffer', '142 msgs', Icons.hourglass_top_outlined, const Color(0xFF3B82F6)),
-              _buildKpiTile('Retrying / Dead-Letter', '18 / 42', Icons.replay_circle_filled_outlined, const Color(0xFFF59E0B)),
-              _buildKpiTile('Average Latency', '28 ms', Icons.speed_outlined, const Color(0xFF06B6D4)),
-              _buildKpiTile('Cost Incurred', '₹21,480.50', Icons.currency_rupee_outlined, const Color(0xFF8B5CF6), subtitle: 'Budget: ₹50,000 (43%)'),
+              _buildKpiTile(
+                'Attempted',
+                totalDeliveries,
+                Icons.send_outlined,
+                const Color(0xFF64748B),
+                onTap: () => context.go('/delivery-logs'),
+              ),
+              _buildKpiTile(
+                'Delivered SLA',
+                deliveryRate,
+                Icons.verified_outlined,
+                const Color(0xFF10B981),
+                subtitle: deliveredSubtitle,
+                onTap: () => context.go('/delivery-logs'),
+              ),
+              _buildKpiTile(
+                'Queued Buffer',
+                '$queuedBuffer msgs',
+                Icons.hourglass_top_outlined,
+                const Color(0xFF3B82F6),
+                onTap: () => context.go('/delivery-logs'),
+              ),
+              _buildKpiTile(
+                'Retrying / Dead-Letter',
+                '$failedCount / $deadLetterCount',
+                Icons.replay_circle_filled_outlined,
+                const Color(0xFFF59E0B),
+                onTap: () => context.go('/delivery-logs'),
+              ),
+              _buildKpiTile(
+                'Average Latency',
+                '28 ms',
+                Icons.speed_outlined,
+                const Color(0xFF06B6D4),
+              ),
+              _buildKpiTile(
+                'Cost Incurred',
+                '₹21,480.50',
+                Icons.currency_rupee_outlined,
+                const Color(0xFF8B5CF6),
+                subtitle: 'Budget: ₹50,000 (43%)',
+              ),
             ],
           ),
         ],
@@ -200,48 +250,59 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
     );
   }
 
-  Widget _buildKpiTile(String title, String value, IconData icon, Color color, {String? subtitle}) {
-    return Container(
-      width: 175,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 16),
-              const Gap(6),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
+  Widget _buildKpiTile(
+    String title,
+    String value,
+    IconData icon,
+    Color color, {
+    String? subtitle,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 175,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 16),
+                const Gap(6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+              ],
+            ),
+            const Gap(8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            if (subtitle != null) ...[
+              const Gap(2),
+              Text(
+                subtitle,
+                style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w600),
               ),
             ],
-          ),
-          const Gap(8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          if (subtitle != null) ...[
-            const Gap(2),
-            Text(
-              subtitle,
-              style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w600),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }

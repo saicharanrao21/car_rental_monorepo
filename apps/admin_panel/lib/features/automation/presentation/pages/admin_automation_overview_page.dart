@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import '../../../../core/providers/api_providers.dart';
 import '../widgets/automation_command_centre_widget.dart';
 
 class AdminAutomationOverviewPage extends ConsumerStatefulWidget {
@@ -14,6 +15,101 @@ class AdminAutomationOverviewPage extends ConsumerStatefulWidget {
 class _AdminAutomationOverviewPageState
     extends ConsumerState<AdminAutomationOverviewPage> {
   int _selectedTabIndex = 0;
+  bool _isTriggering = false;
+
+  Future<void> _triggerMaintenanceSweep() async {
+    setState(() => _isTriggering = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final client = ref.read(apiClientProvider);
+      final res = await client.dio.post('/rental/automation/run');
+      if (mounted) {
+        final data = res.data is Map ? res.data as Map<String, dynamic> : {};
+        final results = data['results'] as Map<String, dynamic>? ?? {};
+        final quotes = results['quotes']?['successCount'] ?? results['quotes']?['runCount'] ?? 0;
+        final unconfirmed = results['unconfirmed']?['successCount'] ?? results['unconfirmed']?['runCount'] ?? 0;
+        final overdue = results['overdue']?['successCount'] ?? results['overdue']?['runCount'] ?? 0;
+        final reminders = results['reminders']?['successCount'] ?? results['reminders']?['runCount'] ?? 0;
+
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF161B22),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF30363D)),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Color(0xFF10B981)),
+                Gap(8),
+                Text('Maintenance Sweep Completed', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Automated rental maintenance cycle finished successfully:',
+                  style: TextStyle(color: Color(0xFF8B949E), fontSize: 13),
+                ),
+                const Gap(12),
+                _buildSweepResultRow('Expired Stale Quotes', quotes.toString()),
+                _buildSweepResultRow('Released Unconfirmed Holds', unconfirmed.toString()),
+                _buildSweepResultRow('Detected Overdue Rentals', overdue.toString()),
+                _buildSweepResultRow('Dispatched Pickup Reminders', reminders.toString()),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF238636)),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Acknowledge'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to execute maintenance sweep: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTriggering = false);
+      }
+    }
+  }
+
+  Widget _buildSweepResultRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFFC9D1D9), fontSize: 13)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF21262D),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF30363D)),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFF58A6FF), fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,76 +131,96 @@ class _AdminAutomationOverviewPageState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.precision_manufacturing_outlined,
+                              color: Color(0xFF10B981),
+                              size: 26,
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.precision_manufacturing_outlined,
-                          color: Color(0xFF10B981),
-                          size: 26,
-                        ),
-                      ),
-                      const Gap(16),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 800),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                          const Gap(16),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 700),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Enterprise Operations & Automation Core',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const Gap(10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: const Color(0xFF10B981),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'PHASE L ACTIVE',
+                                        style: TextStyle(
+                                          color: Color(0xFF10B981),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Gap(4),
                                 const Text(
-                                  'Enterprise Operations & Automation Core',
+                                  'Declarative Workflows • Event Bus • Rule Engine • Scheduler • Human-in-the-loop Approvals • Correlation Tracing',
                                   style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const Gap(10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981)
-                                      .withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: const Color(0xFF10B981),
-                                    width: 0.8,
+                                    fontSize: 13,
+                                    color: Color(0xFF8B949E),
                                   ),
                                 ),
-                                child: const Text(
-                                  'PHASE L ACTIVE',
-                                  style: TextStyle(
-                                    color: Color(0xFF10B981),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Gap(4),
-                          const Text(
-                            'Declarative Workflows • Event Bus • Rule Engine • Scheduler • Human-in-the-loop Approvals • Correlation Tracing',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF8B949E),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      FilledButton.icon(
+                        icon: _isTriggering
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.play_arrow_rounded, size: 16),
+                        label: Text(_isTriggering ? 'Executing Sweep...' : 'Trigger Maintenance Sweep'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF238636),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        onPressed: _isTriggering ? null : _triggerMaintenanceSweep,
+                      ),
                     ],
                   ),
                   const Gap(20),

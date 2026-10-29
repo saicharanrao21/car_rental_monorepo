@@ -12,7 +12,10 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { AdminPermission } from '../auth/permissions.enum';
 import { Role } from '@prisma/client';
 import { FleetAvailabilityService } from '../fleet/fleet-availability.service';
 import { VehicleAllocationService } from '../fleet/vehicle-allocation.service';
@@ -209,8 +212,9 @@ export class RentalCoreController {
    * 9. TRIGGER AUTOMATION SWEEP (Admin Only)
    */
   @Post('automation/run')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(Role.ADMIN)
+  @RequirePermissions(AdminPermission.SYSTEM_CONFIG_WRITE)
   async runAutomation() {
     const [quotes, unconfirmed, overdue, reminders] = await Promise.all([
       this.automationService.expireStaleQuotes(),
@@ -221,7 +225,13 @@ export class RentalCoreController {
 
     return {
       timestamp: new Date().toISOString(),
-      results: [quotes, unconfirmed, overdue, reminders],
+      results: {
+        quotes,
+        unconfirmed,
+        overdue,
+        reminders,
+        list: [quotes, unconfirmed, overdue, reminders],
+      },
     };
   }
 }

@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/providers/admin_session_provider.dart';
 import '../../domain/repositories/admin_notifications_repository.dart';
 import '../providers/admin_notifications_providers.dart';
 
@@ -57,6 +58,17 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
   }
 
   Future<void> _handleSend() async {
+    final session = ref.read(adminSessionProvider);
+    if (session.isReadOnly) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Read-only accounts cannot dispatch push notifications.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -726,22 +738,27 @@ class _PushNotificationsPageState extends ConsumerState<PushNotificationsPage> {
                               child: const Text('Clear'),
                             ),
                             const Gap(12),
-                            ElevatedButton.icon(
-                              onPressed: _isSending ? null : _handleSend,
-                              icon: _isSending
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.send_rounded, size: 18),
-                              label: Text(_isSending ? 'Dispatching...' : 'Dispatch Push'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              ),
-                            ),
+                            Builder(builder: (context) {
+                              final isReadOnly = ref.watch(adminSessionProvider.select((s) => s.isReadOnly));
+                              return ElevatedButton.icon(
+                                onPressed: (_isSending || isReadOnly) ? null : _handleSend,
+                                icon: _isSending
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 18),
+                                label: Text(_isSending
+                                    ? 'Dispatching...'
+                                    : (isReadOnly ? 'Read-Only Mode' : 'Dispatch Push')),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isReadOnly ? Colors.grey : AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ],

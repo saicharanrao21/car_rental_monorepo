@@ -18,11 +18,37 @@ class CommunicationDeliveryLogsPage extends ConsumerStatefulWidget {
 class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDeliveryLogsPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isRetrying = false;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  String _maskRecipient(String? raw) {
+    if (raw == null || raw.isEmpty) return 'Customer';
+    final trimmed = raw.trim();
+    if (trimmed.contains('@')) {
+      final parts = trimmed.split('@');
+      final name = parts[0];
+      final domain = parts.length > 1 ? parts[1] : '';
+      final maskedName = name.length > 2 ? '${name.substring(0, 2)}***' : '${name[0]}***';
+      return '$maskedName@$domain';
+    }
+    if (trimmed.startsWith('+')) {
+      if (trimmed.length > 8) {
+        return '${trimmed.substring(0, trimmed.length - 5)}*****';
+      }
+      return trimmed;
+    }
+    if (trimmed.length >= 10) {
+      return '${trimmed.substring(0, 5)}*****';
+    }
+    if (trimmed.length > 16) {
+      return '${trimmed.substring(0, 10)}...';
+    }
+    return trimmed;
   }
 
   void _inspectDelivery(NotificationDeliveryModel delivery) {
@@ -96,7 +122,7 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
           // Recipient Metadata
           _buildDetailSection('Recipient Target', [
             _buildDetailRow('Recipient Name', delivery.recipientName ?? 'Rahul Sharma'),
-            _buildDetailRow('Recipient Target', delivery.recipientTarget ?? '+91 98765 43210'),
+            _buildDetailRow('Recipient Target', _maskRecipient(delivery.recipientTarget)),
             _buildDetailRow('Notification Title', delivery.notificationTitle ?? 'Booking Confirmation'),
           ]),
           const Gap(16),
@@ -133,33 +159,40 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm Safe Retry'),
         content: Text(
-          'Attempt immediate failover retry for message ID ${delivery.id} to recipient ${delivery.recipientTarget ?? 'customer'}?\n\nThe routing engine will switch to secondary provider with strict idempotency check.',
+          'Attempt immediate failover retry for message ID ${delivery.id} to recipient ${_maskRecipient(delivery.recipientTarget)}?\n\nThe routing engine will switch to secondary provider with strict idempotency check.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0F172A)),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(adminDeliveriesProvider.notifier).retry(delivery.id);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failover retry dispatched successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Retry error: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            child: const Text('Dispatch Failover'),
+            onPressed: _isRetrying
+                ? null
+                : () async {
+                    Navigator.pop(ctx);
+                    setState(() => _isRetrying = true);
+                    try {
+                      await ref.read(adminDeliveriesProvider.notifier).retry(delivery.id);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failover retry dispatched successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Retry error: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    } finally {
+                      if (mounted) {
+                        setState(() => _isRetrying = false);
+                      }
+                    }
+                  },
+            child: Text(_isRetrying ? 'Retrying...' : 'Dispatch Failover'),
           ),
         ],
       ),
@@ -485,7 +518,7 @@ class _CommunicationDeliveryLogsPageState extends ConsumerState<CommunicationDel
                         title: 'RECIPIENT',
                         flex: 2,
                         builder: (item) => Text(
-                          item.recipientTarget ?? 'customer@drivego.in',
+                          _maskRecipient(item.recipientTarget),
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
