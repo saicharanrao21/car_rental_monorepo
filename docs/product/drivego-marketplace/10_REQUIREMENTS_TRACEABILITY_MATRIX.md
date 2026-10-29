@@ -26,3 +26,4 @@
 | **REQ-SOD-01** | Segregation of Duties: Dual Authorization on Payouts > ₹50,000 | `TRD §4` | `apps/admin_panel/.../admin_payouts_page.dart` | `PayoutsService.executePayout()` | `VendorPayout.approverId` | `TC-SOD-01` | `COMPLETE_AND_VERIFIED` |
 | **REQ-RBAC-01**| Granular 7 Staff Roles with Read-Only Analyst Assertion | `TRD §1` | `apps/admin_panel/.../admin_staff_management_page.dart` | `AdminStaffService` & `PermissionsGuard` | `User.staffRole` | `admin-staff.spec`| `COMPLETE_AND_VERIFIED` |
 | **REQ-DPDP-01**| Customer Right to Erasure with 7-Year Ledger Retention | `TRD §4` | `apps/admin_panel/.../customer_management_page.dart` | `UsersService.anonymizeUser()` | `User.isSuspended` | `TC-DPDP-01` | `COMPLETE_AND_VERIFIED` |
+

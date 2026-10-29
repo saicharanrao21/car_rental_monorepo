@@ -76,3 +76,4 @@ To prevent marketplace confusion between administrative boundaries and partner o
 2. **Ownership Validation:** During `POST /vendor/fleet` and `PATCH /vendor/fleet/:id`, the backend verifies that `pickupHub.vendorId == vendor.id`. Vehicles cannot be tethered to orphaned or rival partner hubs.
 3. **Deactivation Safety:** If an operating yard is deactivated or closed by the vendor, existing active and confirmed bookings retain historical snapshots of the yard name, address, and coordinates in `Booking.pickupHubSnapshot`. New bookings for that yard are blocked.
 4. **Search and Discovery Integrity:** Customer searches by city or GPS proximity only return vehicles stationed at operating yards within permissible distance or with delivery coverage matching the customer's coordinates.
+

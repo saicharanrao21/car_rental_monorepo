@@ -42,3 +42,4 @@ Before publishing the Customer or Vendor applications to Google Play Store and A
 | **GATE-04** | Vendor Operating Yards | Elimination of fictional preset hubs ("Main Hub"). Vendors register real operating yards within enabled cities; vehicle-to-hub binding validated. | **CRITICAL (P0)** |
 | **GATE-05** | Maker-Checker Payout Control | Financial payouts > ₹50,000 enforce dual authorization. Approver cannot be executor. | **CRITICAL (P0)** |
 | **GATE-06** | DPDP Act 2025 Erasure Compliance | Customer personal data anonymized upon verified request while retaining 7-year double-entry financial ledger records. | **CRITICAL (P0)** |
+

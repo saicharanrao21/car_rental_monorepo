@@ -76,3 +76,4 @@ DriveGo is an Indian technology-driven self-drive vehicle-sharing and rental mar
 3. **Auditability:** Every administrative status modification (vendor approval, vehicle suspension, deposit waiver) writes an immutable entry into `AuditLog`.
 4. **Performance:** Vehicle search response time $\le 300$ ms with Redis caching; image uploads execute directly to object storage via presigned PUT.
 5. **Data Protection:** Statutory DPDP Act 2025 compliance: customer personal data anonymized upon verified erasure request while preserving financial ledgers for 7 years.
+

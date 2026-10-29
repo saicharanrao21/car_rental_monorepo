@@ -61,3 +61,4 @@ COMMAND CENTER       FLEET & PARTNERS          CUSTOMER CARE          FINANCE   
 ### 2.5 Customer Care & DPDP Act 2025 Compliance (`/customers`)
 - **Emergency SOS Dispatch (`/emergency-dispatch`):** Real-time alert display with customer phone, driver details, live GPS coordinates, and one-click emergency service escalation.
 - **Customer Right to Erasure:** `POST /admin/users/:id/anonymize` scrambles PII (name, email, phone) upon request, verifies no active bookings exist, while retaining transaction records in the financial ledger for 7 years as mandated by statutory tax laws.
+

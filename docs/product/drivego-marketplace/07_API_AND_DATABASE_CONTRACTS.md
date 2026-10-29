@@ -263,3 +263,4 @@ model VendorDepositPolicy {
   @@index([isActive])
 }
 ```
+

@@ -64,3 +64,4 @@ To prevent promotional leakage during peak marketing blitzes (e.g. Diwali campai
 3. **Double-Entry Financial Attribution:**
    - Platform-funded discounts are debited to `Expense:MarketingPromotions` and credited to `Liability:CustomerPayable`.
    - Vendor-funded discounts are debited to `Receivable:VendorPromotion` and settled against the vendor's gross payout.
+

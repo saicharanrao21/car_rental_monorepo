@@ -175,3 +175,4 @@ sequenceDiagram
 2. **Idempotency:** Payment verification endpoints require unique `paymentId` keys. Replays are detected and return the cached success response without duplicate ledger entries.
 3. **Optimistic Locking:** Vehicle booking reservations leverage Redis distributed locks (`redlock` on `carId:booking_dates`) to prevent double-booking across concurrent customer checkouts.
 4. **Bounded Client Timeouts:** Mobile HTTP requests to fleet mutation endpoints enforce a 15-second timeout with explicit UI state recovery.
+

@@ -65,3 +65,4 @@ flowchart TD
 | `MAINTENANCE` | `VERIFIED` | ❌ No | Complete maintenance inspection | View maintenance logs |
 | `SUSPENDED` | `REJECTED` | ❌ No | View rejection reason, resubmit documents | Reinstate vehicle |
 | `RETIRED` | Any | ❌ No | None (Archived) | View historical bookings |
+

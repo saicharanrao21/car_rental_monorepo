@@ -48,3 +48,4 @@ cd ../apps/admin_panel
 flutter test test/admin_staff_management_test.dart
 flutter test test/admin_deposit_policy_management_test.dart
 ```
+
