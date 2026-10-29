@@ -356,7 +356,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                     const Text('Operating City *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const Gap(4),
                     DropdownButtonFormField<String>(
-                      value: selectedCity,
+                      initialValue: selectedCity,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -421,7 +421,7 @@ class _AddEditCarPageState extends ConsumerState<AddEditCarPage> {
                                 _selectedHubName = newHub['name']?.toString() ?? name;
                               });
                             }
-                            if (Navigator.of(dlgContext).canPop()) {
+                            if (dlgContext.mounted && Navigator.of(dlgContext).canPop()) {
                               Navigator.of(dlgContext).pop();
                             }
                             if (mounted) {

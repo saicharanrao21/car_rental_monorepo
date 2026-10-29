@@ -42,7 +42,7 @@ export class ServiceAreasService {
     @Optional() private readonly cacheService?: RedisCacheService,
     @Optional() private readonly auditLogService?: AuditLogService,
     @Optional() private readonly systemConfigService?: SystemConfigService,
-  ) {}
+  ) { }
 
   // =========================================================================
   // 1. CITY MANAGEMENT (Admin-Controlled authoritative cities)

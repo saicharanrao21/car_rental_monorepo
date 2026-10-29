@@ -358,9 +358,11 @@ class _AdminMarketingCampaignsPageState extends ConsumerState<AdminMarketingCamp
                     'maxRedemptions': int.tryParse(maxRedemptionsCtrl.text),
                   });
 
-                  if (!ctx.mounted) return;
-                  Navigator.of(ctx).pop();
+                  if (ctx.mounted) {
+                    Navigator.of(ctx).pop();
+                  }
 
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Campaign created and saved to database successfully!'),

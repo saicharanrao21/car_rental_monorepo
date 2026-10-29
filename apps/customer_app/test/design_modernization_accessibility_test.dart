@@ -9,16 +9,7 @@ import 'package:customer_app/features/auth/presentation/pages/phone_entry_page.d
 import 'package:customer_app/features/auth/presentation/pages/otp_verification_page.dart';
 
 double _calculateRelativeLuminance(Color color) {
-  double getComponentLuminance(int component) {
-    final c = component / 255.0;
-    return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4).toDouble();
-  }
-
-  final r = getComponentLuminance(color.red);
-  final g = getComponentLuminance(color.green);
-  final b = getComponentLuminance(color.blue);
-
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return color.computeLuminance();
 }
 
 double _calculateContrastRatio(Color foreground, Color background) {
