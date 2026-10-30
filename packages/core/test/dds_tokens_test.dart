@@ -7,32 +7,32 @@ void main() {
 
   group('DriveGo Design System (DDS) — Tokens Test Suite', () {
     test('DDSColors defines approved brand and semantic tokens', () {
-      expect(DDSColors.primaryNavy, const Color(0xFF0F172A));
-      expect(DDSColors.primaryBlue, const Color(0xFF1E40AF));
+      expect(DDSColors.primaryNavy, const Color(0xFF14243A));
+      expect(DDSColors.primaryBlue, const Color(0xFF2457D6));
       expect(DDSColors.accentAmber, const Color(0xFFF59E0B));
       expect(DDSColors.electricCobalt, const Color(0xFF2563EB));
 
-      expect(DDSColors.bgCanvas, const Color(0xFFF8FAFC));
+      expect(DDSColors.bgCanvas, const Color(0xFFF5F7FB));
       expect(DDSColors.surfaceCard, const Color(0xFFFFFFFF));
-      expect(DDSColors.surfaceSubtle, const Color(0xFFF1F5F9));
-      expect(DDSColors.borderLight, const Color(0xFFE2E8F0));
+      expect(DDSColors.surfaceSubtle, const Color(0xFFEDF2F9));
+      expect(DDSColors.borderLight, const Color(0xFFDFE5EF));
       expect(DDSColors.borderMedium, const Color(0xFFCBD5E1));
 
       expect(DDSColors.bgDark, const Color(0xFF0B0F19));
-      expect(DDSColors.surfaceDark, const Color(0xFF151C2C));
+      expect(DDSColors.surfaceDark, const Color(0xFF141B2D));
       expect(DDSColors.borderDark, const Color(0xFF232D42));
 
-      expect(DDSColors.textPrimary, const Color(0xFF0F172A));
-      expect(DDSColors.textSecondary, const Color(0xFF475569));
+      expect(DDSColors.textPrimary, const Color(0xFF172033));
+      expect(DDSColors.textSecondary, const Color(0xFF64748B));
       expect(DDSColors.textMuted, const Color(0xFF94A3B8));
 
-      expect(DDSColors.successGreen, const Color(0xFF10B981));
+      expect(DDSColors.successGreen, const Color(0xFF16845B));
       expect(DDSColors.successGreenBg, const Color(0xFFECFDF5));
-      expect(DDSColors.warningOrange, const Color(0xFFF97316));
-      expect(DDSColors.warningOrangeBg, const Color(0xFFFFF7ED));
-      expect(DDSColors.errorRed, const Color(0xFFEF4444));
+      expect(DDSColors.warningOrange, const Color(0xFFB76E00));
+      expect(DDSColors.warningOrangeBg, const Color(0xFFFFFBEB));
+      expect(DDSColors.errorRed, const Color(0xFFC62828));
       expect(DDSColors.errorRedBg, const Color(0xFFFEF2F2));
-      expect(DDSColors.infoBlue, const Color(0xFF3B82F6));
+      expect(DDSColors.infoBlue, const Color(0xFF2457D6));
       expect(DDSColors.infoBlueBg, const Color(0xFFEFF6FF));
 
       expect(DDSColors.sponsoredGold, const Color(0xFFD97706));

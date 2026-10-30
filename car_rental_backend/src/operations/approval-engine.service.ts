@@ -21,10 +21,15 @@ export class ApprovalEngineService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.seedDefaultApprovals();
+    if (process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_OPERATIONS === 'true') {
+      this.seedDefaultApprovals();
+    }
   }
 
-  private seedDefaultApprovals() {
+  public seedDefaultApprovals(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Demo operational seeding is strictly prohibited in production environment');
+    }
     const now = Date.now();
     this.requests.set('appr_ref_992', {
       requestId: 'appr_ref_992',
@@ -188,8 +193,38 @@ export class ApprovalEngineService implements OnModuleInit {
       throw new BadRequestException(`Step index ${params.stepIndex} does not exist in request`);
     }
 
+    if (step.stepIndex !== request.currentStepIndex) {
+      throw new BadRequestException(
+        `Cannot decide step ${params.stepIndex}; current active step is ${request.currentStepIndex}`,
+      );
+    }
+
     if (step.status !== ApprovalStatus.PENDING) {
       throw new BadRequestException(`Step ${params.stepIndex} has already been decided: ${step.status}`);
+    }
+
+    if (request.requestedBy?.id && request.requestedBy.id === params.decidedBy.id) {
+      throw new BadRequestException(
+        `Segregation of duties violation: Requester (${request.requestedBy.id}) cannot decide their own approval request`,
+      );
+    }
+
+    if (step.approverUserId && step.approverUserId !== params.decidedBy.id && params.decidedBy.role !== 'SUPER_ADMIN') {
+      throw new BadRequestException(
+        `User ${params.decidedBy.id} is not the designated approver (${step.approverUserId}) for step ${params.stepIndex}`,
+      );
+    }
+
+    if (step.approverRole) {
+      const isAuthorized =
+        params.decidedBy.role === 'SUPER_ADMIN' ||
+        params.decidedBy.role === 'ADMIN' ||
+        params.decidedBy.role === step.approverRole;
+      if (!isAuthorized) {
+        throw new BadRequestException(
+          `User with role ${params.decidedBy.role} is not authorized to decide step requiring role ${step.approverRole}`,
+        );
+      }
     }
 
     step.decidedBy = params.decidedBy.id;

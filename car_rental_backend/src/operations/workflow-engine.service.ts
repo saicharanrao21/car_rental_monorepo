@@ -31,8 +31,13 @@ export class WorkflowEngineService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // Seed standard enterprise default workflows
+    // Seed standard enterprise default workflow blueprints
     this.seedDefaultWorkflows();
+
+    // Only seed demo executions in non-production environments when explicitly enabled
+    if (process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_OPERATIONS === 'true') {
+      this.seedDemoExecutions();
+    }
 
     // Subscribe to domain events globally to auto-trigger matching active workflows
     this.eventBus.subscribeGlobal('workflow-engine-trigger', async (event: DomainEvent) => {
@@ -481,6 +486,9 @@ export class WorkflowEngineService implements OnModuleInit {
    * Default Workflows seeded into DriveGo
    */
   private seedDefaultWorkflows(): void {
+    if (this.definitions.has('WF_BOOKING_LIFECYCLE')) {
+      return;
+    }
     // 1. Booking Created Lifecycle Workflow
     this.registerDefinition({
       workflowId: 'WF_BOOKING_LIFECYCLE',
@@ -603,8 +611,17 @@ export class WorkflowEngineService implements OnModuleInit {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+  }
 
-    // Seed initial executions for observability
+  /**
+   * Seed demo executions for non-production development or local observability.
+   * Gated strictly against production environments.
+   */
+  public seedDemoExecutions(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Demo operational seeding is strictly prohibited in production environment');
+    }
+
     const now = Date.now();
     this.executions.set('wf_exec_88102', {
       executionId: 'wf_exec_88102',

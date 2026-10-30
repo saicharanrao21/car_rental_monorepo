@@ -38,6 +38,60 @@ void main() {
 
       expect(deposit.status, SecurityDepositStatus.REQUIRED);
       expect(deposit.refundedAmount, 0.0);
+      expect(deposit.collateralType, CollateralType.monetaryOnline);
+    });
+
+    test('serializes and deserializes physical vehicle collateral correctly', () {
+      final now = DateTime.now();
+      final deposit = SecurityDepositModel(
+        id: 'dep_vehicle_1',
+        bookingId: 'book_veh_1',
+        amount: 0.0,
+        status: SecurityDepositStatus.HELD,
+        collateralType: CollateralType.physicalVehicle,
+        vehicleRegistrationNumber: 'KA-05-MM-1234',
+        vehicleMakeModel: 'Yamaha FZ-S',
+        vehicleKeyCollected: true,
+        physicalStorageLocation: 'Yard Bay 4B',
+        notes: 'Keys kept in locker #12',
+        heldAt: now,
+        createdAt: now,
+      );
+
+      final json = deposit.toJson();
+      final parsed = SecurityDepositModel.fromJson(json);
+
+      expect(parsed.id, 'dep_vehicle_1');
+      expect(parsed.collateralType, CollateralType.physicalVehicle);
+      expect(parsed.vehicleRegistrationNumber, 'KA-05-MM-1234');
+      expect(parsed.vehicleMakeModel, 'Yamaha FZ-S');
+      expect(parsed.vehicleKeyCollected, true);
+      expect(parsed.physicalStorageLocation, 'Yard Bay 4B');
+      expect(parsed.notes, 'Keys kept in locker #12');
+    });
+
+    test('serializes and deserializes original document safe vault collateral', () {
+      final now = DateTime.now();
+      final deposit = SecurityDepositModel(
+        id: 'dep_doc_1',
+        bookingId: 'book_doc_1',
+        amount: 0.0,
+        status: SecurityDepositStatus.HELD,
+        collateralType: CollateralType.originalDocument,
+        documentType: 'PASSPORT',
+        documentIdentifier: 'Z1234567',
+        physicalStorageLocation: 'Safe Vault Box #07',
+        heldAt: now,
+        createdAt: now,
+      );
+
+      final json = deposit.toJson();
+      final parsed = SecurityDepositModel.fromJson(json);
+
+      expect(parsed.collateralType, CollateralType.originalDocument);
+      expect(parsed.documentType, 'PASSPORT');
+      expect(parsed.documentIdentifier, 'Z1234567');
+      expect(parsed.physicalStorageLocation, 'Safe Vault Box #07');
     });
   });
 

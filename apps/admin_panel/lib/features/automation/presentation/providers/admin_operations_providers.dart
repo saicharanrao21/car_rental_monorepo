@@ -117,3 +117,4 @@ final adminSchedulesProvider =
     AutoDisposeAsyncNotifierProvider<AdminSchedulesNotifier, List<ScheduledJobModel>>(
   () => AdminSchedulesNotifier(),
 );
+

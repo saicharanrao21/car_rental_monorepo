@@ -20,11 +20,14 @@ class BookingDetailDepositCard extends ConsumerWidget {
 
     return depositAsync.when(
       data: (deposit) {
-        if (deposit == null || deposit.amount <= 0) {
+        if (deposit == null ||
+            (deposit.amount <= 0 &&
+                deposit.collateralType == CollateralType.monetaryOnline)) {
           return const SizedBox.shrink();
         }
 
         final (statusText, statusBg, statusFg) = _resolveStatusStyle(deposit.status);
+        final isCollateral = deposit.collateralType != CollateralType.monetaryOnline;
 
         return AppCard(
           padding: const EdgeInsets.all(16),
@@ -34,13 +37,17 @@ class BookingDetailDepositCard extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.shield_outlined, size: 18, color: AppColors.primary),
-                      Gap(8),
+                      Icon(
+                        isCollateral ? Icons.verified_user_rounded : Icons.shield_outlined,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      const Gap(8),
                       Text(
-                        'Security Deposit Status',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        isCollateral ? 'Rental Collateral Custody' : 'Security Deposit Status',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ],
                   ),
@@ -58,44 +65,87 @@ class BookingDetailDepositCard extends ConsumerWidget {
                 ],
               ),
               const Divider(height: 20),
-              _row(
-                context,
-                'Pre-Authorized Amount',
-                IndianCurrencyFormatter.format(deposit.amount, showDecimals: false),
-              ),
-              if (deposit.deductedAmount > 0) ...[
-                const Gap(4),
+              if (!isCollateral) ...[
                 _row(
                   context,
-                  'Damage Deduction',
-                  '- ${IndianCurrencyFormatter.format(deposit.deductedAmount, showDecimals: false)}',
-                  valueColor: Colors.red[700],
+                  'Pre-Authorized Amount',
+                  IndianCurrencyFormatter.format(deposit.amount, showDecimals: false),
                 ),
-              ],
-              if (deposit.refundedAmount > 0) ...[
+                if (deposit.deductedAmount > 0) ...[
+                  const Gap(4),
+                  _row(
+                    context,
+                    'Damage Deduction',
+                    '- ${IndianCurrencyFormatter.format(deposit.deductedAmount, showDecimals: false)}',
+                    valueColor: Colors.red[700],
+                  ),
+                ],
+                if (deposit.refundedAmount > 0) ...[
+                  const Gap(4),
+                  _row(
+                    context,
+                    'Refunded to Source Bank',
+                    IndianCurrencyFormatter.format(deposit.refundedAmount, showDecimals: false),
+                    valueColor: Colors.green[700],
+                    bold: true,
+                  ),
+                ],
+                if (deposit.razorpayRefundId != null && deposit.razorpayRefundId!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(
+                    context,
+                    'Refund Transaction Ref',
+                    deposit.razorpayRefundId!,
+                    valueColor: Colors.blue[800],
+                  ),
+                ],
+              ] else if (deposit.collateralType == CollateralType.physicalVehicle) ...[
+                _row(context, 'Collateral Format', 'Physical Secondary Vehicle'),
+                if (deposit.vehicleMakeModel != null && deposit.vehicleMakeModel!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Vehicle Details', deposit.vehicleMakeModel!),
+                ],
+                if (deposit.vehicleRegistrationNumber != null && deposit.vehicleRegistrationNumber!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Registration Plate', deposit.vehicleRegistrationNumber!),
+                ],
+                if (deposit.vehicleKeyCollected != null) ...[
+                  const Gap(4),
+                  _row(
+                    context,
+                    'Key Custody Status',
+                    deposit.vehicleKeyCollected == true ? 'Surrendered to Safe Keybox' : 'Retained by Customer',
+                    valueColor: deposit.vehicleKeyCollected == true ? Colors.green[800] : Colors.orange[800],
+                  ),
+                ],
+                if (deposit.physicalStorageLocation != null && deposit.physicalStorageLocation!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Yard Storage Bay', deposit.physicalStorageLocation!),
+                ],
+              ] else if (deposit.collateralType == CollateralType.originalDocument) ...[
+                _row(context, 'Collateral Format', 'Original Identification Document'),
+                if (deposit.documentType != null && deposit.documentType!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Document Type', deposit.documentType!),
+                ],
+                if (deposit.documentIdentifier != null && deposit.documentIdentifier!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Document Identifier', deposit.documentIdentifier!),
+                ],
+                if (deposit.physicalStorageLocation != null && deposit.physicalStorageLocation!.isNotEmpty) ...[
+                  const Gap(4),
+                  _row(context, 'Safe Vault Custody', deposit.physicalStorageLocation!),
+                ],
+              ] else if (deposit.collateralType == CollateralType.digilockerHighTrust) ...[
+                _row(context, 'Collateral Format', 'DigiLocker High-Trust Zero Deposit'),
                 const Gap(4),
-                _row(
-                  context,
-                  'Refunded to Source Bank',
-                  IndianCurrencyFormatter.format(deposit.refundedAmount, showDecimals: false),
-                  valueColor: Colors.green[700],
-                  bold: true,
-                ),
-              ],
-              if (deposit.razorpayRefundId != null && deposit.razorpayRefundId!.isNotEmpty) ...[
-                const Gap(4),
-                _row(
-                  context,
-                  'Refund Transaction Ref',
-                  deposit.razorpayRefundId!,
-                  valueColor: Colors.blue[800],
-                ),
+                _row(context, 'Verification Status', 'Government Verified Identity', valueColor: Colors.green[800]),
               ],
               if (deposit.releasedAt != null) ...[
                 const Gap(4),
                 _row(
                   context,
-                  'Settled On',
+                  'Returned / Released On',
                   deposit.releasedAt!.toDDMMYYYY(),
                 ),
               ],
@@ -114,7 +164,13 @@ class BookingDetailDepositCard extends ConsumerWidget {
                     const Gap(8),
                     Expanded(
                       child: Text(
-                        'Security deposits are held securely during the trip and refunded to your original payment method automatically upon post-trip vehicle return inspection.',
+                        isCollateral
+                            ? (deposit.collateralType == CollateralType.physicalVehicle
+                                ? 'Your secondary vehicle is held securely in the vendor’s monitored yard and will be returned immediately upon trip return inspection.'
+                                : deposit.collateralType == CollateralType.originalDocument
+                                    ? 'Your original document is locked in a fire-rated safe vault and will be handed back to you in-person upon trip completion.'
+                                    : 'Zero monetary deposit required due to verified DigiLocker high-trust digital credentials.')
+                            : 'Security deposits are held securely during the trip and refunded to your original payment method automatically upon post-trip vehicle return inspection.',
                         style: TextStyle(fontSize: 11, color: Colors.blue[900]),
                       ),
                     ),

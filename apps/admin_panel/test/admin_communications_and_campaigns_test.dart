@@ -88,6 +88,56 @@ void main() {
     expect(find.text('Delivery Logs & Retries'), findsAtLeastNWidgets(1));
   });
 
+  testWidgets('CommunicationsOverviewPage renders CHANNELS STANDBY and 0.0% when total deliveries is zero', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final router = GoRouter(
+      initialLocation: '/communications',
+      routes: [
+        ShellRoute(
+          builder: (context, state, child) => AdminShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/communications',
+              builder: (context, state) => const CommunicationsOverviewPage(),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          backendHealthProvider.overrideWith((ref) => Future.value(true)),
+          adminDeliveryStatsProvider.overrideWith((ref) => Future.value({
+            'overview': {
+              'total': 0,
+              'delivered': 0,
+              'queued': 0,
+              'retrying': 0,
+              'failed': 0,
+              'deadLetter': 0,
+              'deliveryRate': '0.0%',
+            },
+          })),
+          adminDeliveriesProvider.overrideWith(() => MockDeliveriesNotifier()),
+          adminCampaignsProvider.overrideWith(() => MockCampaignsNotifier()),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('CHANNELS STANDBY'), findsOneWidget);
+    expect(find.text('0.0%'), findsOneWidget);
+    expect(find.text('No deliveries in window'), findsOneWidget);
+  });
+
   testWidgets('CommunicationTemplatesPage renders templates explorer and live phone preview', (tester) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1.0;

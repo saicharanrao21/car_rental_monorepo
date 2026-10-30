@@ -9,6 +9,8 @@ import {
   Query,
   Req,
   UseGuards,
+  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -199,12 +201,18 @@ export class OperationsController {
   }
 
   @Post('approvals')
-  createApprovalRequest(@Body() dto: CreateApprovalRequestDto) {
+  createApprovalRequest(@Body() dto: CreateApprovalRequestDto, @Req() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    const role = req.user?.role || 'ADMIN';
+    if (!userId) {
+      throw new UnauthorizedException('User context missing or unauthenticated');
+    }
+
     return this.approvalEngine.createApprovalRequest({
       definitionType: dto.definitionType,
       entityType: dto.entityType,
       entityId: dto.entityId,
-      requestedBy: { id: 'admin', role: 'ADMIN' },
+      requestedBy: { id: userId, role },
       steps: dto.steps,
       metadata: dto.metadata,
       timeoutMinutes: dto.timeoutMinutes,
@@ -217,8 +225,11 @@ export class OperationsController {
     @Body() dto: ApprovalDecisionDto,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || 'admin_user';
+    const userId = req.user?.userId || req.user?.id;
     const role = req.user?.role || 'ADMIN';
+    if (!userId) {
+      throw new UnauthorizedException('User context missing or unauthenticated');
+    }
 
     return this.approvalEngine.recordDecision({
       requestId: id,
@@ -227,6 +238,26 @@ export class OperationsController {
       decidedBy: { id: userId, role },
       decisionNote: dto.note,
     });
+  }
+
+  // ==========================================
+  // DEMO OPERATIONS SEEDING (DEVELOPMENT/TEST ONLY)
+  // ==========================================
+
+  @Post('seed-demo')
+  seedDemoOperations() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Demo operational seeding is strictly prohibited in production environment');
+    }
+
+    this.workflowEngine.seedDemoExecutions();
+    this.approvalEngine.seedDefaultApprovals();
+    this.schedulingEngine.seedDefaultJobs();
+
+    return {
+      success: true,
+      message: 'Demo operational executions, approvals, and jobs seeded successfully into runtime registry',
+    };
   }
 
   // ==========================================

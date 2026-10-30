@@ -20,8 +20,10 @@ import {
   Prisma,
   LedgerAccountType,
   LedgerEntrySide,
+  BookingStatus,
 } from '@prisma/client';
 import { LedgerCoreService } from '../finance/ledger-core.service';
+import { RecordCollateralDto, CollateralType } from './dto/record-collateral.dto';
 
 @Injectable()
 export class DepositsService {
@@ -222,33 +224,40 @@ export class DepositsService {
       );
     }
 
-    const refundAmountInPaise = Math.round(remainingToRefund.toNumber() * 100);
-
-    // Issue automated refund via Razorpay
+    const isCollateral = deposit.razorpayPaymentId && deposit.razorpayPaymentId.startsWith('COLLATERAL:');
     let razorpayRefundId: string | null = null;
-    try {
-      const refundRes = await this.paymentsService.refund(
-        bookingId,
-        refundAmountInPaise,
-        reason || 'Security deposit release',
-        'SECURITY_DEPOSIT_RELEASE',
-      );
-      razorpayRefundId = refundRes?.refundId || null;
-    } catch (err: any) {
-      this.logger.error(
-        `Deposit release Razorpay refund failed: ${err.message}. Reverting deposit status to HELD for recovery.`,
-      );
-      // Revert to HELD so subsequent retry is possible
-      await this.prisma.securityDeposit.update({
-        where: { id: deposit.id },
-        data: {
-          status: SecurityDepositStatus.HELD,
-          releasedAt: null,
-        },
-      });
-      throw new BadRequestException(
-        `Payment gateway refund failed: ${err.message}. Deposit status reverted for retry.`,
-      );
+
+    if (!isCollateral) {
+      const refundAmountInPaise = Math.round(remainingToRefund.toNumber() * 100);
+
+      // Issue automated refund via Razorpay
+      try {
+        const refundRes = await this.paymentsService.refund(
+          bookingId,
+          refundAmountInPaise,
+          reason || 'Security deposit release',
+          'SECURITY_DEPOSIT_RELEASE',
+        );
+        razorpayRefundId = refundRes?.refundId || null;
+      } catch (err: any) {
+        this.logger.error(
+          `Deposit release Razorpay refund failed: ${err.message}. Reverting deposit status to HELD for recovery.`,
+        );
+        // Revert to HELD so subsequent retry is possible
+        await this.prisma.securityDeposit.update({
+          where: { id: deposit.id },
+          data: {
+            status: SecurityDepositStatus.HELD,
+            releasedAt: null,
+          },
+        });
+        throw new BadRequestException(
+          `Payment gateway refund failed: ${err.message}. Deposit status reverted for retry.`,
+        );
+      }
+    } else {
+      razorpayRefundId = `COLLATERAL_RELEASED_${Date.now()}`;
+      this.logger.log(`Physical/Document collateral released for booking ${bookingId}`);
     }
 
     const updated = await this.prisma.securityDeposit.update({
@@ -307,11 +316,16 @@ export class DepositsService {
     }
 
     if (deposit.booking.customerId) {
+      const releaseTitle = isCollateral ? 'Collateral Returned' : 'Security Deposit Released';
+      const releaseMsg = isCollateral
+        ? `Your physical collateral for booking ${bookingId} has been returned and released from vendor custody.`
+        : `Your security deposit of INR ${remainingToRefund} for booking ${bookingId} has been refunded to your original payment method.`;
+
       this.notificationsService
         .notifyUser(
           deposit.booking.customerId,
-          'Security Deposit Released',
-          `Your security deposit of INR ${remainingToRefund} for booking ${bookingId} has been refunded to your original payment method.`,
+          releaseTitle,
+          releaseMsg,
         )
         .catch((err) =>
           this.logger.error('Failed to notify customer of deposit release', err),
@@ -480,5 +494,176 @@ export class DepositsService {
     );
 
     return updated;
+  }
+
+  /**
+   * Records physical vehicle, original document, or high-trust collateral held by vendor at pickup, transitioning deposit to HELD.
+   */
+  async recordCollateral(
+    bookingId: string,
+    dto: RecordCollateralDto,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        vendor: true,
+        securityDeposit: true,
+        customer: true,
+        car: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    const isAdmin = requestingUser.role === Role.ADMIN;
+    const isVendor = booking.vendor.userId === requestingUser.userId;
+
+    if (!isAdmin && !isVendor) {
+      throw new ForbiddenException(
+        'Access denied: Only the booking vendor or admin can record customer collateral.',
+      );
+    }
+
+    if (
+      booking.status !== BookingStatus.CONFIRMED &&
+      booking.status !== BookingStatus.HANDOVER_READY
+    ) {
+      throw new BadRequestException(
+        `Collateral can only be recorded for CONFIRMED or HANDOVER_READY bookings. Current status: ${booking.status}`,
+      );
+    }
+
+    // Specific validation based on collateral type
+    if (dto.collateralType === CollateralType.PHYSICAL_VEHICLE) {
+      if (!dto.vehicleRegistrationNumber) {
+        throw new BadRequestException(
+          'Vehicle registration number is mandatory for physical vehicle collateral.',
+        );
+      }
+      if (dto.keysCollected !== true) {
+        throw new BadRequestException(
+          'Physical vehicle keys must be confirmed collected by vendor yard staff.',
+        );
+      }
+    } else if (dto.collateralType === CollateralType.ORIGINAL_DOCUMENT) {
+      if (!dto.documentType || !dto.documentNumberMasked) {
+        throw new BadRequestException(
+          'Document type and masked document number are mandatory for original document collateral.',
+        );
+      }
+      if (dto.verifiedPhysically !== true) {
+        throw new BadRequestException(
+          'Physical document must be verified in person by vendor staff.',
+        );
+      }
+    }
+
+    const collateralTag = `COLLATERAL:${dto.collateralType}:${
+      dto.collateralType === CollateralType.PHYSICAL_VEHICLE
+        ? dto.vehicleRegistrationNumber
+        : dto.collateralType === CollateralType.ORIGINAL_DOCUMENT
+        ? `${dto.documentType}_${dto.documentNumberMasked}`
+        : 'DIGILOCKER_HIGH_TRUST'
+    }`;
+
+    const defaultAmount = booking.securityDeposit?.amount || new Prisma.Decimal(5000);
+
+    const deposit = await this.prisma.securityDeposit.upsert({
+      where: { bookingId },
+      create: {
+        bookingId,
+        amount: defaultAmount,
+        razorpayPaymentId: collateralTag,
+        status: SecurityDepositStatus.HELD,
+        heldAt: new Date(),
+      },
+      update: {
+        razorpayPaymentId: collateralTag,
+        status: SecurityDepositStatus.HELD,
+        heldAt: new Date(),
+      },
+    });
+
+    // Record audit log
+    this.auditLogService.log(
+      requestingUser.userId,
+      'CUSTOMER_COLLATERAL_RECORDED',
+      'SecurityDeposit',
+      deposit.id,
+      {
+        bookingId,
+        collateralType: dto.collateralType,
+        details: dto,
+        yardSlot: dto.yardSlotNumber,
+        vaultLocker: dto.vaultLockerNumber,
+      },
+    );
+
+    // Notify customer
+    const collateralDescription =
+      dto.collateralType === CollateralType.PHYSICAL_VEHICLE
+        ? `Secondary vehicle (${dto.vehicleRegistrationNumber}) safely parked in yard slot ${dto.yardSlotNumber || 'BAY-1'}`
+        : dto.collateralType === CollateralType.ORIGINAL_DOCUMENT
+        ? `Original ${dto.documentType} secured in vendor vault locker ${dto.vaultLockerNumber || 'SEC-01'}`
+        : 'DigiLocker high-trust verified profile';
+
+    this.notificationsService
+      .notifyUser(
+        booking.customerId,
+        'Collateral Verified & Secured',
+        `Your collateral (${collateralDescription}) has been verified and safely received by ${booking.vendor.businessName}. You are ready for vehicle handover.`,
+      )
+      .catch((err) =>
+        this.logger.error('Failed to notify customer of collateral recorded', err),
+      );
+
+    return {
+      success: true,
+      message: 'Customer collateral verified and secured in yard/vault.',
+      deposit,
+      collateral: {
+        type: dto.collateralType,
+        tag: collateralTag,
+        details: dto,
+      },
+    };
+  }
+
+  /**
+   * Retrieves collateral verification record for a booking.
+   */
+  async getCollateral(
+    bookingId: string,
+    requestingUser: { userId: string; role: Role },
+  ) {
+    const deposit = await this.getDeposit(bookingId, requestingUser);
+    const isCollateral =
+      deposit.razorpayPaymentId &&
+      deposit.razorpayPaymentId.startsWith('COLLATERAL:');
+
+    if (!isCollateral) {
+      return {
+        hasCollateral: false,
+        collateralType: 'MONETARY_ONLINE',
+        deposit,
+      };
+    }
+
+    const parts = (deposit.razorpayPaymentId || '').split(':');
+    const collateralType = parts[1] || 'UNKNOWN';
+    const collateralIdentifier = parts.slice(2).join(':') || '';
+
+    return {
+      hasCollateral: true,
+      collateralType,
+      collateralIdentifier,
+      status: deposit.status,
+      heldAt: deposit.heldAt,
+      releasedAt: deposit.releasedAt,
+      deposit,
+    };
   }
 }

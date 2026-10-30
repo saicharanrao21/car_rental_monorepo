@@ -890,7 +890,7 @@ export class NotificationOrchestratorService {
         failed,
         deadLetter,
         queued,
-        deliveryRate: total > 0 ? ((delivered / total) * 100).toFixed(1) + '%' : '100%',
+        deliveryRate: total > 0 ? ((delivered / total) * 100).toFixed(1) + '%' : '0.0%',
       },
       channelBreakdown: channelStats,
     };

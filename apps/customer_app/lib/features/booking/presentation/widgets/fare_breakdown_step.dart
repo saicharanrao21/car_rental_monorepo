@@ -589,7 +589,7 @@ class _FareBreakdownStepState extends ConsumerState<FareBreakdownStep> {
                       ),
                       const Gap(2),
                       Text(
-                        'Security deposit is held securely during your rental and automatically initiated for refund within 48 hours of vehicle return inspection.',
+                        'Pre-authorized online hold (auto-released within 24-48 hrs of return) or flexible yard collateral (secondary vehicle or safe vault document where permitted).',
                         style: DDSTypography.bodyMedium.copyWith(
                           fontSize: 11,
                           color: DDSColors.textSecondary,

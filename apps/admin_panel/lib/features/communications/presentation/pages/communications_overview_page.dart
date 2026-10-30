@@ -247,13 +247,13 @@ class _CommunicationsOverviewPageState extends ConsumerState<CommunicationsOverv
     final deliveryRate = stats?['overview']?['deliveryRate']?.toString() ??
         (totalVal is num && totalVal > 0 && deliveredVal is num
             ? '${(deliveredVal / totalVal * 100).toStringAsFixed(2)}%'
-            : (statsAsync.isLoading ? '...' : '100%'));
+            : (statsAsync.isLoading ? '...' : '0.0%'));
     final queuedBuffer = queuedVal != null ? queuedVal.toString() : (statsAsync.isLoading ? '...' : '0');
     final failedCount = failedVal != null ? failedVal.toString() : (statsAsync.isLoading ? '...' : '0');
     final deadLetterCount = deadLetterVal != null ? deadLetterVal.toString() : (statsAsync.isLoading ? '...' : '0');
-    final deliveredSubtitle = deliveredVal != null
+    final deliveredSubtitle = (deliveredVal != null && totalVal != null && totalVal > 0)
         ? '${NumberFormat('#,###').format(deliveredVal)} msgs'
-        : (statsAsync.isLoading ? 'Loading...' : '0 msgs');
+        : (statsAsync.isLoading ? 'Loading...' : (totalVal == 0 ? 'No deliveries in window' : '0 msgs'));
 
     return Container(
       padding: const EdgeInsets.all(20),

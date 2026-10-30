@@ -102,15 +102,16 @@ car_rental_monorepo/
 ========================================================================================
  Subsystem                 Suites       Tests Run     Passed      Failed     Pass Rate
 ----------------------------------------------------------------------------------------
- car_rental_backend        143          1,760         1,760       0          100.0%
- apps/admin_panel          34           98            98          0          100.0%
+ car_rental_backend        144          1,772         1,772       0          100.0%
+ apps/admin_panel          34           99            99          0          100.0%
  apps/vendor_app           38           280           280         0          100.0%
  apps/customer_app         32           215           215         0          100.0%
 ----------------------------------------------------------------------------------------
- TOTAL PLATFORM            247          2,353         2,353       0          100.0%
+ TOTAL PLATFORM            248          2,366         2,366       0          100.0%
 ========================================================================================
 ```
 
 - **Production Mock Invariant:** Complete isolation. Production fallback pipelines route strictly through verified enterprise adapters (e.g., Razorpay, Stripe, Cashfree, Meta WhatsApp, MSG91, Twilio, Cloudflare R2, AWS S3, Google Maps, Mapbox, Surepass, HyperVerge).
 - **Circuit Breaker Controls:** Manually and automatically trip/reset upstream connectors via `/admin/integrations/runtime/circuits/:providerId/trip` and `/reset`.
-- **Zero-Mock Automation Engine:** Workflows, execution traces, operational rules, human approvals, and cron schedules backed by real `/api/v1/operations/*` endpoints.
+- **Zero-Mock Automation Engine & Production Startup Isolation:** Workflows, execution traces, operational rules, human approvals, and cron schedules backed by real `/api/v1/operations/*` endpoints. In production (`NODE_ENV === 'production'`), demo execution history, fake approvals, and mock cron schedules are strictly suppressed on `OnModuleInit`, with programmatic guards rejecting any demo seeding requests.
+

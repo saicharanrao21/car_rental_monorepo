@@ -23,10 +23,15 @@ export class SchedulingEngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit() {
-    this.seedDefaultJobs();
+    if (process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_OPERATIONS === 'true') {
+      this.seedDefaultJobs();
+    }
   }
 
-  private seedDefaultJobs() {
+  public seedDefaultJobs(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Demo operational seeding is strictly prohibited in production environment');
+    }
     const now = Date.now();
     this.jobs.set('job_overdue_scan', {
       jobId: 'job_overdue_scan',

@@ -44,6 +44,12 @@ jobs:
           dart pub get
           melos bootstrap
 
+      - name: Run Tests (Shared Packages)
+        run: |
+          cd packages/core && flutter test
+          cd ../models && flutter test
+          cd ../ui_kit && flutter test
+
       - name: Run Tests (Customer App)
         working-directory: apps/customer_app
         run: flutter test

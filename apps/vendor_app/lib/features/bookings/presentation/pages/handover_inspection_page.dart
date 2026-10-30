@@ -38,6 +38,13 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
   // Verification
   bool _isCustomerVerified = true;
   bool _isLicenseVerified = true;
+  bool _isCollateralVerified = true;
+  String _collateralType = 'MONETARY_ONLINE';
+  final _collateralVehicleCtrl = TextEditingController();
+  final _collateralRegCtrl = TextEditingController();
+  final _collateralDocCtrl = TextEditingController();
+  final _collateralStorageCtrl = TextEditingController();
+  bool _collateralKeyCollected = true;
 
   // Odometer & Fuel
   final _odometerCtrl = TextEditingController(text: '42390');
@@ -96,6 +103,10 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
     _odometerCtrl.dispose();
     _damageNotesCtrl.dispose();
     _handoverOtpCtrl.dispose();
+    _collateralVehicleCtrl.dispose();
+    _collateralRegCtrl.dispose();
+    _collateralDocCtrl.dispose();
+    _collateralStorageCtrl.dispose();
     super.dispose();
   }
 
@@ -727,6 +738,124 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
         ),
+        const Gap(16),
+        const Text(
+          'Security Deposit & Collateral Custody',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0B192C)),
+        ),
+        const Gap(8),
+        AppCard(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.security_rounded, size: 18, color: Color(0xFF0066FF)),
+                    const Gap(8),
+                    Text(
+                      'Tri-Option Collateral Verification',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue[900]),
+                    ),
+                  ],
+                ),
+                const Gap(10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('💳 Online Pre-Auth', style: TextStyle(fontSize: 12)),
+                      selected: _collateralType == 'MONETARY_ONLINE',
+                      onSelected: (selected) {
+                        if (selected) setState(() => _collateralType = 'MONETARY_ONLINE');
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('🏍️ Yard Vehicle', style: TextStyle(fontSize: 12)),
+                      selected: _collateralType == 'PHYSICAL_VEHICLE',
+                      onSelected: (selected) {
+                        if (selected) setState(() => _collateralType = 'PHYSICAL_VEHICLE');
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('📄 Safe Vault Doc', style: TextStyle(fontSize: 12)),
+                      selected: _collateralType == 'ORIGINAL_DOCUMENT',
+                      onSelected: (selected) {
+                        if (selected) setState(() => _collateralType = 'ORIGINAL_DOCUMENT');
+                      },
+                    ),
+                  ],
+                ),
+                if (_collateralType == 'PHYSICAL_VEHICLE') ...[
+                  const Gap(10),
+                  TextFormField(
+                    controller: _collateralVehicleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Secondary Vehicle Make/Model',
+                      hintText: 'e.g. Honda Activa 6G / Hyundai i10',
+                      isDense: true,
+                    ),
+                  ),
+                  const Gap(8),
+                  TextFormField(
+                    controller: _collateralRegCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle Registration Number',
+                      hintText: 'e.g. MH-12-AB-1234',
+                      isDense: true,
+                    ),
+                  ),
+                  const Gap(8),
+                  TextFormField(
+                    controller: _collateralStorageCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Yard Bay / Location',
+                      hintText: 'e.g. Yard Bay 4B',
+                      isDense: true,
+                    ),
+                  ),
+                  CheckboxListTile(
+                    value: _collateralKeyCollected,
+                    activeColor: const Color(0xFF0066FF),
+                    title: const Text('Secondary vehicle keys collected and locked in yard safe keybox', style: TextStyle(fontSize: 12)),
+                    onChanged: (val) => setState(() => _collateralKeyCollected = val ?? true),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ] else if (_collateralType == 'ORIGINAL_DOCUMENT') ...[
+                  const Gap(10),
+                  TextFormField(
+                    controller: _collateralDocCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Original Document Type & ID',
+                      hintText: 'e.g. Original Passport / Voter ID #',
+                      isDense: true,
+                    ),
+                  ),
+                  const Gap(8),
+                  TextFormField(
+                    controller: _collateralStorageCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Fire-Rated Safe Box / Locker #',
+                      hintText: 'e.g. Locker #07',
+                      isDense: true,
+                    ),
+                  ),
+                ],
+                CheckboxListTile(
+                  value: _isCollateralVerified,
+                  activeColor: const Color(0xFF0066FF),
+                  title: const Text('Collateral custody verified & secured prior to key handover', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  onChanged: (val) => setState(() => _isCollateralVerified = val ?? true),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1195,6 +1324,15 @@ class _HandoverInspectionPageState extends ConsumerState<HandoverInspectionPage>
                 _buildSummaryRow(
                   'Damage Status',
                   _recordedDamages.isEmpty ? 'Clean (No Pre-Existing Damage)' : '${_recordedDamages.length} Spots Recorded',
+                ),
+                const Gap(8),
+                _buildSummaryRow(
+                  'Collateral Custody',
+                  _collateralType == 'PHYSICAL_VEHICLE'
+                      ? 'Yard Vehicle (${_collateralRegCtrl.text.isNotEmpty ? _collateralRegCtrl.text : "Surrendered"})'
+                      : _collateralType == 'ORIGINAL_DOCUMENT'
+                          ? 'Safe Vault (${_collateralDocCtrl.text.isNotEmpty ? _collateralDocCtrl.text : "Vaulted"})'
+                          : 'Online Pre-Auth Verified',
                 ),
               ],
             ),
