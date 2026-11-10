@@ -82,9 +82,10 @@ export class AdminRevenueService {
       }
     });
 
-    // Net platform revenue is platform fee + protection + delivery minus discount absorbed by platform
+    // Net platform revenue is platform fee + protection minus discount absorbed by platform
+    // Delivery fee is remitted to operating dealers/fulfillment yards as part of netToVendor
     const netPlatformRevenue = Number(
-      (platformRevenue + protectionRevenue + deliveryRevenue - discountTotal).toFixed(2),
+      (platformRevenue + protectionRevenue - discountTotal).toFixed(2),
     );
 
     // Concurrently fetch platform liability metrics

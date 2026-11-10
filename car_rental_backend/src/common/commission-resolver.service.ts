@@ -10,12 +10,42 @@ export class CommissionResolverService {
     @Optional() private readonly configService?: SystemConfigService,
   ) {}
 
+  /**
+   * Resolves effective commission percentage following the 4-tier precedence hierarchy:
+   * Tier 1: Active Negotiated Dealer Agreement (for vendorId)
+   * Tier 2: Active Fleet-Volume Tier Rule
+   * Tier 3: Localized City / Category / Trip Rule (specificity score)
+   * Tier 4: Global Default Commission Rate
+   */
   async resolveCommissionPercent(
     city: string,
     carCategory: CarCategory,
     tripType: TripType,
+    vendorId?: string,
   ): Promise<Prisma.Decimal> {
-    // Fetch all rules that could potentially match (either exact or null/wildcard)
+    // Tier 1: Check active dealer negotiated agreement override
+    if (vendorId && (this.prisma as any).marketplaceCommissionRule) {
+      const dealerOverride = await (this.prisma as any).marketplaceCommissionRule.findFirst({
+        where: {
+          vendorId,
+          isActive: true,
+          OR: [
+            { vehicleClass: null },
+            { vehicleClass: carCategory },
+          ],
+        },
+        orderBy: [
+          { vehicleClass: 'desc' },
+          { createdAt: 'desc' },
+        ],
+      });
+
+      if (dealerOverride && dealerOverride.platformPct) {
+        return new Prisma.Decimal(dealerOverride.platformPct);
+      }
+    }
+
+    // Tier 3: Localized City / Category / Trip Rules with specificity scoring
     const rules = await this.prisma.commissionConfig.findMany({
       where: {
         AND: [
@@ -36,6 +66,7 @@ export class CommissionResolverService {
     });
 
     if (rules.length === 0) {
+      // Tier 4: Fallback to Global Default Commission Rate
       let defaultCommission = 10.0;
       if (this.configService) {
         try {

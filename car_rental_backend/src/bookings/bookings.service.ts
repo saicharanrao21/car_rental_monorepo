@@ -208,6 +208,7 @@ export class BookingsService {
           car.vendor.city,
           car.type,
           dto.tripType,
+          car.vendorId,
         );
 
       // 4. Calculate fare details outside the transaction

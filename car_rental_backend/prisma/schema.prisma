@@ -289,6 +289,18 @@ enum SecurityDepositStatus {
   CANCELLED
 }
 
+enum CollateralType {
+  PHYSICAL_VEHICLE
+  ORIGINAL_DOCUMENT
+  DIGILOCKER_HIGH_TRUST
+}
+
+enum CollateralStatus {
+  HELD
+  RETURNED
+  FORFEITED
+}
+
 enum DamageClaimStatus {
   SUBMITTED
   UNDER_REVIEW
@@ -859,6 +871,7 @@ model Booking {
   inspections        Inspection[]
   handoverOtps       HandoverOtp[]
   securityDeposit    SecurityDeposit?
+  collateralRecord   CollateralRecord?
   damageClaims       DamageClaim[]
   couponUsage        CouponUsage?
   invoice            Invoice?
@@ -1557,6 +1570,42 @@ model SecurityDeposit {
   releasedAt        DateTime?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model CollateralRecord {
+  id                         String            @id @default(cuid())
+  bookingId                  String            @unique
+  booking                    Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  collateralType             CollateralType
+  status                     CollateralStatus  @default(HELD)
+
+  // Physical vehicle collateral
+  vehicleRegistrationNumber  String?
+  vehicleMake                String?
+  vehicleModel               String?
+  yardSlotNumber             String?
+  keysCollected              Boolean           @default(false)
+
+  // Original document collateral
+  documentType               String?
+  documentNumberMasked       String?
+  vaultLockerNumber          String?
+  verifiedPhysically         Boolean           @default(false)
+
+  // Common metadata & verification audit
+  notes                      String?
+  photoUrls                  String[]          @default([])
+  customerAcknowledgementUrl String?
+  heldAt                     DateTime          @default(now())
+  releasedAt                 DateTime?
+  recordedByUserId           String?
+  releasedByUserId           String?
+
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
 
   @@index([bookingId])
   @@index([status])

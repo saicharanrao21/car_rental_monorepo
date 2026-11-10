@@ -95,6 +95,71 @@ void main() {
     });
   });
 
+  group('CollateralRecordModel (P0 Collateral Separation)', () {
+    test('serializes and deserializes physical vehicle CollateralRecordModel correctly', () {
+      final now = DateTime.now();
+      final collateral = CollateralRecordModel(
+        id: 'col_rec_1',
+        bookingId: 'book_veh_100',
+        collateralType: CollateralType.physicalVehicle,
+        status: CollateralRecordStatus.HELD,
+        vehicleRegistrationNumber: 'KA-01-MJ-1234',
+        vehicleMake: 'Honda',
+        vehicleModel: 'Activa 6G',
+        yardSlotNumber: 'BAY-09',
+        keysCollected: true,
+        notes: 'Keys kept in vault #12',
+        photoUrls: ['https://example.com/vehicle1.jpg'],
+        heldAt: now,
+        createdAt: now,
+      );
+
+      final json = collateral.toJson();
+      final parsed = CollateralRecordModel.fromJson(json);
+
+      expect(parsed.id, 'col_rec_1');
+      expect(parsed.bookingId, 'book_veh_100');
+      expect(parsed.collateralType, CollateralType.physicalVehicle);
+      expect(parsed.status, CollateralRecordStatus.HELD);
+      expect(parsed.vehicleRegistrationNumber, 'KA-01-MJ-1234');
+      expect(parsed.vehicleMake, 'Honda');
+      expect(parsed.vehicleModel, 'Activa 6G');
+      expect(parsed.yardSlotNumber, 'BAY-09');
+      expect(parsed.keysCollected, true);
+      expect(parsed.photoUrls.length, 1);
+    });
+
+    test('serializes and deserializes original document CollateralRecordModel correctly', () {
+      final now = DateTime.now();
+      final collateral = CollateralRecordModel(
+        id: 'col_rec_2',
+        bookingId: 'book_doc_200',
+        collateralType: CollateralType.originalDocument,
+        status: CollateralRecordStatus.RETURNED,
+        documentType: 'PASSPORT',
+        documentNumberMasked: 'Z8765432',
+        vaultLockerNumber: 'SAFE-08',
+        verifiedPhysically: true,
+        notes: 'Document returned in person',
+        heldAt: now,
+        releasedAt: now,
+        createdAt: now,
+      );
+
+      final json = collateral.toJson();
+      final parsed = CollateralRecordModel.fromJson(json);
+
+      expect(parsed.id, 'col_rec_2');
+      expect(parsed.collateralType, CollateralType.originalDocument);
+      expect(parsed.status, CollateralRecordStatus.RETURNED);
+      expect(parsed.documentType, 'PASSPORT');
+      expect(parsed.documentNumberMasked, 'Z8765432');
+      expect(parsed.vaultLockerNumber, 'SAFE-08');
+      expect(parsed.verifiedPhysically, true);
+      expect(parsed.releasedAt, isNotNull);
+    });
+  });
+
   group('DamageClaimModel', () {
     test('serializes and deserializes correctly', () {
       final now = DateTime.now();

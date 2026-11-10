@@ -282,6 +282,8 @@ export class BookingLifecycleService {
           cancellationTime: new Date(),
           amountPaid,
           depositAmount,
+          deliveryFee: booking.deliveryFee ? Number(booking.deliveryFee) : 0,
+          includeDeliveryFeeInRefundBase: false, // FND-UNRES-02: Configurable delivery fee treatment
           actorRole: actorRole === 'SYSTEM' ? Role.ADMIN : (actorRole as Role),
           isAdminOverride: actorRole === Role.ADMIN && reason?.includes('admin_full_refund'),
           isPendingConfirmation,
@@ -349,15 +351,17 @@ export class BookingLifecycleService {
             },
           });
 
-          // Cancel active security deposit if booking cancelled
+          // Settle or cancel active security deposit if booking cancelled
           if (targetStatus === BookingStatus.CANCELLED && booking.securityDeposit) {
+            const isHeld = booking.securityDeposit.status === SecurityDepositStatus.HELD;
             await tx.securityDeposit.updateMany({
               where: {
                 bookingId,
                 status: { in: [SecurityDepositStatus.REQUIRED, SecurityDepositStatus.HELD] },
               },
               data: {
-                status: SecurityDepositStatus.CANCELLED,
+                status: isHeld ? SecurityDepositStatus.REFUNDED : SecurityDepositStatus.CANCELLED,
+                refundedAmount: isHeld ? booking.securityDeposit.amount : 0,
                 releasedAt: new Date(),
               },
             });
@@ -479,12 +483,20 @@ export class BookingLifecycleService {
               const depositAmount = booking.securityDeposit?.amount
                 ? new Prisma.Decimal(booking.securityDeposit.amount)
                 : new Prisma.Decimal(0);
-              const depositRefund = depositAmount.gt(0) && booking.securityDeposit?.status !== SecurityDepositStatus.CANCELLED
-                ? Prisma.Decimal.min(depositAmount, refundRupees)
+
+              const wasDepositHeld = booking.securityDeposit &&
+                (booking.securityDeposit.status === SecurityDepositStatus.HELD ||
+                 booking.payment?.status === PaymentStatus.PAID);
+
+              const depositRefund = wasDepositHeld && depositAmount.gt(0)
+                ? (cancellationCalc?.depositRefundAmount
+                    ? new Prisma.Decimal(cancellationCalc.depositRefundAmount)
+                    : Prisma.Decimal.min(depositAmount, refundRupees))
                 : new Prisma.Decimal(0);
-              const fareRefund = refundRupees.sub(depositRefund).gte(0)
-                ? refundRupees.sub(depositRefund)
-                : new Prisma.Decimal(0);
+
+              const fareRefund = cancellationCalc?.refundAmount
+                ? new Prisma.Decimal(cancellationCalc.refundAmount)
+                : Prisma.Decimal.max(new Prisma.Decimal(0), refundRupees.sub(depositRefund));
 
               const bookingTotalFare = booking.totalFare ? new Prisma.Decimal(booking.totalFare) : new Prisma.Decimal(0);
               const bookingPlatformFee = booking.platformFee ? new Prisma.Decimal(booking.platformFee) : new Prisma.Decimal(0);
@@ -498,17 +510,15 @@ export class BookingLifecycleService {
               let gstReversal = new Prisma.Decimal(0);
 
               if (bookingTotalFare.gt(0) && fareRefund.gt(0)) {
-                const ratio = fareRefund.div(bookingTotalFare);
+                const ratio = Prisma.Decimal.min(new Prisma.Decimal(1), fareRefund.div(bookingTotalFare));
                 vendorReversal = Prisma.Decimal.min(bookingNetToVendor, bookingNetToVendor.mul(ratio));
-                platformReversal = bookingPlatformFee.mul(ratio);
                 gstReversal = bookingGstAmount.mul(ratio);
-
-                const sub = vendorReversal.add(platformReversal).add(gstReversal).add(depositRefund);
-                const diff = refundRupees.sub(sub);
-                platformReversal = platformReversal.add(diff);
+                // Guaranteed exact zero-sum balance: vendorReversal + gstReversal + platformReversal === fareRefund
+                platformReversal = fareRefund.sub(vendorReversal).sub(gstReversal);
               } else if (depositRefund.lt(refundRupees)) {
-                vendorReversal = Prisma.Decimal.min(bookingNetToVendor, refundRupees.sub(depositRefund));
-                platformReversal = refundRupees.sub(depositRefund).sub(vendorReversal);
+                const remainingRefund = refundRupees.sub(depositRefund);
+                vendorReversal = Prisma.Decimal.min(bookingNetToVendor, remainingRefund);
+                platformReversal = remainingRefund.sub(vendorReversal);
               }
 
               const reversalLines: any[] = [];

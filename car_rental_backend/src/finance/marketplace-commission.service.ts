@@ -53,8 +53,8 @@ export class MarketplaceCommissionService {
     const rule = await this.resolveCommissionRule(ctx, channel);
 
     const platformPct = rule ? Number(rule.platformPct) : 15.00;
-    const vendorPct = rule ? Number(rule.vendorPct) : 80.00;
-    const branchPct = rule ? Number(rule.branchPct) : 5.00;
+    const branchPct = (rule && rule.branchId) ? Number(rule.branchPct) : 0.00;
+    const vendorPct = rule ? Number(rule.vendorPct) : (100.00 - platformPct - branchPct);
     const fixedFee = rule ? Number(rule.fixedPlatformFee) : 0;
     const gatewayFeePct = rule ? Number(rule.gatewayFeeRecovery) : 2.00;
     const gstPct = rule ? Number(rule.taxGstPct) : 18.00;
@@ -67,9 +67,9 @@ export class MarketplaceCommissionService {
     const gstAmount = Math.round(((taxable * gstPct) / 100) * 100) / 100;
     const totalCustomerPayable = Math.round((taxable + gstAmount) * 100) / 100;
 
-    // Platform, Vendor, Branch splits of the taxable rental revenue
+    // Platform, Vendor, Branch splits of the taxable rental revenue (FND-CONF-07: Gross Rental Total = Base Rental Fare + Delivery Fee)
     const platformFee = Math.round(((taxable * platformPct) / 100 + fixedFee) * 100) / 100;
-    const branchShare = Math.round(((taxable * branchPct) / 100) * 100) / 100;
+    const branchShare = branchPct > 0 ? Math.round(((taxable * branchPct) / 100) * 100) / 100 : 0;
     const vendorNetPayable = Math.round((taxable - platformFee - branchShare) * 100) / 100;
 
     // Gateway processing fee recovery

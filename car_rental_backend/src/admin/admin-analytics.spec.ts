@@ -125,8 +125,8 @@ describe('Feature 32 — Admin Analytics & Reports Spec', () => {
       // Cancelled booking b3 has refund
       expect(result.refundTotal).toBe(5000);
 
-      // Net platform revenue: 350 + 800 + 440 - 100 = 1490
-      expect(result.netPlatformRevenue).toBe(1490);
+      // Net platform revenue: 350 + 800 - 100 = 1050 (delivery fee of 440 is remitted to vendor in netToVendor)
+      expect(result.netPlatformRevenue).toBe(1050);
 
       // Liabilities
       expect(result.walletLiability).toBe(12500);

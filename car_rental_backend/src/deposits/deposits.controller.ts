@@ -16,6 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, CarCategory } from '@prisma/client';
 import { RecordCollateralDto } from './dto/record-collateral.dto';
+import { ReleaseCollateralDto } from './dto/release-collateral.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,6 +39,16 @@ export class DepositsController {
     @Request() req: any,
   ) {
     return this.depositsService.recordCollateral(bookingId, dto, req.user);
+  }
+
+  @Post('bookings/:id/collateral/release')
+  @Roles(Role.VENDOR, Role.ADMIN)
+  async releaseCollateral(
+    @Param('id') bookingId: string,
+    @Body() dto: ReleaseCollateralDto,
+    @Request() req: any,
+  ) {
+    return this.depositsService.releaseCollateral(bookingId, dto, req.user);
   }
 
   @Get('bookings/:id/collateral')

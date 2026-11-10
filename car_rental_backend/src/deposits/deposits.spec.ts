@@ -31,6 +31,11 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      collateralRecord: {
+        findUnique: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
     };
 
     paymentsService = {
@@ -280,52 +285,96 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       expect(paymentsService.refund).not.toHaveBeenCalled();
       expect(result.status).toBe(SecurityDepositStatus.FORFEITED);
     });
-  });
 
-  describe('Customer Collateral Lifecycle & Vendor Handover', () => {
-    it('successfully releases physical collateral without making gateway refund call', async () => {
+    it('rejects settleDeduction on legacy or synthetic collateral records', async () => {
       prisma.securityDeposit.findUnique.mockResolvedValue({
-        id: 'dep_col_1',
-        bookingId: 'b_col',
+        id: 'dep_legacy_col',
+        bookingId: 'b_col_settle',
         amount: new Prisma.Decimal(5000),
-        deductedAmount: new Prisma.Decimal(0),
         status: SecurityDepositStatus.HELD,
         razorpayPaymentId: 'COLLATERAL:PHYSICAL_VEHICLE:KA-05-MH-1234',
         booking: { customerId: 'c1' },
       });
 
-      prisma.securityDeposit.updateMany.mockResolvedValue({ count: 1 });
-      prisma.securityDeposit.update.mockResolvedValue({
-        id: 'dep_col_1',
-        status: SecurityDepositStatus.REFUNDED,
-        refundedAmount: new Prisma.Decimal(5000),
+      await expect(
+        service.settleDeduction('b_col_settle', 2000, 'admin_1', 'Damage claim'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('holdDeposit Validation (P0 Collateral Separation)', () => {
+    it('successfully holds a genuine monetary security deposit', async () => {
+      prisma.booking.findUnique.mockResolvedValue({ id: 'b_monetary_1' });
+      prisma.securityDeposit.upsert.mockResolvedValue({
+        id: 'dep_monetary_1',
+        bookingId: 'b_monetary_1',
+        amount: new Prisma.Decimal(5000),
+        razorpayPaymentId: 'pay_rzp_real_9999',
+        status: SecurityDepositStatus.HELD,
       });
 
-      const res = await service.releaseDeposit('b_col', 'admin_1', 'Collateral released to customer');
+      const res = await service.holdDeposit('b_monetary_1', 5000, 'pay_rzp_real_9999');
 
-      expect(paymentsService.refund).not.toHaveBeenCalled();
-      expect(notificationsService.notifyUser).toHaveBeenCalledWith(
-        'c1',
-        'Collateral Returned',
-        expect.stringContaining('physical collateral for booking b_col has been returned'),
-      );
-      expect(res.status).toBe(SecurityDepositStatus.REFUNDED);
+      expect(prisma.securityDeposit.upsert).toHaveBeenCalledWith({
+        where: { bookingId: 'b_monetary_1' },
+        create: expect.objectContaining({
+          amount: new Prisma.Decimal(5000),
+          razorpayPaymentId: 'pay_rzp_real_9999',
+          status: SecurityDepositStatus.HELD,
+        }),
+        update: expect.objectContaining({
+          amount: new Prisma.Decimal(5000),
+          razorpayPaymentId: 'pay_rzp_real_9999',
+          status: SecurityDepositStatus.HELD,
+        }),
+      });
+      expect(res.id).toBe('dep_monetary_1');
     });
 
-    it('records physical vehicle collateral at yard during handover', async () => {
+    it('strictly forbids storing collateral metadata in razorpayPaymentId', async () => {
+      await expect(
+        service.holdDeposit('b_monetary_2', 5000, 'COLLATERAL:PHYSICAL_VEHICLE:KA-01-AB-1234'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('releaseDeposit Validation on Collateral Separation', () => {
+    it('strictly rejects releaseDeposit when called on legacy collateral records', async () => {
+      prisma.securityDeposit.findUnique.mockResolvedValue({
+        id: 'dep_legacy_col_2',
+        bookingId: 'b_col_release',
+        amount: new Prisma.Decimal(5000),
+        deductedAmount: new Prisma.Decimal(0),
+        status: SecurityDepositStatus.HELD,
+        razorpayPaymentId: 'COLLATERAL:ORIGINAL_DOCUMENT:PASSPORT_123',
+        booking: { customerId: 'c1' },
+      });
+
+      await expect(
+        service.releaseDeposit('b_col_release', 'admin_1', 'Release attempt'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('Customer Collateral Lifecycle & Vendor Handover (Separated from Monetary Deposits)', () => {
+    it('records physical vehicle collateral in CollateralRecord and never touches SecurityDeposit', async () => {
       prisma.booking.findUnique.mockResolvedValue({
         id: 'b100',
         customerId: 'c100',
         status: BookingStatus.HANDOVER_READY,
         vendor: { userId: 'v_user_1', businessName: 'Bangalore Fleet Hub' },
-        securityDeposit: { amount: new Prisma.Decimal(5000) },
       });
 
-      prisma.securityDeposit.upsert.mockResolvedValue({
-        id: 'dep_100',
+      prisma.collateralRecord.upsert.mockResolvedValue({
+        id: 'col_rec_100',
         bookingId: 'b100',
-        status: SecurityDepositStatus.HELD,
-        razorpayPaymentId: 'COLLATERAL:PHYSICAL_VEHICLE:KA-01-AB-1234',
+        collateralType: 'PHYSICAL_VEHICLE',
+        status: 'HELD',
+        vehicleRegistrationNumber: 'KA-01-AB-1234',
+        vehicleMake: 'Honda',
+        vehicleModel: 'Activa 6G',
+        yardSlotNumber: 'BAY-12',
+        keysCollected: true,
       });
 
       const res = await service.recordCollateral(
@@ -342,12 +391,14 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       );
 
       expect(res.success).toBe(true);
-      expect(res.collateral.type).toBe(CollateralType.PHYSICAL_VEHICLE);
+      expect(res.collateral.collateralType).toBe('PHYSICAL_VEHICLE');
+      // Verify SecurityDeposit is NEVER touched! Zero synthetic monetary deposits created!
+      expect(prisma.securityDeposit.upsert).not.toHaveBeenCalled();
       expect(auditLogService.log).toHaveBeenCalledWith(
         'v_user_1',
         'CUSTOMER_COLLATERAL_RECORDED',
-        'SecurityDeposit',
-        'dep_100',
+        'CollateralRecord',
+        'col_rec_100',
         expect.anything(),
       );
       expect(notificationsService.notifyUser).toHaveBeenCalledWith(
@@ -357,20 +408,23 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       );
     });
 
-    it('records original document collateral safely in yard safe vault', async () => {
+    it('records original document collateral safely in CollateralRecord in yard vault', async () => {
       prisma.booking.findUnique.mockResolvedValue({
         id: 'b101',
         customerId: 'c101',
         status: BookingStatus.CONFIRMED,
         vendor: { userId: 'v_user_2', businessName: 'Metro Rentals' },
-        securityDeposit: null,
       });
 
-      prisma.securityDeposit.upsert.mockResolvedValue({
-        id: 'dep_101',
+      prisma.collateralRecord.upsert.mockResolvedValue({
+        id: 'col_rec_101',
         bookingId: 'b101',
-        status: SecurityDepositStatus.HELD,
-        razorpayPaymentId: 'COLLATERAL:ORIGINAL_DOCUMENT:PASSPORT_Z1234567',
+        collateralType: 'ORIGINAL_DOCUMENT',
+        status: 'HELD',
+        documentType: 'PASSPORT',
+        documentNumberMasked: 'Z1234567',
+        vaultLockerNumber: 'SAFE-04',
+        verifiedPhysically: true,
       });
 
       const res = await service.recordCollateral(
@@ -386,7 +440,8 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       );
 
       expect(res.success).toBe(true);
-      expect(res.collateral.type).toBe(CollateralType.ORIGINAL_DOCUMENT);
+      expect(res.collateral.collateralType).toBe('ORIGINAL_DOCUMENT');
+      expect(prisma.securityDeposit.upsert).not.toHaveBeenCalled();
       expect(notificationsService.notifyUser).toHaveBeenCalledWith(
         'c101',
         'Collateral Verified & Secured',
@@ -394,7 +449,7 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       );
     });
 
-    it('rejects vehicle collateral if keys are not collected', async () => {
+    it('rejects recording collateral when MONETARY_ONLINE is selected', async () => {
       prisma.booking.findUnique.mockResolvedValue({
         id: 'b102',
         customerId: 'c102',
@@ -406,6 +461,25 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
         service.recordCollateral(
           'b102',
           {
+            collateralType: CollateralType.MONETARY_ONLINE,
+          },
+          { userId: 'v_user_3', role: Role.VENDOR },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects vehicle collateral if keys are not collected', async () => {
+      prisma.booking.findUnique.mockResolvedValue({
+        id: 'b103',
+        customerId: 'c103',
+        status: BookingStatus.CONFIRMED,
+        vendor: { userId: 'v_user_3', businessName: 'Apex Cars' },
+      });
+
+      await expect(
+        service.recordCollateral(
+          'b103',
+          {
             collateralType: CollateralType.PHYSICAL_VEHICLE,
             vehicleRegistrationNumber: 'KA-02-CD-5678',
             keysCollected: false,
@@ -415,30 +489,92 @@ describe('Phase 5: DepositsService (Security Deposit Lifecycle & Concurrency)', 
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('retrieves collateral details for a booking', async () => {
+    it('releases physical collateral via releaseCollateral without touching payment gateway or ledgers', async () => {
       prisma.booking.findUnique.mockResolvedValue({
-        id: 'b103',
-        customerId: 'c103',
-        vendor: { userId: 'v_user_4' },
-        securityDeposit: {
-          id: 'dep_103',
-          bookingId: 'b103',
-          amount: new Prisma.Decimal(5000),
-          status: SecurityDepositStatus.HELD,
-          heldAt: new Date('2026-10-30T10:00:00Z'),
-          razorpayPaymentId: 'COLLATERAL:PHYSICAL_VEHICLE:KA-03-EF-9999',
+        id: 'b104',
+        customerId: 'c104',
+        vendor: { userId: 'v_user_4', businessName: 'Speedy Rentals' },
+        collateralRecord: {
+          id: 'col_rec_104',
+          bookingId: 'b104',
+          collateralType: 'PHYSICAL_VEHICLE',
+          vehicleRegistrationNumber: 'KA-04-GH-7777',
+          status: 'HELD',
+          notes: 'Parked in Bay 2',
         },
       });
 
-      const res = await service.getCollateral('b103', {
-        userId: 'c103',
+      prisma.collateralRecord.update.mockResolvedValue({
+        id: 'col_rec_104',
+        bookingId: 'b104',
+        collateralType: 'PHYSICAL_VEHICLE',
+        status: 'RETURNED',
+        releasedAt: new Date(),
+        releasedByUserId: 'v_user_4',
+      });
+
+      const res = await service.releaseCollateral(
+        'b104',
+        { notes: 'Vehicle inspected and keys handed back' },
+        { userId: 'v_user_4', role: Role.VENDOR },
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.collateral.status).toBe('RETURNED');
+      // Verifies paymentsService.refund is never called!
+      expect(paymentsService.refund).not.toHaveBeenCalled();
+      // Verifies SecurityDeposit is never touched!
+      expect(prisma.securityDeposit.update).not.toHaveBeenCalled();
+      expect(prisma.securityDeposit.updateMany).not.toHaveBeenCalled();
+      expect(notificationsService.notifyUser).toHaveBeenCalledWith(
+        'c104',
+        'Collateral Returned & Released',
+        expect.stringContaining('Secondary vehicle (KA-04-GH-7777)'),
+      );
+    });
+
+    it('retrieves collateral details for a booking from CollateralRecord', async () => {
+      prisma.booking.findUnique.mockResolvedValue({
+        id: 'b105',
+        customerId: 'c105',
+        vendor: { userId: 'v_user_5' },
+        collateralRecord: {
+          id: 'col_rec_105',
+          bookingId: 'b105',
+          collateralType: 'PHYSICAL_VEHICLE',
+          vehicleRegistrationNumber: 'KA-03-EF-9999',
+          status: 'HELD',
+          heldAt: new Date('2026-10-30T10:00:00Z'),
+        },
+      });
+
+      const res = await service.getCollateral('b105', {
+        userId: 'c105',
         role: Role.CUSTOMER,
       });
 
       expect(res.hasCollateral).toBe(true);
       expect(res.collateralType).toBe('PHYSICAL_VEHICLE');
       expect(res.collateralIdentifier).toBe('KA-03-EF-9999');
-      expect(res.status).toBe(SecurityDepositStatus.HELD);
+      expect(res.status).toBe('HELD');
+    });
+
+    it('returns hasCollateral false if no collateral record exists', async () => {
+      prisma.booking.findUnique.mockResolvedValue({
+        id: 'b106',
+        customerId: 'c106',
+        vendor: { userId: 'v_user_6' },
+        collateralRecord: null,
+      });
+      prisma.collateralRecord.findUnique.mockResolvedValue(null);
+
+      const res = await service.getCollateral('b106', {
+        userId: 'c106',
+        role: Role.CUSTOMER,
+      });
+
+      expect(res.hasCollateral).toBe(false);
+      expect(res.collateralType).toBe('NONE');
     });
   });
 });

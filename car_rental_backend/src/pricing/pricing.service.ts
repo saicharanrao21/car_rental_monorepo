@@ -288,6 +288,7 @@ export class PricingService {
         car.vendor.city,
         car.type,
         dto.tripType,
+        car.vendorId,
       );
 
     const platformFee = baseFareAfterDurationDiscount

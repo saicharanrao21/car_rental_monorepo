@@ -151,6 +151,7 @@ export class TripExtensionsService {
         booking.car.vendor.city,
         booking.car.type,
         booking.tripType,
+        booking.vendorId,
       );
 
     const fareDetails = this.fareCalculator.calculateFare(
